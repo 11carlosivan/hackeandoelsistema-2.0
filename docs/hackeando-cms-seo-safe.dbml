@@ -1,0 +1,855 @@
+// Hackeando el Sistema - CMS/PostgreSQL ERD
+// Version enfocada en migracion WordPress -> Next/Fastify/Prisma sin perder SEO.
+
+Enum user_status {
+  ACTIVE
+  SUSPENDED
+  PENDING_EMAIL_VERIFICATION
+  DELETED
+}
+
+Enum post_status {
+  DRAFT
+  PENDING_REVIEW
+  NEEDS_CHANGES
+  REJECTED
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+Enum post_type {
+  NEWS
+  OPINION
+  SPONSORED
+  EXTERNAL_SUBMISSION
+  PAGE_ARTICLE
+}
+
+Enum content_visibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+Enum route_entity_type {
+  HOME
+  POST
+  PAGE
+  CATEGORY
+  TAG
+  AUTHOR
+  PRODUCT
+  WEB_STORY
+  SEARCH
+  STATIC
+}
+
+Enum route_status {
+  ACTIVE
+  GONE
+  REDIRECTED
+}
+
+Enum robots_index_policy {
+  INDEX
+  NOINDEX
+}
+
+Enum robots_follow_policy {
+  FOLLOW
+  NOFOLLOW
+}
+
+Enum redirect_source {
+  WORDPRESS
+  YOAST
+  MANUAL
+  IMPORTER
+  SYSTEM
+}
+
+Enum comment_status {
+  PENDING
+  APPROVED
+  SPAM
+  TRASHED
+}
+
+Enum order_status {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+Enum payment_status {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+Enum credit_status {
+  ACTIVE
+  EXPIRED
+  CONSUMED
+  CANCELLED
+}
+
+Enum review_status {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_CHANGES
+}
+
+Enum page_status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+Enum subscriber_status {
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+  COMPLAINED
+}
+
+Enum ad_status {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+}
+
+Enum ad_event_type {
+  IMPRESSION
+  CLICK
+}
+
+Enum import_object_type {
+  POST
+  PAGE
+  CATEGORY
+  TAG
+  USER
+  MEDIA
+  COMMENT
+  PRODUCT
+  WEB_STORY
+}
+
+Table users {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  password_hash text
+  display_name varchar(160) [not null]
+  username varchar(120) [unique]
+  avatar_media_id uuid
+  status user_status [not null, default: 'ACTIVE']
+  email_verified_at timestamptz
+  last_login_at timestamptz
+  legacy_wordpress_id integer [unique]
+  legacy_author_slug varchar(180)
+  legacy_author_url text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    legacy_author_slug
+  }
+}
+
+Table user_profiles {
+  user_id uuid [pk]
+  first_name varchar(120)
+  last_name varchar(120)
+  phone varchar(40)
+  bio text
+  website_url text
+  facebook_url text
+  instagram_url text
+  x_url text
+  youtube_url text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table roles {
+  id uuid [pk]
+  name varchar(80) [not null, unique]
+  description text
+  created_at timestamptz [not null]
+}
+
+Table permissions {
+  id uuid [pk]
+  permission_key varchar(120) [not null, unique]
+  description text
+}
+
+Table user_roles {
+  id uuid [pk]
+  user_id uuid [not null]
+  role_id uuid [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (user_id, role_id) [unique]
+  }
+}
+
+Table role_permissions {
+  id uuid [pk]
+  role_id uuid [not null]
+  permission_id uuid [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (role_id, permission_id) [unique]
+  }
+}
+
+Table media_assets {
+  id uuid [pk]
+  uploaded_by_id uuid
+  disk varchar(60) [not null]
+  url text [not null]
+  path text [not null]
+  original_url text
+  legacy_wordpress_id integer [unique]
+  legacy_guid text
+  legacy_metadata jsonb
+  mime_type varchar(120) [not null]
+  file_name varchar(255) [not null]
+  file_size integer
+  width integer
+  height integer
+  alt_text varchar(255)
+  caption text
+  credit varchar(255)
+  created_at timestamptz [not null]
+
+  Indexes {
+    original_url
+    legacy_wordpress_id
+  }
+}
+
+Table media_variants {
+  id uuid [pk]
+  media_id uuid [not null]
+  variant_name varchar(80) [not null]
+  url text [not null]
+  path text
+  width integer
+  height integer
+  file_size integer
+  created_at timestamptz [not null]
+
+  Indexes {
+    (media_id, variant_name) [unique]
+  }
+}
+
+Table categories {
+  id uuid [pk]
+  parent_id uuid
+  name varchar(160) [not null]
+  slug varchar(180) [not null]
+  full_path varchar(500) [not null, unique]
+  description text
+  sort_order integer [not null, default: 0]
+  show_in_menu boolean [not null, default: false]
+  show_on_home boolean [not null, default: false]
+  legacy_wordpress_id integer [unique]
+  legacy_taxonomy varchar(80) [not null, default: 'category']
+  legacy_url text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    parent_id
+    slug
+    full_path
+  }
+}
+
+Table tags {
+  id uuid [pk]
+  name varchar(160) [not null]
+  slug varchar(180) [not null, unique]
+  legacy_wordpress_id integer [unique]
+  legacy_url text
+  created_at timestamptz [not null]
+}
+
+Table posts {
+  id uuid [pk]
+  author_id uuid [not null]
+  reviewed_by_id uuid
+  featured_media_id uuid
+  title varchar(255) [not null]
+  slug varchar(280) [not null, unique]
+  excerpt text
+  content_html text
+  content_json jsonb
+  content_text text
+  search_vector tsvector
+  status post_status [not null, default: 'DRAFT']
+  visibility content_visibility [not null, default: 'PUBLIC']
+  post_type post_type [not null, default: 'NEWS']
+  is_featured boolean [not null, default: false]
+  is_breaking boolean [not null, default: false]
+  is_sponsored boolean [not null, default: false]
+  reading_time_minutes integer
+  view_count integer [not null, default: 0]
+  comment_count integer [not null, default: 0]
+  legacy_wordpress_id integer [unique]
+  legacy_guid text
+  legacy_url text
+  legacy_slug varchar(280)
+  import_checksum varchar(128)
+  submitted_at timestamptz
+  reviewed_at timestamptz
+  published_at timestamptz
+  published_gmt_at timestamptz
+  scheduled_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    slug
+    legacy_wordpress_id
+    legacy_url
+    (status, visibility, published_at)
+    (author_id, published_at)
+  }
+}
+
+Table post_categories {
+  id uuid [pk]
+  post_id uuid [not null]
+  category_id uuid [not null]
+  is_primary boolean [not null, default: false]
+
+  Indexes {
+    (post_id, category_id) [unique]
+    (category_id, post_id)
+  }
+}
+
+Table post_tags {
+  id uuid [pk]
+  post_id uuid [not null]
+  tag_id uuid [not null]
+
+  Indexes {
+    (post_id, tag_id) [unique]
+    (tag_id, post_id)
+  }
+}
+
+Table post_revisions {
+  id uuid [pk]
+  post_id uuid [not null]
+  editor_id uuid
+  title varchar(255) [not null]
+  excerpt text
+  content_html text
+  content_json jsonb
+  content_text text
+  change_note text
+  created_at timestamptz [not null]
+
+  Indexes {
+    (post_id, created_at)
+  }
+}
+
+Table editorial_reviews {
+  id uuid [pk]
+  post_id uuid [not null]
+  reviewer_id uuid
+  status review_status [not null, default: 'PENDING']
+  notes text
+  rejection_reason text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (post_id, created_at)
+  }
+}
+
+Table comments {
+  id uuid [pk]
+  post_id uuid [not null]
+  user_id uuid
+  parent_id uuid
+  author_name varchar(160)
+  author_email varchar(255)
+  body text [not null]
+  status comment_status [not null, default: 'PENDING']
+  ip_address varchar(80)
+  user_agent text
+  legacy_wordpress_id integer [unique]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (post_id, status, created_at)
+    parent_id
+  }
+}
+
+Table pages {
+  id uuid [pk]
+  author_id uuid
+  title varchar(255) [not null]
+  slug varchar(280) [not null, unique]
+  content_html text
+  content_json jsonb
+  content_text text
+  status page_status [not null, default: 'DRAFT']
+  legacy_wordpress_id integer [unique]
+  legacy_guid text
+  legacy_url text
+  legacy_slug varchar(280)
+  published_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    slug
+    legacy_wordpress_id
+  }
+}
+
+Table web_stories {
+  id uuid [pk]
+  author_id uuid
+  title varchar(255) [not null]
+  slug varchar(280) [not null, unique]
+  content_json jsonb
+  featured_media_id uuid
+  status post_status [not null, default: 'DRAFT']
+  legacy_wordpress_id integer [unique]
+  legacy_url text
+  published_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    slug
+    legacy_wordpress_id
+  }
+}
+
+Table products {
+  id uuid [pk]
+  title varchar(255) [not null]
+  slug varchar(280) [not null, unique]
+  description_html text
+  short_description text
+  featured_media_id uuid
+  price_amount integer
+  currency varchar(10) [not null, default: 'DOP']
+  is_active boolean [not null, default: true]
+  legacy_wordpress_id integer [unique]
+  legacy_url text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    slug
+    legacy_wordpress_id
+  }
+}
+
+// Una ruta publica equivale a una URL canonica renderizable por Next.
+// Esto evita colisiones entre posts, pages, categorias y autores en la raiz.
+Table routes {
+  id uuid [pk]
+  path varchar(500) [not null, unique]
+  entity_type route_entity_type [not null]
+  entity_id uuid
+  status route_status [not null, default: 'ACTIVE']
+  http_status integer [not null, default: 200]
+  canonical_route_id uuid
+  lastmod_at timestamptz
+  changefreq varchar(40)
+  priority numeric(2,1)
+  include_in_sitemap boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (entity_type, entity_id)
+    (include_in_sitemap, lastmod_at)
+  }
+}
+
+// Guarda todo lo que Google y redes sociales ven en la pagina.
+// Durante migracion se puede persistir yoast_head_json entero y normalizar despues.
+Table seo_metadata {
+  id uuid [pk]
+  route_id uuid [not null, unique]
+  title varchar(255)
+  description varchar(320)
+  canonical_url text
+  robots_index robots_index_policy [not null, default: 'INDEX']
+  robots_follow robots_follow_policy [not null, default: 'FOLLOW']
+  robots_directives jsonb
+  og_title varchar(255)
+  og_description varchar(320)
+  og_type varchar(80)
+  og_image_id uuid
+  og_image_url text
+  twitter_title varchar(255)
+  twitter_description varchar(320)
+  twitter_card varchar(80)
+  schema_json jsonb
+  yoast_head_json jsonb
+  raw_head_html text
+  imported_from_yoast boolean [not null, default: false]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+// Historial de URLs vistas en WordPress, Search Console, sitemaps, logs o crawls.
+// Sirve para generar redirects y validar que nada indexado quede huerfano.
+Table url_inventory {
+  id uuid [pk]
+  url text [not null, unique]
+  path varchar(500) [not null]
+  discovered_from varchar(120) [not null]
+  entity_type route_entity_type
+  entity_id uuid
+  http_status integer
+  title varchar(255)
+  canonical_url text
+  last_seen_at timestamptz [not null]
+  migrated_at timestamptz
+  notes text
+
+  Indexes {
+    path
+    (entity_type, entity_id)
+    last_seen_at
+  }
+}
+
+Table redirects {
+  id uuid [pk]
+  source_path varchar(500) [not null, unique]
+  target_url text [not null]
+  status_code integer [not null, default: 301]
+  preserve_query boolean [not null, default: false]
+  source redirect_source [not null, default: 'MANUAL']
+  is_active boolean [not null, default: true]
+  hit_count integer [not null, default: 0]
+  last_hit_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (is_active, source_path)
+  }
+}
+
+Table import_runs {
+  id uuid [pk]
+  source varchar(120) [not null]
+  started_at timestamptz [not null]
+  finished_at timestamptz
+  status varchar(80) [not null]
+  stats jsonb
+  error text
+}
+
+Table import_mappings {
+  id uuid [pk]
+  import_run_id uuid
+  object_type import_object_type [not null]
+  legacy_id varchar(120) [not null]
+  new_entity_type route_entity_type
+  new_entity_id uuid
+  legacy_url text
+  new_url text
+  checksum varchar(128)
+  raw_payload jsonb
+  created_at timestamptz [not null]
+
+  Indexes {
+    (object_type, legacy_id) [unique]
+    legacy_url
+  }
+}
+
+Table publication_plans {
+  id uuid [pk]
+  name varchar(160) [not null]
+  code varchar(80) [not null, unique]
+  description text
+  price_amount integer [not null]
+  currency varchar(10) [not null, default: 'DOP']
+  post_quota integer [not null]
+  validity_days integer [not null]
+  is_active boolean [not null, default: true]
+  is_popular boolean [not null, default: false]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table orders {
+  id uuid [pk]
+  user_id uuid [not null]
+  order_number varchar(80) [not null, unique]
+  subtotal_amount integer [not null]
+  tax_amount integer [not null, default: 0]
+  total_amount integer [not null]
+  currency varchar(10) [not null, default: 'DOP']
+  status order_status [not null, default: 'PENDING']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table order_items {
+  id uuid [pk]
+  order_id uuid [not null]
+  plan_id uuid
+  item_name varchar(180) [not null]
+  quantity integer [not null]
+  unit_price_amount integer [not null]
+  total_amount integer [not null]
+}
+
+Table payments {
+  id uuid [pk]
+  order_id uuid [not null]
+  user_id uuid [not null]
+  provider varchar(80)
+  provider_reference varchar(180)
+  amount integer [not null]
+  currency varchar(10) [not null, default: 'DOP']
+  status payment_status [not null, default: 'PENDING']
+  payment_method varchar(80)
+  paid_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table user_publication_credits {
+  id uuid [pk]
+  user_id uuid [not null]
+  plan_id uuid [not null]
+  order_id uuid
+  total_credits integer [not null]
+  used_credits integer [not null, default: 0]
+  starts_at timestamptz [not null]
+  expires_at timestamptz
+  status credit_status [not null, default: 'ACTIVE']
+  created_at timestamptz [not null]
+}
+
+Table menus {
+  id uuid [pk]
+  name varchar(120) [not null]
+  location varchar(80) [not null, unique]
+  created_at timestamptz [not null]
+}
+
+Table menu_items {
+  id uuid [pk]
+  menu_id uuid [not null]
+  parent_id uuid
+  label varchar(160) [not null]
+  url text
+  route_id uuid
+  target_type varchar(60)
+  target_id uuid
+  sort_order integer [not null, default: 0]
+  is_active boolean [not null, default: true]
+
+  Indexes {
+    (menu_id, sort_order)
+  }
+}
+
+Table newsletter_subscribers {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  first_name varchar(120)
+  last_name varchar(120)
+  status subscriber_status [not null, default: 'ACTIVE']
+  source varchar(80)
+  subscribed_at timestamptz [not null]
+  unsubscribed_at timestamptz
+}
+
+Table ad_slots {
+  id uuid [pk]
+  name varchar(160) [not null]
+  code varchar(80) [not null, unique]
+  location varchar(120) [not null]
+  width integer
+  height integer
+  is_active boolean [not null, default: true]
+}
+
+Table ads {
+  id uuid [pk]
+  slot_id uuid [not null]
+  media_id uuid
+  title varchar(180) [not null]
+  target_url text
+  sponsor_name varchar(180)
+  starts_at timestamptz
+  ends_at timestamptz
+  status ad_status [not null, default: 'DRAFT']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table ad_events {
+  id uuid [pk]
+  ad_id uuid [not null]
+  event_type ad_event_type [not null]
+  ip_hash varchar(128)
+  user_agent_hash varchar(128)
+  referrer text
+  created_at timestamptz [not null]
+
+  Indexes {
+    (ad_id, event_type, created_at)
+  }
+}
+
+Table post_views {
+  id uuid [pk]
+  post_id uuid [not null]
+  user_id uuid
+  ip_hash varchar(128)
+  user_agent_hash varchar(128)
+  referrer text
+  viewed_at timestamptz [not null]
+
+  Indexes {
+    (post_id, viewed_at)
+    user_id
+  }
+}
+
+Table site_settings {
+  setting_key varchar(160) [pk]
+  value jsonb [not null]
+  updated_at timestamptz [not null]
+}
+
+Table audit_logs {
+  id uuid [pk]
+  actor_id uuid
+  action varchar(160) [not null]
+  entity_type varchar(120) [not null]
+  entity_id uuid
+  metadata jsonb
+  created_at timestamptz [not null]
+
+  Indexes {
+    (entity_type, entity_id, created_at)
+    actor_id
+  }
+}
+
+Table password_reset_tokens {
+  id uuid [pk]
+  user_id uuid [not null]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamptz [not null]
+  used_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table email_verification_tokens {
+  id uuid [pk]
+  user_id uuid [not null]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamptz [not null]
+  used_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table user_sessions {
+  id uuid [pk]
+  user_id uuid [not null]
+  refresh_token_hash varchar(255) [not null, unique]
+  ip_address varchar(80)
+  user_agent text
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  created_at timestamptz [not null]
+}
+
+// Relaciones IAM
+Ref: users.avatar_media_id > media_assets.id
+Ref: user_profiles.user_id > users.id
+Ref: user_roles.user_id > users.id
+Ref: user_roles.role_id > roles.id
+Ref: role_permissions.role_id > roles.id
+Ref: role_permissions.permission_id > permissions.id
+
+// Relaciones editoriales
+Ref: media_assets.uploaded_by_id > users.id
+Ref: media_variants.media_id > media_assets.id
+Ref: categories.parent_id > categories.id
+Ref: posts.author_id > users.id
+Ref: posts.reviewed_by_id > users.id
+Ref: posts.featured_media_id > media_assets.id
+Ref: post_categories.post_id > posts.id
+Ref: post_categories.category_id > categories.id
+Ref: post_tags.post_id > posts.id
+Ref: post_tags.tag_id > tags.id
+Ref: post_revisions.post_id > posts.id
+Ref: post_revisions.editor_id > users.id
+Ref: editorial_reviews.post_id > posts.id
+Ref: editorial_reviews.reviewer_id > users.id
+Ref: comments.post_id > posts.id
+Ref: comments.user_id > users.id
+Ref: comments.parent_id > comments.id
+Ref: pages.author_id > users.id
+Ref: web_stories.author_id > users.id
+Ref: web_stories.featured_media_id > media_assets.id
+Ref: products.featured_media_id > media_assets.id
+
+// Relaciones SEO/rutas
+Ref: routes.canonical_route_id > routes.id
+Ref: seo_metadata.route_id > routes.id
+Ref: seo_metadata.og_image_id > media_assets.id
+Ref: menu_items.route_id > routes.id
+Ref: import_mappings.import_run_id > import_runs.id
+
+// Relaciones comerciales
+Ref: orders.user_id > users.id
+Ref: order_items.order_id > orders.id
+Ref: order_items.plan_id > publication_plans.id
+Ref: payments.order_id > orders.id
+Ref: payments.user_id > users.id
+Ref: user_publication_credits.user_id > users.id
+Ref: user_publication_credits.plan_id > publication_plans.id
+Ref: user_publication_credits.order_id > orders.id
+
+// Relaciones de sitio
+Ref: menu_items.menu_id > menus.id
+Ref: menu_items.parent_id > menu_items.id
+Ref: ads.slot_id > ad_slots.id
+Ref: ads.media_id > media_assets.id
+Ref: ad_events.ad_id > ads.id
+Ref: post_views.post_id > posts.id
+Ref: post_views.user_id > users.id
+Ref: audit_logs.actor_id > users.id
+Ref: password_reset_tokens.user_id > users.id
+Ref: email_verification_tokens.user_id > users.id
+Ref: user_sessions.user_id > users.id
