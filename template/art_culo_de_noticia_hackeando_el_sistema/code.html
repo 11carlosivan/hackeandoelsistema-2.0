@@ -1,0 +1,436 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hackeando el Sistema | Informe de Inteligencia</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Hanken+Grotesk:wght@400;700&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#5b000e",
+                    "primary-fixed": "#ffdad8",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "primary": "#ffb3b1",
+                    "secondary": "#c6c6c7",
+                    "on-primary-fixed": "#410007",
+                    "on-secondary-fixed-variant": "#454747",
+                    "tertiary": "#c8c6c5",
+                    "surface": "#131313",
+                    "surface-container-high": "#2a2a2a",
+                    "tertiary-fixed": "#e5e2e1",
+                    "on-secondary-container": "#b4b5b5",
+                    "background": "#131313",
+                    "tertiary-container": "#929090",
+                    "on-error": "#690005",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "surface-bright": "#393939",
+                    "primary-fixed-dim": "#ffb3b1",
+                    "system-red": "#E63946",
+                    "surface-dim": "#131313",
+                    "surface-variant": "#353535",
+                    "error": "#ffb4ab",
+                    "on-tertiary-fixed": "#1c1b1b",
+                    "surface-container-highest": "#353535",
+                    "matrix-dim": "#0D1117",
+                    "outline-variant": "#5b403f",
+                    "surface-container": "#1f1f1f",
+                    "on-tertiary-container": "#2a2a2a",
+                    "surface-tint": "#ffb3b1",
+                    "inverse-surface": "#e2e2e2",
+                    "tertiary-fixed-dim": "#c8c6c5",
+                    "on-tertiary-fixed-variant": "#474746",
+                    "secondary-container": "#454747",
+                    "on-background": "#e2e2e2",
+                    "on-secondary": "#2f3131",
+                    "surface-container-low": "#1b1b1b",
+                    "inverse-primary": "#bb152c",
+                    "on-surface": "#e2e2e2",
+                    "inverse-on-surface": "#303030",
+                    "terminal-gray": "#212121",
+                    "on-surface-variant": "#e4bebc",
+                    "on-tertiary": "#313030",
+                    "on-error-container": "#ffdad6",
+                    "primary-container": "#ff535b",
+                    "on-primary": "#680011",
+                    "surface-container-lowest": "#0e0e0e",
+                    "outline": "#ab8987",
+                    "secondary-fixed": "#e2e2e2",
+                    "error-container": "#93000a",
+                    "data-green": "#00FF41",
+                    "on-primary-fixed-variant": "#92001c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "1rem",
+                    "stack-lg": "2rem",
+                    "section-gap": "4rem",
+                    "stack-sm": "0.5rem",
+                    "margin-page": "2rem",
+                    "gutter": "1.5rem"
+            },
+            "fontFamily": {
+                    "body-md": ["Hanken Grotesk"],
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["Anton"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Anton"],
+                    "headline-lg": ["Anton"],
+                    "headline-xl": ["Anton"],
+                    "label-caps": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "label-sm": ["11px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "400"}],
+                    "headline-lg": ["48px", {"lineHeight": "1.1", "fontWeight": "400"}],
+                    "headline-xl": ["72px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.1em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .matrix-bg {
+            background: linear-gradient(180deg, rgba(13, 17, 23, 0.95) 0%, rgba(13, 17, 23, 0.8) 100%);
+        }
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(230, 57, 70, 0.2);
+            position: absolute;
+            top: 0;
+            left: 0;
+            animation: scanning 4s linear infinite;
+        }
+        @keyframes scanning {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #131313;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #E63946;
+        }
+        .glass-terminal {
+            backdrop-filter: blur(20px);
+            background: rgba(26, 26, 26, 0.7);
+        }
+        .hud-line-v { width: 1px; background: #212121; height: 100%; }
+        .hud-line-h { height: 1px; background: #212121; width: 100%; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md selection:bg-system-red selection:text-white custom-scrollbar overflow-x-hidden">
+<!-- Top Navigation -->
+<header class="bg-background dark:bg-background border-b border-terminal-gray dark:border-terminal-gray sticky top-0 z-50">
+<div class="flex flex-col w-full px-margin-page max-w-1440px mx-auto pt-4 pb-4">
+<div class="flex justify-between items-center mb-4">
+<div class="h-12 flex items-center"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF2ZT6-mBe0HhA5fR6cv0AA62W-I4_TmAStGU32-TzUUJQ98IkEKxOkw4BfdHLEmO4HNrgmHjjlQapVA0pvBmJsbxg7Am7MOC2Oln4-nWO8sWtLvQZgrEgeDKEDPCiB2WO7aaUqA0DYJq3-24fr5fXUqhmeb3eU9K4zwAxMqmagzXMNV1DtI8yA792JNYHQQjSAXdDfCpUHu9hZ2-YDoEPh4CD-UzL9Oc3V04o7G1TIcC71iCj7v3acKV97Lpb8AlP8XI" alt="Hackeando el Sistema Logo" class="h-full w-auto object-contain"></div>
+<div class="hidden md:flex gap-6 items-center">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-system-red transition-colors cursor-pointer" data-icon="rss_feed">rss_feed</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-system-red transition-colors cursor-pointer" data-icon="public">public</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-system-red transition-colors cursor-pointer" data-icon="cloud">cloud</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-system-red transition-colors cursor-pointer" data-icon="settings">settings</span>
+<div class="h-6 w-[1px] bg-terminal-gray"></div>
+<button class="border border-system-red text-system-red hover:bg-system-red hover:text-background px-4 py-1 font-label-caps text-label-caps font-bold active:scale-95 transition-all mr-2">INICIAR SESIÓN</button><button class="bg-system-red text-background px-4 py-1 font-label-caps text-label-caps font-bold active:scale-95 transition-transform">ACCESO TERMINAL</button>
+</div>
+</div>
+<nav class="flex overflow-x-auto gap-8 no-scrollbar">
+<a class="text-system-red border-b-2 border-system-red pb-1 font-bold font-label-caps text-label-caps" href="#">INICIO</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-label-caps text-label-caps hover:text-on-surface transition-colors duration-200" href="#">NACIONALES</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-label-caps text-label-caps hover:text-on-surface transition-colors duration-200" href="#">POLÍTICA</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-label-caps text-label-caps hover:text-on-surface transition-colors duration-200" href="#">TECNOLOGÍA</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-label-caps text-label-caps hover:text-on-surface transition-colors duration-200" href="#">INTERNACIONAL</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-label-caps text-label-caps hover:text-on-surface transition-colors duration-200" href="#">INVESTIGACIÓN</a>
+</nav>
+</div>
+</header>
+<div class="flex max-w-1440px mx-auto relative">
+<!-- Persistent SideNavBar (Left) -->
+<aside class="hidden lg:flex flex-col sticky top-[104px] h-[calc(100vh-104px)] w-64 border-r border-terminal-gray dark:border-terminal-gray bg-surface-container-low py-8 shrink-0">
+<div class="px-6 mb-8">
+<div class="text-system-red font-headline-md text-headline-md tracking-tight leading-none mb-1">INTEL FEED</div>
+<div class="text-on-surface-variant font-label-caps text-[10px] opacity-60">Terminal Access: Active</div>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<a class="flex items-center gap-4 px-6 py-3 hover:bg-surface-container-high transition-all duration-150 text-secondary-fixed-dim" href="#"><span class="material-symbols-outlined text-system-red" data-icon="partly_sunny">partly_sunny</span><div class="flex flex-col"><span class="font-label-caps text-label-caps">CLIMA</span><span class="text-[11px] text-on-surface-variant">Santo Domingo, 29°C</span></div></a><a class="flex items-center gap-4 px-6 py-3 hover:bg-surface-container-high transition-all duration-150 text-secondary-fixed-dim" href="#"><span class="material-symbols-outlined text-system-red" data-icon="payments">payments</span><div class="flex flex-col"><span class="font-label-caps text-label-caps">TASA DEL DÓLAR</span><div class="flex items-center gap-1"><span class="text-[11px] text-on-surface-variant">USD/DOP: 60.15</span><span class="material-symbols-outlined text-[12px] text-data-green">trending_up</span></div></div></a>
+<a class="flex items-center gap-4 px-6 py-3 hover:bg-surface-container-high transition-all duration-150 text-secondary-fixed-dim" href="#"><div class="flex flex-col gap-2 w-full"><div class="relative aspect-video bg-terminal-gray border border-system-red/30 flex items-center justify-center group-hover:border-system-red transition-colors"><span class="material-symbols-outlined text-system-red text-3xl">play_circle</span></div><div class="flex flex-col"><span class="font-label-caps text-label-caps">YOUTUBE VIDEO</span><span class="text-[11px] text-on-surface-variant">HES TV: Último Reporte</span></div></div></a>
+<a class="flex items-center gap-4 px-6 py-3 hover:bg-surface-container-high transition-all duration-150 text-secondary-fixed-dim" href="#"><div class="flex flex-col gap-2 w-full"><div class="w-full aspect-square bg-matrix-dim border border-dashed border-system-red/50 flex flex-col items-center justify-center p-4 text-center relative overflow-hidden"><div class="scanline opacity-10"></div><span class="material-symbols-outlined text-system-red mb-2">encrypted</span><span class="font-label-caps text-[10px] text-system-red">ENCRYPTED AD</span><span class="text-[9px] text-on-surface-variant opacity-50 mt-1">300x250 SPACE</span></div><span class="font-label-caps text-label-caps">PUBLICIDAD</span></div></a>
+<a class="flex items-center gap-4 px-6 py-3 hover:bg-surface-container-high transition-all duration-150 text-secondary-fixed-dim" href="#">
+<span class="material-symbols-outlined text-system-red" data-icon="ballot">ballot</span>
+<span class="font-label-caps text-label-caps">ENCUESTAS</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 hover:bg-surface-container-high transition-all duration-150 text-secondary-fixed-dim" href="#">
+<span class="material-symbols-outlined text-system-red" data-icon="trending_up">trending_up</span>
+<span class="font-label-caps text-label-caps">TENDENCIAS</span>
+</a>
+</div>
+<div class="px-6 mt-auto flex flex-col gap-4 border-t border-terminal-gray pt-6">
+<div class="p-3 bg-matrix-dim border border-system-red/30 relative overflow-hidden group">
+<div class="scanline opacity-30"></div>
+<div class="font-label-caps text-[10px] text-system-red mb-1">[ENCRYPTED SOURCE]</div>
+<div class="text-[11px] font-body-md text-on-surface-variant leading-tight">Acceso a protocolos de seguridad nivel 4 requerido.</div>
+</div>
+<div class="flex justify-between items-center opacity-50 hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-2 font-label-caps text-[10px]">
+<span class="material-symbols-outlined text-[14px]" data-icon="logout">logout</span> LOGOUT
+                    </div>
+<div class="flex items-center gap-2 font-label-caps text-[10px]">
+<span class="material-symbols-outlined text-[14px]" data-icon="help_outline">help_outline</span> HELP
+                    </div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full min-w-0">
+<!-- News Article Hero -->
+<section class="relative w-full h-[60vh] md:h-[80vh] flex items-end">
+<div class="absolute inset-0 z-0">
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10"></div>
+<div class="absolute inset-0 bg-black/40 z-10"></div>
+<img class="w-full h-full object-cover" data-alt="A highly detailed cinematic shot of a dark, futuristic server room illuminated by glowing red fiber optic cables and digital interfaces. The scene is shrouded in shadows with sharp highlights on chrome surfaces, evoking a high-stakes intelligence operation atmosphere. The composition is wide and dramatic, emphasizing a sophisticated cyber-warfare command center aesthetic with vibrant red light accents against deep charcoal and black backgrounds." src="https://lh3.googleusercontent.com/aida-public/AB6AXuARDnTvhDjTn5VFvx7rUbCtKBdj2GKhNq-5Ri8zx8s1WBUQDmQh7J_kwx2-BPpO_uJkyH2CtBMgcgHb0uGT2T-02fxFxVH0Dw621-1woqHEKT18UdUzdd_0NyHjW-CXiKIQqHSDWWn7K8bMHPNIEGi4ZmXvQsbfRtNWcFA6G7O6wuFJODkLs90Nl5G_MLMPE74-lLNJxJgLEFct6-m_2mh9LOA9atFUJJzguF5V6rJ5RkgMpXdhye7NZQ">
+</div>
+<div class="relative z-20 px-6 md:px-12 pb-12 max-w-4xl">
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-system-red text-background px-3 py-1 font-label-caps text-[12px] font-bold">INVESTIGACIÓN ESPECIAL</span>
+<span class="font-label-caps text-[12px] text-system-red border border-system-red/50 px-3 py-1 tracking-widest">[LEVEL 5 CLEARANCE]</span>
+</div>
+<h1 class="font-headline-xl text-[48px] md:text-headline-xl text-white mb-4 leading-tight uppercase">La Gran Brecha: Cómo el Software de Vigilancia se Convirtió en el Arma Definitiva</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-8 max-w-2xl">Descubrimos los protocolos ocultos tras la plataforma de espionaje que ha comprometido a más de 40 estados soberanos en el último trimestre.</p>
+<div class="flex flex-wrap items-center gap-6 text-on-surface-variant border-t border-white/10 pt-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-system-red/20 border border-system-red overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a serious investigative journalist with sharp features, wearing dark modern tactical-style glasses. The lighting is dramatic, high-contrast chiaroscuro, with red and blue ambient light reflecting off the lenses. The background is a blurred terminal screen with flowing green and red code, consistent with a high-tech intelligence environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt6alInKk0dsOCUWunIB3tOQ4CALrBnFUMFCuJd0Sya-fe13niqMNW7NpPra2IxCpq6HD4iSUX8kwn6SRI75Z46lzbktGODuBt4Sz5hF5DcoK8J5E58Fx1foQsUNfGRjjS7_gpf24RKFE4qCT2g4nd5JS5q9TQ54eVHr6Hc46Gj4zpicpUqyVaYeOyZkzTcbgNx6WABK730Al8ML4IbuIGukVBL2NuH_OGSzFEZwS0r50wUpv2PmYSig">
+</div>
+<div>
+<div class="font-label-caps text-[11px] text-system-red">AUTHOR / AGENT</div>
+<div class="font-bold text-white">V. SHADOWS</div>
+</div>
+</div>
+<div class="h-8 w-[1px] bg-white/10"></div>
+<div>
+<div class="font-label-caps text-[11px]">FECHA</div>
+<div class="text-white">24 OCT 2024</div>
+</div>
+<div class="h-8 w-[1px] bg-white/10"></div>
+<div>
+<div class="font-label-caps text-[11px]">TIEMPO LECTURA</div>
+<div class="text-white">12 MIN</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Article Body Section -->
+<div class="px-6 md:px-12 py-16 flex flex-col md:flex-row gap-16 items-start">
+<!-- Main Text Content -->
+<article class="flex-grow max-w-3xl space-y-10">
+<div class="space-y-6">
+<p class="text-body-lg leading-relaxed first-letter:text-6xl first-letter:font-headline-xl first-letter:text-system-red first-letter:mr-3 first-letter:float-left">
+                            En el corazón de la red oscura, un nuevo protocolo bautizado como "Aegis-9" ha comenzado a desmantelar las defensas que creíamos infranqueables. Nuestras fuentes, operando desde ubicaciones no rastreables, han entregado un conjunto de datos que revela una arquitectura de control diseñada no solo para observar, sino para manipular la infraestructura crítica en tiempo real.
+                        </p>
+<p class="text-body-md text-on-surface-variant">
+                            Lo que comenzó como un rumor en los foros de seguridad de bajo nivel se ha materializado en una amenaza tangible que ha puesto en alerta a las divisiones de ciberdefensa de todo el mundo. El sistema no utiliza vulnerabilidades tradicionales (Zero-Days), sino que se infiltra a través de la propia lógica de los procesadores modernos, un vector de ataque que la industria ha ignorado durante décadas.
+                        </p>
+</div>
+<!-- Blockquote -->
+<blockquote class="border-l-4 border-system-red bg-surface-container-low p-10 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[100px]" data-icon="format_quote">format_quote</span>
+</div>
+<p class="font-headline-md text-headline-md text-white italic mb-4 relative z-10">"No estamos ante un virus, estamos ante un cambio de paradigma en la soberanía digital. Quien controla el hardware, controla la realidad."</p>
+<cite class="font-label-caps text-label-caps text-system-red block">— ANALISTA ANÓNIMO, EX-MIEMBRO DEL GRUPO TAO</cite>
+</blockquote>
+<p class="text-body-md text-on-surface-variant">
+                        La investigación de <strong>Hackeando el Sistema</strong> ha rastreado los pagos en criptoactivos de alta privacidad hacia nodos específicos en el sudeste asiático, sugiriendo una colaboración sin precedentes entre sindicatos criminales y estados paria.
+                    </p>
+<!-- Image Gallery Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="relative aspect-video overflow-hidden border border-terminal-gray group">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="High-detail macro photography of a circuit board with microscopic glowing traces of red energy flowing through the silicon pathways. The depth of field is shallow, focusing on a central processor labeled with cryptic technical serial numbers. The overall aesthetic is dark and metallic, with a cold, analytical feeling and sharp red light accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBD8sc010oYT995ADnpr8rXdy_35OReYvbG8greb0qjDQYfdr_WO02hvkQBeI5hUT9cgx4GOBcuLp8gvHLNFk9D-bS3zzGCUI2OWTS5nGy3X51ZMXlxWEJVhp875_l0qcKMBhKRgobcW9oI4NYReFZlUkEb2eOG_TKoudY-v7ShwapXYyIwlBexBGpkqvIlMj46UJBWtDw3dzVxSYS3SalPp-yWDlF0JhFQZi3ajc4x8q8A3KJyDeJSkw">
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-background/80 glass-terminal text-[10px] font-label-caps">FIG 1.1: ARQUITECTURA DE PROCESAMIENTO COMPROMETIDA</div>
+</div>
+<div class="relative aspect-video overflow-hidden border border-terminal-gray group">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A sophisticated data visualization dashboard displayed on a semi-transparent glass screen. Complex network graphs and geographic maps glow with red and white light against a dark background. Fine lines connect global hubs, indicating a massive cyber attack trajectory. The UI design is dense with data, using monospaced fonts and technical indicators for a futuristic intelligence command center vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzpE8HsfAneG0D7Bn3yjXdCllfqLKqM3ZU6Dsfd91CxvpCTFoZqMH2iyffZq69zyj1UqcW4wbVasncw-v1hOmMn8AISA2uVUVzaRH8WLTEl53xvQ9X51pxKJ3PlJDjVSqTd1xgNGBYiGGPxcKq9PRIUq_48JumU8jlK1Lh0ABIoyWsa67F6wTyCg4S6PFf8Vq7BBNF0l9FozA_bGc2AXyqiIgiG1xifylqBPph-RYDZsFTzm4FuvJ96w">
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-background/80 glass-terminal text-[10px] font-label-caps">FIG 1.2: MAPA DE INFILTRACIÓN GLOBAL - Q3 2024</div>
+</div>
+<div class="md:col-span-2 relative h-48 overflow-hidden border border-terminal-gray">
+<div class="absolute inset-0 opacity-20">
+
+</div>
+<div class="relative z-10 flex items-center justify-center h-full p-8 text-center bg-background/40 backdrop-blur-sm">
+<div>
+<span class="material-symbols-outlined text-system-red mb-2" data-icon="warning">warning</span>
+<div class="font-label-caps text-label-caps text-white mb-1">DATA STREAM ENCRYPTED</div>
+<div class="text-[11px] text-on-surface-variant uppercase tracking-widest">Para ver el log completo, introduzca clave de acceso</div>
+</div>
+</div>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant">
+                        Es imperativo que las corporaciones de infraestructura crítica realicen auditorías de hardware inmediatas. La ventana de oportunidad para mitigar el daño se está cerrando, y según nuestras proyecciones, el próximo despliegue de Aegis-9 podría ocurrir durante el ciclo electoral de noviembre.
+                    </p>
+<!-- Share Buttons -->
+<div class="flex items-center gap-4 pt-10 border-t border-terminal-gray">
+<span class="font-label-caps text-label-caps text-white">COMPARTIR INFORME:</span>
+<button class="w-10 h-10 border border-terminal-gray hover:border-system-red hover:text-system-red transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="share">share</span>
+</button>
+<button class="w-10 h-10 border border-terminal-gray hover:border-system-red hover:text-system-red transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="post_add">post_add</span>
+</button>
+<button class="w-10 h-10 border border-terminal-gray hover:border-system-red hover:text-system-red transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="terminal">terminal</span>
+</button>
+</div>
+</article>
+<!-- Sidebar (Right) / Contextual -->
+<aside class="w-full md:w-80 shrink-0 space-y-12 sticky top-32">
+<!-- AD SPACE -->
+<div class="p-6 bg-surface-container border border-terminal-gray relative overflow-hidden group cursor-pointer">
+<div class="absolute top-0 right-0 p-2 opacity-30 text-[10px] font-label-caps">AD_ID: 992-X</div>
+<div class="text-system-red font-headline-md text-[18px] mb-2">PROTEJA SU TERMINAL</div>
+<p class="text-[12px] text-on-surface-variant mb-4">VPN de grado militar con cifrado cuántico. Indetectable por Aegis-9.</p>
+<button class="w-full border border-system-red text-system-red py-2 text-[11px] font-label-caps hover:bg-system-red hover:text-background transition-colors">ADQUIRIR ACCESO</button>
+</div>
+<!-- Related Intelligence -->
+<div>
+<div class="flex items-center justify-between border-b border-system-red pb-2 mb-6">
+<span class="font-label-caps text-label-caps text-white">INTEL RELACIONADO</span>
+<span class="material-symbols-outlined text-system-red text-[16px]" data-icon="hub">hub</span>
+</div>
+<div class="space-y-6">
+<a class="group block" href="#">
+<div class="text-system-red font-label-caps text-[10px] mb-1">01 OCT 2024</div>
+<h4 class="text-white font-bold leading-tight group-hover:text-system-red transition-colors">Cifrado Cuántico: El fin de la privacidad actual</h4>
+</a>
+<a class="group block" href="#">
+<div class="text-system-red font-label-caps text-[10px] mb-1">15 SEP 2024</div>
+<h4 class="text-white font-bold leading-tight group-hover:text-system-red transition-colors">Entrevista exclusiva con el hacker "Zero-Sum"</h4>
+</a>
+<a class="group block" href="#">
+<div class="text-system-red font-label-caps text-[10px] mb-1">05 SEP 2024</div>
+<h4 class="text-white font-bold leading-tight group-hover:text-system-red transition-colors">Protocolos de seguridad en bancos centrales</h4>
+</a>
+</div>
+</div>
+<!-- Author Info -->
+<div class="p-6 border border-terminal-gray">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 rounded-full border-2 border-system-red overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Detailed portrait of a senior tech journalist with an intense look, set in a dimly lit office surrounded by multiple monitors displaying scrolling lines of code and data charts. The aesthetic is industrial and high-tech, with deep shadows and sharp red rim lighting that highlights their focused expression. 8k resolution, cinematic lighting, futuristic mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYyJPfzdw5VBO0ZJb5M6cBdy4Zhlu9DTJhD_UqCshaqMHvdw5GfNVFPSrHtmN_UOYECHEbIDqRGx0LuDN1Z1MrcUXjZRlaE_VWroWr3qF46v930jCevq85LRoNvPUuiv2KfHFS8vzFDmd915Jlwq-8KpjK3j_OXMw0Ccr5lYdoXxffaqSKGIKMZOgoYz5cr7aV2KgfGddJAu4EdnDtrBzsVU_TTAYM8iBhe73TXX7o2BXC16vo29k05Q">
+</div>
+<div>
+<h3 class="text-white font-bold">V. SHADOWS</h3>
+<p class="text-[11px] text-system-red font-label-caps">FIELD AGENT / EDITOR</p>
+</div>
+</div>
+<p class="text-[12px] text-on-surface-variant mb-4">Especialista en guerra híbrida y tecnologías disruptivas. Ha operado en zonas de conflicto digital durante más de una década.</p>
+<button class="text-system-red font-label-caps text-[10px] flex items-center gap-2 hover:translate-x-1 transition-transform">
+                            VER TODOS LOS INFORMES <span class="material-symbols-outlined text-[14px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</aside>
+</div>
+<!-- Bottom Section: Comments & More Content -->
+<section class="bg-surface-container-lowest border-t border-terminal-gray py-20 px-6 md:px-12">
+<div class="max-w-4xl mx-auto">
+<!-- Comments Terminal -->
+<div class="mb-16">
+<h2 class="font-headline-md text-headline-md text-white flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-system-red" data-icon="forum">forum</span> COMENTARIOS DE LA RED
+                        </h2>
+<div class="space-y-6">
+<!-- Comment 1 -->
+<div class="p-4 border-l-2 border-terminal-gray bg-surface-container">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-caps text-[10px] text-system-red">USER: RED_PANDA_01</span>
+<span class="text-[10px] text-on-surface-variant font-label-caps">2 HOURS AGO</span>
+</div>
+<p class="text-body-md text-on-surface">Esto confirma mis sospechas sobre el hardware OEM chino. Es hora de volver al hardware abierto.</p>
+</div>
+<!-- Comment 2 -->
+<div class="p-4 border-l-2 border-terminal-gray bg-surface-container">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-caps text-[10px] text-system-red">USER: KERNEL_PANIC</span>
+<span class="text-[10px] text-on-surface-variant font-label-caps">5 HOURS AGO</span>
+</div>
+<p class="text-body-md text-on-surface">¿Hay algún parche de microcódigo disponible para AMD o esto es solo para Intel?</p>
+</div>
+<!-- Comment Input -->
+<div class="mt-8 border border-terminal-gray p-6">
+<div class="font-label-caps text-[10px] text-on-surface-variant mb-4">ESTABLECIENDO CONEXIÓN SEGURA PARA COMENTAR...</div>
+<textarea class="w-full bg-matrix-dim border-b border-terminal-gray border-t-0 border-x-0 focus:ring-0 focus:border-system-red text-body-md p-4 mb-4 placeholder:opacity-30" placeholder="Escriba su mensaje aquí..."></textarea>
+<button class="bg-system-red text-background px-6 py-2 font-label-caps text-label-caps font-bold">ENVIAR ENCRIPTADO</button>
+</div>
+</div>
+</div>
+<!-- Recommended Cards Grid -->
+<div>
+<h2 class="font-headline-md text-headline-md text-white mb-8">MÁS INVESTIGACIONES</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="group cursor-pointer">
+<div class="aspect-video overflow-hidden mb-4 border border-terminal-gray">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform" data-alt="A dark alleyway at night in a futuristic Asian metropolis, with rain puddles reflecting neon signs in deep red and cool white. A mysterious figure in a hooded tech-wear jacket stands in the middle, partially obscured by steam and shadows. High contrast, cinematic photography style with sharp details and a moody atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpCqvoKgd0rnOsSe165u77BlD2Y-b3L0UHTqcJjnk6b09oXNH6nIue4fB4wnG1tR3_fvw6zox307z-H8OddmVHrUMbCMF5n2I87MNDpJ658ZLkdKWZ4_qx-A1DK98TKTmtJ6e8ygBTOjnHwwJLfNk84CY-B5giI6xZ6RBK0cYi2WHWobV8dt1ZOXUfq2LmNFZnqROxFkHbOMIshEZl6N4ZQTrFb23PRuiW2ZYiWCTsZq64Udb2a00KHA">
+</div>
+<div class="text-system-red font-label-caps text-[10px] mb-2">TECNOLOGÍA / VIGILANCIA</div>
+<h3 class="text-headline-md text-[20px] text-white group-hover:text-system-red transition-colors">Las ciudades del futuro serán prisiones de cristal</h3>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-video overflow-hidden mb-4 border border-terminal-gray">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform" data-alt="A high-tech digital laboratory with transparent screens displaying DNA structures and biological data in glowing red and white. Modern laboratory equipment is sleek and dark. The lighting is sterile yet dramatic, creating a sense of advanced genetic research in a high-stakes corporate environment. Minimalist and sophisticated aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVkc3KelpKePNNQgGKgMtlaQS1nTFF-WIzpsrSOMb5H74rkA_1lPIJ356sxlxr7IvCYeyZQgMasvDuX6Sk4jmg4VXf65zTMLClB5xIk9RqiKneX_Lv1Uosej99q0D3vKmbn17p5frX9jvxoCPhFcqCEuFQQXEGK-d-8DlC-x6pRdCWUSkSy1QLXBKsKQoXdFzozn3TrSPWpMXVm1VbZwY4aFkFfmXat7Oh__XcClWsjsLp795Oj7hx1Q">
+</div>
+<div class="text-system-red font-label-caps text-[10px] mb-2">BIO-HACKING / FUTURO</div>
+<h3 class="text-headline-md text-[20px] text-white group-hover:text-system-red transition-colors">Modificación genética: ¿El próximo firewall?</h3>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Footer -->
+<footer class="w-full py-stack-lg px-margin-page flex flex-col md:flex-row justify-between items-center max-w-1440px mx-auto border-t border-terminal-gray dark:border-terminal-gray bg-surface-container-lowest">
+<div class="mb-6 md:mb-0">
+<div class="font-headline-md text-headline-md text-system-red mb-2">HACKEANDO EL SISTEMA</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant opacity-70">© 2024 DIGITAL INTELLIGENCE UNIT | PROTOCOLO ACTIVO</p>
+</div>
+<div class="flex flex-wrap gap-x-8 gap-y-2 justify-center">
+<a class="text-on-surface-variant hover:text-white font-label-sm text-label-sm transition-opacity opacity-70 hover:opacity-100" href="#">Términos de Servicio</a>
+<a class="text-on-surface-variant hover:text-white font-label-sm text-label-sm transition-opacity opacity-70 hover:opacity-100" href="#">Privacidad</a>
+<a class="text-on-surface-variant hover:text-white font-label-sm text-label-sm transition-opacity opacity-70 hover:opacity-100" href="#">Contacto</a>
+<a class="text-on-surface-variant hover:text-white font-label-sm text-label-sm transition-opacity opacity-70 hover:opacity-100" href="#">Publicidad</a>
+<a class="text-on-surface-variant hover:text-white font-label-sm text-label-sm transition-opacity opacity-70 hover:opacity-100" href="#">Protocolos de Seguridad</a>
+</div>
+</footer>
+<!-- Interactive Layer: Matrix Effect on certain backgrounds -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("Terminal Interface Initialized.");
+            // Simple blinking cursor effect for terminal inputs could be added here
+        });
+    </script>
+
+
+</body></html>

@@ -1,0 +1,510 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hackeando el Sistema | Digital Intelligence Unit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Hanken+Grotesk:wght@400;700&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-primary-container": "#5b000e",
+                "primary-fixed": "#ffdad8",
+                "on-secondary-fixed": "#1a1c1c",
+                "primary": "#ffb3b1",
+                "secondary": "#c6c6c7",
+                "on-primary-fixed": "#410007",
+                "on-secondary-fixed-variant": "#454747",
+                "tertiary": "#c8c6c5",
+                "surface": "#131313",
+                "surface-container-high": "#2a2a2a",
+                "tertiary-fixed": "#e5e2e1",
+                "on-secondary-container": "#b4b5b5",
+                "background": "#131313",
+                "tertiary-container": "#929090",
+                "on-error": "#690005",
+                "secondary-fixed-dim": "#c6c6c7",
+                "surface-bright": "#393939",
+                "primary-fixed-dim": "#ffb3b1",
+                "system-red": "#E63946",
+                "surface-dim": "#131313",
+                "surface-variant": "#353535",
+                "error": "#ffb4ab",
+                "on-tertiary-fixed": "#1c1b1b",
+                "surface-container-highest": "#353535",
+                "matrix-dim": "#0D1117",
+                "outline-variant": "#5b403f",
+                "surface-container": "#1f1f1f",
+                "on-tertiary-container": "#2a2a2a",
+                "surface-tint": "#ffb3b1",
+                "inverse-surface": "#e2e2e2",
+                "tertiary-fixed-dim": "#c8c6c5",
+                "on-tertiary-fixed-variant": "#474746",
+                "secondary-container": "#454747",
+                "on-background": "#e2e2e2",
+                "on-secondary": "#2f3131",
+                "surface-container-low": "#1b1b1b",
+                "inverse-primary": "#bb152c",
+                "on-surface": "#e2e2e2",
+                "inverse-on-surface": "#303030",
+                "terminal-gray": "#212121",
+                "on-surface-variant": "#e4bebc",
+                "on-tertiary": "#313030",
+                "on-error-container": "#ffdad6",
+                "primary-container": "#ff535b",
+                "on-primary": "#680011",
+                "surface-container-lowest": "#0e0e0e",
+                "outline": "#ab8987",
+                "secondary-fixed": "#e2e2e2",
+                "error-container": "#93000a",
+                "data-green": "#00FF41",
+                "on-primary-fixed-variant": "#92001c"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "stack-md": "1rem",
+                "stack-lg": "2rem",
+                "section-gap": "4rem",
+                "stack-sm": "0.5rem",
+                "margin-page": "2rem",
+                "gutter": "1.5rem"
+            },
+            "fontFamily": {
+                "body-md": ["Hanken Grotesk"],
+                "label-sm": ["JetBrains Mono"],
+                "headline-lg-mobile": ["Anton"],
+                "body-lg": ["Hanken Grotesk"],
+                "headline-md": ["Anton"],
+                "headline-lg": ["Anton"],
+                "headline-xl": ["Anton"],
+                "label-caps": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "label-sm": ["11px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "400"}],
+                "headline-lg": ["48px", {"lineHeight": "1.1", "fontWeight": "400"}],
+                "headline-xl": ["72px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.1em", "fontWeight": "700"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hud-line-v {
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, #212121, transparent);
+        }
+        .hud-line-h {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #212121, transparent);
+        }
+        .glass-terminal {
+            backdrop-filter: blur(20px);
+            background: rgba(19, 19, 19, 0.7);
+        }
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scanline::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: rgba(230, 57, 70, 0.1);
+            animation: scanline 4s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="bg-background border-b border-terminal-gray fixed top-0 w-full z-50">
+<div class="flex flex-col w-full px-margin-page max-w-1440px mx-auto pt-4 pb-2">
+<div class="flex justify-between items-center mb-4">
+<a class="flex items-center gap-4" href="/">
+<img alt="Hackeando el Sistema" class="h-10 md:h-12 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4WfrYU5yrX_DzExeToQGzgfB8St2nfpvl9frt1CLCPENilAMmm3OCtmZCsGu4SuGJLIGdUPtd1x3ExaWFf2NKtjsjYCcWoB5MlCajWpUJITYN4Z9Av9sqO74QmzkBVdFhzUpJdY9aFY7Il0D8Bmj-00hOLvvGMlXv_BmQ-flYjOJDcA4vXBGLnr6GInNb82oB-3LUAkYJCxHMrfA0GvE9ZeZD9lZwltvvikGY4S2vpe8dc_nBsAV0v1lAGLT8J1PCpw8">
+</a>
+<div class="hidden md:flex items-center gap-6">
+<div class="flex gap-4 text-on-surface-variant font-label-caps text-label-caps tracking-widest">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-system-red scale-75">rss_feed</span> FEED_LIVE</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-system-red scale-75">public</span> INTEL_GLOBE</span>
+</div>
+<div class="relative">
+<input class="bg-surface-container-low border-none border-b border-terminal-gray font-label-caps text-label-caps focus:ring-0 focus:border-system-red transition-all w-64 px-4 py-2" placeholder="BUSCAR EN EL SISTEMA..." type="text">
+<span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant">search</span>
+</div>
+</div>
+<div class="flex items-center gap-4"><button class="hidden md:flex items-center gap-2 bg-black border border-system-red text-system-red font-label-caps text-[12px] px-4 py-1.5 hover:bg-system-red hover:text-black transition-all active:scale-95"><span class="material-symbols-outlined text-[18px]">login</span>INICIAR SESIÓN</button>
+<button class="material-symbols-outlined hover:text-system-red transition-colors">cloud</button>
+<button class="material-symbols-outlined hover:text-system-red transition-colors">settings</button>
+</div>
+</div>
+<nav class="flex overflow-x-auto no-scrollbar gap-8 py-2">
+<a class="text-system-red border-b-2 border-system-red pb-1 font-bold font-label-caps text-label-caps whitespace-nowrap" href="#">INICIO</a>
+<a class="text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps whitespace-nowrap hover:text-system-red transition-colors duration-200" href="#">NACIONALES</a>
+<a class="text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps whitespace-nowrap hover:text-system-red transition-colors duration-200" href="#">POLÍTICA</a>
+<a class="text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps whitespace-nowrap hover:text-system-red transition-colors duration-200" href="#">TECNOLOGÍA</a>
+<a class="text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps whitespace-nowrap hover:text-system-red transition-colors duration-200" href="#">INTERNACIONAL</a>
+<a class="text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps whitespace-nowrap hover:text-system-red transition-colors duration-200" href="#">INVESTIGACIÓN</a>
+</nav>
+</div>
+</header>
+<div class="flex max-w-[1440px] mx-auto pt-[140px]">
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col sticky top-[140px] h-[calc(100vh-140px)] w-64 py-stack-lg border-r border-terminal-gray bg-surface-container-low">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-2 h-2 bg-system-red animate-pulse rounded-full" style="opacity: 1;"></div>
+<span class="font-headline-md text-headline-md text-system-red tracking-tighter">INTEL FEED</span>
+</div>
+<p class="text-on-surface-variant font-label-caps text-label-caps opacity-60">Terminal Access: Active</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="group flex items-center gap-4 px-6 py-3 text-secondary-fixed-dim font-label-caps text-label-caps hover:bg-surface-container-high transition-all duration-150" href="#"><div class="flex items-center gap-4">
+  <span class="material-symbols-outlined group-hover:text-system-red">partly_cloudy_day</span>
+  <div class="flex flex-col">
+    <span class="">Clima</span>
+    <span class="text-[10px] text-on-surface-variant opacity-70">Santo Domingo, 29°C</span>
+  </div>
+</div></a><a class="group flex items-center gap-4 px-6 py-3 text-secondary-fixed-dim font-label-caps text-label-caps hover:bg-surface-container-high transition-all duration-150" href="#">
+  <span class="material-symbols-outlined group-hover:text-system-red">payments</span>
+  <div class="flex flex-col">
+    <span class="">Tasa del Dólar</span>
+    <span class="text-[10px] text-data-green flex items-center gap-1">USD/DOP: 60.15 <span class="material-symbols-outlined text-[12px]">trending_up</span></span>
+  </div>
+</a>
+<a class="group flex items-center gap-4 px-6 py-3 text-secondary-fixed-dim font-label-caps text-label-caps hover:bg-surface-container-high transition-all duration-150" href="#"><div class="flex flex-col gap-2 w-full">
+  <div class="flex items-center gap-4">
+    <span class="material-symbols-outlined group-hover:text-system-red">play_circle</span>
+    <span class="">HES TV: Último Reporte</span>
+  </div>
+  <div class="relative aspect-video bg-terminal-gray border border-white/10 flex items-center justify-center overflow-hidden group-hover:border-system-red transition-colors">
+    <div class="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+    <span class="material-symbols-outlined text-system-red text-[32px] z-10">play_arrow</span>
+  </div>
+</div></a>
+<div class="px-6 py-4">
+  <div class="w-full aspect-[300/250] bg-black border border-system-red/30 flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer">
+    <div class="absolute inset-0 scanline opacity-10"></div>
+    <span class="material-symbols-outlined text-system-red opacity-40 mb-2">enhanced_encryption</span>
+    <span class="text-[10px] font-label-caps text-system-red tracking-widest">ENCRYPTED AD</span>
+    <div class="absolute bottom-0 left-0 w-full h-1 bg-system-red/20"></div>
+  </div>
+</div>
+<a class="group flex items-center gap-4 px-6 py-3 text-secondary-fixed-dim font-label-caps text-label-caps hover:bg-surface-container-high transition-all duration-150" href="#">
+<span class="material-symbols-outlined group-hover:text-system-red">ballot</span>
+<span class="">Encuestas</span>
+</a>
+<a class="group flex items-center gap-4 px-6 py-3 bg-primary-container text-on-primary-container border-l-4 border-system-red px-4 font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<span class="">Tendencias</span>
+</a>
+</nav>
+<div class="px-6 py-6 border-t border-terminal-gray">
+<button class="w-full bg-system-red text-black font-headline-md text-[14px] py-3 px-4 flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">lock</span>
+                    ENCRYPTED SOURCE
+                </button>
+<div class="mt-6 flex justify-around text-on-surface-variant">
+<button class="material-symbols-outlined hover:text-system-red">logout</button>
+<button class="material-symbols-outlined hover:text-system-red">help_outline</button>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 w-full px-4 md:px-margin-page py-6 overflow-hidden">
+<!-- 1. Hero Principal Slider -->
+<section class="relative group overflow-hidden border border-terminal-gray bg-surface-container-low mb-stack-lg">
+<div class="relative h-[500px] md:h-[600px] w-full overflow-hidden">
+<div class="absolute inset-0 scanline z-10 pointer-events-none opacity-20"></div>
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="A cinematic, high-contrast wide shot of a futuristic data center with glowing server racks in deep red and metallic grays. The atmosphere is dense with digital particles and floating holographic interfaces. Sharp lighting highlights the textures of the hardware, creating a high-stakes intelligence agency mood. Cinematic photography style, moody and sharp." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR02mieVewWBMxWYqEnnrpqbTipGsY2_aSEasBPvcuVSTM4UrfJT1BmOu8-X0ZsfedV3UlfXvR6uWJqIm6HSiag8129cFhimmka-M40Uhvs1aPg6OiioR3RCP7r9KIoiEnUa8B8auQVUKV5YdMtEi8NZ4b0LBVFoFitW83YDezvrDV295jTswaM0QZm_4jjeKU6C6du270RLn8AxuH7zSL81MsMefol2wT0lmpk9qvlpKss02CLMfF9Q">
+<!-- Gradient Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-20"></div>
+<!-- Hero Content -->
+<div class="absolute bottom-0 left-0 p-8 md:p-12 z-30 max-w-4xl">
+<div class="flex items-center gap-3 mb-4">
+<span class="bg-system-red text-black font-label-caps text-label-caps px-3 py-1">NACIONALES</span>
+<span class="text-on-surface-variant font-label-caps text-label-caps border-l border-terminal-gray pl-3">OPERATIVO SQUASH</span>
+</div>
+<h1 class="font-headline-xl text-[48px] md:text-headline-xl text-white mb-4 leading-none uppercase">Hackeo Masivo revela red de corrupción en ministerios estratégicos</h1>
+<p class="text-body-lg text-on-surface-variant mb-6 line-clamp-2 max-w-2xl">Investigación exclusiva: Documentos filtrados exponen transferencias millonarias a cuentas fantasma durante el último trimestre fiscal. La unidad de inteligencia de Hackeando el Sistema analiza los metadatos.</p>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-system-red flex items-center justify-center font-headline-md text-black">A</div>
+<div>
+<p class="font-label-caps text-label-caps text-white">REDACCIÓN H.E.S</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">04 OCT, 2024</p>
+</div>
+</div>
+<button class="bg-white text-black font-label-caps text-label-caps px-6 py-3 hover:bg-system-red hover:text-white transition-all">LEER INFORME COMPLETO</button>
+</div>
+</div>
+<!-- Slider Controls -->
+<div class="absolute right-8 bottom-8 z-40 flex gap-2">
+<button class="w-12 h-12 flex items-center justify-center border border-white/20 hover:border-system-red hover:text-system-red transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center border border-white/20 hover:border-system-red hover:text-system-red transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 2. Últimas Noticias (Horizontal) -->
+<section class="mb-section-gap">
+<div class="flex justify-between items-end border-b border-system-red mb-6 pb-2">
+<h2 class="font-headline-md text-headline-md text-white">ÚLTIMAS ACTUALIZACIONES</h2>
+<span class="font-label-caps text-label-caps text-system-red animate-pulse" style="opacity: 1;">SYSTEM_ONLINE_24/7</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<!-- Item 1 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-video mb-3 overflow-hidden border border-terminal-gray">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 grayscale group-hover:grayscale-0" data-alt="A close-up high-tech view of a digital world map being projected onto a dark surface, with glowing red nodes and connection lines indicating network traffic. Monospaced code overlays the image subtly. The lighting is low and atmospheric with red neon accents. High-tech, digital warfare aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWi9-l6WGFRu38qDgngEhSrFxo70Tae-mpyijX4HyG1fbYrU98rVNlHxfn4Q2GgDCFv331cT42R9t5sYiK3xsmI1uKGOAs5RKnuzBkV1oYAXXgi0Ou0if2g-exuN4O7x2jRoiGB0oCv0Hxt5YKc7HwiyUQtoKOj57dmtp6QiqMyjsECV_MW_wxjxt_axqJNQKQiejKr9kIvaYdOhl-dubKeNAtc0XluBg6A_BOdve-QaYM_Ue5w2N9uw">
+</div>
+<span class="font-label-sm text-label-sm text-system-red block mb-1">08:45 AM</span>
+<h3 class="font-headline-md text-[18px] leading-tight group-hover:text-system-red transition-colors">Caída crítica en servidores regionales afecta transacciones</h3>
+</div>
+<!-- Item 2 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-video mb-3 overflow-hidden border border-terminal-gray">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 grayscale group-hover:grayscale-0" data-alt="Macro photography of a high-end computer chip glowing with red internal light, surrounded by a dark, smoky atmosphere. Digital data streams in the background represent active processing. The color palette is restricted to deep grays, blacks, and electric red. Futuristic technology, motherboard macro." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcKXfbled4333_gTyMo2aOEjV4OpT81yfFk8jIG9mbMJi-uTm-8WXniMfKto6P8cc2eO9DsZ5kWRE5fMyisk3T82b33g2hoAoWNRYWFM7fk1M89Xd00OntD1bcgW47yxqDqiKnm2_ecOoJCh6T5DHX08tN9GhgtoCVKQFwRbLj3aPCJm8Oe_DYvTHYRIYN8VwdQJgp2iuQvCbQdoGoMGBMWiWQmdL4LgiYvLw8cu1XogqBPUD0Zly8mg">
+</div>
+<span class="font-label-sm text-label-sm text-system-red block mb-1">07:20 AM</span>
+<h3 class="font-headline-md text-[18px] leading-tight group-hover:text-system-red transition-colors">Nueva IA de vigilancia desplegada en puntos estratégicos</h3>
+</div>
+<!-- Item 3 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-video mb-3 overflow-hidden border border-terminal-gray">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 grayscale group-hover:grayscale-0" data-alt="An abstract representation of digital encryption, showing layers of transparent geometric glass with glowing red symbols and binary sequences passing through. Dark, moody lighting with high contrast reflections. The overall look is professional and secure. Cybersecurity conceptual art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6uHO2Pao-GahEY_0SSfpS-DRC-14ywJJxyOiFRWf4KV6Sg96yowpkLmAKZY33uz6UjNGJ63gLNEdr22w4oiPZPR53wXhfHAuzYktaOhyaDDR4feFFe4Cxbi1NBGVW5zSq1kUCz6-e1anD9-5qU4i4pK5aKDwkdCZTRQCeEvkwopDx3qJ-BEBfpX_E_xONKlZd2fQemhRl1YVtOtb9_RCI5QQ_KNKb3NJdZFY-Iy18DBMB4B4fooVO9w">
+</div>
+<span class="font-label-sm text-label-sm text-system-red block mb-1">06:15 AM</span>
+<h3 class="font-headline-md text-[18px] leading-tight group-hover:text-system-red transition-colors">Protocolos de encriptación fallan ante ataque cuántico</h3>
+</div>
+<!-- Item 4 -->
+<div class="group cursor-pointer">
+<div class="relative aspect-video mb-3 overflow-hidden border border-terminal-gray">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 grayscale group-hover:grayscale-0" data-alt="A dimly lit, modern interior of a tactical operations center with large wall-sized screens showing code and fluctuating data graphs in red. Silhouette of a person working at a console in the foreground. Dark cinematic look with sharp red accents. Intelligence center, tactical surveillance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFAWRxnugqLFTag7_57v46XN8juS3CKHRTkUGcXiiqxGo2DG4RBWiGpTN436upyJkl2sfTNR6I0eWMEhoN4iKwZTYyK0ovRMEc31V2kjl60PZ27L-duOtYc_vgT53jtiKpaQgwgmDeWM05UjDOg2wBGNug9brY_2VLYPJ6hYz6jrAiVhbwM5BxfFCMVEybil7x-XT2k-ZuQ5gy5Rqf3gdZglgEN9x3Sn6xUYkN0qtmL4KVtmHPGfFvNA">
+</div>
+<span class="font-label-sm text-label-sm text-system-red block mb-1">Hace 2 horas</span>
+<h3 class="font-headline-md text-[18px] leading-tight group-hover:text-system-red transition-colors">Fuentes confirman reorganización en gabinete de seguridad</h3>
+</div>
+</div>
+</section>
+<!-- 3. Sección de OPINIÓN (Diseño Distintivo) -->
+<section class="mb-section-gap bg-surface-container-lowest p-8 border border-terminal-gray relative">
+<div class="absolute top-0 right-0 p-4 font-label-caps text-label-caps text-system-red opacity-30">EDITORIAL_VOICE.LOG</div>
+<h2 class="font-headline-xl text-headline-md text-white border-l-4 border-system-red pl-4 mb-8">DISIDENCIA &amp; OPINIÓN</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+<!-- Opinion Card 1 -->
+<div class="relative pt-12">
+<div class="absolute top-0 left-0 w-24 h-24 border border-system-red z-0"></div>
+<div class="relative z-10 pl-6">
+<img class="w-20 h-20 object-cover border-2 border-system-red mb-4" data-alt="A portrait of a distinguished older man with sharp, analytical features and spectacles, looking directly at the camera with a serious expression. Dark background, professional studio lighting with a slight red rim light on one side. High contrast, black and white with subtle red highlights. Editorial portrait style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjItwNcckeTAGembJ_7lyb1TXvr6ixvnatk9i7wxsURlQK61lgdAaJZTBVrwhOjc0Wwsx71eGIlNCL9A0W3Dp_pSgMNTqt6xZ7VLUr1Rc3cTMh18p7ny7UzjX0YMuiZLk5k54RMP9pix2rrHacz7ZrIkrwZEW9zeSSz47imBkOcwH9pOWtVLoBAK69AY_bp0KJRwfAkV1VNsMWRJLqbZycYh3DeyfxVW1JJcPjGMjaFvf-I-K57Sp4IQ">
+<p class="font-headline-md text-[20px] text-white italic mb-4">"El sistema no está roto; está diseñado precisamente para funcionar así de mal para el ciudadano."</p>
+<div class="font-label-caps text-label-caps">
+<span class="text-system-red block">ÁNGEL MARTÍNEZ</span>
+<span class="text-on-surface-variant text-[10px]">DIRECTOR DE INTELIGENCIA</span>
+</div>
+</div>
+</div>
+<!-- Opinion Card 2 -->
+<div class="relative pt-12">
+<div class="absolute top-0 left-0 w-24 h-24 border border-system-red z-0"></div>
+<div class="relative z-10 pl-6">
+<img class="w-20 h-20 object-cover border-2 border-system-red mb-4" data-alt="A portrait of a confident middle-aged woman with intense eyes and a professional demeanor. She is set against a dark, minimalist background with dramatic side lighting that emphasizes her features. Digital textures are layered very subtly over the image. High-end journalism portrait, moody and authoritative." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7MFBN1S1MBWkdSkfuRVtnjKAfjl63zEPJd7G-so1PqZ4WcXxL5YT1kthO_7EiQws1u0kJNy-SDwezIjlphVRZ5f-t0yqaJXA-StIbgIIL8dM_QfGsj8PAfcOD1w6U9R2Dzdu6Ro_j6z-Zfm8su8uatZ8rXm3lpKBtq7_fy60yEsKKGiABphBivPPoD0kmnvRVoSLy0J98BrKBxu6HWm2OG_E16iora_W3fsF0IjAhupgJ2F6Yi_8gdg">
+<p class="font-headline-md text-[20px] text-white italic mb-4">"La privacidad ha muerto, pero el costo de su entierro lo estamos pagando nosotros con cada clic."</p>
+<div class="font-label-caps text-label-caps">
+<span class="text-system-red block">ELENA VARGAS</span>
+<span class="text-on-surface-variant text-[10px]">ANALISTA DE CIBER-POLÍTICA</span>
+</div>
+</div>
+</div>
+<!-- Opinion Card 3 -->
+<div class="relative pt-12">
+<div class="absolute top-0 left-0 w-24 h-24 border border-system-red z-0"></div>
+<div class="relative z-10 pl-6">
+<img class="w-20 h-20 object-cover border-2 border-system-red mb-4" data-alt="A portrait of a young tech-expert man with a sharp, focused look, wearing headphones around his neck. The lighting is cool-toned with red neon reflection in his eyes. Dark, technical environment in the background. Contemporary digital analyst aesthetic, sharp and high-definition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-Tl54PnSoMNHCbmXcfeQGFcNe_0tPnYuh3qkJsniTEeQnon-cdOZZI59y0SUyfPpIlf1Cve89e5If7RoM-BXf9Usamn7r_fcDg24M4dFEZnTRkixVgkb7IcS8_Vp-KmafNRiN-zf0KKa6wPA1p8kbHjzd4MznKL4kaUQIggmHnwueuzRBFvUJmIyIxZSXpkbAR-SVCqrNgYxwRrPJzkJxkB4wpDm2Z9rLCuX2sN8Ax8ihhCYYHdKKVw">
+<p class="font-headline-md text-[20px] text-white italic mb-4">"No busquen la verdad en las redes; allí solo encontrarán el eco de sus propios prejuicios."</p>
+<div class="font-label-caps text-label-caps">
+<span class="text-system-red block">MARCOS RIJO</span>
+<span class="text-on-surface-variant text-[10px]">COLUMNISTA INVITADO</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Sección Santo Domingo -->
+<section class="mb-section-gap">
+<div class="flex items-center gap-4 mb-8">
+<h2 class="font-headline-md text-headline-md text-white whitespace-nowrap uppercase">CRÓNICAS DE SANTO DOMINGO</h2>
+<div class="h-px w-full bg-terminal-gray"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-stack-md">
+<!-- Card 1 -->
+<div class="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group">
+<div class="aspect-video relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A long exposure night photograph of the Santo Domingo skyline, focusing on the modern skyscrapers of the city center. Bright trails of car lights on the avenues create vibrant red and white streaks. The mood is urban, busy, and modern. High-quality city photography with high contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQgvSdeKCmocVW9LRRRxd08z0KRCdr5BWyBvR2PsUFKs6ThKjSrz6d4kvR9Z6B6SSqemEQD5XKwXhdQTFOqmN3sazmeTe4wwtd9FPgKMrp1ax6ibsB6dji3nzFfuAG083FeLWh5-vc2rq46HDFHu2-ldo2LKzexn7KEH3RVUhNkz7zmQRP9gcdDohFv2-FmrWJPqgFXiY3VEu1pRLh3mQhAIlTIAn53TQuwDxfYXby0z5MUIcV1Vbu0w">
+<div class="absolute top-2 left-2 bg-black/80 font-label-sm text-label-sm text-white px-2 py-1">SDQ_ZONE</div>
+</div>
+<div class="p-6">
+<h3 class="font-headline-md text-[20px] mb-2 group-hover:text-system-red">Crisis de movilidad: El colapso del polígono central</h3>
+<p class="text-on-surface-variant text-body-md line-clamp-2">Reporte especial sobre las fallas en la red de semáforos inteligentes y el impacto en la productividad.</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group">
+<div class="aspect-video relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A modern architectural shot of a contemporary building in Santo Domingo at dusk, with its glass windows reflecting the deep blue sky. Sharp angles and high-tech exterior lighting are prominent. The style is architectural and clean. Professional urban photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsXELEeFcl2g9EIIqjzJdsZ4KbngC1aSNDHiZQqz0OvEmuvM-eTl0IEHYr6jls7nQtQNU5Rk1WsZy7v-eEJhazjmMdFhp6Hwtv-oXbvG4-8srlaWa2JZ7dfE489YMqzepMiI4Ab7CRLQfn5EzbZ8c0LTv6Tr1hRXr9rj9KUfi6l2QzhWXrxpSOCtjJgYtd7FnMouGA-BaQfcMlMKEq08JXC92ypUFtN0CBIi02sPBxZNammyaw-IuTXg">
+<div class="absolute top-2 left-2 bg-black/80 font-label-sm text-label-sm text-white px-2 py-1">FINANZAS</div>
+</div>
+<div class="p-6">
+<h3 class="font-headline-md text-[20px] mb-2 group-hover:text-system-red">El auge inmobiliario y la sombra de la gentrificación</h3>
+<p class="text-on-surface-variant text-body-md line-clamp-2">Nuevas torres de lujo transforman el paisaje mientras los barrios tradicionales enfrentan alzas críticas.</p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group">
+<div class="aspect-video relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A street-level photo of a busy commercial area in Santo Domingo during a sunset, showing the vibrant life of the city with street vendors and shoppers. The lighting is warm but the composition is sharp and modern. The overall tone is energetic and authentic. Urban lifestyle photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkhd6nNIdaNqTuVFRCtNUeUfW5lnCJBKoGcFVy6YZOEXerpYRamVltryN2NPVNy0GF80Nhj8SSUfRgb6Gk3Tpi6dfWNCmyohxPtftTO7nOHHPT3g8zq-y1yUvBRC7LP87HbLB5LdlElWo8QGOM6eytmuDCNy1ewBL8bHf9MFxGK_Xo04uJE_zjGhhCRhcNl8jjDMpDNjW5jcSTxNiQli4hfHUp8xpsnbh57lZU5RV_cp2EY3ssyhRU1Q">
+<div class="absolute top-2 left-2 bg-black/80 font-label-sm text-label-sm text-white px-2 py-1">COMUNIDAD</div>
+</div>
+<div class="p-6">
+<h3 class="font-headline-md text-[20px] mb-2 group-hover:text-system-red">Inseguridad ciudadana: Mapas de calor en el Distrito</h3>
+<p class="text-on-surface-variant text-body-md line-clamp-2">Visualización de datos sobre las zonas con mayor incidencia delictiva en los últimos 30 días.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- 5. Bloques Editoriales por Categoría -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-section-gap">
+<!-- Nacionales -->
+<section>
+<div class="flex items-center gap-4 mb-6">
+<h2 class="font-headline-md text-headline-md text-white border-b-2 border-system-red pb-1">NACIONALES</h2>
+<span class="text-[10px] text-system-red font-label-caps">DATA_BLOCK_01</span>
+</div>
+<div class="space-y-6">
+<article class="flex gap-4">
+<img class="w-24 h-24 object-cover border border-terminal-gray" data-alt="A journalistic photo of a national assembly or government building interior, featuring mahogany wood and formal seating. The lighting is warm and institutional. Sharp focus on the central podium. Professional political photography, serious and authoritative mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgvL60G_e0wLz9bGhqFyEVk0BUxc60QXGyOpkjx82mb02K6oJBMoy8yNIokn4p0CmtKoGK8mNgHcy5ZZ_7bWmWPRvuJ9tAEGkXgh3DNKLGcjUZXRP0opTMPOpt5e-fJ1vk46PJRz-RpqoHfjyzf3YAJW2ZiW_xR3GmuufyvDbW7tPvV6Pt-fumy2SkxMTRQbGC2b92d3fk8AVr7LsYpOp_cckOQ8_4cM8RPRojsU0yqCyY_2dif0m85A">
+<div>
+<h4 class="font-headline-md text-[16px] leading-tight mb-1 hover:text-system-red cursor-pointer transition-colors">Reforma fiscal: Los puntos que el gobierno no quiere discutir</h4>
+<p class="text-on-surface-variant text-label-sm">Por: Unidad de Investigación</p>
+</div>
+</article>
+<article class="flex gap-4">
+<img class="w-24 h-24 object-cover border border-terminal-gray" data-alt="A photo of a local Dominican port with large cargo containers being stacked by high-tech cranes. The blue sea is in the background. The lighting is bright and industrial. High contrast and detailed textures. National logistics and economy theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIFjyajQqw7TM0oY5w30sG7-v4UgONl8tOFEKSipl4iRtLyJwAmjwHWVZm6bzZkzFUorsLKrM_6YEEYYs8yuY6rEZuRw53T8JKviNtIjuIsS0H1BA6DlYMSOZ0h9o2NVs4UaDu2PXkIGthRpLsrI-RDZnxkM3fAGqbtVxepShxF8zRs3CtRyeUp9608f2IJAwvJmjZjHEw-CHiAtIgoZwdv8am5XvslGnDCpgOJC6IlMLxyeh8Q6DeAQ">
+<div>
+<h4 class="font-headline-md text-[16px] leading-tight mb-1 hover:text-system-red cursor-pointer transition-colors">Exportaciones rompen récord pero los precios locales suben</h4>
+<p class="text-on-surface-variant text-label-sm">Por: Economía Global</p>
+</div>
+</article>
+<article class="flex gap-4">
+<img class="w-24 h-24 object-cover border border-terminal-gray" data-alt="A modern hospital hallway with clean, sterile lighting and advanced medical equipment visible through glass doors. The atmosphere is professional and high-tech. Sharp focus and minimalist composition. Healthcare and national service theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3yDSO4Hsj3D-fvNxv7fRBGyImK1N8LLg23o5xfX1Imsx_lqUY5X-HPE824NqPspCSjkDhaekKutUEzi7NOn2ZwwnkmS_6xAJlJL0IdU2-6USmTLCqiTFJ5AjgOGrI_Nyox9Clwc8wtVFgGx3LVD6DH5LSfnIjTVVUJgCIeNn-tZAuEIe09YDLCS1T5lflW8xPLRkdnP8veQ8Ouq5IQxrHauqwYhlFL3mxq5D3H142Wye6GBn8dyFJAw">
+<div>
+<h4 class="font-headline-md text-[16px] leading-tight mb-1 hover:text-system-red cursor-pointer transition-colors">Sistema de salud en alerta ante brote estacional</h4>
+<p class="text-on-surface-variant text-label-sm">Por: Redacción HES</p>
+</div>
+</article>
+</div>
+</section>
+<!-- Política -->
+<section>
+<div class="flex items-center gap-4 mb-6">
+<h2 class="font-headline-md text-headline-md text-white border-b-2 border-data-green pb-1">POLÍTICA</h2>
+<span class="text-[10px] text-data-green font-label-caps">POWER_GRID_02</span>
+</div>
+<div class="space-y-6">
+<article class="flex gap-4">
+<img class="w-24 h-24 object-cover border border-terminal-gray" data-alt="An abstract, high-contrast photo of a ballot box in a dark room with a single beam of red light shining on it. Digital symbols of votes are floating in the air. The mood is suspenseful and critical. Political conceptual art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1ReLe00G9pxokBdhMBBbK-wvIqXuPxj3Fw4SOCgWKBPyHF6wZz9IZYOoO98gaxEyXkmjpdRFP0FM-bdgma8Z4H8o0s9swUCE1A_pTSdRMxJ0wBdkwAznZYPCK4GUlD2vp8eoUBdYiwIRsdU847H-BEcg8P1js3EYIsBbW48fce5OualEwoCzZjOK50GfddkKVOWXpyU3MLHVQMNzCcoGdWF_rU84WhEcaq8_3BEnvwIpAk7C6ayDEMg">
+<div>
+<h4 class="font-headline-md text-[16px] leading-tight mb-1 hover:text-data-green cursor-pointer transition-colors">Encuestas internas muestran empate técnico en la oposición</h4>
+<p class="text-on-surface-variant text-label-sm">Por: Inteligencia Política</p>
+</div>
+</article>
+<article class="flex gap-4">
+<img class="w-24 h-24 object-cover border border-terminal-gray" data-alt="A photo of two high-ranking officials in silhouette, shaking hands in front of a large window overlooking a city at night. Their identities are obscured, creating a sense of secret dealings. Dark and moody lighting with blue and red highlights. High-stakes political mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVUZWJkFC4v41VIQWwJUWsMhX8fv7-AjlPEvqyxDfFy6zsB-pGerK7cLIq7iYWRyGDaOAiBlfg7oSpEQjsY7vOAKSBtJVa7hwB7tvEMCnAhmud1fIr34vZfhXt1xEpUoqPvacicOr1XA4AvElGAk2Z2L_9HE3dleDTzdyaviCpWpcscSbNrmOVnRCPZEvz5GXZRfB3khM1H-N6V-qi4kzdDMh6bGjTKjq-PINkmZBS9w1x3IQRjZEYzQ">
+<div>
+<h4 class="font-headline-md text-[16px] leading-tight mb-1 hover:text-data-green cursor-pointer transition-colors">Alianzas secretas: El nuevo mapa del poder legislativo</h4>
+<p class="text-on-surface-variant text-label-sm">Por: Fuentes Encíclicas</p>
+</div>
+</article>
+<article class="flex gap-4">
+<img class="w-24 h-24 object-cover border border-terminal-gray" data-alt="A wide shot of a political protest or rally, captured with a grainy, high-contrast editorial look. Flags and banners are blurred in motion. The color palette is muted with one strong accent color. Dynamic and energetic news photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDniGUS1co5C8GKdVflKuVYaN-yOiPPr_fu0VJY2ChCkoAMoMjnvANXa7ABedU-ubLWYXQPUiTDAMa_-haJN0ATVx3OB-xN3o-PJR1nS15N7W0gx-JoCwdYdq2frICfQRyeey0i7-_lB-A_AxrXaC0M5NTWoNvz9oUThVF3MwHsBnGpkpQ58GKjTQFwakM3enNBraesE_Y4-GVpw3vg3VRkyuI8yAAQOgdLbAuDnGF2YXW0G1mHDTz5pQ">
+<div>
+<h4 class="font-headline-md text-[16px] leading-tight mb-1 hover:text-data-green cursor-pointer transition-colors">Movimientos sociales preparan marcha contra la impunidad</h4>
+<p class="text-on-surface-variant text-label-sm">Por: Reporte Ciudadano</p>
+</div>
+</article>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="w-full py-stack-lg border-t border-terminal-gray bg-surface-container-lowest mt-section-gap">
+<div class="w-full px-margin-page flex flex-col md:flex-row justify-between items-center max-w-1440px mx-auto gap-8">
+<div class="flex flex-col items-center md:items-start">
+<img alt="Hackeando el Sistema" class="h-8 mb-4 opacity-70 grayscale hover:grayscale-0 transition-all cursor-pointer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJApBLHWy1sY1V1IF4JsZPtt6QRMVWvo0tHaWJzaNDjBgJyw_ULeDUGy69rlHKPr2Or0aYV7-bH3rrKALdM8TQzqaBFSPc8gdbdtTW1m6nBPl4YlOV5ypwZZE6sBITtD8uJYToX02DerUPERHdkbUEyerGouTy1kpg6f4rnbubPbt3dCYMSqYTCf2NNmhhxI0q-bNmxwUfEKX2uGb16pOmRagw50OjCwVw-7I1XDPPuiFFwi6vqw32piPK7ua7KgcJXTc">
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center md:text-left">© 2024 HACKEANDO EL SISTEMA | DIGITAL INTELLIGENCE UNIT</p>
+</div>
+<div class="flex flex-wrap justify-center gap-6">
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="#">Términos de Servicio</a>
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="#">Privacidad</a>
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="#">Contacto</a>
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="#">Publicidad</a>
+<a class="text-system-red font-label-caps text-label-caps underline transition-opacity opacity-70 hover:opacity-100" href="#">Protocolos de Seguridad</a>
+</div>
+<div class="flex gap-4">
+<div class="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[20px]">rss_feed</span>
+</div>
+<div class="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[20px]">public</span>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction for hover states
+        document.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('mousedown', () => {
+                el.classList.add('scale-95', 'opacity-80');
+            });
+            el.addEventListener('mouseup', () => {
+                el.classList.remove('scale-95', 'opacity-80');
+            });
+            el.addEventListener('mouseleave', () => {
+                el.classList.remove('scale-95', 'opacity-80');
+            });
+        });
+
+        // Atmospheric Terminal Flicker Effect
+        setInterval(() => {
+            const flickerElements = document.querySelectorAll('.animate-pulse');
+            flickerElements.forEach(el => {
+                if (Math.random() > 0.95) {
+                    el.style.opacity = '0.3';
+                    setTimeout(() => el.style.opacity = '1', 50);
+                }
+            });
+        }, 100);
+    </script>
+
+
+</body></html>

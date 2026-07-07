@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HACKEANDO EL SISTEMA | PORTAL DE CONTACTO SEGURO</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=JetBrains+Mono:wght@400;700&amp;family=Hanken+Grotesk:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(1000%); }
+        }
+        
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(255, 179, 177, 0.1);
+            opacity: 0.5;
+            pointer-events: none;
+            animation: scanline 8s linear infinite;
+            z-index: 100;
+        }
+
+        .terminal-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 20px;
+            background-color: #ffb3b1;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .hud-line-v {
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, #212121, transparent);
+        }
+
+        .hud-line-h {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #212121, transparent);
+        }
+
+        input:focus + .input-glow, textarea:focus + .input-glow {
+            opacity: 1;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-container": "#929090",
+                      "inverse-on-surface": "#303030",
+                      "on-surface-variant": "#e4bebc",
+                      "on-tertiary": "#313030",
+                      "background": "#131313",
+                      "on-error": "#690005",
+                      "surface-bright": "#393939",
+                      "tertiary-fixed-dim": "#c8c6c5",
+                      "surface-container-lowest": "#0e0e0e",
+                      "on-surface": "#e2e2e2",
+                      "on-primary-container": "#5b000e",
+                      "tertiary-fixed": "#e5e2e1",
+                      "terminal-gray": "#212121",
+                      "on-primary-fixed": "#410007",
+                      "on-background": "#e2e2e2",
+                      "inverse-primary": "#bb152c",
+                      "on-tertiary-fixed-variant": "#474746",
+                      "surface-dim": "#131313",
+                      "outline-variant": "#5b403f",
+                      "primary": "#ffb3b1",
+                      "secondary": "#c6c6c7",
+                      "on-primary": "#680011",
+                      "matrix-dim": "#0D1117",
+                      "error": "#ffb4ab",
+                      "data-green": "#00FF41",
+                      "system-red": "#E63946",
+                      "on-tertiary-fixed": "#1c1b1b",
+                      "on-primary-fixed-variant": "#92001c",
+                      "surface-container-low": "#1b1b1b",
+                      "on-secondary": "#2f3131",
+                      "outline": "#ab8987",
+                      "tertiary": "#c8c6c5",
+                      "surface": "#131313",
+                      "secondary-container": "#454747",
+                      "primary-container": "#ff535b",
+                      "secondary-fixed": "#e2e2e2",
+                      "on-secondary-fixed": "#1a1c1c",
+                      "on-tertiary-container": "#2a2a2a",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-high": "#2a2a2a",
+                      "inverse-surface": "#e2e2e2",
+                      "on-secondary-container": "#b4b5b5",
+                      "surface-container-highest": "#353535",
+                      "surface-variant": "#353535",
+                      "surface-tint": "#ffb3b1",
+                      "on-secondary-fixed-variant": "#454747",
+                      "primary-fixed": "#ffdad8",
+                      "surface-container": "#1f1f1f",
+                      "error-container": "#93000a",
+                      "primary-fixed-dim": "#ffb3b1",
+                      "secondary-fixed-dim": "#c6c6c7"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-md": "1rem",
+                      "margin-page": "2rem",
+                      "section-gap": "4rem",
+                      "stack-lg": "2rem",
+                      "gutter": "1.5rem",
+                      "stack-sm": "0.5rem"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": ["Anton"],
+                      "label-caps": ["JetBrains Mono"],
+                      "headline-lg": ["Anton"],
+                      "body-lg": ["Hanken Grotesk"],
+                      "label-sm": ["JetBrains Mono"],
+                      "body-md": ["Hanken Grotesk"],
+                      "headline-xl": ["Anton"],
+                      "headline-md": ["Anton"]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                      "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                      "headline-lg": ["48px", {"lineHeight": "1.1", "fontWeight": "400"}],
+                      "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                      "label-sm": ["11px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                      "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                      "headline-xl": ["72px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md selection:bg-system-red selection:text-white">
+<div class="scanline"></div>
+<!-- TopNavBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-page py-4 bg-background/80 backdrop-blur-xl border-b border-terminal-gray">
+<div class="font-headline-md text-headline-md text-primary tracking-tighter">HACKEANDO EL SISTEMA</div>
+<div class="hidden md:flex items-center gap-stack-lg">
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" href="#">INTELIGENCIA</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" href="#">BRECHAS</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" href="#">TERMINAL</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" href="#">ARCHIVOS</a>
+<!-- Active State -->
+<a class="font-label-caps text-label-caps text-primary border-b-2 border-primary pb-1" href="#">CONTACTO</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-primary hover:bg-terminal-gray/20 p-2 transition-colors">security</button>
+<button class="material-symbols-outlined text-primary hover:bg-terminal-gray/20 p-2 transition-colors">language</button>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col pt-24 pb-8 z-40 border-r border-terminal-gray w-64 bg-surface-dim hidden md:flex">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-2 h-2 bg-data-green rounded-full animate-pulse"></div>
+<div class="font-label-caps text-label-caps text-primary">OP_STATUS: ACTIVE</div>
+</div>
+<div class="text-xs text-on-surface-variant font-mono opacity-60">V.2.0.48 / SYS_ADMIN</div>
+</div>
+<div class="flex-1 space-y-2">
+<a class="flex items-center gap-4 px-6 py-4 text-on-surface-variant hover:bg-terminal-gray/30 transition-all font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined">cloud</span> CLIMA
+            </a>
+<a class="flex items-center gap-4 px-6 py-4 text-on-surface-variant hover:bg-terminal-gray/30 transition-all font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined">payments</span> DIVISAS
+            </a>
+<a class="flex items-center gap-4 px-6 py-4 text-on-surface-variant hover:bg-terminal-gray/30 transition-all font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined">videocam</span> VIDEO
+            </a>
+<a class="flex items-center gap-4 px-6 py-4 text-on-surface-variant hover:bg-terminal-gray/30 transition-all font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined">campaign</span> AVISOS
+            </a>
+</div>
+<div class="px-6 pt-6 border-t border-terminal-gray">
+<button class="w-full bg-system-red text-black font-headline-md py-3 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">lock</span> ENCRIPTAR
+            </button>
+</div>
+<div class="mt-8 space-y-1">
+<a class="flex items-center gap-4 px-6 py-3 text-on-surface-variant hover:bg-terminal-gray/30 font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined">settings</span> SETTINGS
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 text-on-surface-variant hover:bg-terminal-gray/30 font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined">logout</span> LOGOUT
+            </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="md:pl-64 pt-24 min-h-screen">
+<div class="max-w-[1440px] mx-auto px-margin-page pb-stack-lg">
+<!-- Header Section -->
+<section class="py-stack-lg border-b border-terminal-gray relative overflow-hidden">
+<div class="absolute top-0 right-0 opacity-10 pointer-events-none">
+<span class="font-headline-xl text-[200px] leading-none select-none">SECURE</span>
+</div>
+<div class="relative z-10">
+<div class="inline-block border border-system-red px-3 py-1 mb-4">
+<span class="font-label-caps text-label-caps text-system-red">[ PROTOCOLO: CONTACTO_SEGURO ]</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface uppercase mb-2">Portal de Contacto Seguro</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+                        Establezca un enlace de transmisión encriptado de punto a punto. Su identidad será ofuscada mediante nuestra red de túneles redundantes. Inicie la comunicación técnica a continuación.
+                        <span class="terminal-cursor"></span>
+</p>
+</div>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter mt-12">
+<!-- Transmission Link (Contact Form) -->
+<div class="lg:col-span-7 bg-surface-container-lowest border border-terminal-gray p-8 relative">
+<div class="absolute top-0 right-0 p-4 font-label-caps text-[10px] text-terminal-gray">UPLINK_01</div>
+<h2 class="font-headline-md text-headline-md text-primary mb-8 flex items-center gap-3">
+<span class="material-symbols-outlined">sensors</span> ENLACE DE TRANSMISIÓN
+                    </h2>
+<form class="space-y-8" onsubmit="event.preventDefault(); alert('Transmission sequence initiated.');">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-lg">
+<div class="relative">
+<label class="font-label-caps text-label-caps text-primary block mb-2">IDENTIFICADOR_SUJETO</label>
+<input class="w-full bg-transparent border-b border-terminal-gray focus:border-primary outline-none py-2 font-label-caps text-on-surface placeholder:text-terminal-gray transition-all" placeholder="Alias o Código" type="text"/>
+<div class="input-glow absolute bottom-0 left-0 w-full h-[1px] bg-primary blur-sm opacity-0 pointer-events-none"></div>
+</div>
+<div class="relative">
+<label class="font-label-caps text-label-caps text-primary block mb-2">FRECUENCIA_RETORNO</label>
+<input class="w-full bg-transparent border-b border-terminal-gray focus:border-primary outline-none py-2 font-label-caps text-on-surface placeholder:text-terminal-gray transition-all" placeholder="Email (Opcional/Tor)" type="email"/>
+<div class="input-glow absolute bottom-0 left-0 w-full h-[1px] bg-primary blur-sm opacity-0 pointer-events-none"></div>
+</div>
+</div>
+<div class="relative">
+<label class="font-label-caps text-label-caps text-primary block mb-2">TIPO_DE_BRECHA</label>
+<select class="w-full bg-transparent border-b border-terminal-gray focus:border-primary outline-none py-2 font-label-caps text-on-surface appearance-none transition-all">
+<option class="bg-surface-container">FILTRACIÓN_DATOS</option>
+<option class="bg-surface-container">VULNERABILIDAD_O_DAY</option>
+<option class="bg-surface-container">CONSULTA_INTELIGENCIA</option>
+<option class="bg-surface-container">SOPORTE_OPERATIVO</option>
+</select>
+</div>
+<div class="relative">
+<label class="font-label-caps text-label-caps text-primary block mb-2">PAQUETE_DE_DATOS</label>
+<textarea class="w-full bg-transparent border-b border-terminal-gray focus:border-primary outline-none py-2 font-body-md text-on-surface placeholder:text-terminal-gray transition-all resize-none" placeholder="Escriba su mensaje encriptado aquí..." rows="6"></textarea>
+<div class="input-glow absolute bottom-0 left-0 w-full h-[1px] bg-primary blur-sm opacity-0 pointer-events-none"></div>
+</div>
+<div class="flex items-center justify-between pt-4">
+<div class="flex items-center gap-2">
+<input class="bg-transparent border-terminal-gray text-primary focus:ring-0" id="anon" type="checkbox"/>
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="anon">AUTO-DESTRUIR TRAS LECTURA</label>
+</div>
+<button class="bg-system-red text-black font-headline-md px-8 py-3 hover:bg-primary transition-all active:scale-95 flex items-center gap-2" type="submit">
+<span class="material-symbols-outlined">send</span> TRANSMITIR
+                            </button>
+</div>
+</form>
+</div>
+<!-- Right Column -->
+<div class="lg:col-span-5 space-y-gutter">
+<!-- Map / Coordinates -->
+<div class="bg-surface-container-lowest border border-terminal-gray p-6 relative group overflow-hidden h-[350px]">
+<div class="absolute top-0 left-0 p-4 z-10">
+<h3 class="font-label-caps text-label-caps text-primary">COORDENADAS_OFICINA</h3>
+<p class="text-[10px] font-mono text-on-surface-variant">GEO_LOCK: 40.4168° N, 3.7038° W</p>
+</div>
+<div class="absolute inset-0 grayscale contrast-125 brightness-50 opacity-60 transition-transform duration-700 group-hover:scale-110">
+<div class="w-full h-full bg-center bg-cover" data-alt="A high-contrast wireframe map of a city center at night. The map uses neon red lines to denote streets and pathways against a pitch-black background. Digital UI elements, like scanning radars and coordinate overlays, are superimposed on the map. The overall aesthetic is dark, tactical, and cyberpunk, resembling a military intelligence terminal." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBwyW6f7Clg8P0PWz2x0WMqRCWqQJsgdn4ioWhoGglOkOv6xXWaoV8du7WqRbpP42zVHDNTaqll0pt2Sj5kMikH8G6dIVf50ad9vb8iPgIuTM00BKT_HENr_bq0DzlR3vEpZZ333NtQA5y4LjWNbVwjc_E6S_Bu-9Y-kGYln8dI74so5pPhALzKPU6YealB2hP9FO9aexmxqwhDH_d6y1JjWbQza8MvZbiO_SH5vKS74FEgW2CUHakRgA')"></div>
+</div>
+<!-- HUD overlay -->
+<div class="absolute inset-0 pointer-events-none border-[1px] border-system-red/20 m-4 flex items-center justify-center">
+<div class="w-24 h-24 border border-system-red animate-ping rounded-full opacity-20"></div>
+<div class="w-4 h-4 bg-system-red absolute"></div>
+</div>
+<div class="absolute bottom-0 left-0 p-4 bg-background/80 backdrop-blur w-full border-t border-terminal-gray z-10">
+<p class="font-label-sm text-label-sm text-on-surface">MADRID_SUBTERRÁNEO_NODE_04</p>
+<p class="text-[10px] text-terminal-gray">CALLE DE LA RESISTENCIA, BLOQUE 8</p>
+</div>
+</div>
+<!-- Communication Protocols (Socials) -->
+<div class="bg-surface-container-lowest border border-terminal-gray p-6">
+<h3 class="font-label-caps text-label-caps text-primary mb-6">PROTOCOLOS_COMUNICACIÓN</h3>
+<div class="grid grid-cols-2 gap-4">
+<a class="flex flex-col border border-terminal-gray p-4 hover:border-primary group transition-all" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">terminal</span>
+<span class="font-label-caps text-[10px] text-on-surface">TELEGRAM</span>
+<span class="text-[9px] text-terminal-gray">@SYSTEM_HACK_SEC</span>
+</a>
+<a class="flex flex-col border border-terminal-gray p-4 hover:border-primary group transition-all" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">rss_feed</span>
+<span class="font-label-caps text-[10px] text-on-surface">ONION_SITE</span>
+<span class="text-[9px] text-terminal-gray">hs6h2...onion</span>
+</a>
+<a class="flex flex-col border border-terminal-gray p-4 hover:border-primary group transition-all" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">alternate_email</span>
+<span class="font-label-caps text-[10px] text-on-surface">PROTON_MAIL</span>
+<span class="text-[9px] text-terminal-gray">root@sys-h.me</span>
+</a>
+<a class="flex flex-col border border-terminal-gray p-4 hover:border-primary group transition-all" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">hub</span>
+<span class="font-label-caps text-[10px] text-on-surface">SIGNAL</span>
+<span class="text-[9px] text-terminal-gray">+1 (555) 000-842</span>
+</a>
+</div>
+</div>
+<!-- Security Alert -->
+<div class="bg-system-red/5 border border-system-red p-4 flex gap-4 items-start">
+<span class="material-symbols-outlined text-system-red mt-1" style="font-variation-settings: 'FILL' 1;">warning</span>
+<div>
+<p class="font-label-caps text-[11px] text-system-red">AVISO DE SEGURIDAD</p>
+<p class="text-[10px] text-on-surface-variant leading-tight">Cualquier intento de rastreo inverso activará protocolos de contramedidas automáticas. Use siempre VPN y navegador TOR para máxima opacidad.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Additional Technical Info -->
+<section class="mt-section-gap grid grid-cols-1 md:grid-cols-3 gap-stack-lg border-t border-terminal-gray pt-stack-lg">
+<div class="space-y-2">
+<p class="font-label-caps text-label-caps text-primary">NIVEL_ENCRIPTACIÓN</p>
+<p class="text-xs font-mono text-on-surface-variant">AES-256-GCM / RSA-4096</p>
+<div class="w-full h-1 bg-terminal-gray">
+<div class="h-full bg-primary w-3/4 animate-pulse"></div>
+</div>
+</div>
+<div class="space-y-2">
+<p class="font-label-caps text-label-caps text-primary">TIEMPO_RESPUESTA_ESTIMADO</p>
+<p class="text-xs font-mono text-on-surface-variant">12 - 48 HORAS (PRIORIDAD ALTA)</p>
+<div class="w-full h-1 bg-terminal-gray">
+<div class="h-full bg-primary w-1/4 animate-pulse"></div>
+</div>
+</div>
+<div class="space-y-2">
+<p class="font-label-caps text-label-caps text-primary">NODOS_ACTIVOS</p>
+<p class="text-xs font-mono text-on-surface-variant">14 NODOS GLOBALES OPERATIVOS</p>
+<div class="flex gap-1">
+<div class="w-2 h-2 bg-data-green"></div>
+<div class="w-2 h-2 bg-data-green"></div>
+<div class="w-2 h-2 bg-data-green"></div>
+<div class="w-2 h-2 bg-terminal-gray"></div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-stack-lg px-margin-page flex flex-col md:flex-row justify-between items-center gap-stack-md border-t border-terminal-gray bg-surface-container-lowest md:pl-72">
+<div class="font-headline-md text-headline-md text-primary">HACKEANDO EL SISTEMA</div>
+<div class="flex flex-wrap justify-center gap-stack-md">
+<a class="font-label-sm text-label-sm text-on-tertiary-fixed-variant hover:text-primary transition-colors" href="#">SECURITY POLICY</a>
+<a class="font-label-sm text-label-sm text-on-tertiary-fixed-variant hover:text-primary transition-colors" href="#">ENCRYPTION STANDARDS</a>
+<a class="font-label-sm text-label-sm text-on-tertiary-fixed-variant hover:text-primary transition-colors" href="#">GDPR_COMPLIANCE</a>
+<a class="font-label-sm text-label-sm text-on-tertiary-fixed-variant hover:text-primary transition-colors" href="#">SOURCE_CODE</a>
+<a class="font-label-sm text-label-sm text-primary underline" href="#">CONTACT_SECURE</a>
+</div>
+<div class="text-center md:text-right">
+<p class="font-label-sm text-label-sm text-on-tertiary-fixed-variant">© 2024 HACKEANDO EL SISTEMA. ALL RIGHTS RESERVED.</p>
+<p class="font-label-sm text-label-sm text-system-red">PROTOCOL 84-B ACTIVATED.</p>
+</div>
+</footer>
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-background/90 backdrop-blur border-t border-terminal-gray flex justify-around items-center py-3 z-50">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-label-caps">INICIO</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">terminal</span>
+<span class="text-[10px] font-label-caps">BRECHAS</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined">mail</span>
+<span class="text-[10px] font-label-caps">CONTACTO</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-label-caps">CONFIG</span>
+</button>
+</nav>
+<script>
+        // Micro-interaction: Update coordinates randomly for atmosphere
+        const coordinates = document.querySelector('.group .text-on-surface-variant');
+        if (coordinates) {
+            setInterval(() => {
+                const lat = (40.41 + Math.random() * 0.01).toFixed(4);
+                const lon = (3.70 + Math.random() * 0.01).toFixed(4);
+                coordinates.textContent = `GEO_LOCK: ${lat}° N, ${lon}° W`;
+            }, 3000);
+        }
+
+        // Terminal text typing effect for subheader
+        const textElement = document.querySelector('.max-w-2xl');
+        const originalText = textElement.innerHTML;
+        // In a real app we could animate this, but for static-ish render let's leave it mostly as is for legibility.
+    </script>
+</body></html>
