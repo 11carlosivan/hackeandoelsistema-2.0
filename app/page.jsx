@@ -1,4 +1,8 @@
 import Link from 'next/link';
+import { AdSlot } from '@/components/editorial/ad-slot';
+import { PostCard } from '@/components/editorial/post-card';
+import { SectionHeader } from '@/components/editorial/section-header';
+import { buildHomePayload } from '@/lib/contracts/payload-builders';
 import { resolveRoute } from '@/lib/routing/route-resolver';
 import { metadataFromResolvedRoute } from '@/lib/seo/metadata';
 
@@ -23,6 +27,8 @@ const foundationCards = [
 
 export default function HomePage() {
   const resolvedRoute = resolveRoute('/');
+  const payload = buildHomePayload(resolvedRoute);
+  const heroPost = payload.featuredPosts[0];
 
   return (
     <div className="hes-container py-12">
@@ -69,6 +75,20 @@ export default function HomePage() {
       </aside>
       </section>
 
+      {heroPost ? (
+        <section className="mt-10">
+          <SectionHeader eyebrow="Muestra editorial" title="Portada conectada a contratos de data" />
+          <div className="grid gap-6 lg:grid-cols-[1.5fr_0.8fr]">
+            <PostCard post={heroPost} variant="feature" />
+            <div className="grid gap-6">
+              {payload.latestPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-10 grid gap-4 md:grid-cols-3">
         {foundationCards.map((card) => (
           <article key={card.title} className="border border-terminal-gray bg-surface-container-low p-5">
@@ -77,6 +97,12 @@ export default function HomePage() {
           </article>
         ))}
       </section>
+
+      {payload.adSlots[0] ? (
+        <section className="mt-10">
+          <AdSlot slot={payload.adSlots[0]} />
+        </section>
+      ) : null}
     </div>
   );
 }

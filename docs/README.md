@@ -16,6 +16,7 @@ Esta carpeta organiza la documentacion por area para que arquitectura, frontend,
 - [Auditoria del frontend actual y migracion a Next](frontend/frontend-audit-next-migration.md)
 - [Roadmap para rediseño frontend en Next](frontend/frontend-redesign-roadmap.md)
 - [Brief visual: identidad hacker editorial](frontend/editorial-hacker-design-brief.md)
+- [Editorial design system](frontend/editorial-design-system.md)
 
 ## CMS
 
