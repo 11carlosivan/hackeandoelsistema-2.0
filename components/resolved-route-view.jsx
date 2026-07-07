@@ -1,8 +1,10 @@
 import { jsonLdFromResolvedRoute } from '@/lib/seo/metadata';
+import { buildPayloadForResolvedRoute } from '@/lib/contracts/payload-builders';
 
 export function ResolvedRouteView({ resolvedRoute }) {
   const entity = resolvedRoute.entity;
   const jsonLd = jsonLdFromResolvedRoute(resolvedRoute);
+  const payload = buildPayloadForResolvedRoute(resolvedRoute);
 
   return (
     <div className="hes-container py-12">
@@ -43,6 +45,10 @@ export function ResolvedRouteView({ resolvedRoute }) {
           <dd className="mt-1 text-on-surface-variant">
             {resolvedRoute.includeInSitemap ? 'Incluida' : 'Excluida'}
           </dd>
+        </div>
+        <div>
+          <dt className="font-bold text-white">Payload</dt>
+          <dd className="mt-1 text-on-surface-variant">{payload.route.entityType}</dd>
         </div>
       </dl>
     </div>
