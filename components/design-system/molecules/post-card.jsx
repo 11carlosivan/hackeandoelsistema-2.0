@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { CategoryBadge } from './category-badge';
-import { PostMeta } from './post-meta';
+import { CategoryBadge } from '@/components/design-system/atoms/category-badge';
+import { PostMeta } from '@/components/design-system/atoms/post-meta';
+import { StoryMediaPlaceholder } from '@/components/design-system/atoms/story-media-placeholder';
 
 export function PostCard({ post, variant = 'default' }) {
   const isFeature = variant === 'feature';
@@ -16,9 +17,7 @@ export function PostCard({ post, variant = 'default' }) {
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs font-bold uppercase text-on-surface-variant">
-              Sin imagen
-            </div>
+            <StoryMediaPlaceholder label={post.primaryCategory?.name ?? 'HES'} />
           )}
         </div>
       </Link>

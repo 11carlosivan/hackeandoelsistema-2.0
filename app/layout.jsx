@@ -1,6 +1,6 @@
 import './globals.css';
 import { SiteFooter } from '@/components/site-footer';
-import { SiteHeader } from '@/components/site-header';
+import { PublicHeader } from '@/components/design-system/organisms/public-header';
 import { siteConfig } from '@/lib/site';
 
 export const metadata = {
@@ -32,7 +32,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       <body>
-        <SiteHeader />
+        <PublicHeader />
         <main>{children}</main>
         <SiteFooter />
       </body>

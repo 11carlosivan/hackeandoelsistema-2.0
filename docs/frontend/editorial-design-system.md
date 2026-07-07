@@ -1,34 +1,74 @@
 # Editorial Design System
 
-Esta capa contiene los componentes base del frontend publico. No es el rediseño final de pantallas; es la caja de piezas compartidas para construir Home, articulo, categoria, autor y busqueda con consistencia.
+Esta capa contiene el sistema de diseno del frontend publico. La Home ya no parte de una pantalla blanca basica: usa una composicion editorial oscura, inspirada en el nivel de pulido de la referencia, pero adaptada a la identidad hacker de Hackeando el Sistema.
 
-## Componentes Iniciales
+## Arquitectura Atomic Design
 
 Ubicacion:
 
 ```txt
-components/editorial/
+components/design-system/
+  atoms/
+  molecules/
+  organisms/
+  templates/
 ```
 
-Componentes:
+## Atoms
+
+Piezas indivisibles, sin conocimiento de pagina:
 
 - `CategoryBadge`
+- `IconButton`
+- `NavLink`
 - `PostMeta`
+- `PrimaryButton`
+- `StoryMediaPlaceholder`
+
+## Molecules
+
+Combinan atoms y resuelven patrones editoriales pequenos:
+
+- `AdSlot`
 - `AuthorByline`
+- `CompactStoryCard`
+- `EmptyState`
+- `Pagination`
 - `PostCard`
 - `SectionHeader`
-- `AdSlot`
-- `Pagination`
-- `EmptyState`
 
-## Principios
+## Organisms
 
-- Identidad hacker sobria.
-- Jerarquia editorial clara.
-- Rojo como acento, no como ruido constante.
-- Cards con dimensiones estables.
+Bloques completos de pantalla:
+
+- `BreakingNewsBar`
+- `HomeHeroGrid`
+- `LatestNewsSection`
+- `NetworkCard`
+- `OpinionStrip`
+- `PublicHeader`
+- `TrendingPanel`
+- `WeatherCard`
+
+## Templates
+
+Composiciones de pagina alimentadas por payloads:
+
+- `HomeTemplate`
+
+`app/page.jsx` solo resuelve ruta, arma el payload y delega la UI al template. Esto mantiene SEO/routing separado del diseno visual.
+
+## Principios Visuales
+
+- Fondo oscuro por defecto; no se usa una Home blanca.
+- Jerarquia editorial clara: hero dominante, sidebar de lectura rapida, grilla de ultimas noticias y franja de opinion.
+- Rojo como acento de marca, no como ruido constante.
+- Componentes con dimensiones estables para evitar saltos visuales.
+- Cards con radio bajo, bordes controlados y sombras discretas.
+- Iconografia consistente via `lucide-react`.
+- Placeholders visuales reutilizables cuando una nota migrada todavia no tiene imagen.
 - Ads con espacio reservado para evitar CLS.
-- Componentes alimentados por data contracts.
+- Componentes alimentados por data contracts, no por objetos improvisados.
 - Tests obligatorios para estados principales.
 
 ## Relacion con Contratos
@@ -38,29 +78,21 @@ Los componentes consumen payloads definidos en:
 - `lib/contracts/public-content.js`
 - `lib/contracts/public-content.fixtures.js`
 
-El objetivo es que el rediseño no dependa de objetos improvisados.
+La UI no debe consultar WordPress ni Prisma directamente. El backend/API entrega payloads normalizados y la capa visual solo renderiza.
 
-## Estado Actual
+## Home Actual
 
-La Home temporal ya renderiza:
+La Home publica renderiza:
 
-- `PostCard` feature.
-- listado simple de posts.
-- `SectionHeader`.
-- `AdSlot`.
-
-## Siguientes Componentes
-
-Antes de rediseñar Home completa faltan:
-
-- `BreakingNewsBar`
-- `TrendingList`
-- `NewsletterBlock`
-- `SearchBox`
-- `ShareActions`
-- `ArticleBody`
-- `RelatedPosts`
-- `CmsStatusBadge` para vistas internas posteriores
+- header editorial oscuro con navegacion principal y acciones.
+- barra de ultimas noticias.
+- hero grid con nota principal y stories secundarios.
+- panel de tendencias.
+- clima RD.
+- conversion al Network.
+- grilla de ultimas noticias.
+- opinion destacada.
+- slot publicitario reservado.
 
 ## Tests
 
@@ -70,3 +102,11 @@ Cada componente nuevo debe tener test de:
 - estado vacio si aplica.
 - links importantes.
 - accesibilidad minima cuando aplique.
+
+Comandos:
+
+```bash
+npm test
+npm run build
+npm run lint
+```

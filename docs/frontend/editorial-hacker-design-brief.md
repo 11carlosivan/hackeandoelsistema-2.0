@@ -241,7 +241,7 @@ Reglas:
 
 Antes de diseñar pantallas finales, crear:
 
-- `SiteHeader`.
+- `PublicHeader`.
 - `SiteFooter`.
 - `BreakingNewsBar`.
 - `PostCard`.
