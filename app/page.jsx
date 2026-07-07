@@ -1,4 +1,10 @@
 import Link from 'next/link';
+import { resolveRoute } from '@/lib/routing/route-resolver';
+import { metadataFromResolvedRoute } from '@/lib/seo/metadata';
+
+export function generateMetadata() {
+  return metadataFromResolvedRoute(resolveRoute('/'));
+}
 
 const foundationCards = [
   {
@@ -16,6 +22,8 @@ const foundationCards = [
 ];
 
 export default function HomePage() {
+  const resolvedRoute = resolveRoute('/');
+
   return (
     <div className="hes-container py-12">
       <section className="grid gap-8 border-b border-terminal-gray pb-12 lg:grid-cols-[1.4fr_0.8fr]">
@@ -50,11 +58,15 @@ export default function HomePage() {
               <dd className="text-on-surface-variant">Tailwind con tokens actuales</dd>
             </div>
             <div>
-              <dt className="font-bold text-white">Tests</dt>
-              <dd className="text-on-surface-variant">Vitest + Testing Library</dd>
-            </div>
-          </dl>
-        </aside>
+            <dt className="font-bold text-white">Tests</dt>
+            <dd className="text-on-surface-variant">Vitest + Testing Library</dd>
+          </div>
+          <div>
+            <dt className="font-bold text-white">Route resolver</dt>
+            <dd className="text-on-surface-variant">{resolvedRoute.path}</dd>
+          </div>
+        </dl>
+      </aside>
       </section>
 
       <section className="mt-10 grid gap-4 md:grid-cols-3">
