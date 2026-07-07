@@ -25,7 +25,7 @@ Este es el nuevo frontend para **Hackeando el Sistema Network**, reconstruido en
 El diseño está regido por principios de bordes angulares afilados, rejillas de escaneo tácticas y contrastes de terminales de fósforo.
 
 ### 🟥 Paleta de Colores
-Definida en [tailwind.config.js](file:///c:/Users/carlo/OneDrive/Escritorio/hackeandoelsistema%202.0/tailwind.config.js) para mantener la consistencia cromática:
+Definida en [tailwind.config.js](tailwind.config.js) para mantener la consistencia cromática:
 
 | Color | Hexadecimal | Variable CSS / Tailwind | Propósito / Uso |
 | :--- | :--- | :--- | :--- |
@@ -61,7 +61,7 @@ Importada desde fuentes seguras para recrear la visualización de datos:
 Cada página actualiza dinámicamente sus meta-etiquetas del DOM al ser montada:
 - **Indexación Selectiva**: Pantallas como artículos, planes y categorías se marcan con `INDEX, FOLLOW`. Vistas privadas, resultados de búsqueda y paneles de login fuerzan `NOINDEX, NOFOLLOW`.
 - **Estructura Canonical**: Se inyectan etiquetas `<link rel="canonical" href="...">` para asegurar que el motor de búsqueda no detecte contenido duplicado.
-- **Checklist**: Se incluye un checklist interactivo directamente en el IDE en [MIGRATION_CHECKLIST.md](file:///c:/Users/carlo/OneDrive/Escritorio/hackeandoelsistema%202.0/MIGRATION_CHECKLIST.md) para auditar los 15 puntos de data antes de la delegación final de DNS.
+- **Checklist**: Se incluye un checklist interactivo directamente en el IDE en [MIGRATION_CHECKLIST.md](MIGRATION_CHECKLIST.md) para auditar los 15 puntos de data antes de la delegación final de DNS.
 
 ---
 

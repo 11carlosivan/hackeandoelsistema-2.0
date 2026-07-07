@@ -1,6 +1,6 @@
 # Checklist de Migración y Requisitos de Data (WordPress a Frontend React)
 
-Este documento contiene las listas de verificación para auditar que el nuevo frontend cumple con los requisitos de datos y SEO heredados de WordPress, detallados en [frontend-data-requirements.md](file:///c:/Users/carlo/OneDrive/Escritorio/hackeandoelsistema%202.0/frontend-data-requirements.md). Úsalo directamente en tu IDE para verificar la conformidad de cada pantalla.
+Este documento contiene las listas de verificación para auditar que el nuevo frontend cumple con los requisitos de datos y SEO heredados de WordPress, detallados en [frontend-data-requirements.md](docs/frontend/frontend-data-requirements.md). Úsalo directamente en tu IDE para verificar la conformidad de cada pantalla.
 
 ---
 

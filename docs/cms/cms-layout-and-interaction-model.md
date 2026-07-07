@@ -1,6 +1,6 @@
 # CMS Layout and Interaction Model
 
-Este documento define la estructura funcional del CMS y del portal operativo. No es una guia visual final; es el mapa de layout, navegacion, paneles y patrones de interaccion que deben existir para soportar los flujos definidos en `cms-product-flow-and-screen-map.md`.
+Este documento define la estructura funcional del CMS y del portal operativo. No es una guia visual final; es el mapa de layout, navegacion, paneles y patrones de interaccion que deben existir para soportar los flujos definidos en [cms-product-flow-and-screen-map.md](cms-product-flow-and-screen-map.md).
 
 ## Principios de Layout
 

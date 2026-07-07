@@ -248,8 +248,8 @@ Se resuelven desde `categories.full_path` y `routes`.
 
 La fuente detallada esta en:
 
-- `docs/frontend-data-requirements.md`
-- `docs/hackeando-cms-seo-safe.dbml`
+- `docs/frontend/frontend-data-requirements.md`
+- `docs/architecture/hackeando-cms-seo-safe.dbml`
 
 Resumen minimo:
 
@@ -356,7 +356,7 @@ Evitar:
 
 ### Fase 1: Inventario y Contrato de Data
 
-- Congelar `docs/hackeando-cms-seo-safe.dbml`.
+- Congelar `docs/architecture/hackeando-cms-seo-safe.dbml`.
 - Definir contratos JSON por pantalla.
 - Exportar URLs desde sitemaps, WordPress API y Search Console.
 - Poblar `url_inventory`.

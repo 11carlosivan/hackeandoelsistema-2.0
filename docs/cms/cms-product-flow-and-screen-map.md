@@ -1,6 +1,6 @@
 # CMS Product Flow and Screen Map
 
-Este documento traduce el ERD `hackeando-cms-seo-safe.dbml` a flujos reales de pantallas y funcionalidades. Su objetivo es que frontend, backend y producto entiendan como debe funcionar el sistema completo antes de redisenar o implementar pantallas.
+Este documento traduce el ERD `docs/architecture/hackeando-cms-seo-safe.dbml` a flujos reales de pantallas y funcionalidades. Su objetivo es que frontend, backend y producto entiendan como debe funcionar el sistema completo antes de redisenar o implementar pantallas.
 
 La idea principal: cada pantalla existe porque resuelve un flujo de negocio, editorial, SEO o comercial.
 
