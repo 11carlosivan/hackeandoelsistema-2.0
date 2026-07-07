@@ -1,8 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: "class",
   theme: {
@@ -91,8 +92,8 @@ export default {
         "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
         "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "400" }],
         "headline-lg": ["48px", { "lineHeight": "1.1", "fontWeight": "400" }],
-        "headline-xl": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }],
-        "label-caps": ["12px", { "lineHeight": "1.0", "letterSpacing": "0.1em", "fontWeight": "700" }]
+        "headline-xl": ["72px", { "lineHeight": "1.1", "letterSpacing": "0", "fontWeight": "400" }],
+        "label-caps": ["12px", { "lineHeight": "1.0", "letterSpacing": "0", "fontWeight": "700" }]
       }
     },
   },

@@ -6,6 +6,7 @@ Esta carpeta organiza la documentacion por area para que arquitectura, frontend,
 
 - [SEO-safe CMS/PostgreSQL ERD](architecture/hackeando-cms-seo-safe.dbml)
 - [Versionamiento y ramas](architecture/versioning-and-branching.md)
+- [Testing strategy](architecture/testing-strategy.md)
 
 ## Frontend
 
