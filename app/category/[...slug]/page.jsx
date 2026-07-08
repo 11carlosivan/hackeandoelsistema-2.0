@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import { ResolvedRouteView } from '@/components/resolved-route-view';
+import { CategoryTemplate } from '@/components/design-system/templates/category-template';
+import { buildCategoryPagePayload } from '@/lib/contracts/payload-builders';
 import { pathFromSegments, resolveRoute } from '@/lib/routing/route-resolver';
 import { metadataFromResolvedRoute } from '@/lib/seo/metadata';
 
@@ -22,5 +23,5 @@ export default async function CategoryPage({ params }) {
     notFound();
   }
 
-  return <ResolvedRouteView resolvedRoute={resolvedRoute} />;
+  return <CategoryTemplate payload={buildCategoryPagePayload(resolvedRoute)} />;
 }
