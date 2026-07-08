@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import Layout from '@/components/main-design/layout';
 import { EmptyState } from '@/components/main-design/content-primitives';
+import { buildMetadata } from '@/lib/main-design/seo';
+
+export const metadata = buildMetadata({
+  title: '404',
+  description: 'Ruta no encontrada en Hackeando el Sistema.',
+  path: '/404',
+  noIndex: true,
+});
 
 export default function NotFound() {
   return (

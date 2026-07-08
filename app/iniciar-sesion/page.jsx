@@ -1,12 +1,13 @@
 import Layout from '@/components/main-design/layout';
 import TerminalPage from '@/components/main-design/terminal-page';
+import { buildMetadata } from '@/lib/main-design/seo';
 
-export const metadata = {
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+export const metadata = buildMetadata({
+  title: 'Iniciar sesion',
+  description: 'Acceso de usuarios y editores de Hackeando el Sistema.',
+  path: '/iniciar-sesion',
+  noIndex: true,
+});
 
 export default function Page() {
   return (
