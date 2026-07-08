@@ -10,6 +10,7 @@ import { BreakingNewsBar } from '@/components/design-system/organisms/breaking-n
 import { NetworkCard } from '@/components/design-system/organisms/network-card';
 import { TrendingPanel } from '@/components/design-system/organisms/trending-panel';
 import { WeatherCard } from '@/components/design-system/organisms/weather-card';
+import { siteConfig } from '@/lib/site';
 
 function formatLastmod(value) {
   if (!value) {
@@ -120,22 +121,65 @@ export function CategoryTemplate({ payload }) {
   const remainingPosts = posts.slice(1);
   const lastmod = formatLastmod(route.lastmodAt);
   const categoryName = category.name;
+  const categoryNav = siteConfig.mainNav.filter((item) => item.href.startsWith('/category/'));
+  const activeCategoryNav = categoryNav.find((item) => item.href === category.url);
+  const orderedCategoryNav = activeCategoryNav
+    ? [activeCategoryNav, ...categoryNav.filter((item) => item.href !== category.url)]
+    : categoryNav;
 
   return (
     <div className="bg-background">
       {posts.length > 0 ? <BreakingNewsBar items={posts.slice(0, 3)} /> : null}
 
       <section className="border-b border-terminal-gray bg-[linear-gradient(135deg,#080808_0%,#141414_52%,#26070b_100%)]">
-        <div className="hes-container py-8 md:py-12">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-            <div>
-              <p className="hes-kicker">Categoria</p>
-              <h1 className="mt-3 text-5xl font-black uppercase leading-none text-white md:text-7xl">{categoryName}</h1>
-              {category.description ? (
-                <p className="mt-5 max-w-3xl text-base leading-7 text-on-surface-variant md:text-lg">
-                  {category.description}
-                </p>
-              ) : null}
+        <div className="hes-container py-5 md:py-7">
+          <nav className="hes-scrollbar-none mb-5 flex gap-2 overflow-x-auto" aria-label="Categorias">
+            {orderedCategoryNav.map((item) => {
+              const active = item.href === category.url;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`shrink-0 rounded-full border px-4 py-2 text-[11px] font-black uppercase transition ${
+                    active
+                      ? 'border-system-red bg-system-red text-black'
+                      : 'border-terminal-gray bg-black/25 text-on-surface-variant hover:border-system-red hover:text-white'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch">
+            <div className="relative overflow-hidden rounded-md border border-terminal-gray bg-black/25 p-5 md:p-7">
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:34px_34px]" />
+              <div className="absolute bottom-0 right-0 h-20 w-20 border-l border-t border-system-red/25" />
+              <div className="relative">
+                <p className="hes-kicker">Categoria</p>
+                <h1 className="mt-3 text-4xl font-black uppercase leading-none text-white md:text-6xl lg:text-7xl">{categoryName}</h1>
+                {category.description ? (
+                  <p className="mt-4 max-w-3xl text-base leading-7 text-on-surface-variant md:text-lg">
+                    {category.description}
+                  </p>
+                ) : null}
+                {leadPost ? (
+                  <Link
+                    href={leadPost.url}
+                    className="mt-5 grid gap-2 border-t border-terminal-gray pt-4 text-sm font-bold text-white hover:text-system-red sm:grid-cols-[120px_minmax(0,1fr)] sm:items-center"
+                  >
+                    <span className="text-[10px] font-black uppercase text-system-red">En portada</span>
+                    <span className="line-clamp-1">{leadPost.title}</span>
+                  </Link>
+                ) : (
+                  <div className="mt-5 border-t border-terminal-gray pt-4">
+                    <p className="text-[10px] font-black uppercase text-system-red">Estado</p>
+                    <p className="mt-1 text-sm font-bold text-white">Lista para recibir contenido desde el CMS.</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">

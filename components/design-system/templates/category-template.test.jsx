@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { categoryPagePayloadFixture } from '@/lib/contracts/public-content.fixtures';
 import { CategoryTemplate } from './category-template';
@@ -12,6 +12,7 @@ describe('CategoryTemplate', () => {
     expect(screen.getByText(/historia principal/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /radar de categoria/i })).toBeInTheDocument();
     expect(screen.getByText(/publicaciones/i)).toBeInTheDocument();
+    expect(within(screen.getByRole('navigation', { name: /categorias/i })).getAllByRole('link')[0]).toHaveTextContent(/nacional/i);
   });
 
   it('renders an empty state when the category has no posts', () => {
