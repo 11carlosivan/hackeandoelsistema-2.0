@@ -7,7 +7,7 @@ export function PostCard({ post, variant = 'default' }) {
   const isFeature = variant === 'feature';
 
   return (
-    <article className="group grid h-full overflow-hidden border border-terminal-gray bg-surface-container-low transition-colors hover:border-system-red">
+    <article className="group grid h-full overflow-hidden rounded-md border border-terminal-gray bg-surface-container-low shadow-[0_14px_32px_rgba(0,0,0,0.18)] transition-colors hover:border-system-red">
       <Link href={post.url} className="block">
         <div className={isFeature ? 'aspect-[16/9] overflow-hidden bg-surface-container' : 'aspect-[16/10] overflow-hidden bg-surface-container'}>
           {post.featuredImage?.url ? (
@@ -28,7 +28,7 @@ export function PostCard({ post, variant = 'default' }) {
           {post.isBreaking ? <span className="text-[11px] font-black uppercase text-system-red">Ultima hora</span> : null}
         </div>
 
-        <h3 className={isFeature ? 'text-3xl font-black leading-tight text-white' : 'text-lg font-black leading-snug text-white'}>
+        <h3 className={isFeature ? 'text-3xl font-black leading-tight text-white' : 'line-clamp-3 text-base font-black leading-snug text-white'}>
           <Link href={post.url} className="hover:text-system-red">
             {post.title}
           </Link>

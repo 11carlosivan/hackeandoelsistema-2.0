@@ -17,15 +17,15 @@ export function HomeTemplate({ payload }) {
     <div className="bg-background">
       <BreakingNewsBar items={payload.latestPosts.slice(0, 3)} />
 
-      <div className="hes-container py-6">
-        <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-          <div className="space-y-5">
+      <div className="hes-container py-5">
+        <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 space-y-4">
             <HomeHeroGrid heroPost={heroPost} secondaryPosts={secondaryPosts} />
             <LatestNewsSection posts={payload.latestPosts} />
             <OpinionStrip posts={fallbackOpinion} />
           </div>
 
-          <aside className="space-y-5">
+          <aside className="min-w-0 space-y-4">
             <TrendingPanel posts={payload.trendingPosts} />
             <WeatherCard />
             <NetworkCard />

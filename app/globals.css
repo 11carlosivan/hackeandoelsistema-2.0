@@ -48,8 +48,22 @@ select {
 }
 
 .hes-container {
-  width: min(1280px, calc(100vw - 32px));
+  width: min(1500px, calc(100vw - 72px));
   margin-inline: auto;
+}
+
+@media (max-width: 767px) {
+  .hes-container {
+    width: min(100vw - 32px, 1500px);
+  }
+}
+
+.hes-scrollbar-none {
+  scrollbar-width: none;
+}
+
+.hes-scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 .hes-kicker {

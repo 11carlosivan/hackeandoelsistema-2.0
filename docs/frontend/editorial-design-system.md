@@ -33,6 +33,8 @@ Combinan atoms y resuelven patrones editoriales pequenos:
 - `AuthorByline`
 - `CompactStoryCard`
 - `EmptyState`
+- `CategoryFilterBar`
+- `NavMoreMenu`
 - `Pagination`
 - `PostCard`
 - `SectionHeader`
@@ -85,12 +87,14 @@ La UI no debe consultar WordPress ni Prisma directamente. El backend/API entrega
 La Home publica renderiza:
 
 - header editorial oscuro con navegacion principal y acciones.
+- menu `Mas` para categorias secundarias en desktop.
 - barra de ultimas noticias.
 - hero grid con nota principal y stories secundarios.
 - panel de tendencias.
 - clima RD.
 - conversion al Network.
 - grilla de ultimas noticias.
+- filtros de categoria compactos con scroll horizontal limpio cuando no caben.
 - opinion destacada.
 - slot publicitario reservado.
 

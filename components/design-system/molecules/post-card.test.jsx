@@ -8,7 +8,7 @@ describe('PostCard', () => {
     render(<PostCard post={postSummaryFixture} />);
 
     expect(screen.getByRole('heading', { name: postSummaryFixture.title })).toBeInTheDocument();
-    expect(screen.getByText('Nacionales')).toBeInTheDocument();
+    expect(screen.getByText('Nacional')).toBeInTheDocument();
     expect(screen.getByText('Melvin Sena')).toBeInTheDocument();
   });
 
