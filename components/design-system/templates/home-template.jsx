@@ -17,7 +17,9 @@ export function HomeTemplate({ payload }) {
   return (
     <div className="bg-background">
       <BreakingNewsBar items={payload.latestPosts.slice(0, 3)} />
-      <EditorialSignalStrip />
+      <div className="hidden md:block">
+        <EditorialSignalStrip />
+      </div>
 
       <div className="hes-container py-5">
         <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -29,6 +31,9 @@ export function HomeTemplate({ payload }) {
 
           <aside className="min-w-0 space-y-4">
             <TrendingPanel posts={payload.trendingPosts} />
+            <div className="md:hidden">
+              <EditorialSignalStrip contained={false} />
+            </div>
             <WeatherCard />
             <NetworkCard />
             {payload.adSlots[0] ? <AdSlot slot={payload.adSlots[0]} /> : null}
