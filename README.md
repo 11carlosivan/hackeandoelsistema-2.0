@@ -1,6 +1,6 @@
 # Hackeando el Sistema 2.0 — Consola Frontend Network
 
-Este es el nuevo frontend para **Hackeando el Sistema Network**, reconstruido en una Single Page Application (SPA) ultra veloz utilizando **React + Vite** y **TailwindCSS**. La interfaz hereda una estética de terminal de ciber-inteligencia y seguridad informática (estilo cyberpunk), optimizada para suplantar el antiguo sistema de WordPress sin perder estructura editorial ni posicionamiento SEO.
+Este es el nuevo frontend para **Hackeando el Sistema Network**, migrado a **Next.js + React + TailwindCSS** manteniendo la estetica de terminal de ciber-inteligencia aprobada por el cliente. La meta es reemplazar WordPress sin perder estructura editorial, rutas indexables ni posicionamiento SEO.
 
 ---
 

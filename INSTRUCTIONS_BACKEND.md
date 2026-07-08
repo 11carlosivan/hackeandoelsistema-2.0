@@ -3,7 +3,7 @@
 
 Este documento sirve como guía para el desarrollador de backend y base de datos. Detalla las rutas de API esperadas, los modelos de datos sugeridos y el flujo de integración para conectar este frontend de React con el backend definitivo.
 
-Actualmente, el frontend utiliza datos simulados centralizados en `src/data/mockData.js`. La integración se puede realizar reemplazando las importaciones de ese archivo con llamadas `fetch` o `axios` a los endpoints detallados a continuación.
+Actualmente, el frontend utiliza datos simulados centralizados en `lib/main-design/mock-data.js`. La integracion se puede realizar reemplazando las importaciones de ese archivo con llamadas `fetch` a los endpoints detallados a continuacion.
 
 ---
 
@@ -124,14 +124,14 @@ Actualmente, el frontend utiliza datos simulados centralizados en `src/data/mock
 
 ---
 
-## 3. Ejemplo de Integración en React (Frontend)
+## 3. Ejemplo de Integración en Next (Frontend)
 
-Para conectar las llamadas dinámicas, puedes crear un servicio de API simple (`src/services/api.js`):
+Para conectar las llamadas dinámicas, puedes crear un servicio de API simple (`lib/api/client.js`) o usar Route Handlers en `app/api/*` cuando aplique:
 
 ```javascript
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const getArticles = async (category = '') => {
   const url = category ? `${API_BASE}/articles?category=${category}` : `${API_BASE}/articles`;
