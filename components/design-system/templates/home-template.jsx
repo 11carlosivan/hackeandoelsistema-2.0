@@ -1,5 +1,6 @@
 import { AdSlot } from '@/components/design-system/molecules/ad-slot';
 import { BreakingNewsBar } from '@/components/design-system/organisms/breaking-news-bar';
+import { EditorialSignalStrip } from '@/components/design-system/organisms/editorial-signal-strip';
 import { HomeHeroGrid } from '@/components/design-system/organisms/home-hero-grid';
 import { LatestNewsSection } from '@/components/design-system/organisms/latest-news-section';
 import { NetworkCard } from '@/components/design-system/organisms/network-card';
@@ -16,6 +17,7 @@ export function HomeTemplate({ payload }) {
   return (
     <div className="bg-background">
       <BreakingNewsBar items={payload.latestPosts.slice(0, 3)} />
+      <EditorialSignalStrip />
 
       <div className="hes-container py-5">
         <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">

@@ -44,6 +44,7 @@ Combinan atoms y resuelven patrones editoriales pequenos:
 Bloques completos de pantalla:
 
 - `BreakingNewsBar`
+- `EditorialSignalStrip`
 - `HomeHeroGrid`
 - `LatestNewsSection`
 - `NetworkCard`
@@ -89,6 +90,7 @@ La Home publica renderiza:
 - header editorial oscuro con navegacion principal y acciones.
 - menu `Mas` para categorias secundarias en desktop.
 - barra de ultimas noticias.
+- franja de senales editoriales para pulso politico, economia, clima y network.
 - hero grid con nota principal y stories secundarios.
 - panel de tendencias.
 - clima RD.

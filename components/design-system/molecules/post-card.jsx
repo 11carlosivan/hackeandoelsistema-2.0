@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import { CategoryBadge } from '@/components/design-system/atoms/category-badge';
 import { PostMeta } from '@/components/design-system/atoms/post-meta';
 import { StoryMediaPlaceholder } from '@/components/design-system/atoms/story-media-placeholder';
@@ -22,7 +23,7 @@ export function PostCard({ post, variant = 'default' }) {
         </div>
       </Link>
 
-      <div className={isFeature ? 'p-6' : 'p-4'}>
+      <div className={`flex h-full flex-col ${isFeature ? 'p-6' : 'p-4'}`}>
         <div className="mb-3 flex items-center gap-2">
           <CategoryBadge category={post.primaryCategory} />
           {post.isBreaking ? <span className="text-[11px] font-black uppercase text-system-red">Ultima hora</span> : null}
@@ -40,8 +41,15 @@ export function PostCard({ post, variant = 'default' }) {
           </p>
         ) : null}
 
-        <div className="mt-5">
+        <div className="mt-auto pt-5">
           <PostMeta post={post} />
+          <Link
+            href={post.url}
+            className="mt-4 inline-flex items-center gap-2 border-t border-terminal-gray pt-3 text-xs font-black uppercase text-system-red transition group-hover:text-white"
+          >
+            Leer analisis
+            <ArrowUpRight size={14} strokeWidth={2.5} aria-hidden="true" />
+          </Link>
         </div>
       </div>
     </article>
