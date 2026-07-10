@@ -7,9 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "oxlint app components lib test",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:format": "prisma format --schema=prisma/schema.prisma",
+    "db:validate": "prisma validate --schema=prisma/schema.prisma",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -23,6 +28,7 @@
     "jsdom": "^29.1.1",
     "oxlint": "^1.71.0",
     "postcss": "^8.5.10",
+    "prisma": "^6.19.3",
     "tailwindcss": "^3.4.17",
     "vitest": "^4.1.10"
   },
