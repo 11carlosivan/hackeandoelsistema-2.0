@@ -1,0 +1,42 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+function getApiBaseUrl() {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:4000`;
+}
+
+export default function CmsSessionActions() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const logout = async () => {
+    setLoading(true);
+
+    try {
+      await fetch(`${getApiBaseUrl()}/api/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } finally {
+      router.push('/iniciar-sesion');
+      router.refresh();
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={logout}
+      disabled={loading}
+      className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? 'Cerrando...' : 'Salir'}
+    </button>
+  );
+}

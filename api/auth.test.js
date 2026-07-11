@@ -1,0 +1,277 @@
+// @vitest-environment node
+
+import { describe, expect, it } from 'vitest';
+import { buildApp } from './app.js';
+import { hashPassword } from './services/auth.js';
+
+function createAuthUser(passwordHash, overrides = {}) {
+  return {
+    id: '11111111-1111-4111-8111-111111111111',
+    email: 'admin@example.com',
+    passwordHash,
+    displayName: 'Admin',
+    username: 'admin',
+    status: 'ACTIVE',
+    failedLoginCount: 0,
+    lockedUntil: null,
+    roles: [
+      {
+        role: {
+          name: 'ADMIN',
+          permissions: [
+            { permission: { permissionKey: 'cms:read' } },
+            { permission: { permissionKey: 'users:manage' } },
+          ],
+        },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function createPrismaStub(user) {
+  const sessions = new Map();
+
+  return {
+    $queryRaw: async () => [{ '?column?': 1 }],
+    $disconnect: async () => undefined,
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.email === user.email || where.id === user.id) return user;
+        return null;
+      },
+      update: async () => user,
+    },
+    userSession: {
+      create: async ({ data }) => {
+        const session = { id: `session-${sessions.size + 1}`, ...data, user };
+        sessions.set(data.refreshTokenHash, session);
+        return session;
+      },
+      findFirst: async ({ where }) => {
+        const session = sessions.get(where.refreshTokenHash);
+
+        if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
+        return session;
+      },
+      update: async ({ where, data }) => {
+        for (const [hash, session] of sessions.entries()) {
+          if (session.id === where.id) {
+            sessions.set(hash, { ...session, ...data });
+            return sessions.get(hash);
+          }
+        }
+
+        return null;
+      },
+      updateMany: async () => ({ count: 1 }),
+    },
+    securityEvent: {
+      create: async ({ data }) => ({ id: `event-${data.eventType}`, ...data }),
+    },
+    product: {
+      count: async () => 0,
+    },
+    webStory: {
+      count: async () => 0,
+    },
+    category: {
+      findMany: async () => [],
+    },
+    post: {
+      findMany: async () => [],
+      count: async () => 0,
+      findFirst: async () => null,
+    },
+    page: {
+      findFirst: async () => null,
+      count: async () => 0,
+    },
+    route: {
+      findUnique: async () => null,
+      count: async () => 0,
+      findMany: async () => [],
+    },
+    redirect: {
+      findFirst: async () => null,
+    },
+    importRun: {
+      findFirst: async () => null,
+    },
+    tag: {
+      count: async () => 0,
+    },
+  };
+}
+
+const testEnv = {
+  NODE_ENV: 'test',
+  API_HOST: '127.0.0.1',
+  API_PORT: 4000,
+  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test?schema=public',
+  WEB_ORIGIN: 'http://127.0.0.1:3000',
+  RATE_LIMIT_MAX: 120,
+  RATE_LIMIT_WINDOW: '1 minute',
+  AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
+  AUTH_ACCESS_TOKEN_TTL_SECONDS: 900,
+    AUTH_REFRESH_TOKEN_TTL_DAYS: 30,
+    AUTH_COOKIE_SECURE: false,
+    AUTH_MAX_LOGIN_ATTEMPTS: 5,
+    AUTH_LOCKOUT_MINUTES: 15,
+    corsOrigins: ['http://127.0.0.1:3000'],
+    isProduction: false,
+};
+
+describe('auth routes', () => {
+  it('logs in with valid credentials and returns sanitized user data', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'ADMIN@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.user).toMatchObject({
+      email: 'admin@example.com',
+      roles: ['ADMIN'],
+    });
+    expect(response.json().data.user.passwordHash).toBeUndefined();
+    expect(response.json().data.accessToken).toBeTruthy();
+    expect(response.json().data.refreshToken).toBeTruthy();
+    expect(response.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('hes_access_token='),
+        expect.stringContaining('hes_refresh_token='),
+      ]),
+    );
+  });
+
+  it('rejects invalid credentials', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'WrongHorse123!',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('rejects locked users even when the password is correct', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'), {
+      failedLoginCount: 5,
+      lockedUntil: new Date(Date.now() + 10 * 60 * 1000),
+    });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('protects /me with bearer auth', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+    const token = login.json().data.accessToken;
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(me.statusCode).toBe(200);
+    expect(me.json().data.user.roles).toContain('ADMIN');
+  });
+
+  it('logs out using the http-only refresh cookie', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+    const refreshCookie = login.headers['set-cookie']
+      .find((cookie) => cookie.startsWith('hes_refresh_token='))
+      .split(';')[0];
+    const logout = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      headers: {
+        cookie: refreshCookie,
+      },
+    });
+
+    await app.close();
+
+    expect(logout.statusCode).toBe(200);
+    expect(logout.json().data.ok).toBe(true);
+    expect(logout.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('hes_access_token=;'),
+        expect.stringContaining('hes_refresh_token=;'),
+      ]),
+    );
+  });
+});

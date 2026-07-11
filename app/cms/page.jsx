@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import Layout from '@/components/main-design/layout';
 import CmsDashboard from '@/components/main-design/cms-dashboard';
 import { getCmsSummary } from '@/lib/main-design/api';
@@ -11,7 +12,9 @@ export const metadata = buildMetadata({
 });
 
 export default async function Page() {
-  const summary = await getCmsSummary();
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get('hes_access_token')?.value;
+  const summary = await getCmsSummary(accessToken);
 
   return (
     <Layout>

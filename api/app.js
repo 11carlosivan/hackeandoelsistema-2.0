@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { loadEnv } from './config/env.js';
 import { getPrismaClient } from './db/prisma.js';
+import { registerAuthPlugin } from './plugins/auth.js';
 import { registerSecurityPlugins } from './plugins/security.js';
 import { registerRoutes } from './routes/index.js';
 
@@ -43,6 +44,7 @@ export async function buildApp(options = {}) {
   });
 
   await registerSecurityPlugins(app, env);
+  await app.register(registerAuthPlugin);
   await registerRoutes(app);
 
   return app;

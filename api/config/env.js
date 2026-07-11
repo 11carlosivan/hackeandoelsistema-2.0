@@ -1,6 +1,14 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+const booleanEnv = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+
+  if (value.toLowerCase() === 'true') return true;
+  if (value.toLowerCase() === 'false') return false;
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
@@ -10,6 +18,12 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
+  AUTH_JWT_SECRET: z.string().min(32, 'AUTH_JWT_SECRET must be at least 32 characters'),
+  AUTH_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  AUTH_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  AUTH_COOKIE_SECURE: booleanEnv.default(true),
+  AUTH_MAX_LOGIN_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
+  AUTH_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
 });
 
 export function loadEnv(overrides = {}) {

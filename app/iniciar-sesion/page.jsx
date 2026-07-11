@@ -1,5 +1,5 @@
 import Layout from '@/components/main-design/layout';
-import TerminalPage from '@/components/main-design/terminal-page';
+import LoginForm from '@/components/main-design/login-form';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export const metadata = buildMetadata({
@@ -12,7 +12,7 @@ export const metadata = buildMetadata({
 export default function Page() {
   return (
     <Layout>
-      <TerminalPage variant="login" />
+      <LoginForm />
     </Layout>
   );
 }

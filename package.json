@@ -18,7 +18,8 @@
     "wp:import:dry-run": "node scripts/wordpress/import-dry-run.mjs",
     "wp:import:dry-run:local": "node scripts/wordpress/import-dry-run.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
     "wp:import:core": "node scripts/wordpress/import-core.mjs",
-    "wp:import:core:local": "node scripts/wordpress/import-core.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql"
+    "wp:import:core:local": "node scripts/wordpress/import-core.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
+    "auth:seed-admin": "node scripts/auth/seed-admin.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
@@ -26,8 +27,10 @@
     "@fastify/rate-limit": "^11.1.0",
     "@fastify/sensible": "^6.0.4",
     "@prisma/client": "^6.19.3",
+    "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
     "fastify": "^5.10.0",
+    "jose": "^6.2.3",
     "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
