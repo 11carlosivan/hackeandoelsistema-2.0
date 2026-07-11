@@ -132,6 +132,49 @@ entityType=POST
 
 Devuelve acciones auditadas con actor, entidad, metadata y fecha. Sirve para verificar cambios editoriales, SEO y workflow.
 
+### `GET /api/v1/cms/comments`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/comentarios`.
+
+Query params:
+
+```http
+page=1
+limit=20
+status=PENDING
+q=autor-o-texto
+```
+
+Estados aceptados:
+
+```text
+PENDING, APPROVED, SPAM, TRASHED
+```
+
+Devuelve comentarios protegidos con autor, email, fecha, estado, publicacion relacionada y metadata de paginacion. La busqueda filtra por contenido, autor y correo.
+
+### `PATCH /api/v1/cms/comments/:id/status`
+
+Requiere permiso `posts:manage`.
+
+Actualiza el estado de moderacion:
+
+```json
+{
+  "status": "APPROVED"
+}
+```
+
+Estados aceptados:
+
+```text
+PENDING, APPROVED, SPAM, TRASHED
+```
+
+Cada cambio recalcula `post.commentCount` usando solo comentarios aprobados y registra auditoria `COMMENT_STATUS_UPDATED`.
+
 ### `GET /api/v1/cms/posts`
 
 Requiere permiso `cms:read`.
@@ -281,6 +324,14 @@ Invoke-RestMethod -Uri "http://localhost:4000/api/v1/auth/me" -Headers @{ Author
 Invoke-RestMethod -Uri "http://localhost:4000/api/v1/auth/admin-check" -Headers @{ Authorization = "Bearer $token" }
 Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/summary" -Headers @{ Authorization = "Bearer $token" }
 Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/audit-logs?page=1&limit=5" -Headers @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/comments?page=1&limit=5" -Headers @{ Authorization = "Bearer $token" }
+$firstComment = (Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/comments?page=1&limit=1" -Headers @{ Authorization = "Bearer $token" }).data[0]
+if ($firstComment) {
+  $oldStatus = $firstComment.status
+  $nextStatus = if ($oldStatus -eq 'APPROVED') { 'PENDING' } else { 'APPROVED' }
+  Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/comments/$($firstComment.id)/status" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body (@{ status=$nextStatus } | ConvertTo-Json)
+  Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/comments/$($firstComment.id)/status" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body (@{ status=$oldStatus } | ConvertTo-Json)
+}
 Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/posts?status=PUBLISHED&page=1&limit=5" -Headers @{ Authorization = "Bearer $token" }
 $draftPayload = @{ title='Borrador de prueba'; excerpt='Resumen'; contentText='Texto plano' } | ConvertTo-Json
 $draft = Invoke-RestMethod -Method Post -Uri "http://localhost:4000/api/v1/cms/posts" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body $draftPayload

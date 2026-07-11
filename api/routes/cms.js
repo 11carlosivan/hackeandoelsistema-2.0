@@ -16,8 +16,20 @@ const auditLogsQuerySchema = z.object({
   action: z.string().trim().min(1).max(160).optional(),
   entityType: z.string().trim().min(1).max(120).optional(),
 });
+const commentsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  status: z.enum(['PENDING', 'APPROVED', 'SPAM', 'TRASHED']).optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+});
 const postParamsSchema = z.object({
   id: z.uuid(),
+});
+const commentParamsSchema = z.object({
+  id: z.uuid(),
+});
+const commentStatusSchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'SPAM', 'TRASHED']),
 });
 const postCreateSchema = z.object({
   title: z.string().trim().min(3).max(255),
@@ -140,6 +152,35 @@ function normalizeCmsPost(post) {
           name: primaryCategory.name,
           slug: primaryCategory.slug,
           fullPath: primaryCategory.fullPath,
+        }
+      : null,
+  };
+}
+
+function normalizeCmsComment(comment) {
+  return {
+    id: comment.id,
+    body: comment.body,
+    status: comment.status,
+    authorName: comment.authorName,
+    authorEmail: comment.authorEmail,
+    legacyWordpressId: comment.legacyWordpressId,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    post: comment.post
+      ? {
+          id: comment.post.id,
+          title: comment.post.title,
+          slug: comment.post.slug,
+          status: comment.post.status,
+        }
+      : null,
+    user: comment.user
+      ? {
+          id: comment.user.id,
+          email: comment.user.email,
+          username: comment.user.username,
+          displayName: comment.user.displayName,
         }
       : null,
   };
@@ -365,6 +406,164 @@ export async function registerCmsRoutes(app) {
       },
     };
   });
+
+  app.get('/api/v1/cms/comments', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = commentsQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS comments query');
+    }
+
+    noStoreHeaders(reply);
+
+    const { page, limit, status, q } = parsed.data;
+    const where = {
+      ...(status ? { status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { body: { contains: q, mode: 'insensitive' } },
+              { authorName: { contains: q, mode: 'insensitive' } },
+              { authorEmail: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.comment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          post: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              status: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+        },
+      }),
+      app.prisma.comment.count({ where }),
+    ]);
+
+    return {
+      data: items.map(normalizeCmsComment),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        filters: {
+          q: q || null,
+          status: status || null,
+        },
+      },
+    };
+  });
+
+  app.patch(
+    '/api/v1/cms/comments/:id/status',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request, reply) => {
+      const params = commentParamsSchema.safeParse(request.params);
+      const body = commentStatusSchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        throw app.httpErrors.badRequest('Invalid CMS comment status payload');
+      }
+
+      noStoreHeaders(reply);
+
+      const { id } = params.data;
+      const existingComment = await app.prisma.comment.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          postId: true,
+          status: true,
+        },
+      });
+
+      if (!existingComment) {
+        throw app.httpErrors.notFound('CMS comment not found');
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const comment = await tx.comment.update({
+          where: { id },
+          data: {
+            status: body.data.status,
+          },
+          include: {
+            post: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                status: true,
+              },
+            },
+            user: {
+              select: {
+                id: true,
+                email: true,
+                username: true,
+                displayName: true,
+              },
+            },
+          },
+        });
+        const approvedCount = await tx.comment.count({
+          where: {
+            postId: existingComment.postId,
+            status: 'APPROVED',
+          },
+        });
+
+        await tx.post.update({
+          where: {
+            id: existingComment.postId,
+          },
+          data: {
+            commentCount: approvedCount,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: request.auth.user.id,
+            action: 'COMMENT_STATUS_UPDATED',
+            entityType: 'COMMENT',
+            entityId: id,
+            metadata: {
+              postId: existingComment.postId,
+              from: existingComment.status,
+              to: body.data.status,
+            },
+          },
+        });
+
+        return { comment, approvedCount };
+      });
+
+      return {
+        data: {
+          comment: normalizeCmsComment(result.comment),
+          approvedCount: result.approvedCount,
+        },
+      };
+    },
+  );
 
   app.get('/api/v1/cms/posts', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
     const parsed = postsQuerySchema.safeParse(request.query);

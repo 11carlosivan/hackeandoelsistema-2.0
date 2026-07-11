@@ -63,6 +63,25 @@ function createPrismaStub(user, options = {}) {
     categories: [],
     tags: [],
   };
+  const comment = {
+    id: '44444444-4444-4444-8444-444444444444',
+    postId: post.id,
+    userId: null,
+    authorName: 'Visitante',
+    authorEmail: 'visitante@example.com',
+    body: 'Comentario pendiente',
+    status: 'PENDING',
+    legacyWordpressId: 10,
+    createdAt: new Date('2026-01-04T00:00:00Z'),
+    updatedAt: new Date('2026-01-04T00:00:00Z'),
+    post: {
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      status: post.status,
+    },
+    user: null,
+  };
 
   const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
@@ -135,7 +154,16 @@ function createPrismaStub(user, options = {}) {
     category: { count },
     tag: { count },
     userSession: { count },
-    comment: { count },
+    comment: {
+      count,
+      findMany: async () => [comment],
+      findUnique: async ({ where }) => (where.id === comment.id ? comment : null),
+      update: async ({ data }) => ({
+        ...comment,
+        ...data,
+        updatedAt: new Date('2026-01-05T00:00:00Z'),
+      }),
+    },
     mediaAsset: { count },
     importRun: {
       findFirst: async () => ({
@@ -353,6 +381,74 @@ describe('cms routes', () => {
         entityType: 'POST',
       },
     });
+  });
+
+  it('returns protected comments with filters and pagination metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/comments?status=PENDING&q=pendiente&page=1&limit=10',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data[0]).toMatchObject({
+      body: 'Comentario pendiente',
+      status: 'PENDING',
+      post: {
+        title: 'Sample Post',
+      },
+    });
+    expect(response.json().meta).toMatchObject({
+      page: 1,
+      limit: 10,
+      total: 1,
+      filters: {
+        q: 'pendiente',
+        status: 'PENDING',
+      },
+    });
+  });
+
+  it('updates comment moderation status and returns approved count', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/comments/44444444-4444-4444-8444-444444444444/status',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        status: 'APPROVED',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.comment).toMatchObject({
+      id: '44444444-4444-4444-8444-444444444444',
+      status: 'APPROVED',
+    });
+    expect(response.json().data.approvedCount).toBe(1);
   });
 
   it('creates a draft CMS post without exposing it to the sitemap', async () => {

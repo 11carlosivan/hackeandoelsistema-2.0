@@ -37,6 +37,12 @@ export default function CmsDashboard({ summary }) {
       <div className="flex justify-end mb-8">
         <div className="flex flex-wrap gap-3">
           <Link
+            href="/cms/comentarios"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
+          >
+            Comentarios
+          </Link>
+          <Link
             href="/cms/auditoria"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >
