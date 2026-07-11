@@ -14,7 +14,9 @@
     "db:generate": "prisma generate --schema=prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
     "wp:inspect": "node scripts/wordpress/inspect-dump.mjs",
-    "wp:inspect:local": "node scripts/wordpress/inspect-dump.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql"
+    "wp:inspect:local": "node scripts/wordpress/inspect-dump.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
+    "wp:import:dry-run": "node scripts/wordpress/import-dry-run.mjs",
+    "wp:import:dry-run:local": "node scripts/wordpress/import-dry-run.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
