@@ -15,7 +15,8 @@ import {
 const DEFAULT_REPORT_PATH = "docs/migration/wp-import-dry-run.report.json";
 
 const OPTIONS_FIELDS = new Set([1, 2]);
-const POSTS_FIELDS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 17, 18, 20, 21, 22]);
+const POSTS_FIELDS = new Set([0, 1, 2, 3, 7, 11, 14, 15, 17, 18, 20, 21, 22]);
+const POST_CONTENT_FIELDS = new Set([4, 5, 6]);
 const USERS_FIELDS = new Set([0, 1, 3, 8, 9]);
 const TERMS_FIELDS = new Set([0, 1, 2]);
 const TERM_TAXONOMY_FIELDS = new Set([0, 1, 2, 4, 5]);
@@ -30,7 +31,7 @@ export async function buildImportDryRun(dumpPath) {
   return createDryRunReport(state);
 }
 
-export async function buildWordPressImportState(dumpPath) {
+export async function buildWordPressImportState(dumpPath, options = {}) {
   const absoluteDumpPath = path.resolve(dumpPath);
 
   if (!fs.existsSync(absoluteDumpPath)) {
@@ -52,6 +53,9 @@ export async function buildWordPressImportState(dumpPath) {
     terms: new Map(),
     termTaxonomies: new Map(),
     relationshipsByObjectId: new Map(),
+    includePostContent: options.includePostContent ?? false,
+    contentLimit: options.contentLimit ?? null,
+    contentPostsStored: 0,
   };
 
   await scanDump(absoluteDumpPath, state);
@@ -253,9 +257,6 @@ function processPosts(valuesSql, state) {
       authorId: fields[1],
       createdAt: fields[2],
       createdAtGmt: fields[3],
-      contentHtml: fields[4],
-      title: fields[5],
-      excerpt: fields[6],
       status: fields[7],
       slug: fields[11],
       updatedAt: fields[14],
@@ -267,8 +268,28 @@ function processPosts(valuesSql, state) {
       commentCount: fields[22],
     };
 
+    if (shouldCapturePostContent(post, state)) {
+      const contentFields = pickSqlFields(tupleSql, POST_CONTENT_FIELDS);
+      post.contentHtml = contentFields[4];
+      post.title = contentFields[5];
+      post.excerpt = contentFields[6];
+      state.contentPostsStored += 1;
+    }
+
     state.posts.set(post.id, post);
   }
+}
+
+function shouldCapturePostContent(post, state) {
+  if (!state.includePostContent) {
+    return false;
+  }
+
+  if (state.contentLimit !== null && state.contentPostsStored >= state.contentLimit) {
+    return false;
+  }
+
+  return post.status === "publish" && IMPORTABLE_POST_TYPES.has(post.type);
 }
 
 function processTerms(valuesSql, state) {
@@ -313,7 +334,7 @@ function processTermRelationships(valuesSql, state) {
   }
 }
 
-function createDryRunReport(state) {
+export function createDryRunReport(state) {
   const termTaxonomiesByTermId = new Map(
     [...state.termTaxonomies.values()].map((termTaxonomy) => [termTaxonomy.termId, termTaxonomy]),
   );

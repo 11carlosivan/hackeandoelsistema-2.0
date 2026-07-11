@@ -13,6 +13,7 @@ import {
   buildImportDryRun,
   buildWordPressImportState,
   categoryPathForTerm,
+  createDryRunReport,
   pagePathForPost,
 } from "./import-dry-run.mjs";
 import { canonicalPathForPost } from "./inspect-dump.mjs";
@@ -69,8 +70,11 @@ export async function runWordPressCoreImport({ dumpPath, write = false, out = DE
     throw new Error("DATABASE_URL es obligatorio para ejecutar --write.");
   }
 
-  const state = await buildWordPressImportState(resolvedDumpPath);
-  const dryRun = await buildImportDryRun(resolvedDumpPath);
+  const state = await buildWordPressImportState(resolvedDumpPath, {
+    includePostContent: true,
+    contentLimit: limit,
+  });
+  const dryRun = createDryRunReport(state);
   const blockers = collectWriteBlockers(dryRun);
 
   if (blockers.length > 0) {
