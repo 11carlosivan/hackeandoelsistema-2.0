@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { articles, opinions, authors } from '@/lib/main-design/mock-data';
+import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
 
-export default function Home() {
+export default function Home({ initialArticles = fallbackArticles, initialCategories = [], summary = null }) {
   const router = useRouter();
+  const articles = initialArticles.length > 0 ? initialArticles : fallbackArticles;
   
   // Hero articles (slider on the left)
   const heroArticles = articles.filter(a => a.isHero || a.isFeatured);
@@ -19,11 +20,26 @@ export default function Home() {
   // Likes state map for feed items
   const [likedArticles, setLikedArticles] = useState({});
 
-  const categories = ['TODAS', 'POLÍTICA', 'NACIONALES', 'TECNOLOGÍA', 'INTERNACIONAL', 'INVESTIGACIÓN'];
+  const categories = [
+    'TODAS',
+    ...new Set(
+      (initialCategories.length > 0
+        ? initialCategories.map((category) => category.title || category.name)
+        : ['POLÍTICA', 'NACIONALES', 'TECNOLOGÍA', 'INTERNACIONAL', 'INVESTIGACIÓN']
+      ).filter(Boolean).map((category) => category.toUpperCase()),
+    ),
+  ].slice(0, 10);
 
   const getAuthorName = (authorId) => {
+    const articleAuthor = articles.find((article) => article.authorId === authorId)?.authorName;
+    if (articleAuthor) return articleAuthor;
+
     const author = authors.find(auth => auth.id === authorId);
     return author ? author.name : 'Redacción';
+  };
+
+  const navigateToArticle = (article, hash = '') => {
+    router.push(`${article.route || `/articulo/${article.id}`}${hash}`);
   };
 
   const handleNextHero = (e) => {
@@ -92,7 +108,7 @@ export default function Home() {
             {articles.slice(0, 5).concat(articles.slice(0, 5)).map((art, idx) => (
               <Link 
                 key={`${art.id}-${idx}`} 
-                href={`/articulo/${art.id}`} 
+                href={art.route || `/articulo/${art.id}`} 
                 className="hover:text-system-red transition-colors flex items-center gap-2 text-white font-bold"
               >
                 <span>{art.title.toUpperCase()}</span>
@@ -103,13 +119,29 @@ export default function Home() {
         </div>
       </div>
 
+      {summary?.counts && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'POSTS', value: summary.counts.posts },
+            { label: 'RUTAS SEO', value: summary.counts.routes },
+            { label: 'CATEGORIAS', value: summary.counts.categories },
+            { label: 'TAGS', value: summary.counts.tags },
+          ].map((item) => (
+            <div key={item.label} className="border border-terminal-gray bg-surface-container-low/25 px-4 py-3">
+              <div className="font-label-caps text-[9px] text-system-red font-bold">{item.label}</div>
+              <div className="font-headline-md text-2xl text-white">{Number(item.value || 0).toLocaleString('es-DO')}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 2. Top Featured Split Grid (3-column layout) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Hero news slider (Takes 6/12 columns) */}
         {currentHero && (
           <section 
-            onClick={() => router.push(`/articulo/${currentHero.id}`)}
+            onClick={() => navigateToArticle(currentHero)}
             className="lg:col-span-6 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
           >
             <div className="absolute inset-0 scanline z-10 pointer-events-none opacity-20"></div>
@@ -186,7 +218,7 @@ export default function Home() {
           {middleArticles.map((art, index) => (
             <div 
               key={art.id}
-              onClick={() => router.push(`/articulo/${art.id}`)}
+              onClick={() => navigateToArticle(art)}
               className="relative flex-grow h-[126px] border border-terminal-gray overflow-hidden group cursor-pointer flex flex-col justify-end p-3"
             >
               <img 
@@ -222,7 +254,7 @@ export default function Home() {
             {trendingArticles.map((art, idx) => (
               <div 
                 key={art.id}
-                onClick={() => router.push(`/articulo/${art.id}`)}
+                onClick={() => navigateToArticle(art)}
                 className="flex items-start gap-3 cursor-pointer group select-none"
               >
                 <span className="font-headline-md text-[20px] text-system-red/30 group-hover:text-system-red font-black leading-none mt-0.5 w-6 shrink-0 text-center font-mono">
@@ -275,7 +307,7 @@ export default function Home() {
             filteredArticles.map((art) => (
               <div 
                 key={art.id} 
-                onClick={() => router.push(`/articulo/${art.id}`)}
+                onClick={() => navigateToArticle(art)}
                 className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer flex flex-col justify-between"
               >
                 <div>
@@ -323,7 +355,7 @@ export default function Home() {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/articulo/${art.id}#comentarios-seccion`);
+                        navigateToArticle(art, '#comentarios-seccion');
                       }}
                       className="flex items-center gap-1 hover:text-white transition-colors"
                     >

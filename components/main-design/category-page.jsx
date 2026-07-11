@@ -10,19 +10,20 @@ const categoryDescriptions = {
   'INVESTIGACIÓN': 'Reportes profundos, filtraciones, verificaciones y analisis de datos.',
 };
 
-export default function CategoryPage({ categoryId }) {
+export default function CategoryPage({ categoryId, category, articles: apiArticles, meta }) {
   const categoryName = decodeURIComponent(categoryId || '').toUpperCase();
-  const filteredArticles = articles.filter((article) => article.category === categoryName);
+  const filteredArticles = apiArticles || articles.filter((article) => article.category === categoryName);
   const latestArticle = filteredArticles[0];
+  const title = category?.title || categoryName || 'NOTICIAS';
 
   return (
     <div className="w-full bg-background text-on-surface">
       <SystemPageHeader
         eyebrow="CATEGORIA"
-        title={categoryName || 'NOTICIAS'}
-        description={categoryDescriptions[categoryName] || 'Archivo editorial de Hackeando el Sistema.'}
+        title={title}
+        description={category?.description || categoryDescriptions[categoryName] || 'Archivo editorial de Hackeando el Sistema.'}
         stats={[
-          { label: 'PUBLICACIONES', value: `${filteredArticles.length} articulos`, icon: 'article' },
+          { label: 'PUBLICACIONES', value: `${meta?.total ?? filteredArticles.length} articulos`, icon: 'article' },
           { label: 'ACTUALIZADO', value: latestArticle?.date || 'Pendiente', icon: 'schedule' },
           { label: 'ESTADO', value: 'Indexable', icon: 'travel_explore' },
         ]}

@@ -1,10 +1,14 @@
 import Layout from './layout';
 import Home from './home';
 
-export function MainDesignApp() {
+export function MainDesignApp({ feed }) {
   return (
     <Layout>
-      <Home />
+      <Home
+        initialArticles={feed?.articles}
+        initialCategories={feed?.categories}
+        summary={feed?.summary}
+      />
     </Layout>
   );
 }

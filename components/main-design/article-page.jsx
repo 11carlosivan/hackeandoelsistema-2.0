@@ -40,10 +40,18 @@ function renderBlock(block, index) {
 }
 
 export default function ArticlePage({ articleId }) {
-  const article = articles.find((item) => item.id === articleId) || articles[0];
-  const author = authors.find((item) => item.id === article.authorId) || authors[0];
+  return <ArticlePageView article={articles.find((item) => item.id === articleId) || articles[0]} />;
+}
+
+export function ArticlePageView({ article, related = [] }) {
+  const author = authors.find((item) => item.id === article.authorId) || {
+    id: article.authorId || 'redaccion-hes',
+    name: article.authorName || 'Redaccion',
+    role: 'Equipo editorial',
+    photo: '/isotipo.png',
+  };
   const articleComments = comments[article.id] || [];
-  const relatedArticles = articles
+  const relatedArticles = related.length > 0 ? related : articles
     .filter((item) => item.category === article.category && item.id !== article.id)
     .slice(0, 3);
 
@@ -80,7 +88,7 @@ export default function ArticlePage({ articleId }) {
             <div className="flex flex-wrap items-center gap-4 border-t border-terminal-gray/60 mt-7 pt-5 text-[10px] font-label-caps text-on-surface-variant">
               <Link href={`/perfil/${author.id}`} className="flex items-center gap-3 hover:text-system-red">
                 <img className="w-9 h-9 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
-                <span>{getAuthorName(article.authorId).toUpperCase()}</span>
+              <span>{(article.authorName || getAuthorName(article.authorId)).toUpperCase()}</span>
               </Link>
               <span>/</span>
               <span>{article.date}</span>
@@ -99,7 +107,14 @@ export default function ArticlePage({ articleId }) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
             <div className="border border-terminal-gray bg-surface-container-low/20 p-6 md:p-8 space-y-7">
-              {(article.content || []).map(renderBlock)}
+              {article.contentHtml ? (
+                <div
+                  className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-p:leading-relaxed prose-a:text-system-red prose-headings:text-white"
+                  dangerouslySetInnerHTML={{ __html: article.contentHtml }}
+                />
+              ) : (
+                (article.content || []).map(renderBlock)
+              )}
             </div>
 
             {article.veracity && (

@@ -1,5 +1,6 @@
 import Layout from '@/components/main-design/layout';
-import TerminalPage from '@/components/main-design/terminal-page';
+import CmsDashboard from '@/components/main-design/cms-dashboard';
+import { getCmsSummary } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export const metadata = buildMetadata({
@@ -9,10 +10,12 @@ export const metadata = buildMetadata({
   noIndex: true,
 });
 
-export default function Page() {
+export default async function Page() {
+  const summary = await getCmsSummary();
+
   return (
     <Layout>
-      <TerminalPage variant="cms" />
+      <CmsDashboard summary={summary} />
     </Layout>
   );
 }

@@ -10,9 +10,31 @@ const searchSchema = z.object({
   q: z.string().trim().min(1).max(120).optional(),
 });
 
+const categoryQuerySchema = z.object({
+  menuOnly: z.coerce.boolean().default(false),
+});
+
 const routeQuerySchema = z.object({
   path: z.string().trim().min(1).max(500),
 });
+
+const slugParamSchema = z.object({
+  slug: z.string().trim().min(1).max(280),
+});
+
+const categorySlugParamSchema = z.object({
+  slug: z.string().trim().min(1).max(180),
+});
+
+function normalizeRoutePath(path) {
+  const withLeadingSlash = path.startsWith('/') ? path : `/${path}`;
+
+  if (withLeadingSlash === '/') {
+    return withLeadingSlash;
+  }
+
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
 
 function normalizePublicPost(post) {
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
@@ -56,11 +78,16 @@ function normalizePublicPost(post) {
 }
 
 export async function registerPublicRoutes(app) {
-  app.get('/api/v1/public/categories', async (_request, reply) => {
+  app.get('/api/v1/public/categories', async (request, reply) => {
+    const parsed = categoryQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid category query');
+    }
+
     publicCacheHeaders(reply, 300);
 
     const categories = await app.prisma.category.findMany({
-      where: { showInMenu: true },
+      where: parsed.data.menuOnly ? { showInMenu: true } : undefined,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       select: {
         id: true,
@@ -74,6 +101,81 @@ export async function registerPublicRoutes(app) {
     });
 
     return { data: categories };
+  });
+
+  app.get('/api/v1/public/categories/:slug/posts', async (request, reply) => {
+    const params = categorySlugParamSchema.safeParse(request.params);
+    const query = paginationSchema.safeParse(request.query);
+
+    if (!params.success || !query.success) {
+      throw app.httpErrors.badRequest('Invalid category posts query');
+    }
+
+    const { slug } = params.data;
+    const { page, limit } = query.data;
+    const category = await app.prisma.category.findFirst({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        fullPath: true,
+        description: true,
+      },
+    });
+
+    if (!category) {
+      throw app.httpErrors.notFound('Category not found');
+    }
+
+    publicCacheHeaders(reply, 180);
+
+    const where = {
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+      categories: {
+        some: {
+          categoryId: category.id,
+        },
+      },
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.post.findMany({
+        where,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          featuredMedia: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      }),
+      app.prisma.post.count({ where }),
+    ]);
+
+    return {
+      data: {
+        category,
+        posts: items.map(normalizePublicPost),
+      },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   });
 
   app.get('/api/v1/public/posts', async (request, reply) => {
@@ -151,7 +253,7 @@ export async function registerPublicRoutes(app) {
   });
 
   app.get('/api/v1/public/posts/:slug', async (request, reply) => {
-    const slug = z.string().trim().min(1).max(280).parse(request.params.slug);
+    const { slug } = slugParamSchema.parse(request.params);
 
     const post = await app.prisma.post.findFirst({
       where: {
@@ -201,15 +303,59 @@ export async function registerPublicRoutes(app) {
     };
   });
 
+  app.get('/api/v1/public/pages/:slug', async (request, reply) => {
+    const { slug } = slugParamSchema.parse(request.params);
+
+    const page = await app.prisma.page.findFirst({
+      where: {
+        slug,
+        status: 'PUBLISHED',
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!page) {
+      throw app.httpErrors.notFound('Page not found');
+    }
+
+    publicCacheHeaders(reply, 180);
+
+    return {
+      data: {
+        id: page.id,
+        slug: page.slug,
+        title: page.title,
+        contentHtml: page.contentHtml,
+        contentText: page.contentText,
+        publishedAt: page.publishedAt,
+        updatedAt: page.updatedAt,
+        canonicalPath: page.legacyUrl || `/${page.slug}/`,
+        author: page.author
+          ? {
+              id: page.author.id,
+              username: page.author.username,
+              displayName: page.author.displayName,
+            }
+          : null,
+      },
+    };
+  });
+
   app.get('/api/v1/public/route', async (request, reply) => {
     const parsed = routeQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       throw app.httpErrors.badRequest('Invalid route query');
     }
 
-    const normalizedPath = parsed.data.path.startsWith('/')
-      ? parsed.data.path
-      : `/${parsed.data.path}`;
+    const normalizedPath = normalizeRoutePath(parsed.data.path);
 
     const route = await app.prisma.route.findUnique({
       where: { path: normalizedPath },
@@ -254,5 +400,83 @@ export async function registerPublicRoutes(app) {
         seo: route.seoMetadata,
       },
     };
+  });
+
+  app.get('/api/v1/public/site-summary', async (_request, reply) => {
+    publicCacheHeaders(reply, 60);
+
+    const [posts, pages, routes, categories, tags, latestImportRun, recentPosts] = await Promise.all([
+      app.prisma.post.count({ where: { status: 'PUBLISHED', visibility: 'PUBLIC' } }),
+      app.prisma.page.count({ where: { status: 'PUBLISHED' } }),
+      app.prisma.route.count({ where: { status: 'ACTIVE' } }),
+      app.prisma.category.count(),
+      app.prisma.tag.count(),
+      app.prisma.importRun.findFirst({
+        where: { source: 'wordpress-core' },
+        orderBy: { startedAt: 'desc' },
+        select: {
+          id: true,
+          source: true,
+          startedAt: true,
+          finishedAt: true,
+          status: true,
+          stats: true,
+        },
+      }),
+      app.prisma.post.findMany({
+        where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 8,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          featuredMedia: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data: {
+        counts: {
+          posts,
+          pages,
+          routes,
+          categories,
+          tags,
+        },
+        latestImportRun,
+        recentPosts: recentPosts.map(normalizePublicPost),
+      },
+    };
+  });
+
+  app.get('/api/v1/public/sitemap-routes', async (_request, reply) => {
+    publicCacheHeaders(reply, 300);
+
+    const routes = await app.prisma.route.findMany({
+      where: {
+        status: 'ACTIVE',
+        includeInSitemap: true,
+      },
+      orderBy: [{ lastmodAt: 'desc' }, { path: 'asc' }],
+      select: {
+        path: true,
+        lastmodAt: true,
+        changefreq: true,
+        priority: true,
+      },
+    });
+
+    return { data: routes };
   });
 }

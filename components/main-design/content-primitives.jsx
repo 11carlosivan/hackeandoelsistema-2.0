@@ -43,7 +43,7 @@ export function SystemPageHeader({ eyebrow, title, description, stats = [] }) {
 export function ArticleListItem({ article }) {
   return (
     <Link
-      href={`/articulo/${article.id}`}
+      href={article.route || `/articulo/${article.id}`}
       className="group border border-terminal-gray bg-surface-container-low/25 p-4 md:p-5 grid gap-5 md:grid-cols-[220px_1fr] hover:border-system-red transition-all"
     >
       <div className="relative aspect-video overflow-hidden border border-terminal-gray bg-black">
