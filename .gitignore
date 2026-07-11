@@ -13,6 +13,14 @@ dist
 dist-ssr
 *.local
 
+# Local migration inputs
+/.dumps/
+/tmp/
+/wordpress-dumps/
+/*.sql
+/*.sql.gz
+/*.dump
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

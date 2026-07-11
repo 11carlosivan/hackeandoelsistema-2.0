@@ -1,0 +1,397 @@
+{
+  "generatedAt": "2026-07-11T04:22:28.274Z",
+  "source": {
+    "fileName": "qscbkfcv_wp999.sql",
+    "sizeBytes": 497579837
+  },
+  "wordpress": {
+    "tablePrefix": "wpmb_",
+    "options": {
+      "siteurl": "https://hackeandoelsistema.net",
+      "home": "https://hackeandoelsistema.net",
+      "blogname": "Hackeando el Sistema",
+      "start_of_week": "1",
+      "default_category": "1",
+      "date_format": "d/m/Y",
+      "time_format": "g:i A",
+      "permalink_structure": "/%postname%/",
+      "category_base": "",
+      "show_on_front": "page",
+      "tag_base": "",
+      "timezone_string": "America/Santo_Domingo",
+      "page_for_posts": "0",
+      "page_on_front": "66655"
+    },
+    "tables": {
+      "total": 266,
+      "corePresent": {
+        "commentmeta": true,
+        "comments": true,
+        "links": true,
+        "options": true,
+        "postmeta": true,
+        "posts": true,
+        "term_relationships": true,
+        "term_taxonomy": true,
+        "termmeta": true,
+        "terms": true,
+        "usermeta": true,
+        "users": true
+      },
+      "families": {
+        "wordpressCore": 12,
+        "buddypress": 21,
+        "peepso": 25,
+        "woocommerce": 30,
+        "mailpoet": 40,
+        "elementor": 4,
+        "analyticsAndStats": 18,
+        "otherPluginTables": 116
+      }
+    },
+    "permalinkPolicy": "/%postname%/"
+  },
+  "content": {
+    "countsByTypeAndStatus": {
+      "page": {
+        "publish": 27,
+        "draft": 3
+      },
+      "everest_form": {
+        "publish": 1
+      },
+      "revision": {
+        "inherit": 10155
+      },
+      "custom_css": {
+        "publish": 4
+      },
+      "post": {
+        "publish": 8350,
+        "draft": 20,
+        "future": 2,
+        "auto-draft": 8,
+        "pending": 1
+      },
+      "nav_menu_item": {
+        "publish": 23
+      },
+      "oembed_cache": {
+        "publish": 808
+      },
+      "attachment": {
+        "inherit": 7892
+      },
+      "um_form": {
+        "publish": 3
+      },
+      "um_directory": {
+        "publish": 1
+      },
+      "joomsport_player": {
+        "publish": 8
+      },
+      "joomsport_team": {
+        "publish": 4
+      },
+      "joomsport_match": {
+        "publish": 4
+      },
+      "bp-email": {
+        "publish": 22
+      },
+      "app-adstxt": {
+        "publish": 1
+      },
+      "adstxt": {
+        "publish": 1
+      },
+      "wp_block": {
+        "publish": 2
+      },
+      "wpplugin_don_button": {
+        "publish": 1
+      },
+      "shop_order": {
+        "wc-on-hold": 1
+      },
+      "wp_global_styles": {
+        "publish": 2
+      },
+      "mailpoet_page": {
+        "publish": 1
+      },
+      "elementor_library": {
+        "publish": 3
+      },
+      "wp_navigation": {
+        "publish": 1
+      },
+      "peepso-post": {
+        "publish": 150
+      },
+      "feedzy_imports": {
+        "publish": 1
+      },
+      "wpuf_forms": {
+        "publish": 1
+      },
+      "wpuf_input": {
+        "publish": 3
+      },
+      "peepso_user_field": {
+        "publish": 6,
+        "private": 1
+      },
+      "peepso_reaction": {
+        "publish": 11
+      },
+      "peepso_post_bg": {
+        "publish": 6
+      },
+      "peepso_vip": {
+        "publish": 8
+      },
+      "peepso-comment": {
+        "publish": 2
+      },
+      "web-story": {
+        "publish": 4
+      },
+      "aal_button": {
+        "publish": 6
+      },
+      "product": {
+        "publish": 6
+      }
+    },
+    "publishedCanonicalSamples": {
+      "page": [
+        {
+          "id": "3",
+          "slug": "privacy-policy",
+          "canonicalPath": "/privacy-policy/",
+          "modifiedGmt": "2024-09-28 19:26:46"
+        },
+        {
+          "id": "744",
+          "slug": "actividad",
+          "canonicalPath": "/actividad/",
+          "modifiedGmt": "2020-11-09 22:57:39"
+        },
+        {
+          "id": "66021",
+          "slug": "editar",
+          "canonicalPath": "/editar/",
+          "modifiedGmt": "2024-09-13 18:54:18"
+        },
+        {
+          "id": "66026",
+          "slug": "suscripcion",
+          "canonicalPath": "/suscripcion/",
+          "modifiedGmt": "2024-09-13 18:54:18"
+        },
+        {
+          "id": "66055",
+          "slug": "activar",
+          "canonicalPath": "/activar/",
+          "modifiedGmt": "2024-09-28 16:48:00"
+        },
+        {
+          "id": "66056",
+          "slug": "registrarse",
+          "canonicalPath": "/registrarse/",
+          "modifiedGmt": "2024-09-28 16:48:00"
+        },
+        {
+          "id": "66061",
+          "slug": "activity",
+          "canonicalPath": "/activity/",
+          "modifiedGmt": "2024-09-15 09:37:00"
+        },
+        {
+          "id": "66063",
+          "slug": "register",
+          "canonicalPath": "/register/",
+          "modifiedGmt": "2024-09-15 09:37:00"
+        },
+        {
+          "id": "66064",
+          "slug": "password-recover",
+          "canonicalPath": "/password-recover/",
+          "modifiedGmt": "2024-09-15 09:37:00"
+        },
+        {
+          "id": "66065",
+          "slug": "password-reset",
+          "canonicalPath": "/password-reset/",
+          "modifiedGmt": "2024-09-15 09:37:00"
+        },
+        {
+          "id": "66066",
+          "slug": "members",
+          "canonicalPath": "/members/",
+          "modifiedGmt": "2024-09-30 04:18:12"
+        },
+        {
+          "id": "66655",
+          "slug": "home",
+          "canonicalPath": "/home/",
+          "modifiedGmt": "2026-07-02 19:45:58"
+        }
+      ],
+      "post": [
+        {
+          "id": "2916",
+          "slug": "el-maestro-armando-manzanero-es-entubado-tras-contraer-covi-19",
+          "canonicalPath": "/el-maestro-armando-manzanero-es-entubado-tras-contraer-covi-19/",
+          "modifiedGmt": "2020-12-24 00:03:33"
+        },
+        {
+          "id": "69203",
+          "slug": "hackeandoelsistema-net-cuestiona-la-inclusion-de-cuba-como-estado",
+          "canonicalPath": "/hackeandoelsistema-net-cuestiona-la-inclusion-de-cuba-como-estado/",
+          "modifiedGmt": "2025-01-21 18:06:54"
+        },
+        {
+          "id": "69066",
+          "slug": "el-populismo-excesivo-en-la-gestion-gubernamental",
+          "canonicalPath": "/el-populismo-excesivo-en-la-gestion-gubernamental/",
+          "modifiedGmt": "2025-01-14 16:28:33"
+        },
+        {
+          "id": "25",
+          "slug": "el-90-2-de-escolares-pudo-completar-sus-estudios-en-cuarentena-por-whatsapp",
+          "canonicalPath": "/el-90-2-de-escolares-pudo-completar-sus-estudios-en-cuarentena-por-whatsapp/",
+          "modifiedGmt": "2022-04-05 22:47:05"
+        },
+        {
+          "id": "2354",
+          "slug": "suman-un-total-de-ocho-muertos-del-naufragio-en-la-altagracia",
+          "canonicalPath": "/suman-un-total-de-ocho-muertos-del-naufragio-en-la-altagracia/",
+          "modifiedGmt": "2020-12-05 23:41:47"
+        },
+        {
+          "id": "28",
+          "slug": "procuradora-lentitud-en-el-conocimiento-audiencias-provoca-hacinamiento-en-carcel",
+          "canonicalPath": "/procuradora-lentitud-en-el-conocimiento-audiencias-provoca-hacinamiento-en-carcel/",
+          "modifiedGmt": "2022-04-05 22:21:33"
+        },
+        {
+          "id": "31",
+          "slug": "sube-a-35-la-cifra-de-muertos-por-el-terremoto-en-turquia",
+          "canonicalPath": "/sube-a-35-la-cifra-de-muertos-por-el-terremoto-en-turquia/",
+          "modifiedGmt": "2022-04-05 22:17:12"
+        },
+        {
+          "id": "35",
+          "slug": "acto-de-inicio-ano-escolar-se-realizara-en-la-plaza-de-la-bandera",
+          "canonicalPath": "/acto-de-inicio-ano-escolar-se-realizara-en-la-plaza-de-la-bandera/",
+          "modifiedGmt": "2022-04-05 22:14:44"
+        },
+        {
+          "id": "38",
+          "slug": "david-gaudu-evita-el-doblete-de-soler-y-los-favoritos-firman-tablas",
+          "canonicalPath": "/david-gaudu-evita-el-doblete-de-soler-y-los-favoritos-firman-tablas/",
+          "modifiedGmt": "2022-04-05 22:12:26"
+        },
+        {
+          "id": "3063",
+          "slug": "policia-nacional-detiene-2700-personas-por-violar-toque-de-queda",
+          "canonicalPath": "/policia-nacional-detiene-2700-personas-por-violar-toque-de-queda/",
+          "modifiedGmt": "2021-01-01 16:01:09"
+        },
+        {
+          "id": "2920",
+          "slug": "obras-publicas-interviene-a-sde-por-incompetencia-de-sus-autoridades-encabezada-por-manuel-jimenez",
+          "canonicalPath": "/obras-publicas-interviene-a-sde-por-incompetencia-de-sus-autoridades-encabezada-por-manuel-jimenez/",
+          "modifiedGmt": "2021-01-02 02:47:13"
+        },
+        {
+          "id": "2926",
+          "slug": "los-companeros-del-prm-son-un-problema-para-luis-abinader",
+          "canonicalPath": "/los-companeros-del-prm-son-un-problema-para-luis-abinader/",
+          "modifiedGmt": "2020-12-24 15:11:43"
+        }
+      ],
+      "web-story": [
+        {
+          "id": "66716",
+          "slug": "las-mejores-aplicaciones-de-fitness",
+          "canonicalPath": "/web-stories/las-mejores-aplicaciones-de-fitness/",
+          "modifiedGmt": "2024-09-28 21:37:13"
+        },
+        {
+          "id": "66777",
+          "slug": "66777",
+          "canonicalPath": "/web-stories/66777/",
+          "modifiedGmt": "2024-09-29 02:13:48"
+        },
+        {
+          "id": "66781",
+          "slug": "66781",
+          "canonicalPath": "/web-stories/66781/",
+          "modifiedGmt": "2024-09-29 02:14:38"
+        },
+        {
+          "id": "66784",
+          "slug": "66784",
+          "canonicalPath": "/web-stories/66784/",
+          "modifiedGmt": "2024-09-29 02:15:22"
+        }
+      ],
+      "product": [
+        {
+          "id": "73447",
+          "slug": "publicacion-unica-post-libre",
+          "canonicalPath": "/producto/publicacion-unica-post-libre/",
+          "modifiedGmt": "2025-11-08 22:31:37"
+        },
+        {
+          "id": "73448",
+          "slug": "plan-semanal-semana-activa",
+          "canonicalPath": "/producto/plan-semanal-semana-activa/",
+          "modifiedGmt": "2025-11-08 22:35:25"
+        },
+        {
+          "id": "73449",
+          "slug": "plan-mensual-campana",
+          "canonicalPath": "/producto/plan-mensual-campana/",
+          "modifiedGmt": "2025-11-08 22:39:46"
+        },
+        {
+          "id": "73466",
+          "slug": "publicacion-unica-post-libre-2",
+          "canonicalPath": "/producto/publicacion-unica-post-libre-2/",
+          "modifiedGmt": "2025-11-08 23:18:27"
+        },
+        {
+          "id": "73467",
+          "slug": "plan-semanal-semana-activa-2",
+          "canonicalPath": "/producto/plan-semanal-semana-activa-2/",
+          "modifiedGmt": "2025-11-08 23:18:28"
+        },
+        {
+          "id": "73468",
+          "slug": "plan-mensual-campana-2",
+          "canonicalPath": "/producto/plan-mensual-campana-2/",
+          "modifiedGmt": "2025-11-08 23:18:28"
+        }
+      ]
+    },
+    "totalRowsInPostsTable": 27554
+  },
+  "seo": {
+    "canonicalBaseUrl": "https://hackeandoelsistema.net",
+    "postCanonicalPattern": "/:post_slug/",
+    "routeMigrationNotes": [
+      "Los posts publicados de WordPress deben resolverse en la raiz por slug para preservar canonicals e indexacion.",
+      "La ruta temporal /articulo/[id] no debe ser canonical para posts migrados; usar la tabla routes con el path original."
+    ]
+  },
+  "security": {
+    "dumpCommitted": false,
+    "redaction": "El reporte conserva solo opciones publicas, conteos y muestras de URLs publicas.",
+    "excluded": "Credenciales, hashes, emails, sesiones, valores privados de plugins y contenido bruto."
+  }
+}

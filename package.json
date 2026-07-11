@@ -7,12 +7,14 @@
     "dev": "next dev",
     "dev:api": "node api/server.js",
     "build": "next build",
-    "lint": "oxlint app components lib test api",
+    "lint": "oxlint app components lib test api scripts",
     "test": "vitest run",
     "db:format": "prisma format --schema=prisma/schema.prisma",
     "db:validate": "prisma validate --schema=prisma/schema.prisma",
     "db:generate": "prisma generate --schema=prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma"
+    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "wp:inspect": "node scripts/wordpress/inspect-dump.mjs",
+    "wp:inspect:local": "node scripts/wordpress/inspect-dump.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
