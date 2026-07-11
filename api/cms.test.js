@@ -1,6 +1,10 @@
 // @vitest-environment node
 
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import FormData from 'form-data';
 import { buildApp } from './app.js';
 import { signAccessToken } from './services/auth.js';
 
@@ -223,6 +227,23 @@ function createPrismaStub(user, options = {}) {
       count,
       findMany: async () => [media],
       findUnique: async ({ where }) => (where.id === media.id ? media : null),
+      create: async ({ data }) => ({
+        id: '66666666-6666-4666-8666-666666666666',
+        createdAt: new Date('2026-01-07T00:00:00Z'),
+        ...data,
+        uploadedBy: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          displayName: user.displayName,
+        },
+        variants: [],
+        _count: {
+          featuredPosts: 0,
+          seoMetadata: 0,
+          ads: 0,
+        },
+      }),
       update: async ({ data }) => ({
         ...media,
         ...data,
@@ -587,6 +608,61 @@ describe('cms routes', () => {
         },
       ],
     });
+  });
+
+  it('uploads a new CMS media asset and records audit metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const uploadDir = await mkdtemp(path.join(tmpdir(), 'hes-media-upload-'));
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        MEDIA_UPLOAD_DIR: uploadDir,
+        MEDIA_PUBLIC_BASE_PATH: '/uploads/cms-test',
+        MEDIA_MAX_FILE_SIZE_BYTES: 1024 * 1024,
+      },
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+    const form = new FormData();
+    const png = Buffer.from(
+      '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082',
+      'hex',
+    );
+
+    form.append('file', png, {
+      filename: 'Prueba CMS.png',
+      contentType: 'image/png',
+      knownLength: png.length,
+    });
+    form.append('altText', 'Imagen subida desde CMS');
+    form.append('credit', 'Redaccion HES');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/media',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+        ...form.getHeaders(),
+      },
+      payload: form,
+    });
+
+    await app.close();
+    await rm(uploadDir, { recursive: true, force: true });
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.media).toMatchObject({
+      id: '66666666-6666-4666-8666-666666666666',
+      disk: 'local',
+      type: 'IMAGE',
+      mimeType: 'image/png',
+      altText: 'Imagen subida desde CMS',
+      credit: 'Redaccion HES',
+      width: 1,
+      height: 1,
+    });
+    expect(response.json().data.media.url).toMatch(/^\/uploads\/cms-test\/\d{4}\/\d{2}\/prueba-cms-[a-f0-9-]+\.png$/);
   });
 
   it('updates media SEO metadata and records an audit event', async () => {

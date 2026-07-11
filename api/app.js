@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import multipart from '@fastify/multipart';
 import { loadEnv } from './config/env.js';
 import { getPrismaClient } from './db/prisma.js';
 import { registerAuthPlugin } from './plugins/auth.js';
@@ -44,6 +45,13 @@ export async function buildApp(options = {}) {
   });
 
   await registerSecurityPlugins(app, env);
+  await app.register(multipart, {
+    limits: {
+      files: 1,
+      fields: 6,
+      fileSize: env.MEDIA_MAX_FILE_SIZE_BYTES ?? 8 * 1024 * 1024,
+    },
+  });
   await app.register(registerAuthPlugin);
   await registerRoutes(app);
 

@@ -24,6 +24,9 @@ const envSchema = z.object({
   AUTH_COOKIE_SECURE: booleanEnv.default(true),
   AUTH_MAX_LOGIN_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   AUTH_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  MEDIA_UPLOAD_DIR: z.string().min(1).default('public/uploads/cms'),
+  MEDIA_PUBLIC_BASE_PATH: z.string().min(1).default('/uploads/cms'),
+  MEDIA_MAX_FILE_SIZE_BYTES: z.coerce.number().int().min(1024).max(25 * 1024 * 1024).default(8 * 1024 * 1024),
 });
 
 export function loadEnv(overrides = {}) {

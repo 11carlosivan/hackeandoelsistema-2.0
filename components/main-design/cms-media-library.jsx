@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SystemPageHeader } from './content-primitives';
+import CmsMediaUploadForm from './cms-media-upload-form';
 import CmsSessionActions from './cms-session-actions';
 
 const typeTabs = [
@@ -74,6 +75,10 @@ export default function CmsMediaLibrary({ media, meta, filters, error }) {
       <div className="flex justify-end mb-8">
         <CmsSessionActions />
       </div>
+
+      <section className="mb-8">
+        <CmsMediaUploadForm />
+      </section>
 
       <section className="border border-terminal-gray bg-surface-container-low/30 p-4 md:p-6 mb-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">

@@ -201,6 +201,43 @@ IMAGE, VIDEO, AUDIO, DOCUMENT, OTHER
 
 Devuelve archivos migrados con URL, MIME, dimensiones, metadata SEO visual, WordPress ID, uso y paginacion.
 
+### `POST /api/v1/cms/media`
+
+Requiere permiso `media:manage`.
+
+Sube media nueva desde el CMS usando `multipart/form-data`.
+
+Campos:
+
+```text
+file     requerido
+altText  opcional, max 255
+caption  opcional, max 1000
+credit   opcional, max 255
+```
+
+Tipos permitidos:
+
+```text
+image/jpeg, image/png, image/webp, image/gif
+video/mp4
+audio/mpeg, audio/wav
+application/pdf
+text/plain
+```
+
+La API valida extension, MIME declarado, firma basica del archivo y tamano maximo. En desarrollo guarda en `public/uploads/cms/YYYY/MM` y expone la URL publica como `/uploads/cms/YYYY/MM/archivo.ext`.
+
+Variables:
+
+```env
+MEDIA_UPLOAD_DIR=public/uploads/cms
+MEDIA_PUBLIC_BASE_PATH=/uploads/cms
+MEDIA_MAX_FILE_SIZE_BYTES=8388608
+```
+
+Cada subida registra auditoria `MEDIA_UPLOADED`.
+
 ### `GET /api/v1/cms/media/:id`
 
 Requiere permiso `cms:read`.

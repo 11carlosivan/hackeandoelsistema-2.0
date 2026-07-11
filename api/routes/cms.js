@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { storeLocalMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
 const postsQuerySchema = z.object({
@@ -49,6 +50,11 @@ const mediaUpdateSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one media field is required',
   });
+const mediaUploadFieldSchema = z.object({
+  altText: z.string().trim().max(255).optional(),
+  caption: z.string().trim().max(1000).optional(),
+  credit: z.string().trim().max(255).optional(),
+});
 const postCreateSchema = z.object({
   title: z.string().trim().min(3).max(255),
   slug: z.string().trim().min(3).max(280).optional(),
@@ -720,6 +726,112 @@ export async function registerCmsRoutes(app) {
           q: q || null,
           type: type || null,
         },
+      },
+    };
+  });
+
+  app.post('/api/v1/cms/media', { preHandler: app.requirePermission('media:manage') }, async (request, reply) => {
+    if (!request.isMultipart()) {
+      throw app.httpErrors.unsupportedMediaType('Expected multipart/form-data');
+    }
+
+    noStoreHeaders(reply);
+
+    let file = null;
+    const fields = {};
+
+    for await (const part of request.parts()) {
+      if (part.type === 'file') {
+        if (file) {
+          throw app.httpErrors.badRequest('Only one media file is allowed');
+        }
+
+        file = {
+          filename: part.filename,
+          mimetype: part.mimetype,
+          buffer: await part.toBuffer(),
+        };
+        continue;
+      }
+
+      fields[part.fieldname] = part.value;
+    }
+
+    if (!file) {
+      throw app.httpErrors.badRequest('Missing media file');
+    }
+
+    const parsedFields = mediaUploadFieldSchema.safeParse(fields);
+
+    if (!parsedFields.success) {
+      throw app.httpErrors.badRequest('Invalid media metadata');
+    }
+
+    const stored = await storeLocalMediaUpload({
+      config: app.config,
+      file,
+    });
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const media = await tx.mediaAsset.create({
+        data: {
+          ...stored,
+          uploadedById: request.auth.user.id,
+          altText: parsedFields.data.altText || null,
+          caption: parsedFields.data.caption || null,
+          credit: parsedFields.data.credit || null,
+          originalUrl: null,
+          legacyWordpressId: null,
+          legacyGuid: null,
+          legacyMetadata: {
+            source: 'cms-upload',
+            originalFileName: file.filename,
+          },
+        },
+        include: {
+          uploadedBy: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          variants: {
+            orderBy: { variantName: 'asc' },
+          },
+          _count: {
+            select: {
+              featuredPosts: true,
+              seoMetadata: true,
+              ads: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'MEDIA_UPLOADED',
+          entityType: 'MEDIA',
+          entityId: media.id,
+          metadata: {
+            fileName: media.fileName,
+            mimeType: media.mimeType,
+            fileSize: media.fileSize,
+          },
+        },
+      });
+
+      return media;
+    });
+
+    reply.code(201);
+
+    return {
+      data: {
+        media: normalizeCmsMediaAsset(result),
       },
     };
   });
