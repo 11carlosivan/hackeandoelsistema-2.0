@@ -15,7 +15,7 @@ import {
 const DEFAULT_REPORT_PATH = "docs/migration/wp-import-dry-run.report.json";
 
 const OPTIONS_FIELDS = new Set([1, 2]);
-const POSTS_FIELDS = new Set([0, 1, 2, 3, 7, 11, 14, 15, 17, 18, 20, 21, 22]);
+const POSTS_FIELDS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 17, 18, 20, 21, 22]);
 const USERS_FIELDS = new Set([0, 1, 3, 8, 9]);
 const TERMS_FIELDS = new Set([0, 1, 2]);
 const TERM_TAXONOMY_FIELDS = new Set([0, 1, 2, 4, 5]);
@@ -25,6 +25,12 @@ const PUBLIC_OPTIONS = new Set(["siteurl", "home", "permalink_structure", "categ
 const IMPORTABLE_POST_TYPES = new Set(["post", "page", "product", "web-story"]);
 
 export async function buildImportDryRun(dumpPath) {
+  const state = await buildWordPressImportState(dumpPath);
+
+  return createDryRunReport(state);
+}
+
+export async function buildWordPressImportState(dumpPath) {
   const absoluteDumpPath = path.resolve(dumpPath);
 
   if (!fs.existsSync(absoluteDumpPath)) {
@@ -50,7 +56,7 @@ export async function buildImportDryRun(dumpPath) {
 
   await scanDump(absoluteDumpPath, state);
 
-  return createDryRunReport(state);
+  return state;
 }
 
 export function wordpressStatusToTarget(status, postType) {
@@ -247,6 +253,9 @@ function processPosts(valuesSql, state) {
       authorId: fields[1],
       createdAt: fields[2],
       createdAtGmt: fields[3],
+      contentHtml: fields[4],
+      title: fields[5],
+      excerpt: fields[6],
       status: fields[7],
       slug: fields[11],
       updatedAt: fields[14],

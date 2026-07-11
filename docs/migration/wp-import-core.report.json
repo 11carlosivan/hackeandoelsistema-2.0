@@ -1,0 +1,488 @@
+{
+  "generatedAt": "2026-07-11T04:51:29.120Z",
+  "mode": "core-dry-run",
+  "source": {
+    "fileName": "qscbkfcv_wp999.sql",
+    "sizeBytes": 497579837
+  },
+  "wordpress": {
+    "tablePrefix": "wpmb_",
+    "home": "https://hackeandoelsistema.net",
+    "permalinkStructure": "/%postname%/",
+    "categoryBase": "category",
+    "tagBase": "tag"
+  },
+  "target": {
+    "prismaModels": [
+      "User",
+      "Category",
+      "Tag",
+      "Post",
+      "Page",
+      "Product",
+      "WebStory",
+      "Route",
+      "ImportMapping"
+    ],
+    "writesDatabase": false
+  },
+  "plan": {
+    "users": {
+      "wordpressUsersFound": 20,
+      "authorsReferencedByImportableContent": 6,
+      "authorsMissingInUsersTable": 0,
+      "credentialPolicy": "No se migran hashes de WordPress; las credenciales deben regenerarse en el sistema nuevo."
+    },
+    "taxonomies": {
+      "categories": 16,
+      "tags": 306,
+      "publishedImportableContentWithAtLeastOneCategory": 8351,
+      "publishedImportableContentWithAtLeastOneTag": 1583
+    },
+    "content": {
+      "postsTableRows": 27554,
+      "byTypeAndStatus": {
+        "page": {
+          "publish": 27,
+          "draft": 3
+        },
+        "everest_form": {
+          "publish": 1
+        },
+        "revision": {
+          "inherit": 10155
+        },
+        "custom_css": {
+          "publish": 4
+        },
+        "post": {
+          "publish": 8350,
+          "draft": 20,
+          "future": 2,
+          "auto-draft": 8,
+          "pending": 1
+        },
+        "nav_menu_item": {
+          "publish": 23
+        },
+        "oembed_cache": {
+          "publish": 808
+        },
+        "attachment": {
+          "inherit": 7892
+        },
+        "um_form": {
+          "publish": 3
+        },
+        "um_directory": {
+          "publish": 1
+        },
+        "joomsport_player": {
+          "publish": 8
+        },
+        "joomsport_team": {
+          "publish": 4
+        },
+        "joomsport_match": {
+          "publish": 4
+        },
+        "bp-email": {
+          "publish": 22
+        },
+        "app-adstxt": {
+          "publish": 1
+        },
+        "adstxt": {
+          "publish": 1
+        },
+        "wp_block": {
+          "publish": 2
+        },
+        "wpplugin_don_button": {
+          "publish": 1
+        },
+        "shop_order": {
+          "wc-on-hold": 1
+        },
+        "wp_global_styles": {
+          "publish": 2
+        },
+        "mailpoet_page": {
+          "publish": 1
+        },
+        "elementor_library": {
+          "publish": 3
+        },
+        "wp_navigation": {
+          "publish": 1
+        },
+        "peepso-post": {
+          "publish": 150
+        },
+        "feedzy_imports": {
+          "publish": 1
+        },
+        "wpuf_forms": {
+          "publish": 1
+        },
+        "wpuf_input": {
+          "publish": 3
+        },
+        "peepso_user_field": {
+          "publish": 6,
+          "private": 1
+        },
+        "peepso_reaction": {
+          "publish": 11
+        },
+        "peepso_post_bg": {
+          "publish": 6
+        },
+        "peepso_vip": {
+          "publish": 8
+        },
+        "peepso-comment": {
+          "publish": 2
+        },
+        "web-story": {
+          "publish": 4
+        },
+        "aal_button": {
+          "publish": 6
+        },
+        "product": {
+          "publish": 6
+        }
+      },
+      "byStatus": {
+        "publish": 9471,
+        "inherit": 18047,
+        "wc-on-hold": 1,
+        "draft": 23,
+        "private": 1,
+        "future": 2,
+        "auto-draft": 8,
+        "pending": 1
+      },
+      "plannedPublishedPosts": 8350,
+      "plannedPublishedPages": 27,
+      "plannedProducts": 6,
+      "plannedWebStories": 4,
+      "mediaInventoryOnly": 7892,
+      "skippedByReason": {
+        "status:inherit": 18047,
+        "status:wc-on-hold": 1,
+        "status:private": 1
+      }
+    },
+    "routes": {
+      "plannedActiveRoutes": 8709,
+      "collisions": [],
+      "sampleRoutes": [
+        {
+          "path": "/privacy-policy/",
+          "entityType": "PAGE",
+          "legacyId": "3",
+          "sourceType": "page"
+        },
+        {
+          "path": "/el-maestro-armando-manzanero-es-entubado-tras-contraer-covi-19/",
+          "entityType": "POST",
+          "legacyId": "2916",
+          "sourceType": "post"
+        },
+        {
+          "path": "/hackeandoelsistema-net-cuestiona-la-inclusion-de-cuba-como-estado/",
+          "entityType": "POST",
+          "legacyId": "69203",
+          "sourceType": "post"
+        },
+        {
+          "path": "/el-populismo-excesivo-en-la-gestion-gubernamental/",
+          "entityType": "POST",
+          "legacyId": "69066",
+          "sourceType": "post"
+        },
+        {
+          "path": "/el-90-2-de-escolares-pudo-completar-sus-estudios-en-cuarentena-por-whatsapp/",
+          "entityType": "POST",
+          "legacyId": "25",
+          "sourceType": "post"
+        },
+        {
+          "path": "/suman-un-total-de-ocho-muertos-del-naufragio-en-la-altagracia/",
+          "entityType": "POST",
+          "legacyId": "2354",
+          "sourceType": "post"
+        },
+        {
+          "path": "/procuradora-lentitud-en-el-conocimiento-audiencias-provoca-hacinamiento-en-carcel/",
+          "entityType": "POST",
+          "legacyId": "28",
+          "sourceType": "post"
+        },
+        {
+          "path": "/sube-a-35-la-cifra-de-muertos-por-el-terremoto-en-turquia/",
+          "entityType": "POST",
+          "legacyId": "31",
+          "sourceType": "post"
+        },
+        {
+          "path": "/acto-de-inicio-ano-escolar-se-realizara-en-la-plaza-de-la-bandera/",
+          "entityType": "POST",
+          "legacyId": "35",
+          "sourceType": "post"
+        },
+        {
+          "path": "/david-gaudu-evita-el-doblete-de-soler-y-los-favoritos-firman-tablas/",
+          "entityType": "POST",
+          "legacyId": "38",
+          "sourceType": "post"
+        },
+        {
+          "path": "/policia-nacional-detiene-2700-personas-por-violar-toque-de-queda/",
+          "entityType": "POST",
+          "legacyId": "3063",
+          "sourceType": "post"
+        },
+        {
+          "path": "/obras-publicas-interviene-a-sde-por-incompetencia-de-sus-autoridades-encabezada-por-manuel-jimenez/",
+          "entityType": "POST",
+          "legacyId": "2920",
+          "sourceType": "post"
+        },
+        {
+          "path": "/los-companeros-del-prm-son-un-problema-para-luis-abinader/",
+          "entityType": "POST",
+          "legacyId": "2926",
+          "sourceType": "post"
+        },
+        {
+          "path": "/alcalde-carlos-guzman-abandonaria-pld-este-domingo-para-juramentarse-en-la-fp/",
+          "entityType": "POST",
+          "legacyId": "69",
+          "sourceType": "post"
+        },
+        {
+          "path": "/mayores-aprueban-que-steve-cohen-compre-a-los-mets-de-nueva-york/",
+          "entityType": "POST",
+          "legacyId": "72",
+          "sourceType": "post"
+        },
+        {
+          "path": "/banco-central-mantiene-en-3-su-tasa-de-politica-monetaria-anualdice-alza-de-precios-es-transitoria/",
+          "entityType": "POST",
+          "legacyId": "78",
+          "sourceType": "post"
+        },
+        {
+          "path": "/por-que-nace-hackeando-el-sistema/",
+          "entityType": "POST",
+          "legacyId": "82",
+          "sourceType": "post"
+        },
+        {
+          "path": "/otro-aporte-de-la-pandemia/",
+          "entityType": "POST",
+          "legacyId": "85",
+          "sourceType": "post"
+        },
+        {
+          "path": "/homicidio-multiple-hombre-mata-ex-pareja-y-dos-personas-mas/",
+          "entityType": "POST",
+          "legacyId": "623",
+          "sourceType": "post"
+        },
+        {
+          "path": "/muerta-la-reforma-fiscal-por-ahora-vamos-a-darle-paso-a-la-reorganizacion-tributaria-y-paso-a-explicar/",
+          "entityType": "POST",
+          "legacyId": "43224",
+          "sourceType": "post"
+        },
+        {
+          "path": "/jose-laluz-pide-apoyo-de-todos-y-por-todas-parte-para-que-no-secuestren-el-pld/",
+          "entityType": "POST",
+          "legacyId": "3532",
+          "sourceType": "post"
+        },
+        {
+          "path": "/el-pueblo-ya-no-respeta-el-viejo-pld/",
+          "entityType": "POST",
+          "legacyId": "107",
+          "sourceType": "post"
+        },
+        {
+          "path": "/banda-armada-llega-tirando-tiros-a-un-barrio-de-ste/",
+          "entityType": "POST",
+          "legacyId": "40507",
+          "sourceType": "post"
+        },
+        {
+          "path": "/a-sus-90-anos-fallece-ex-presidente-de-argentina-carlos-menem/",
+          "entityType": "POST",
+          "legacyId": "4218",
+          "sourceType": "post"
+        }
+      ],
+      "canonicalPolicy": {
+        "post": "/{post_slug}/",
+        "page": "/{page_slug}/ or hierarchical /{parent_slug}/{page_slug}/",
+        "category": "/category/{category_slug}/",
+        "tag": "/tag/{tag_slug}/",
+        "product": "/producto/{product_slug}/",
+        "webStory": "/web-stories/{story_slug}/"
+      }
+    },
+    "importMappings": {
+      "plannedRows": 8709,
+      "sampleMappings": [
+        {
+          "objectType": "PAGE",
+          "legacyId": "3",
+          "legacyUrl": "/privacy-policy/",
+          "newUrl": "/privacy-policy/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "2916",
+          "legacyUrl": "/el-maestro-armando-manzanero-es-entubado-tras-contraer-covi-19/",
+          "newUrl": "/el-maestro-armando-manzanero-es-entubado-tras-contraer-covi-19/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "69203",
+          "legacyUrl": "/hackeandoelsistema-net-cuestiona-la-inclusion-de-cuba-como-estado/",
+          "newUrl": "/hackeandoelsistema-net-cuestiona-la-inclusion-de-cuba-como-estado/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "69066",
+          "legacyUrl": "/el-populismo-excesivo-en-la-gestion-gubernamental/",
+          "newUrl": "/el-populismo-excesivo-en-la-gestion-gubernamental/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "25",
+          "legacyUrl": "/el-90-2-de-escolares-pudo-completar-sus-estudios-en-cuarentena-por-whatsapp/",
+          "newUrl": "/el-90-2-de-escolares-pudo-completar-sus-estudios-en-cuarentena-por-whatsapp/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "2354",
+          "legacyUrl": "/suman-un-total-de-ocho-muertos-del-naufragio-en-la-altagracia/",
+          "newUrl": "/suman-un-total-de-ocho-muertos-del-naufragio-en-la-altagracia/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "28",
+          "legacyUrl": "/procuradora-lentitud-en-el-conocimiento-audiencias-provoca-hacinamiento-en-carcel/",
+          "newUrl": "/procuradora-lentitud-en-el-conocimiento-audiencias-provoca-hacinamiento-en-carcel/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "31",
+          "legacyUrl": "/sube-a-35-la-cifra-de-muertos-por-el-terremoto-en-turquia/",
+          "newUrl": "/sube-a-35-la-cifra-de-muertos-por-el-terremoto-en-turquia/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "35",
+          "legacyUrl": "/acto-de-inicio-ano-escolar-se-realizara-en-la-plaza-de-la-bandera/",
+          "newUrl": "/acto-de-inicio-ano-escolar-se-realizara-en-la-plaza-de-la-bandera/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "38",
+          "legacyUrl": "/david-gaudu-evita-el-doblete-de-soler-y-los-favoritos-firman-tablas/",
+          "newUrl": "/david-gaudu-evita-el-doblete-de-soler-y-los-favoritos-firman-tablas/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "3063",
+          "legacyUrl": "/policia-nacional-detiene-2700-personas-por-violar-toque-de-queda/",
+          "newUrl": "/policia-nacional-detiene-2700-personas-por-violar-toque-de-queda/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "2920",
+          "legacyUrl": "/obras-publicas-interviene-a-sde-por-incompetencia-de-sus-autoridades-encabezada-por-manuel-jimenez/",
+          "newUrl": "/obras-publicas-interviene-a-sde-por-incompetencia-de-sus-autoridades-encabezada-por-manuel-jimenez/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "2926",
+          "legacyUrl": "/los-companeros-del-prm-son-un-problema-para-luis-abinader/",
+          "newUrl": "/los-companeros-del-prm-son-un-problema-para-luis-abinader/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "69",
+          "legacyUrl": "/alcalde-carlos-guzman-abandonaria-pld-este-domingo-para-juramentarse-en-la-fp/",
+          "newUrl": "/alcalde-carlos-guzman-abandonaria-pld-este-domingo-para-juramentarse-en-la-fp/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "72",
+          "legacyUrl": "/mayores-aprueban-que-steve-cohen-compre-a-los-mets-de-nueva-york/",
+          "newUrl": "/mayores-aprueban-que-steve-cohen-compre-a-los-mets-de-nueva-york/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "78",
+          "legacyUrl": "/banco-central-mantiene-en-3-su-tasa-de-politica-monetaria-anualdice-alza-de-precios-es-transitoria/",
+          "newUrl": "/banco-central-mantiene-en-3-su-tasa-de-politica-monetaria-anualdice-alza-de-precios-es-transitoria/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "82",
+          "legacyUrl": "/por-que-nace-hackeando-el-sistema/",
+          "newUrl": "/por-que-nace-hackeando-el-sistema/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "85",
+          "legacyUrl": "/otro-aporte-de-la-pandemia/",
+          "newUrl": "/otro-aporte-de-la-pandemia/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "623",
+          "legacyUrl": "/homicidio-multiple-hombre-mata-ex-pareja-y-dos-personas-mas/",
+          "newUrl": "/homicidio-multiple-hombre-mata-ex-pareja-y-dos-personas-mas/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "43224",
+          "legacyUrl": "/muerta-la-reforma-fiscal-por-ahora-vamos-a-darle-paso-a-la-reorganizacion-tributaria-y-paso-a-explicar/",
+          "newUrl": "/muerta-la-reforma-fiscal-por-ahora-vamos-a-darle-paso-a-la-reorganizacion-tributaria-y-paso-a-explicar/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "3532",
+          "legacyUrl": "/jose-laluz-pide-apoyo-de-todos-y-por-todas-parte-para-que-no-secuestren-el-pld/",
+          "newUrl": "/jose-laluz-pide-apoyo-de-todos-y-por-todas-parte-para-que-no-secuestren-el-pld/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "107",
+          "legacyUrl": "/el-pueblo-ya-no-respeta-el-viejo-pld/",
+          "newUrl": "/el-pueblo-ya-no-respeta-el-viejo-pld/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "40507",
+          "legacyUrl": "/banda-armada-llega-tirando-tiros-a-un-barrio-de-ste/",
+          "newUrl": "/banda-armada-llega-tirando-tiros-a-un-barrio-de-ste/"
+        },
+        {
+          "objectType": "POST",
+          "legacyId": "4218",
+          "legacyUrl": "/a-sus-90-anos-fallece-ex-presidente-de-argentina-carlos-menem/",
+          "newUrl": "/a-sus-90-anos-fallece-ex-presidente-de-argentina-carlos-menem/"
+        }
+      ]
+    }
+  },
+  "warnings": [],
+  "note": "Usa --write para escribir en PostgreSQL. Este modo no toca la base de datos."
+}
