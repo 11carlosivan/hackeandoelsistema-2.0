@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import CategoryPage from '@/components/main-design/category-page';
-import { getCategoryFeed } from '@/lib/main-design/api';
+import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 async function loadCategory(slugParts) {
@@ -33,14 +33,27 @@ export async function generateMetadata({ params }) {
 export default async function WordPressCategoryPage({ params }) {
   const { slug } = await params;
   const feed = await loadCategory(slug);
+  let categories = [];
 
   if (!feed) {
     notFound();
   }
 
+  try {
+    categories = await getPublicCategories();
+  } catch {
+    categories = [];
+  }
+
   return (
     <Layout>
-      <CategoryPage categoryId={feed.category.slug} category={feed.category} articles={feed.articles} meta={feed.meta} />
+      <CategoryPage
+        categoryId={feed.category.slug}
+        category={feed.category}
+        articles={feed.articles}
+        meta={feed.meta}
+        categories={categories}
+      />
     </Layout>
   );
 }

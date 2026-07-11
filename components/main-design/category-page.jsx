@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { articles } from '@/lib/main-design/mock-data';
 import { ArticleListItem, EmptyState, SystemPageHeader } from './content-primitives';
 
 const categoryDescriptions = {
@@ -10,11 +9,17 @@ const categoryDescriptions = {
   'INVESTIGACIÓN': 'Reportes profundos, filtraciones, verificaciones y analisis de datos.',
 };
 
-export default function CategoryPage({ categoryId, category, articles: apiArticles, meta }) {
+export default function CategoryPage({ categoryId, category, articles = [], meta, categories = [] }) {
   const categoryName = decodeURIComponent(categoryId || '').toUpperCase();
-  const filteredArticles = apiArticles || articles.filter((article) => article.category === categoryName);
-  const latestArticle = filteredArticles[0];
+  const latestArticle = articles[0];
   const title = category?.title || categoryName || 'NOTICIAS';
+  const visibleCategories = categories.length > 0
+    ? categories
+    : Object.keys(categoryDescriptions).map((name) => ({
+        id: name,
+        title: name,
+        slug: name,
+      }));
 
   return (
     <div className="w-full bg-background text-on-surface">
@@ -23,7 +28,7 @@ export default function CategoryPage({ categoryId, category, articles: apiArticl
         title={title}
         description={category?.description || categoryDescriptions[categoryName] || 'Archivo editorial de Hackeando el Sistema.'}
         stats={[
-          { label: 'PUBLICACIONES', value: `${meta?.total ?? filteredArticles.length} articulos`, icon: 'article' },
+          { label: 'PUBLICACIONES', value: `${meta?.total ?? articles.length} articulos`, icon: 'article' },
           { label: 'ACTUALIZADO', value: latestArticle?.date || 'Pendiente', icon: 'schedule' },
           { label: 'ESTADO', value: 'Indexable', icon: 'travel_explore' },
         ]}
@@ -31,12 +36,12 @@ export default function CategoryPage({ categoryId, category, articles: apiArticl
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <section className="lg:col-span-8 space-y-5">
-          {filteredArticles.length > 0 ? (
-            filteredArticles.map((article) => <ArticleListItem key={article.id} article={article} />)
+          {articles.length > 0 ? (
+            articles.map((article) => <ArticleListItem key={article.id} article={article} />)
           ) : (
             <EmptyState
               title="SIN REGISTROS"
-              description="No hay publicaciones asociadas a esta categoria en el set actual."
+              description="No hay publicaciones asociadas a esta categoria en la API publica."
             />
           )}
         </section>
@@ -55,13 +60,13 @@ export default function CategoryPage({ categoryId, category, articles: apiArticl
           <div className="border border-terminal-gray bg-black/20 p-6">
             <h2 className="font-headline-md text-white text-xl uppercase mb-4">Categorias</h2>
             <div className="flex flex-wrap gap-2">
-              {Object.keys(categoryDescriptions).map((category) => (
+              {visibleCategories.map((category) => (
                 <Link
-                  key={category}
-                  href={`/categoria/${encodeURIComponent(category)}`}
+                  key={category.slug || category.id}
+                  href={`/category/${category.fullPath || category.slug || category.id}/`}
                   className="border border-terminal-gray px-3 py-1 text-[10px] font-label-caps text-on-surface-variant hover:text-system-red hover:border-system-red transition-colors"
                 >
-                  {category}
+                  {category.title || category.name || category.slug}
                 </Link>
               ))}
             </div>

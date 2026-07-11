@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import CategoryPage from '@/components/main-design/category-page';
 import { getAllCategoryIds, getCategoryById } from '@/lib/main-design/content';
-import { getCategoryFeed } from '@/lib/main-design/api';
+import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
 import { categoryMetadata } from '@/lib/main-design/seo';
 
 function toCategorySlug(id) {
@@ -37,11 +37,18 @@ export default async function Page({ params }) {
   const { id } = await params;
   const category = getCategoryById(id);
   let apiFeed = null;
+  let categories = [];
 
   try {
     apiFeed = await getCategoryFeed(toCategorySlug(id));
   } catch {
     apiFeed = null;
+  }
+
+  try {
+    categories = await getPublicCategories();
+  } catch {
+    categories = [];
   }
 
   if (!category && !apiFeed) {
@@ -55,6 +62,7 @@ export default async function Page({ params }) {
         category={apiFeed?.category}
         articles={apiFeed?.articles}
         meta={apiFeed?.meta}
+        categories={categories}
       />
     </Layout>
   );

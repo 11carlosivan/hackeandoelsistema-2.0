@@ -1,29 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { articles } from '@/lib/main-design/mock-data';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArticleListItem, EmptyState, SystemPageHeader } from './content-primitives';
 
-export default function SearchPage() {
+export default function SearchPage({ initialQuery = '', results = [], meta = {}, error = false }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const activeQuery = searchParams.get('q') || '';
-  const [query, setQuery] = useState(activeQuery);
-
-  const results = useMemo(() => {
-    const normalizedQuery = activeQuery.trim().toLowerCase();
-    if (!normalizedQuery) return [];
-
-    return articles.filter((article) => {
-      return [
-        article.title,
-        article.subtitle,
-        article.category,
-        article.tag,
-      ].filter(Boolean).some((value) => value.toLowerCase().includes(normalizedQuery));
-    });
-  }, [activeQuery]);
+  const [query, setQuery] = useState(initialQuery);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -37,8 +20,8 @@ export default function SearchPage() {
         title="Inteligencia"
         description="Consulta de publicaciones, categorias y tags del archivo editorial."
         stats={[
-          { label: 'RESULTADOS', value: `${results.length}`, icon: 'search' },
-          { label: 'ESTADO', value: activeQuery ? 'Activo' : 'Espera', icon: 'radar' },
+          { label: 'RESULTADOS', value: `${meta.total ?? results.length}`, icon: 'search' },
+          { label: 'ESTADO', value: initialQuery ? 'Activo' : 'Espera', icon: 'radar' },
         ]}
       />
 
@@ -60,9 +43,14 @@ export default function SearchPage() {
       </form>
 
       <section className="space-y-5">
-        {results.length > 0 ? (
+        {error ? (
+          <EmptyState
+            title="API NO DISPONIBLE"
+            description="No se pudo consultar el archivo publico en este momento."
+          />
+        ) : results.length > 0 ? (
           results.map((article) => <ArticleListItem key={article.id} article={article} />)
-        ) : activeQuery ? (
+        ) : initialQuery ? (
           <EmptyState
             title="CONSULTA SIN RESULTADOS"
             description="No se encontraron informes coincidentes en el servidor central."

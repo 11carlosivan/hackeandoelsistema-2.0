@@ -86,7 +86,7 @@ export function ArticleListItem({ article }) {
 
         <div className="text-[10px] font-label-caps text-on-surface-variant flex items-center gap-2 mt-4">
           <span className="w-1.5 h-1.5 bg-system-red" />
-          <span>AUTOR: {getAuthorName(article.authorId).toUpperCase()}</span>
+          <span>AUTOR: {(article.authorName || getAuthorName(article.authorId)).toUpperCase()}</span>
         </div>
       </div>
     </Link>
