@@ -21,9 +21,16 @@ const USERS_FIELDS = new Set([0, 1, 3, 8, 9]);
 const TERMS_FIELDS = new Set([0, 1, 2]);
 const TERM_TAXONOMY_FIELDS = new Set([0, 1, 2, 4, 5]);
 const TERM_RELATIONSHIP_FIELDS = new Set([0, 1]);
+const POSTMETA_FIELDS = new Set([1, 2, 3]);
 
 const PUBLIC_OPTIONS = new Set(["siteurl", "home", "permalink_structure", "category_base", "tag_base"]);
 const IMPORTABLE_POST_TYPES = new Set(["post", "page", "product", "web-story"]);
+const MEDIA_META_KEYS = new Set([
+  "_wp_attached_file",
+  "_wp_attachment_metadata",
+  "_wp_attachment_image_alt",
+  "_thumbnail_id",
+]);
 
 export async function buildImportDryRun(dumpPath) {
   const state = await buildWordPressImportState(dumpPath);
@@ -50,6 +57,7 @@ export async function buildWordPressImportState(dumpPath, options = {}) {
     },
     users: new Map(),
     posts: new Map(),
+    postMetaByPostId: new Map(),
     terms: new Map(),
     termTaxonomies: new Map(),
     relationshipsByObjectId: new Map(),
@@ -195,6 +203,7 @@ function isSupportedTable(tableName) {
   return (
     tableName.endsWith("_options") ||
     tableName.endsWith("_posts") ||
+    tableName.endsWith("_postmeta") ||
     tableName.endsWith("_users") ||
     tableName.endsWith("_terms") ||
     tableName.endsWith("_term_taxonomy") ||
@@ -213,6 +222,8 @@ function processInsert(statement, state) {
     processOptions(insert.valuesSql, state);
   } else if (insert.table.endsWith("_posts")) {
     processPosts(insert.valuesSql, state);
+  } else if (insert.table.endsWith("_postmeta")) {
+    processPostMeta(insert.valuesSql, state);
   } else if (insert.table.endsWith("_users")) {
     processUsers(insert.valuesSql, state);
   } else if (insert.table.endsWith("_terms")) {
@@ -280,6 +291,22 @@ function processPosts(valuesSql, state) {
   }
 }
 
+function processPostMeta(valuesSql, state) {
+  for (const tupleSql of iterateSqlTuples(valuesSql)) {
+    const fields = pickSqlFields(tupleSql, POSTMETA_FIELDS);
+    const postId = fields[1];
+    const metaKey = fields[2];
+
+    if (!postId || !MEDIA_META_KEYS.has(metaKey)) {
+      continue;
+    }
+
+    const current = state.postMetaByPostId.get(postId) ?? {};
+    current[metaKey] = fields[3];
+    state.postMetaByPostId.set(postId, current);
+  }
+}
+
 function shouldCapturePostContent(post, state) {
   if (!state.includePostContent) {
     return false;
@@ -289,7 +316,7 @@ function shouldCapturePostContent(post, state) {
     return false;
   }
 
-  return post.status === "publish" && IMPORTABLE_POST_TYPES.has(post.type);
+  return (post.status === "publish" && IMPORTABLE_POST_TYPES.has(post.type)) || post.type === "attachment";
 }
 
 function processTerms(valuesSql, state) {
@@ -350,13 +377,14 @@ export function createDryRunReport(state) {
       tagBase: state.wordpress.options.tag_base || "tag",
     },
     target: {
-      prismaModels: ["User", "Category", "Tag", "Post", "Page", "Product", "WebStory", "Route", "ImportMapping"],
+      prismaModels: ["User", "Category", "Tag", "MediaAsset", "Post", "Page", "Product", "WebStory", "Route", "ImportMapping"],
       writesDatabase: false,
     },
     plan: {
       users: {},
       taxonomies: {},
       content: {},
+      media: {},
       routes: {},
       importMappings: {},
     },
@@ -371,6 +399,8 @@ export function createDryRunReport(state) {
   const skippedByReason = {};
   let publishedImportableContentWithCategory = 0;
   let publishedImportableContentWithTag = 0;
+  let importableMedia = 0;
+  let contentWithThumbnail = 0;
 
   for (const post of state.posts.values()) {
     postsByType[post.type] ??= {};
@@ -391,6 +421,10 @@ export function createDryRunReport(state) {
     }
 
     if (post.status !== "publish" || !IMPORTABLE_POST_TYPES.has(post.type)) {
+      if (post.type === "attachment" && post.status === "inherit") {
+        importableMedia += 1;
+      }
+
       continue;
     }
 
@@ -414,6 +448,10 @@ export function createDryRunReport(state) {
 
     if (relationships.some((termTaxonomyId) => state.termTaxonomies.get(termTaxonomyId)?.taxonomy === "post_tag")) {
       publishedImportableContentWithTag += 1;
+    }
+
+    if (state.postMetaByPostId.get(post.id)?._thumbnail_id) {
+      contentWithThumbnail += 1;
     }
   }
 
@@ -484,6 +522,10 @@ export function createDryRunReport(state) {
     plannedWebStories: postsByType["web-story"]?.publish ?? 0,
     mediaInventoryOnly: postsByType.attachment?.inherit ?? 0,
     skippedByReason,
+  };
+  report.plan.media = {
+    importableAttachments: importableMedia,
+    contentWithFeaturedMediaMeta: contentWithThumbnail,
   };
   report.plan.routes = {
     plannedActiveRoutes: routes.length,

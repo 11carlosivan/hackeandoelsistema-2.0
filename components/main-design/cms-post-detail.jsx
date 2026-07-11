@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
+import CmsFeaturedMediaForm from './cms-featured-media-form';
 import CmsPostEditForm from './cms-post-edit-form';
 import CmsSeoForm from './cms-seo-form';
 import CmsWorkflowActions from './cms-workflow-actions';
@@ -105,6 +106,35 @@ export default function CmsPostDetail({ post, error }) {
         </article>
 
         <aside className="lg:col-span-4 space-y-6">
+          <div className="border border-terminal-gray bg-black/20 p-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="font-headline-md text-xl text-white uppercase">Imagen destacada</h2>
+              <Link
+                href="/cms/media?type=IMAGE"
+                className="font-label-caps text-[9px] text-system-red font-bold hover:text-white transition-colors"
+              >
+                Buscar media
+              </Link>
+            </div>
+            {post.featuredMedia ? (
+              <div className="mb-4 border border-terminal-gray bg-black">
+                <img
+                  src={post.featuredMedia.url}
+                  alt={post.featuredMedia.altText || post.title}
+                  className="w-full max-h-[220px] object-cover"
+                />
+                <div className="border-t border-terminal-gray p-3 text-xs text-on-surface-variant break-words">
+                  {post.featuredMedia.fileName || post.featuredMedia.id}
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 border border-dashed border-terminal-gray p-4 text-sm text-on-surface-variant">
+                Esta publicacion no tiene imagen destacada.
+              </div>
+            )}
+            <CmsFeaturedMediaForm post={post} />
+          </div>
+
           <div className="border border-terminal-gray bg-black/20 p-6">
             <h2 className="font-headline-md text-xl text-white uppercase mb-4">SEO</h2>
             <div className="space-y-3">

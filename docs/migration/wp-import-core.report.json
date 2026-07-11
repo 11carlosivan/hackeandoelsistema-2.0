@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-11T05:06:11.181Z",
+  "generatedAt": "2026-07-11T21:27:17.050Z",
   "mode": "core-write",
-  "importRunId": "090a1944-1e78-488d-8435-c5d37c6ec770",
+  "importRunId": "631b76aa-d629-49f3-8c01-7d6079470752",
   "source": {
     "fileName": "qscbkfcv_wp999.sql",
     "sizeBytes": 497579837
@@ -11,14 +11,15 @@
     "users": 6,
     "categories": 16,
     "tags": 306,
+    "media": 7892,
     "posts": 8350,
     "pages": 27,
     "products": 6,
     "webStories": 4,
     "routes": 8709,
-    "importMappings": 8715,
+    "importMappings": 16607,
     "skipped": 19167,
-    "durationMs": 456470,
+    "durationMs": 529918,
     "limit": null
   },
   "warnings": []

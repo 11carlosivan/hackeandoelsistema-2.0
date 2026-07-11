@@ -22,15 +22,33 @@ const commentsQuerySchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'SPAM', 'TRASHED']).optional(),
   q: z.string().trim().min(1).max(120).optional(),
 });
+const mediaQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(60).default(24),
+  q: z.string().trim().min(1).max(120).optional(),
+  type: z.enum(['IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'OTHER']).optional(),
+});
 const postParamsSchema = z.object({
   id: z.uuid(),
 });
 const commentParamsSchema = z.object({
   id: z.uuid(),
 });
+const mediaParamsSchema = z.object({
+  id: z.uuid(),
+});
 const commentStatusSchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'SPAM', 'TRASHED']),
 });
+const mediaUpdateSchema = z
+  .object({
+    altText: z.string().trim().max(255).nullable().optional(),
+    caption: z.string().trim().max(1000).nullable().optional(),
+    credit: z.string().trim().max(255).nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one media field is required',
+  });
 const postCreateSchema = z.object({
   title: z.string().trim().min(3).max(255),
   slug: z.string().trim().min(3).max(280).optional(),
@@ -64,6 +82,9 @@ const seoUpdateSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one SEO field is required',
   });
+const featuredMediaSchema = z.object({
+  mediaId: z.uuid().nullable(),
+});
 const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
 const workflowTransitions = {
   SUBMIT_REVIEW: new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']),
@@ -181,6 +202,61 @@ function normalizeCmsComment(comment) {
           email: comment.user.email,
           username: comment.user.username,
           displayName: comment.user.displayName,
+        }
+      : null,
+  };
+}
+
+function getMediaType(mimeType) {
+  if (mimeType?.startsWith('image/')) return 'IMAGE';
+  if (mimeType?.startsWith('video/')) return 'VIDEO';
+  if (mimeType?.startsWith('audio/')) return 'AUDIO';
+  if (
+    mimeType === 'application/pdf' ||
+    mimeType?.includes('word') ||
+    mimeType?.includes('excel') ||
+    mimeType?.includes('powerpoint') ||
+    mimeType?.startsWith('text/')
+  ) {
+    return 'DOCUMENT';
+  }
+
+  return 'OTHER';
+}
+
+function normalizeCmsMediaAsset(media) {
+  return {
+    id: media.id,
+    url: media.url,
+    originalUrl: media.originalUrl,
+    path: media.path,
+    disk: media.disk,
+    mimeType: media.mimeType,
+    type: getMediaType(media.mimeType),
+    fileName: media.fileName,
+    fileSize: media.fileSize,
+    width: media.width,
+    height: media.height,
+    altText: media.altText,
+    caption: media.caption,
+    credit: media.credit,
+    legacyWordpressId: media.legacyWordpressId,
+    legacyGuid: media.legacyGuid,
+    createdAt: media.createdAt,
+    uploadedBy: media.uploadedBy
+      ? {
+          id: media.uploadedBy.id,
+          email: media.uploadedBy.email,
+          username: media.uploadedBy.username,
+          displayName: media.uploadedBy.displayName,
+        }
+      : null,
+    variants: media.variants || [],
+    usage: media._count
+      ? {
+          featuredPosts: media._count.featuredPosts || 0,
+          seoMetadata: media._count.seoMetadata || 0,
+          ads: media._count.ads || 0,
         }
       : null,
   };
@@ -564,6 +640,230 @@ export async function registerCmsRoutes(app) {
       };
     },
   );
+
+  app.get('/api/v1/cms/media', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = mediaQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS media query');
+    }
+
+    noStoreHeaders(reply);
+
+    const { page, limit, q, type } = parsed.data;
+    const typeFilter = {
+      IMAGE: { startsWith: 'image/' },
+      VIDEO: { startsWith: 'video/' },
+      AUDIO: { startsWith: 'audio/' },
+      DOCUMENT: { in: ['application/pdf', 'text/plain'] },
+      OTHER: undefined,
+    };
+    const where = {
+      ...(type && type !== 'OTHER' ? { mimeType: typeFilter[type] } : {}),
+      ...(type === 'OTHER'
+        ? {
+            NOT: [
+              { mimeType: { startsWith: 'image/' } },
+              { mimeType: { startsWith: 'video/' } },
+              { mimeType: { startsWith: 'audio/' } },
+              { mimeType: { in: ['application/pdf', 'text/plain'] } },
+            ],
+          }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { fileName: { contains: q, mode: 'insensitive' } },
+              { altText: { contains: q, mode: 'insensitive' } },
+              { caption: { contains: q, mode: 'insensitive' } },
+              { credit: { contains: q, mode: 'insensitive' } },
+              { originalUrl: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.mediaAsset.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          uploadedBy: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          _count: {
+            select: {
+              featuredPosts: true,
+              seoMetadata: true,
+              ads: true,
+            },
+          },
+        },
+      }),
+      app.prisma.mediaAsset.count({ where }),
+    ]);
+
+    return {
+      data: items.map(normalizeCmsMediaAsset),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        filters: {
+          q: q || null,
+          type: type || null,
+        },
+      },
+    };
+  });
+
+  app.get('/api/v1/cms/media/:id', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = mediaParamsSchema.safeParse(request.params);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS media id');
+    }
+
+    noStoreHeaders(reply);
+
+    const media = await app.prisma.mediaAsset.findUnique({
+      where: { id: parsed.data.id },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            displayName: true,
+          },
+        },
+        variants: {
+          orderBy: { variantName: 'asc' },
+        },
+        featuredPosts: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            status: true,
+          },
+          take: 20,
+          orderBy: { updatedAt: 'desc' },
+        },
+        seoMetadata: {
+          select: {
+            id: true,
+            routeId: true,
+            title: true,
+          },
+          take: 20,
+        },
+        _count: {
+          select: {
+            featuredPosts: true,
+            seoMetadata: true,
+            ads: true,
+          },
+        },
+      },
+    });
+
+    if (!media) {
+      throw app.httpErrors.notFound('CMS media not found');
+    }
+
+    return {
+      data: {
+        ...normalizeCmsMediaAsset(media),
+        featuredPosts: media.featuredPosts,
+        seoMetadata: media.seoMetadata,
+      },
+    };
+  });
+
+  app.patch('/api/v1/cms/media/:id', { preHandler: app.requirePermission('media:manage') }, async (request, reply) => {
+    const params = mediaParamsSchema.safeParse(request.params);
+    const body = mediaUpdateSchema.safeParse(request.body);
+
+    if (!params.success || !body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS media update payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const existingMedia = await app.prisma.mediaAsset.findUnique({
+      where: { id: params.data.id },
+      select: {
+        id: true,
+        altText: true,
+        caption: true,
+        credit: true,
+      },
+    });
+
+    if (!existingMedia) {
+      throw app.httpErrors.notFound('CMS media not found');
+    }
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const media = await tx.mediaAsset.update({
+        where: { id: params.data.id },
+        data: body.data,
+        include: {
+          uploadedBy: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          variants: {
+            orderBy: { variantName: 'asc' },
+          },
+          _count: {
+            select: {
+              featuredPosts: true,
+              seoMetadata: true,
+              ads: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'MEDIA_METADATA_UPDATED',
+          entityType: 'MEDIA',
+          entityId: params.data.id,
+          metadata: {
+            fields: Object.keys(body.data),
+            from: {
+              altText: existingMedia.altText,
+              caption: existingMedia.caption,
+              credit: existingMedia.credit,
+            },
+          },
+        },
+      });
+
+      return media;
+    });
+
+    return {
+      data: {
+        media: normalizeCmsMediaAsset(result),
+      },
+    };
+  });
 
   app.get('/api/v1/cms/posts', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
     const parsed = postsQuerySchema.safeParse(request.query);
@@ -953,6 +1253,117 @@ export async function registerCmsRoutes(app) {
           post: normalizeCmsPost(result.post),
           route: result.route,
           seo: result.seo,
+        },
+      };
+    },
+  );
+
+  app.patch(
+    '/api/v1/cms/posts/:id/featured-media',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request, reply) => {
+      const params = postParamsSchema.safeParse(request.params);
+      const body = featuredMediaSchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        throw app.httpErrors.badRequest('Invalid CMS featured media payload');
+      }
+
+      noStoreHeaders(reply);
+
+      const existingPost = await app.prisma.post.findUnique({
+        where: { id: params.data.id },
+        select: {
+          id: true,
+          featuredMediaId: true,
+        },
+      });
+
+      if (!existingPost) {
+        throw app.httpErrors.notFound('CMS post not found');
+      }
+
+      if (body.data.mediaId) {
+        const media = await app.prisma.mediaAsset.findUnique({
+          where: { id: body.data.mediaId },
+          select: {
+            id: true,
+            mimeType: true,
+          },
+        });
+
+        if (!media) {
+          throw app.httpErrors.notFound('CMS media not found');
+        }
+
+        if (!media.mimeType.startsWith('image/')) {
+          throw app.httpErrors.badRequest('Featured media must be an image');
+        }
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const post = await tx.post.update({
+          where: { id: params.data.id },
+          data: {
+            featuredMediaId: body.data.mediaId,
+          },
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+              },
+            },
+            featuredMedia: {
+              select: {
+                id: true,
+                url: true,
+                originalUrl: true,
+                mimeType: true,
+                fileName: true,
+                width: true,
+                height: true,
+                altText: true,
+                caption: true,
+                credit: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    fullPath: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actorId: request.auth.user.id,
+            action: 'POST_FEATURED_MEDIA_UPDATED',
+            entityType: 'POST',
+            entityId: params.data.id,
+            metadata: {
+              from: existingPost.featuredMediaId,
+              to: body.data.mediaId,
+            },
+          },
+        });
+
+        return post;
+      });
+
+      return {
+        data: {
+          post: normalizeCmsPost(result),
+          featuredMedia: result.featuredMedia,
         },
       };
     },

@@ -10,12 +10,12 @@ const roles = [
   {
     name: 'ADMIN',
     description: 'Acceso completo al CMS y configuracion.',
-    permissions: ['cms:read', 'cms:write', 'users:manage', 'posts:manage', 'seo:manage'],
+    permissions: ['cms:read', 'cms:write', 'users:manage', 'posts:manage', 'seo:manage', 'media:manage'],
   },
   {
     name: 'EDITOR',
     description: 'Gestion editorial y revision de publicaciones.',
-    permissions: ['cms:read', 'posts:manage', 'seo:manage'],
+    permissions: ['cms:read', 'posts:manage', 'seo:manage', 'media:manage'],
   },
   {
     name: 'AUTHOR',

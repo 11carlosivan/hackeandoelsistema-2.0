@@ -19,6 +19,7 @@ function createAuthUser() {
             { permission: { permissionKey: 'cms:read' } },
             { permission: { permissionKey: 'posts:manage' } },
             { permission: { permissionKey: 'seo:manage' } },
+            { permission: { permissionKey: 'media:manage' } },
           ],
         },
       },
@@ -82,6 +83,59 @@ function createPrismaStub(user, options = {}) {
     },
     user: null,
   };
+  const media = {
+    id: '55555555-5555-4555-8555-555555555555',
+    uploadedById: user.id,
+    disk: 'wordpress',
+    url: 'https://hackeandoelsistema.net/wp-content/uploads/sample.jpg',
+    path: '/wp-content/uploads/sample.jpg',
+    originalUrl: 'https://hackeandoelsistema.net/wp-content/uploads/sample.jpg',
+    legacyWordpressId: 20,
+    legacyGuid: 'https://example.com/wp-content/uploads/sample.jpg',
+    legacyMetadata: {},
+    mimeType: 'image/jpeg',
+    fileName: 'sample.jpg',
+    fileSize: 12345,
+    width: 1200,
+    height: 800,
+    altText: 'Alt anterior',
+    caption: 'Caption anterior',
+    credit: 'Credito anterior',
+    createdAt: new Date('2026-01-06T00:00:00Z'),
+    uploadedBy: {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+    },
+    variants: [
+      {
+        id: 'variant-1',
+        mediaId: '55555555-5555-4555-8555-555555555555',
+        variantName: 'thumbnail',
+        url: 'https://hackeandoelsistema.net/wp-content/uploads/sample-150x150.jpg',
+        path: '/wp-content/uploads/sample-150x150.jpg',
+        width: 150,
+        height: 150,
+        fileSize: 1000,
+        createdAt: new Date('2026-01-06T00:00:00Z'),
+      },
+    ],
+    featuredPosts: [
+      {
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        status: post.status,
+      },
+    ],
+    seoMetadata: [],
+    _count: {
+      featuredPosts: 1,
+      seoMetadata: 0,
+      ads: 0,
+    },
+  };
 
   const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
@@ -110,6 +164,7 @@ function createPrismaStub(user, options = {}) {
       update: async ({ data }) => ({
         ...post,
         ...data,
+        featuredMedia: data.featuredMediaId === media.id ? media : post.featuredMedia,
         updatedAt: new Date('2026-01-03T00:00:00Z'),
       }),
     },
@@ -164,7 +219,16 @@ function createPrismaStub(user, options = {}) {
         updatedAt: new Date('2026-01-05T00:00:00Z'),
       }),
     },
-    mediaAsset: { count },
+    mediaAsset: {
+      count,
+      findMany: async () => [media],
+      findUnique: async ({ where }) => (where.id === media.id ? media : null),
+      update: async ({ data }) => ({
+        ...media,
+        ...data,
+        createdAt: media.createdAt,
+      }),
+    },
     importRun: {
       findFirst: async () => ({
         id: 'import-1',
@@ -451,6 +515,113 @@ describe('cms routes', () => {
     expect(response.json().data.approvedCount).toBe(1);
   });
 
+  it('returns protected media assets with filters and pagination metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/media?type=IMAGE&q=sample&page=1&limit=12',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data[0]).toMatchObject({
+      fileName: 'sample.jpg',
+      type: 'IMAGE',
+      altText: 'Alt anterior',
+      usage: {
+        featuredPosts: 1,
+      },
+    });
+    expect(response.json().meta).toMatchObject({
+      page: 1,
+      limit: 12,
+      total: 1,
+      filters: {
+        q: 'sample',
+        type: 'IMAGE',
+      },
+    });
+  });
+
+  it('returns protected media detail with variants and usage', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/media/55555555-5555-4555-8555-555555555555',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toMatchObject({
+      id: '55555555-5555-4555-8555-555555555555',
+      variants: [
+        {
+          variantName: 'thumbnail',
+        },
+      ],
+      featuredPosts: [
+        {
+          title: 'Sample Post',
+        },
+      ],
+    });
+  });
+
+  it('updates media SEO metadata and records an audit event', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/media/55555555-5555-4555-8555-555555555555',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        altText: 'Alt actualizado',
+        caption: 'Caption actualizado',
+        credit: 'Redaccion HES',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.media).toMatchObject({
+      id: '55555555-5555-4555-8555-555555555555',
+      altText: 'Alt actualizado',
+      caption: 'Caption actualizado',
+      credit: 'Redaccion HES',
+    });
+  });
+
   it('creates a draft CMS post without exposing it to the sitemap', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
@@ -693,6 +864,38 @@ describe('cms routes', () => {
     await app.close();
 
     expect(response.statusCode).toBe(409);
+  });
+
+  it('updates a post featured media using an existing image', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/featured-media',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        mediaId: '55555555-5555-4555-8555-555555555555',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post).toMatchObject({
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+    expect(response.json().data.featuredMedia).toMatchObject({
+      id: '55555555-5555-4555-8555-555555555555',
+      mimeType: 'image/jpeg',
+    });
   });
 
   it('returns a protected CMS post detail with SEO route data', async () => {

@@ -67,7 +67,7 @@ Respuesta:
     "user": {
       "email": "admin@hackeando.local",
       "roles": ["ADMIN"],
-      "permissions": ["cms:read", "cms:write", "users:manage", "posts:manage", "seo:manage"]
+      "permissions": ["cms:read", "cms:write", "users:manage", "posts:manage", "seo:manage", "media:manage"]
     },
     "accessToken": "...",
     "refreshToken": "..."
@@ -175,6 +175,51 @@ PENDING, APPROVED, SPAM, TRASHED
 
 Cada cambio recalcula `post.commentCount` usando solo comentarios aprobados y registra auditoria `COMMENT_STATUS_UPDATED`.
 
+### `GET /api/v1/cms/media`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/media`.
+
+Query params:
+
+```http
+page=1
+limit=24
+type=IMAGE
+q=archivo-o-alt
+```
+
+Tipos aceptados:
+
+```text
+IMAGE, VIDEO, AUDIO, DOCUMENT, OTHER
+```
+
+Devuelve archivos migrados con URL, MIME, dimensiones, metadata SEO visual, WordPress ID, uso y paginacion.
+
+### `GET /api/v1/cms/media/:id`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/media/[id]` con detalle tecnico, variantes, metadata editable y publicaciones que usan ese archivo como imagen destacada.
+
+### `PATCH /api/v1/cms/media/:id`
+
+Requiere permiso `media:manage`.
+
+Actualiza metadata editorial y SEO visual:
+
+```json
+{
+  "altText": "Descripcion accesible de la imagen",
+  "caption": "Pie de foto visible si aplica",
+  "credit": "Fuente o credito"
+}
+```
+
+Cada cambio registra auditoria `MEDIA_METADATA_UPDATED`.
+
 ### `GET /api/v1/cms/posts`
 
 Requiere permiso `cms:read`.
@@ -267,6 +312,28 @@ Reglas importantes:
 - `ARCHIVE`: pasa a `ARCHIVED`, ruta `GONE`, `httpStatus` 410, `includeInSitemap` false y SEO `NOINDEX / NOFOLLOW`.
 - Cada accion registra auditoria `POST_{ACTION}`.
 
+### `PATCH /api/v1/cms/posts/:id/featured-media`
+
+Requiere permiso `posts:manage`.
+
+Asigna o quita imagen destacada de una publicacion:
+
+```json
+{
+  "mediaId": "uuid-de-media-image"
+}
+```
+
+Para quitarla:
+
+```json
+{
+  "mediaId": null
+}
+```
+
+Solo acepta archivos `image/*` como imagen destacada. Cada cambio registra auditoria `POST_FEATURED_MEDIA_UPDATED`.
+
 ### `GET /api/v1/cms/posts/:id`
 
 Requiere permiso `cms:read`.
@@ -332,6 +399,13 @@ if ($firstComment) {
   Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/comments/$($firstComment.id)/status" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body (@{ status=$nextStatus } | ConvertTo-Json)
   Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/comments/$($firstComment.id)/status" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body (@{ status=$oldStatus } | ConvertTo-Json)
 }
+Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/media?type=IMAGE&page=1&limit=5" -Headers @{ Authorization = "Bearer $token" }
+$firstMedia = (Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/media?type=IMAGE&page=1&limit=1" -Headers @{ Authorization = "Bearer $token" }).data[0]
+if ($firstMedia) {
+  Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/media/$($firstMedia.id)" -Headers @{ Authorization = "Bearer $token" }
+  $mediaPayload = @{ altText='Descripcion SEO de prueba'; caption='Caption de prueba'; credit='Hackeando El Sistema' } | ConvertTo-Json
+  Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/media/$($firstMedia.id)" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body $mediaPayload
+}
 Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/posts?status=PUBLISHED&page=1&limit=5" -Headers @{ Authorization = "Bearer $token" }
 $draftPayload = @{ title='Borrador de prueba'; excerpt='Resumen'; contentText='Texto plano' } | ConvertTo-Json
 $draft = Invoke-RestMethod -Method Post -Uri "http://localhost:4000/api/v1/cms/posts" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body $draftPayload
@@ -342,10 +416,14 @@ $firstPost = (Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/posts?sta
 Invoke-RestMethod -Uri "http://localhost:4000/api/v1/cms/posts/$($firstPost.id)" -Headers @{ Authorization = "Bearer $token" }
 $seoPayload = @{ title='Titulo SEO'; description='Descripcion SEO'; robotsIndex='INDEX'; robotsFollow='FOLLOW' } | ConvertTo-Json
 Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/posts/$($firstPost.id)/seo" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body $seoPayload
+if ($firstMedia) {
+  Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/posts/$($firstPost.id)/featured-media" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body (@{ mediaId=$firstMedia.id } | ConvertTo-Json)
+}
 ```
 
 ## Siguiente capa
 
 - Usar refresh automatico desde frontend cuando expire el access token.
 - Separar permisos finos por modulo CMS cuando las pantallas reales esten definidas.
+- Conectar subida real de media a storage publico/privado compatible con S3/R2.
 - Agregar MFA para roles administrativos.

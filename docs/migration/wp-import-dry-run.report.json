@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-11T04:36:30.018Z",
+  "generatedAt": "2026-07-11T21:30:13.824Z",
   "mode": "dry-run",
   "source": {
     "fileName": "qscbkfcv_wp999.sql",
@@ -17,6 +17,7 @@
       "User",
       "Category",
       "Tag",
+      "MediaAsset",
       "Post",
       "Page",
       "Product",
@@ -174,6 +175,10 @@
         "status:wc-on-hold": 1,
         "status:private": 1
       }
+    },
+    "media": {
+      "importableAttachments": 7892,
+      "contentWithFeaturedMediaMeta": 6009
     },
     "routes": {
       "plannedActiveRoutes": 8709,

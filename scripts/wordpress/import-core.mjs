@@ -198,6 +198,7 @@ async function writeCoreImport({ prisma, state, dryRun, limit }) {
     users: 0,
     categories: 0,
     tags: 0,
+    media: 0,
     posts: 0,
     pages: 0,
     products: 0,
@@ -221,12 +222,20 @@ async function writeCoreImport({ prisma, state, dryRun, limit }) {
       counters,
     });
     const tagIdByTermId = await upsertTags({ prisma, state, importRunId: importRun.id, counters });
+    const mediaIdByLegacyId = await upsertMediaAssets({
+      prisma,
+      state,
+      importRunId: importRun.id,
+      userIdByLegacyId,
+      counters,
+    });
 
     await upsertContent({
       prisma,
       state,
       importRunId: importRun.id,
       userIdByLegacyId,
+      mediaIdByLegacyId,
       categoryIdByTermId,
       tagIdByTermId,
       limit,
@@ -469,6 +478,7 @@ async function upsertContent({
   userIdByLegacyId,
   categoryIdByTermId,
   tagIdByTermId,
+  mediaIdByLegacyId,
   limit,
   counters,
 }) {
@@ -485,7 +495,17 @@ async function upsertContent({
     }
 
     if (post.type === "post") {
-      await upsertPost({ prisma, state, post, importRunId, userIdByLegacyId, categoryIdByTermId, tagIdByTermId, counters });
+      await upsertPost({
+        prisma,
+        state,
+        post,
+        importRunId,
+        userIdByLegacyId,
+        mediaIdByLegacyId,
+        categoryIdByTermId,
+        tagIdByTermId,
+        counters,
+      });
     } else if (post.type === "page") {
       await upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, counters });
     } else if (post.type === "product") {
@@ -498,7 +518,88 @@ async function upsertContent({
   }
 }
 
-async function upsertPost({ prisma, state, post, importRunId, userIdByLegacyId, categoryIdByTermId, tagIdByTermId, counters }) {
+async function upsertMediaAssets({ prisma, state, importRunId, userIdByLegacyId, counters }) {
+  const mediaIdByLegacyId = new Map();
+
+  for (const post of state.posts.values()) {
+    if (post.type !== "attachment" || post.status !== "inherit") {
+      continue;
+    }
+
+    const meta = state.postMetaByPostId.get(post.id) ?? {};
+    const attachedFile = meta._wp_attached_file || null;
+    const originalUrl = post.guid || buildUploadUrl(state, attachedFile);
+    const url = originalUrl || buildUploadUrl(state, attachedFile);
+    const mediaPath = attachedFile || pathFromUrl(url) || `legacy-media/${post.id}`;
+    const dimensions = parseAttachmentDimensions(meta._wp_attachment_metadata);
+    const payload = {
+      uploadedById: userIdByLegacyId.get(post.authorId) ?? null,
+      disk: "wordpress",
+      url,
+      path: mediaPath,
+      originalUrl,
+      legacyWordpressId: Number(post.id),
+      legacyGuid: post.guid || null,
+      legacyMetadata: meta._wp_attachment_metadata ? { raw: meta._wp_attachment_metadata } : undefined,
+      mimeType: post.mimeType || inferMimeType(mediaPath),
+      fileName: path.basename(mediaPath).slice(0, 255) || `media-${post.id}`,
+      width: dimensions.width,
+      height: dimensions.height,
+      altText: normalizeOptionalText(meta._wp_attachment_image_alt || post.title, 255),
+      caption: normalizeOptionalText(post.excerpt, 1000),
+      credit: null,
+      createdAt: parseWordPressDate(post.createdAt) || new Date(),
+    };
+    const dbMedia = await prisma.mediaAsset.upsert({
+      where: { legacyWordpressId: Number(post.id) },
+      create: payload,
+      update: {
+        uploadedById: payload.uploadedById,
+        disk: payload.disk,
+        url: payload.url,
+        path: payload.path,
+        originalUrl: payload.originalUrl,
+        legacyGuid: payload.legacyGuid,
+        legacyMetadata: payload.legacyMetadata,
+        mimeType: payload.mimeType,
+        fileName: payload.fileName,
+        width: payload.width,
+        height: payload.height,
+        altText: payload.altText,
+        caption: payload.caption,
+      },
+    });
+
+    await upsertMapping(prisma, {
+      importRunId,
+      objectType: "MEDIA",
+      legacyId: post.id,
+      newEntityType: null,
+      newEntityId: dbMedia.id,
+      legacyUrl: originalUrl,
+      newUrl: url,
+      checksum: checksumForPayload(payload),
+    });
+
+    mediaIdByLegacyId.set(post.id, dbMedia.id);
+    counters.media += 1;
+    counters.importMappings += 1;
+  }
+
+  return mediaIdByLegacyId;
+}
+
+async function upsertPost({
+  prisma,
+  state,
+  post,
+  importRunId,
+  userIdByLegacyId,
+  mediaIdByLegacyId,
+  categoryIdByTermId,
+  tagIdByTermId,
+  counters,
+}) {
   const authorId = userIdByLegacyId.get(post.authorId);
 
   if (!authorId) {
@@ -507,7 +608,7 @@ async function upsertPost({ prisma, state, post, importRunId, userIdByLegacyId, 
 
   const legacyUrl = canonicalPathForPost(post, state.wordpress.options.permalink_structure);
   assertCanonicalPath(legacyUrl, post);
-  const payload = buildPostPayload({ post, legacyUrl, authorId });
+  const payload = buildPostPayload({ post, legacyUrl, authorId, featuredMediaId: featuredMediaIdForPost(state, post, mediaIdByLegacyId) });
   const dbPost = await prisma.post.upsert({
     where: { legacyWordpressId: Number(post.id) },
     create: payload,
@@ -538,10 +639,11 @@ async function upsertPost({ prisma, state, post, importRunId, userIdByLegacyId, 
   counters.importMappings += 1;
 }
 
-function buildPostPayload({ post, legacyUrl, authorId }) {
+function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = null }) {
   const contentHtml = sanitizeLegacyHtml(post.contentHtml);
   const payload = {
     authorId,
+    featuredMediaId,
     title: normalizeTitle(post.title, post.slug),
     slug: safeSlug(post.slug, `post-${post.id}`).slice(0, 280),
     excerpt: normalizeExcerpt(post.excerpt),
@@ -821,6 +923,69 @@ function htmlToText(value) {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeOptionalText(value, maxLength) {
+  const text = htmlToText(value);
+
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function featuredMediaIdForPost(state, post, mediaIdByLegacyId) {
+  const thumbnailId = state.postMetaByPostId.get(post.id)?._thumbnail_id;
+
+  return thumbnailId ? mediaIdByLegacyId.get(thumbnailId) ?? null : null;
+}
+
+export function parseAttachmentDimensions(serializedMetadata) {
+  const metadata = String(serializedMetadata || "");
+  const width = Number(metadata.match(/s:5:"width";i:(\d+)/)?.[1] ?? 0);
+  const height = Number(metadata.match(/s:6:"height";i:(\d+)/)?.[1] ?? 0);
+
+  return {
+    width: width > 0 ? width : null,
+    height: height > 0 ? height : null,
+  };
+}
+
+function buildUploadUrl(state, attachedFile) {
+  if (!attachedFile) {
+    return null;
+  }
+
+  const siteUrl = String(state.wordpress.options.siteurl || state.wordpress.options.home || "").replace(/\/+$/g, "");
+
+  return siteUrl ? `${siteUrl}/wp-content/uploads/${String(attachedFile).replace(/^\/+/, "")}` : null;
+}
+
+function pathFromUrl(value) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).pathname.replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+export function inferMimeType(value) {
+  const extension = path.extname(String(value || "")).toLowerCase();
+
+  return (
+    {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+      ".svg": "image/svg+xml",
+      ".mp4": "video/mp4",
+      ".mp3": "audio/mpeg",
+      ".pdf": "application/pdf",
+    }[extension] || "application/octet-stream"
+  );
 }
 
 function writeJsonReport(outputPath, report) {
