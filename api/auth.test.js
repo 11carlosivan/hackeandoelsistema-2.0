@@ -104,6 +104,14 @@ function createPrismaStub(user) {
   };
 }
 
+function cookiePair(setCookies, name) {
+  return setCookies.find((cookie) => cookie.startsWith(`${name}=`))?.split(';')[0];
+}
+
+function cookieValue(cookie) {
+  return cookie?.slice(cookie.indexOf('=') + 1);
+}
+
 const testEnv = {
   NODE_ENV: 'test',
   API_HOST: '127.0.0.1',
@@ -154,6 +162,7 @@ describe('auth routes', () => {
       expect.arrayContaining([
         expect.stringContaining('hes_access_token='),
         expect.stringContaining('hes_refresh_token='),
+        expect.stringContaining('hes_csrf_token='),
       ]),
     );
   });
@@ -236,7 +245,7 @@ describe('auth routes', () => {
     expect(me.json().data.user.roles).toContain('ADMIN');
   });
 
-  it('logs out using the http-only refresh cookie', async () => {
+  it('rejects cookie-authenticated unsafe requests without a matching CSRF token', async () => {
     const user = createAuthUser(await hashPassword('CorrectHorse123!'));
     const app = await buildApp({
       env: testEnv,
@@ -252,14 +261,44 @@ describe('auth routes', () => {
         password: 'CorrectHorse123!',
       },
     });
-    const refreshCookie = login.headers['set-cookie']
-      .find((cookie) => cookie.startsWith('hes_refresh_token='))
-      .split(';')[0];
+    const refreshCookie = cookiePair(login.headers['set-cookie'], 'hes_refresh_token');
     const logout = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/logout',
       headers: {
         cookie: refreshCookie,
+      },
+    });
+
+    await app.close();
+
+    expect(logout.statusCode).toBe(403);
+  });
+
+  it('logs out using the http-only refresh cookie with a CSRF token', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+    const refreshCookie = cookiePair(login.headers['set-cookie'], 'hes_refresh_token');
+    const csrfCookie = cookiePair(login.headers['set-cookie'], 'hes_csrf_token');
+    const logout = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      headers: {
+        cookie: `${refreshCookie}; ${csrfCookie}`,
+        'x-csrf-token': cookieValue(csrfCookie),
       },
     });
 
@@ -271,6 +310,7 @@ describe('auth routes', () => {
       expect.arrayContaining([
         expect.stringContaining('hes_access_token=;'),
         expect.stringContaining('hes_refresh_token=;'),
+        expect.stringContaining('hes_csrf_token=;'),
       ]),
     );
   });

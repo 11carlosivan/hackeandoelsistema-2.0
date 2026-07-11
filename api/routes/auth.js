@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   AUTH_COOKIE_NAMES,
+  createCsrfToken,
   createRefreshSession,
   normalizeEmail,
   recordSecurityEvent,
@@ -48,13 +49,27 @@ function cookieOptions(app, maxAge) {
     .join('; ');
 }
 
+function csrfCookieOptions(app, maxAge) {
+  return [
+    'SameSite=Lax',
+    'Path=/',
+    `Max-Age=${maxAge}`,
+    app.config.AUTH_COOKIE_SECURE ? 'Secure' : '',
+  ]
+    .filter(Boolean)
+    .join('; ');
+}
+
 function setAuthCookies(reply, app, access, refreshToken) {
+  const csrfToken = createCsrfToken();
+
   reply.header('Set-Cookie', [
     `${AUTH_COOKIE_NAMES.access}=${access.token}; ${cookieOptions(app, app.config.AUTH_ACCESS_TOKEN_TTL_SECONDS)}`,
     `${AUTH_COOKIE_NAMES.refresh}=${refreshToken}; ${cookieOptions(
       app,
       app.config.AUTH_REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
     )}`,
+    `${AUTH_COOKIE_NAMES.csrf}=${csrfToken}; ${csrfCookieOptions(app, app.config.AUTH_REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60)}`,
   ]);
 }
 
@@ -62,6 +77,7 @@ function clearAuthCookies(reply, app) {
   reply.header('Set-Cookie', [
     `${AUTH_COOKIE_NAMES.access}=; ${cookieOptions(app, 0)}`,
     `${AUTH_COOKIE_NAMES.refresh}=; ${cookieOptions(app, 0)}`,
+    `${AUTH_COOKIE_NAMES.csrf}=; ${csrfCookieOptions(app, 0)}`,
   ]);
 }
 

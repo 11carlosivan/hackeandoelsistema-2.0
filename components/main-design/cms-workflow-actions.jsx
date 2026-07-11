@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { csrfHeaders } from './client-security';
 
 const actionsByStatus = {
   DRAFT: [
@@ -70,6 +71,7 @@ export default function CmsWorkflowActions({ post }) {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...csrfHeaders(),
         },
         body: JSON.stringify({ action }),
       });

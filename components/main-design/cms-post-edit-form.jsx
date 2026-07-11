@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { csrfHeaders } from './client-security';
 
 const editableStatuses = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
 
@@ -46,6 +47,7 @@ export default function CmsPostEditForm({ post }) {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...csrfHeaders(),
         },
         body: JSON.stringify(payload),
       });

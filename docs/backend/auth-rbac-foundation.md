@@ -21,6 +21,8 @@ Esta fase deja una base real de autenticacion para el CMS y la API, conectada a 
   - `app.requirePermission`
 - Permisos efectivos refrescados desde DB en cada request protegida. El token identifica al usuario, pero la autorizacion usa los roles actuales de la base de datos.
 - Cookies HTTP-only `hes_access_token` y `hes_refresh_token` emitidas desde login/refresh.
+- Cookie visible `hes_csrf_token` para proteccion double-submit en mutaciones autenticadas por cookies.
+- Mutaciones cookie-authenticated requieren header `x-csrf-token` con el mismo valor de `hes_csrf_token`.
 - Pantalla `/iniciar-sesion` conectada al endpoint real de Fastify.
 - Middleware de Next para bloquear `/cms/*` si no existe access token valido con rol `ADMIN` o `EDITOR`.
 
@@ -58,6 +60,7 @@ Body:
 ```
 
 Ademas, el endpoint emite cookies HTTP-only para que Next pueda proteger rutas internas del CMS.
+Tambien emite `hes_csrf_token`, visible para el frontend, que debe enviarse como `x-csrf-token` en acciones `POST`, `PATCH`, `PUT` o `DELETE` que dependan de cookies.
 
 Respuesta:
 
@@ -373,6 +376,12 @@ Rota el refresh token. El token anterior queda revocado. Puede recibir `refreshT
 
 Revoca el refresh token activo y limpia cookies de sesion. Puede recibir `refreshToken` en body o usar la cookie HTTP-only `hes_refresh_token`.
 
+Cuando se usa cookie, debe incluir:
+
+```http
+x-csrf-token: valor-de-hes_csrf_token
+```
+
 ## Crear admin local
 
 ```bash
@@ -420,6 +429,8 @@ if ($firstMedia) {
   Invoke-RestMethod -Method Patch -Uri "http://localhost:4000/api/v1/cms/posts/$($firstPost.id)/featured-media" -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body (@{ mediaId=$firstMedia.id } | ConvertTo-Json)
 }
 ```
+
+Las pruebas manuales anteriores usan `Authorization: Bearer`, por eso no necesitan CSRF. Si se prueba desde navegador con cookies, cada mutacion protegida debe incluir `x-csrf-token`.
 
 ## Siguiente capa
 

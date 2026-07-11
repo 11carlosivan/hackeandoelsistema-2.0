@@ -7,6 +7,7 @@ const ACCESS_TOKEN_ALG = 'HS256';
 export const AUTH_COOKIE_NAMES = {
   access: 'hes_access_token',
   refresh: 'hes_refresh_token',
+  csrf: 'hes_csrf_token',
 };
 const PASSWORD_OPTIONS = {
   type: argon2.argon2id,
@@ -17,6 +18,10 @@ const PASSWORD_OPTIONS = {
 
 export async function hashPassword(password) {
   return argon2.hash(password, PASSWORD_OPTIONS);
+}
+
+export function createCsrfToken() {
+  return randomToken(32);
 }
 
 export async function verifyPassword(hash, password) {

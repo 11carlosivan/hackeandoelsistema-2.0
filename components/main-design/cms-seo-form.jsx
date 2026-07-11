@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { csrfHeaders } from './client-security';
 
 function getApiBaseUrl() {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
@@ -41,6 +42,7 @@ export default function CmsSeoForm({ postId, seo, fallbackTitle, fallbackDescrip
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...csrfHeaders(),
         },
         body: JSON.stringify(payload),
       });
