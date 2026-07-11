@@ -35,8 +35,24 @@ GET /api/v1
 GET /api/v1/public/categories
 GET /api/v1/public/posts?page=1&limit=12
 GET /api/v1/public/posts/:slug
+GET /api/v1/public/posts/id/:id
+GET /api/v1/public/pages/:slug
+GET /api/v1/public/pages/id/:id
 GET /api/v1/public/route?path=/slug-wordpress/
 ```
+
+## Resolver SEO de Rutas
+
+`GET /api/v1/public/route?path=/ruta-wordpress/` es la fuente publica para que Next renderice URLs heredadas.
+
+Devuelve:
+
+- `entityType` y `entityId` para cargar el contenido por ID, no por suposicion de slug.
+- `canonicalPath` desde `canonicalRoute`, `seo_metadata.canonicalUrl` o `route.path`.
+- `status`, `httpStatus`, `lastmodAt` y metadata SEO.
+- `type=REDIRECT` con `statusCode`, `targetUrl` y `preserveQuery` cuando la ruta no existe pero hay redirect activo.
+
+La app Next usa `app/[...path]/page.jsx` como resolver universal para posts y paginas heredadas, preservando rutas jerarquicas de WordPress antes del E2E.
 
 ## Seguridad Aplicada
 
@@ -51,7 +67,6 @@ GET /api/v1/public/route?path=/slug-wordpress/
 ## Pendiente Fase 2
 
 - Importador WordPress por streaming desde `wpmb_*`.
-- Resolver frontend por canonical root path `/%postname%/`.
-- Endpoint de sitemap desde DB.
-- Endpoint de redirects para Next middleware/config.
+- Resolver autores, tags, productos y web stories desde `routes`.
+- Status HTTP 410 real para rutas `GONE` desde una capa route-handler/proxy de produccion.
 - Auth real con sesiones, roles y permisos.

@@ -196,7 +196,7 @@ Estructura sugerida:
 apps/web/
   app/
     page.tsx
-    [slug]/
+    [...path]/
       page.tsx
     category/
       [...slug]/
@@ -227,13 +227,15 @@ apps/web/
     routes.ts
 ```
 
-La ruta `[slug]` debe consultar primero `routes`:
+La ruta `[...path]` debe consultar primero `routes`:
 
-1. Buscar `path = /{slug}/`.
+1. Buscar `path = /{ruta-heredada}/`.
 2. Si `route.status = REDIRECTED`, hacer redirect.
 3. Si `entity_type = POST`, renderizar articulo.
 4. Si `entity_type = PAGE`, renderizar pagina estatica.
 5. Si no existe, devolver 404 real.
+
+El contenido debe cargarse por `route.entity_id` para evitar errores con rutas jerarquicas, slugs repetidos historicos o URLs heredadas que no coinciden exactamente con el slug actual.
 
 Para categorias:
 

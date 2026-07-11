@@ -22,6 +22,10 @@ const slugParamSchema = z.object({
   slug: z.string().trim().min(1).max(280),
 });
 
+const idParamSchema = z.object({
+  id: z.uuid(),
+});
+
 const categorySlugParamSchema = z.object({
   slug: z.string().trim().min(1).max(180),
 });
@@ -34,6 +38,20 @@ function normalizeRoutePath(path) {
   }
 
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+function canonicalPathFromUrl(value) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return normalizeRoutePath(url.pathname);
+  } catch {
+    return value.startsWith('/') ? normalizeRoutePath(value) : null;
+  }
 }
 
 function normalizePublicPost(post) {
@@ -49,7 +67,7 @@ function normalizePublicPost(post) {
     updatedAt: post.updatedAt,
     viewCount: post.viewCount,
     commentCount: post.commentCount,
-    canonicalPath: `/${post.slug}/`,
+    canonicalPath: post.legacyUrl || `/${post.slug}/`,
     author: post.author
       ? {
           id: post.author.id,
@@ -303,12 +321,109 @@ export async function registerPublicRoutes(app) {
     };
   });
 
+  app.get('/api/v1/public/posts/id/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+
+    const post = await app.prisma.post.findFirst({
+      where: {
+        id,
+        status: 'PUBLISHED',
+        visibility: 'PUBLIC',
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+          },
+        },
+        featuredMedia: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    publicCacheHeaders(reply, 180);
+
+    return {
+      data: {
+        ...normalizePublicPost(post),
+        contentHtml: post.contentHtml,
+        contentJson: post.contentJson,
+        tags: post.tags.map((item) => ({
+          id: item.tag.id,
+          name: item.tag.name,
+          slug: item.tag.slug,
+        })),
+      },
+    };
+  });
+
   app.get('/api/v1/public/pages/:slug', async (request, reply) => {
     const { slug } = slugParamSchema.parse(request.params);
 
     const page = await app.prisma.page.findFirst({
       where: {
         slug,
+        status: 'PUBLISHED',
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!page) {
+      throw app.httpErrors.notFound('Page not found');
+    }
+
+    publicCacheHeaders(reply, 180);
+
+    return {
+      data: {
+        id: page.id,
+        slug: page.slug,
+        title: page.title,
+        contentHtml: page.contentHtml,
+        contentText: page.contentText,
+        publishedAt: page.publishedAt,
+        updatedAt: page.updatedAt,
+        canonicalPath: page.legacyUrl || `/${page.slug}/`,
+        author: page.author
+          ? {
+              id: page.author.id,
+              username: page.author.username,
+              displayName: page.author.displayName,
+            }
+          : null,
+      },
+    };
+  });
+
+  app.get('/api/v1/public/pages/id/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+
+    const page = await app.prisma.page.findFirst({
+      where: {
+        id,
         status: 'PUBLISHED',
       },
       include: {
@@ -360,6 +475,11 @@ export async function registerPublicRoutes(app) {
     const route = await app.prisma.route.findUnique({
       where: { path: normalizedPath },
       include: {
+        canonicalRoute: {
+          select: {
+            path: true,
+          },
+        },
         seoMetadata: true,
       },
     });
@@ -392,6 +512,7 @@ export async function registerPublicRoutes(app) {
       data: {
         id: route.id,
         path: route.path,
+        canonicalPath: route.canonicalRoute?.path || canonicalPathFromUrl(route.seoMetadata?.canonicalUrl) || route.path,
         entityType: route.entityType,
         entityId: route.entityId,
         status: route.status,
