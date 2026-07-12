@@ -169,7 +169,7 @@ const postTaxonomySchema = z.object({
   tagIds: z.array(z.uuid()).max(30).default([]),
 });
 const workflowSchema = z.object({
-  action: z.enum(['SUBMIT_REVIEW', 'RETURN_TO_DRAFT', 'PUBLISH', 'ARCHIVE']),
+  action: z.enum(['SUBMIT_REVIEW', 'RETURN_TO_DRAFT', 'SCHEDULE', 'PUBLISH', 'ARCHIVE']),
 });
 const seoUpdateSchema = z
   .object({
@@ -189,6 +189,7 @@ const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']
 const workflowTransitions = {
   SUBMIT_REVIEW: new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']),
   RETURN_TO_DRAFT: new Set(['PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED']),
+  SCHEDULE: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED']),
   PUBLISH: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'SCHEDULED']),
   ARCHIVE: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'SCHEDULED', 'PUBLISHED']),
 };
@@ -2886,6 +2887,7 @@ export async function registerCmsRoutes(app) {
           id: true,
           status: true,
           publishedAt: true,
+          scheduledAt: true,
         },
       });
 
@@ -2898,6 +2900,8 @@ export async function registerCmsRoutes(app) {
       }
 
       const now = new Date();
+      const hasFutureSchedule = existingPost.scheduledAt && existingPost.scheduledAt > now;
+      const shouldSchedule = action === 'SCHEDULE' || (action === 'PUBLISH' && hasFutureSchedule);
       const postDataByAction = {
         SUBMIT_REVIEW: {
           status: 'PENDING_REVIEW',
@@ -2906,10 +2910,17 @@ export async function registerCmsRoutes(app) {
         RETURN_TO_DRAFT: {
           status: 'DRAFT',
         },
+        SCHEDULE: {
+          status: 'SCHEDULED',
+        },
         PUBLISH: {
-          status: 'PUBLISHED',
-          publishedAt: existingPost.publishedAt || now,
-          publishedGmtAt: existingPost.publishedAt || now,
+          status: shouldSchedule ? 'SCHEDULED' : 'PUBLISHED',
+          ...(shouldSchedule
+            ? {}
+            : {
+                publishedAt: existingPost.publishedAt || now,
+                publishedGmtAt: existingPost.publishedAt || now,
+              }),
         },
         ARCHIVE: {
           status: 'ARCHIVED',
@@ -2918,10 +2929,16 @@ export async function registerCmsRoutes(app) {
       const routeDataByAction = {
         SUBMIT_REVIEW: {},
         RETURN_TO_DRAFT: {},
+        SCHEDULE: {
+          status: 'ACTIVE',
+          httpStatus: 200,
+          includeInSitemap: false,
+          lastmodAt: now,
+        },
         PUBLISH: {
           status: 'ACTIVE',
           httpStatus: 200,
-          includeInSitemap: true,
+          includeInSitemap: !shouldSchedule,
           lastmodAt: now,
         },
         ARCHIVE: {
@@ -2934,8 +2951,12 @@ export async function registerCmsRoutes(app) {
       const seoDataByAction = {
         SUBMIT_REVIEW: {},
         RETURN_TO_DRAFT: {},
+        SCHEDULE: {
+          robotsIndex: 'NOINDEX',
+          robotsFollow: 'FOLLOW',
+        },
         PUBLISH: {
-          robotsIndex: 'INDEX',
+          robotsIndex: shouldSchedule ? 'NOINDEX' : 'INDEX',
           robotsFollow: 'FOLLOW',
         },
         ARCHIVE: {
@@ -3010,6 +3031,8 @@ export async function registerCmsRoutes(app) {
               from: existingPost.status,
               to: post.status,
               routeId: route?.id || null,
+              scheduledAt: existingPost.scheduledAt,
+              shouldSchedule,
             },
           },
         });

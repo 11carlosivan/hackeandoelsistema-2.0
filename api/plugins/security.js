@@ -37,7 +37,25 @@ export async function registerSecurityPlugins(app, env) {
 
   await app.register(helmet, {
     global: true,
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      reportOnly: env.SECURITY_CSP_REPORT_ONLY,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net'],
+        connectSrc: ["'self'", ...env.corsOrigins],
+        formAction: ["'self'"],
+        upgradeInsecureRequests: env.isProduction ? [] : null,
+      },
+    },
+    crossOriginResourcePolicy: {
+      policy: 'cross-origin',
+    },
   });
 
   await app.register(cors, {

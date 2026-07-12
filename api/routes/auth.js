@@ -18,21 +18,23 @@ import { addMinutes } from '../utils/crypto.js';
 const loginSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(200),
+  tokenResponse: z.boolean().optional(),
 });
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(32).max(512).optional(),
+  tokenResponse: z.boolean().optional(),
 });
 
 const logoutSchema = refreshSchema.optional();
 
-function authResponse({ user, access, refreshToken }) {
+function authResponse({ user, access, refreshToken, includeRefreshToken = false }) {
   return {
     data: {
       user: sanitizeUser(user),
       accessToken: access.token,
       accessTokenExpiresAt: access.expiresAt,
-      refreshToken,
+      ...(includeRefreshToken ? { refreshToken } : {}),
     },
   };
 }
@@ -175,7 +177,12 @@ export async function registerAuthRoutes(app) {
 
     setAuthCookies(reply, app, access, refresh.refreshToken);
     reply.code(200);
-    return authResponse({ user, access, refreshToken: refresh.refreshToken });
+    return authResponse({
+      user,
+      access,
+      refreshToken: refresh.refreshToken,
+      includeRefreshToken: parsed.data.tokenResponse === true,
+    });
   });
 
   app.post('/api/v1/auth/refresh', async (request, reply) => {
@@ -201,7 +208,10 @@ export async function registerAuthRoutes(app) {
     }
 
     setAuthCookies(reply, app, rotated.access, rotated.refreshToken);
-    return authResponse(rotated);
+    return authResponse({
+      ...rotated,
+      includeRefreshToken: parsed.data.tokenResponse === true,
+    });
   });
 
   app.post('/api/v1/auth/logout', async (request, reply) => {

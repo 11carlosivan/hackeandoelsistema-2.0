@@ -8,21 +8,25 @@ import { csrfHeaders } from './client-security';
 const actionsByStatus = {
   DRAFT: [
     ['SUBMIT_REVIEW', 'Enviar a revision'],
+    ['SCHEDULE', 'Programar'],
     ['PUBLISH', 'Publicar'],
     ['ARCHIVE', 'Archivar'],
   ],
   NEEDS_CHANGES: [
     ['SUBMIT_REVIEW', 'Enviar a revision'],
+    ['SCHEDULE', 'Programar'],
     ['PUBLISH', 'Publicar'],
     ['ARCHIVE', 'Archivar'],
   ],
   REJECTED: [
     ['SUBMIT_REVIEW', 'Enviar a revision'],
+    ['SCHEDULE', 'Programar'],
     ['PUBLISH', 'Publicar'],
     ['ARCHIVE', 'Archivar'],
   ],
   PENDING_REVIEW: [
     ['RETURN_TO_DRAFT', 'Volver a borrador'],
+    ['SCHEDULE', 'Programar'],
     ['PUBLISH', 'Publicar'],
     ['ARCHIVE', 'Archivar'],
   ],
@@ -46,11 +50,13 @@ export default function CmsWorkflowActions({ post }) {
   }
 
   const runAction = async (action) => {
-    const riskyAction = action === 'PUBLISH' || action === 'ARCHIVE';
+    const riskyAction = action === 'PUBLISH' || action === 'SCHEDULE' || action === 'ARCHIVE';
     const confirmation = riskyAction
       ? window.confirm(action === 'PUBLISH'
-        ? 'Esto activara la ruta publica y el sitemap. Deseas continuar?'
-        : 'Esto archivara la publicacion y la sacara del sitemap. Deseas continuar?')
+        ? 'Esto activara la ruta publica y el sitemap si no hay una fecha futura. Deseas continuar?'
+        : action === 'SCHEDULE'
+          ? 'Esto dejara la publicacion programada fuera del sitemap hasta publicarla. Deseas continuar?'
+          : 'Esto archivara la publicacion y la sacara del sitemap. Deseas continuar?')
       : true;
 
     if (!confirmation) return;

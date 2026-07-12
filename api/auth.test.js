@@ -157,7 +157,7 @@ describe('auth routes', () => {
     });
     expect(response.json().data.user.passwordHash).toBeUndefined();
     expect(response.json().data.accessToken).toBeTruthy();
-    expect(response.json().data.refreshToken).toBeTruthy();
+    expect(response.json().data.refreshToken).toBeUndefined();
     expect(response.headers['set-cookie']).toEqual(
       expect.arrayContaining([
         expect.stringContaining('hes_access_token='),
@@ -165,6 +165,31 @@ describe('auth routes', () => {
         expect.stringContaining('hes_csrf_token='),
       ]),
     );
+  });
+
+  it('can return refresh tokens only for explicit API token clients', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+        tokenResponse: true,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.accessToken).toBeTruthy();
+    expect(response.json().data.refreshToken).toBeTruthy();
   });
 
   it('rejects invalid credentials', async () => {
