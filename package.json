@@ -21,6 +21,7 @@
     "wp:import:core:local": "node scripts/wordpress/import-core.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
     "seo:sitemap:inventory": "node scripts/seo/sitemap-inventory.mjs",
     "seo:sitemap:inventory:live": "node scripts/seo/sitemap-inventory.mjs --sitemap https://hackeandoelsistema.net/sitemap.xml",
+    "qa:routes:smoke": "node scripts/qa/public-route-smoke.mjs",
     "auth:seed-admin": "node scripts/auth/seed-admin.mjs"
   },
   "dependencies": {

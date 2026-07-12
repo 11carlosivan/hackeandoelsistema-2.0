@@ -1,0 +1,239 @@
+{
+  "generatedAt": "2026-07-12T02:42:33.079Z",
+  "mode": "public-route-smoke",
+  "limitPerType": 3,
+  "checkedRoutes": 25,
+  "failures": 0,
+  "byEntityType": {
+    "HOME": 1,
+    "POST": 3,
+    "PAGE": 3,
+    "CATEGORY": 3,
+    "TAG": 3,
+    "AUTHOR": 3,
+    "PRODUCT": 3,
+    "WEB_STORY": 3,
+    "STATIC": 3
+  },
+  "checks": [
+    {
+      "status": "PASS",
+      "path": "/",
+      "entityType": "HOME",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/pages/id/22013a42-b818-4cf7-9f4c-272072668cac",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/%f0%9d%90%90%f0%9d%90%ae%f0%9d%90%9e-%f0%9d%90%ab%f0%9d%90%9e%f0%9d%90%ac%f0%9d%90%ae%f0%9d%90%a5%f0%9d%90%ad%f0%9d%90%9a%f0%9d%90%9d%f0%9d%90%a8%f0%9d%90%ac-%f0%9d%90%a1%f0%9d%90%9a/",
+      "entityType": "POST",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/posts/id/7586236f-f2fc-4dfc-b3a0-6583557a64fa",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/%f0%9d%99%88%f0%9d%99%96%f0%9d%99%99%f0%9d%99%9a-%f0%9d%99%84%f0%9d%99%a3-%f0%9d%99%8d%f0%9d%98%bf-hecho-en-%f0%9d%99%8d%f0%9d%99%9a%f0%9d%99%a5%f0%9d%99%aa%f0%9d%99%97%f0%9d%99%a1%f0%9d%99%9e/",
+      "entityType": "POST",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/posts/id/9777092d-1471-4edf-9f7e-97434b1f79c0",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/10-de-los-22-partidos-aliados-del-prm-estuvieron-en-los-14-anos/",
+      "entityType": "POST",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/posts/id/88baad0b-1d0c-46bd-8a06-71774ccbc5ba",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/activar/",
+      "entityType": "PAGE",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/pages/id/567640d8-30fd-486f-a7d3-79b259d56f04",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/actividad/",
+      "entityType": "PAGE",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/pages/id/ef885e47-2407-4e18-b422-408f1f28e7e8",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/activity/",
+      "entityType": "PAGE",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/pages/id/d35f1488-4864-4760-a68b-20add55e9be9",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/category/ai-news/",
+      "entityType": "CATEGORY",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/categories/id/20419fc0-90c9-4e91-a20e-5de573a67106/posts",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/category/blog/",
+      "entityType": "CATEGORY",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/categories/id/3230a29b-75d9-4b50-aee3-088844761818/posts",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/category/economia-negocios/",
+      "entityType": "CATEGORY",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/categories/id/aef4680e-7a42-4d85-8292-0e380152ba6a/posts",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/tag/5g/",
+      "entityType": "TAG",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/tags/id/0d2dbfaa-97b4-4cde-9f45-cd3bf2aa3a3f/posts",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/tag/abel-martinez/",
+      "entityType": "TAG",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/tags/id/4681fbe3-d846-46c6-841b-ecba773601cf/posts",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/tag/abuso/",
+      "entityType": "TAG",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/tags/id/65cc1446-659b-4e0a-a8fb-e9bd79dbb8a7/posts",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/author/11carlosivan/",
+      "entityType": "AUTHOR",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/authors/id/0ea435c3-443d-407c-b488-e88aebac9d3d",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/author/admin-hackeandoelsistema/",
+      "entityType": "AUTHOR",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/authors/id/adb162cf-ece4-4a93-a213-1073a6201df2",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/author/heriberto-tejeda/",
+      "entityType": "AUTHOR",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/authors/id/0ed3480e-6a16-4380-b49f-2632e580dc29",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/producto/plan-mensual-campana-2/",
+      "entityType": "PRODUCT",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/products/id/35598a42-d48c-4b9f-9e1f-70638f8c58d7",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/producto/plan-mensual-campana/",
+      "entityType": "PRODUCT",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/products/id/4330877f-5177-4e07-aa00-6a8383598537",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/producto/plan-semanal-semana-activa-2/",
+      "entityType": "PRODUCT",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/products/id/e6adb47a-942f-4bcb-bac0-3eae82e172e5",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/web-stories/66777/",
+      "entityType": "WEB_STORY",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/web-stories/id/61d5d2a2-d697-4bae-ab11-6e32b54b12f5",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/web-stories/66781/",
+      "entityType": "WEB_STORY",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/web-stories/id/407dd4e2-c03c-4d49-a352-ddaec3b4b201",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/web-stories/66784/",
+      "entityType": "WEB_STORY",
+      "routeStatusCode": 200,
+      "entityEndpoint": "/api/v1/public/web-stories/id/e3827420-0f35-45f0-8843-9c3c89b4fc66",
+      "entityStatusCode": 200,
+      "reason": null
+    },
+    {
+      "status": "PASS",
+      "path": "/categoria-producto/sin-categorizar/",
+      "entityType": "STATIC",
+      "routeStatusCode": 200,
+      "entityEndpoint": null
+    },
+    {
+      "status": "PASS",
+      "path": "/shop/",
+      "entityType": "STATIC",
+      "routeStatusCode": 200,
+      "entityEndpoint": null
+    },
+    {
+      "status": "PASS",
+      "path": "/web-stories/",
+      "entityType": "STATIC",
+      "routeStatusCode": 200,
+      "entityEndpoint": null
+    }
+  ]
+}
