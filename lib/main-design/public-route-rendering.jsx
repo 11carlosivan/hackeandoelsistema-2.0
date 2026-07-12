@@ -81,7 +81,7 @@ function paginatedCanonicalPath(route, page) {
   return `${normalizedBasePath}page/${page}/`;
 }
 
-function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
+export function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
   if (!preserveQuery || !searchParams || Object.keys(searchParams).length === 0) {
     return targetUrl;
   }
@@ -102,7 +102,10 @@ function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
     return targetUrl;
   }
 
-  return `${targetUrl}${targetUrl.includes('?') ? '&' : '?'}${queryString}`;
+  const [targetWithoutHash, hash = ''] = String(targetUrl).split('#', 2);
+  const separator = targetWithoutHash.includes('?') ? '&' : '?';
+
+  return `${targetWithoutHash}${separator}${queryString}${hash ? `#${hash}` : ''}`;
 }
 
 async function loadRoute(pathParts) {

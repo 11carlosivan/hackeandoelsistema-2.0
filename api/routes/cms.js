@@ -215,9 +215,9 @@ function normalizeRedirectPath(value) {
   let path;
 
   try {
-    path = new URL(trimmed).pathname;
+    path = new URL(trimmed, PUBLIC_SITE_URL).pathname;
   } catch {
-    path = trimmed;
+    path = trimmed.split(/[?#]/, 1)[0];
   }
 
   const withLeadingSlash = path.startsWith('/') ? path : `/${path}`;
@@ -236,7 +236,17 @@ function normalizeRedirectTarget(value) {
     return trimmed;
   }
 
-  return normalizeRedirectPath(trimmed);
+  let url;
+
+  try {
+    url = new URL(trimmed, PUBLIC_SITE_URL);
+  } catch {
+    return normalizeRedirectPath(trimmed);
+  }
+
+  const path = normalizeRedirectPath(url.pathname);
+
+  return `${path}${url.search}${url.hash}`;
 }
 
 function internalRedirectPath(value) {

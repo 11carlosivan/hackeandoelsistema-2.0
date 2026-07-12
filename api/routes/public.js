@@ -184,6 +184,20 @@ function isSitemapRouteAllowed(path) {
     !SITEMAP_EXCLUDED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
 }
 
+function totalPagesFor(total, limit) {
+  return Math.max(1, Math.ceil(Number(total || 0) / Number(limit || 1)));
+}
+
+function ensurePublicPageInRange(app, { page, total, limit, resourceName }) {
+  const totalPages = totalPagesFor(total, limit);
+
+  if (page > totalPages) {
+    throw app.httpErrors.notFound(`${resourceName} page not found`);
+  }
+
+  return totalPages;
+}
+
 async function findActiveRedirect(app, request, sourcePath) {
   const redirect = await app.prisma.redirect.findFirst({
     where: {
@@ -566,6 +580,12 @@ export async function registerPublicRoutes(app) {
       }),
       app.prisma.post.count({ where }),
     ]);
+    const totalPages = ensurePublicPageInRange(app, {
+      page,
+      total,
+      limit,
+      resourceName: 'Category',
+    });
 
     return {
       data: {
@@ -576,7 +596,7 @@ export async function registerPublicRoutes(app) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
     };
   });
@@ -637,6 +657,12 @@ export async function registerPublicRoutes(app) {
       }),
       app.prisma.post.count({ where }),
     ]);
+    const totalPages = ensurePublicPageInRange(app, {
+      page,
+      total,
+      limit,
+      resourceName: 'Category',
+    });
 
     return {
       data: {
@@ -647,7 +673,7 @@ export async function registerPublicRoutes(app) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
     };
   });
@@ -707,6 +733,12 @@ export async function registerPublicRoutes(app) {
       }),
       app.prisma.post.count({ where }),
     ]);
+    const totalPages = ensurePublicPageInRange(app, {
+      page,
+      total,
+      limit,
+      resourceName: 'Tag',
+    });
 
     return {
       data: {
@@ -717,7 +749,7 @@ export async function registerPublicRoutes(app) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
     };
   });
@@ -1071,6 +1103,12 @@ export async function registerPublicRoutes(app) {
       }),
       app.prisma.post.count({ where }),
     ]);
+    const totalPages = ensurePublicPageInRange(app, {
+      page,
+      total: totalPosts,
+      limit,
+      resourceName: 'Author archive',
+    });
 
     publicCacheHeaders(reply, 180);
 
@@ -1080,7 +1118,7 @@ export async function registerPublicRoutes(app) {
         page,
         limit,
         total: totalPosts,
-        totalPages: Math.ceil(totalPosts / limit),
+        totalPages,
       },
     };
   });

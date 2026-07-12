@@ -14,6 +14,7 @@ describe('public shortcuts', () => {
   it('normalizes public paths with leading and trailing slash', () => {
     expect(normalizePublicPath('sample-post')).toBe('/sample-post/');
     expect(normalizePublicPath('/sample-post')).toBe('/sample-post/');
+    expect(normalizePublicPath('https://example.com/original-story/')).toBe('https://example.com/original-story/');
     expect(normalizePublicPath('/')).toBe('/');
     expect(normalizePublicPath(null)).toBeNull();
   });
@@ -21,6 +22,9 @@ describe('public shortcuts', () => {
   it('prefers imported article canonical routes', () => {
     expect(getArticleCanonicalPath({ route: '/legacy-canonical/' })).toBe('/legacy-canonical/');
     expect(getArticleCanonicalPath({ raw: { canonicalPath: '/raw-canonical' } })).toBe('/raw-canonical/');
+    expect(getArticleCanonicalPath({ raw: { canonicalPath: 'https://example.com/original-story/' } })).toBe(
+      'https://example.com/original-story/',
+    );
     expect(getArticleCanonicalPath({ slug: 'slug-only' })).toBe('/slug-only/');
   });
 
@@ -38,6 +42,7 @@ describe('public shortcuts', () => {
   it('detects when a shortcut should redirect to canonical', () => {
     expect(shouldRedirectToCanonical('/articulo/post-1/', '/post-1/')).toBe(true);
     expect(shouldRedirectToCanonical('/post-1', '/post-1/')).toBe(false);
+    expect(shouldRedirectToCanonical('/articulo/post-1/', 'https://example.com/original-story/')).toBe(false);
     expect(shouldRedirectToCanonical('/post-1', null)).toBe(false);
   });
 

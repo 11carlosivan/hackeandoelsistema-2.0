@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { generatePublicRouteMetadata } from '../lib/main-design/public-route-rendering.jsx';
+import { appendQueryIfNeeded, generatePublicRouteMetadata } from '../lib/main-design/public-route-rendering.jsx';
 
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
@@ -27,5 +27,13 @@ describe('public route rendering', () => {
 
     expect(metadata.robots.index).toBe(false);
     expect(metadata.alternates.canonical).toBe('https://hackeandoelsistema.net/ruta-inexistente/');
+  });
+
+  it('preserves incoming query strings before redirect URL hashes', () => {
+    expect(appendQueryIfNeeded('/nuevo/?utm=wp#comentarios', { page: '2', q: 'rd' }, true)).toBe(
+      '/nuevo/?utm=wp&page=2&q=rd#comentarios',
+    );
+    expect(appendQueryIfNeeded('/nuevo/#comentarios', { page: '2' }, true)).toBe('/nuevo/?page=2#comentarios');
+    expect(appendQueryIfNeeded('/nuevo/#comentarios', { page: '2' }, false)).toBe('/nuevo/#comentarios');
   });
 });

@@ -828,8 +828,8 @@ describe('cms routes', () => {
         authorization: `Bearer ${access.token}`,
       },
       payload: {
-        sourcePath: 'antigua-ruta',
-        targetUrl: '/nueva-ruta',
+        sourcePath: 'antigua-ruta?utm=legacy',
+        targetUrl: '/nueva-ruta?utm=wp#comentarios',
         statusCode: 301,
         preserveQuery: true,
       },
@@ -854,7 +854,7 @@ describe('cms routes', () => {
     expect(createResponse.json().data.redirect).toMatchObject({
       id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       sourcePath: '/antigua-ruta/',
-      targetUrl: '/nueva-ruta/',
+      targetUrl: '/nueva-ruta/?utm=wp#comentarios',
       statusCode: 301,
       preserveQuery: true,
     });

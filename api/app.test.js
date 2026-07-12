@@ -823,6 +823,43 @@ describe('api app', () => {
     expect(response.json().meta.total).toBe(1);
   });
 
+  it('returns 404 for public archive pages outside the available range', async () => {
+    const categoryId = '66666666-6666-4666-8666-666666666666';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        category: {
+          findMany: async () => [],
+          findFirst: async ({ where }) =>
+            where.id === categoryId
+              ? {
+                  id: categoryId,
+                  name: 'Politica',
+                  slug: 'politica',
+                  fullPath: '/category/politica/',
+                  description: 'Archivo politico.',
+                }
+              : null,
+        },
+        post: {
+          findMany: async () => [],
+          count: async ({ where }) => (where.categories?.some?.categoryId === categoryId ? 25 : 0),
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/categories/id/${categoryId}/posts?page=3&limit=24`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(404);
+  });
+
   it('returns tag archives by entity id', async () => {
     const tagId = '77777777-7777-4777-8777-777777777777';
     const app = await buildApp({
