@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-12T01:11:02.655Z",
+  "generatedAt": "2026-07-12T01:37:23.141Z",
   "sitemapUrl": "https://hackeandoelsistema.net/sitemap.xml",
   "sitemapsCrawled": 15,
   "urlsFound": 8396,
@@ -267,16 +267,9 @@
   "mode": "sitemap-compare",
   "writesDatabase": false,
   "database": {
-    "matchedRoutes": 8386,
-    "missingRoutes": 10,
+    "matchedRoutes": 8393,
+    "missingRoutes": 3,
     "missingSamples": [
-      {
-        "url": "https://hackeandoelsistema.net/",
-        "path": "/",
-        "lastmod": "2026-07-02T19:45:58+00:00",
-        "sitemap": "https://hackeandoelsistema.net/page-sitemap.xml",
-        "inferredEntityType": "HOME"
-      },
       {
         "url": "https://hackeandoelsistema.net/shop/",
         "path": "/shop/",
@@ -297,48 +290,6 @@
         "lastmod": "2025-11-08T23:18:28+00:00",
         "sitemap": "https://hackeandoelsistema.net/product_cat-sitemap.xml",
         "inferredEntityType": "POST"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/author/11carlosivan/",
-        "path": "/author/11carlosivan/",
-        "lastmod": "2026-07-05T01:19:10+00:00",
-        "sitemap": "https://hackeandoelsistema.net/author-sitemap.xml",
-        "inferredEntityType": "AUTHOR"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/author/redaccion/",
-        "path": "/author/redaccion/",
-        "lastmod": "2026-07-05T01:19:10+00:00",
-        "sitemap": "https://hackeandoelsistema.net/author-sitemap.xml",
-        "inferredEntityType": "AUTHOR"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/author/heriberto-tejeda/",
-        "path": "/author/heriberto-tejeda/",
-        "lastmod": "2026-07-05T01:19:10+00:00",
-        "sitemap": "https://hackeandoelsistema.net/author-sitemap.xml",
-        "inferredEntityType": "AUTHOR"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/author/redaccion2/",
-        "path": "/author/redaccion2/",
-        "lastmod": "2026-07-05T01:19:10+00:00",
-        "sitemap": "https://hackeandoelsistema.net/author-sitemap.xml",
-        "inferredEntityType": "AUTHOR"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/author/admin-hackeandoelsistema/",
-        "path": "/author/admin-hackeandoelsistema/",
-        "lastmod": "2026-07-05T01:19:10+00:00",
-        "sitemap": "https://hackeandoelsistema.net/author-sitemap.xml",
-        "inferredEntityType": "AUTHOR"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/author/villilo/",
-        "path": "/author/villilo/",
-        "lastmod": "2026-07-05T01:19:10+00:00",
-        "sitemap": "https://hackeandoelsistema.net/author-sitemap.xml",
-        "inferredEntityType": "AUTHOR"
       }
     ],
     "written": 0

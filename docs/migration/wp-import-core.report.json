@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-11T21:27:17.050Z",
+  "generatedAt": "2026-07-12T01:35:59.930Z",
   "mode": "core-write",
-  "importRunId": "631b76aa-d629-49f3-8c01-7d6079470752",
+  "importRunId": "75e6c5e8-7210-495f-b989-db5bc3422ea2",
   "source": {
     "fileName": "qscbkfcv_wp999.sql",
     "sizeBytes": 497579837
@@ -16,10 +16,14 @@
     "pages": 27,
     "products": 6,
     "webStories": 4,
-    "routes": 8709,
+    "routes": 8716,
+    "homeRoutes": 1,
+    "authorRoutes": 6,
+    "seoMetadata": 8394,
+    "yoastMetadata": 8330,
     "importMappings": 16607,
     "skipped": 19167,
-    "durationMs": 529918,
+    "durationMs": 571607,
     "limit": null
   },
   "warnings": []

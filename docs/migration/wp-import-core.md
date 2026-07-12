@@ -95,6 +95,16 @@ El importador usa:
 
 Reejecutar el importador actualiza registros existentes en vez de duplicarlos.
 
+## Cobertura de rutas sitemap
+
+Ademas de las rutas canonicas de contenido, el importador crea:
+
+- route `HOME` para `/` cuando WordPress define `page_on_front`;
+- routes `AUTHOR` para `/author/{legacy_author_slug}/`;
+- metadata SEO base para esas rutas.
+
+Esto reduce el gap del sitemap real antes del E2E. Las URLs especiales de WooCommerce o archivos agregados, como `/shop/`, `/web-stories/` o `/categoria-producto/.../`, deben decidirse en una fase especifica de archivos/tienda: render publico, redirect 301 o `NOINDEX`.
+
 ## SEO migrado
 
 Para cada post, pagina, producto y web story publicada, el importador crea una fila en `seo_metadata`.

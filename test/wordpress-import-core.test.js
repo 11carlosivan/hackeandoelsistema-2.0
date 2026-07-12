@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   checksumForPayload,
+  buildAuthorSeoPayload,
   legacyPlaceholderEmail,
+  isWordPressFrontPage,
   normalizeTitle,
   inferMimeType,
   parseAttachmentDimensions,
@@ -126,6 +128,33 @@ describe("WordPress core importer", () => {
       robotsFollow: "FOLLOW",
       importedFromYoast: false,
       yoastHeadJson: null,
+    });
+  });
+
+  it("detects the configured WordPress front page", () => {
+    const state = { wordpress: { options: { page_on_front: "66655" } } };
+
+    expect(isWordPressFrontPage(state, { id: "66655", type: "page" })).toBe(true);
+    expect(isWordPressFrontPage(state, { id: "66655", type: "post" })).toBe(false);
+    expect(isWordPressFrontPage(state, { id: "1", type: "page" })).toBe(false);
+  });
+
+  it("builds indexable author route SEO metadata", () => {
+    const payload = buildAuthorSeoPayload({
+      displayName: "Redaccion",
+      legacyAuthorUrl: "/author/redaccion/",
+      siteUrl: "https://hackeandoelsistema.net",
+      siteName: "Hackeando el Sistema",
+    });
+
+    expect(payload).toMatchObject({
+      title: "Redaccion - Hackeando el Sistema",
+      description: "Articulos y publicaciones de Redaccion en Hackeando el Sistema.",
+      canonicalUrl: "https://hackeandoelsistema.net/author/redaccion/",
+      robotsIndex: "INDEX",
+      robotsFollow: "FOLLOW",
+      ogType: "profile",
+      twitterCard: "summary",
     });
   });
 });

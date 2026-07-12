@@ -24,7 +24,15 @@ const TERM_TAXONOMY_FIELDS = new Set([0, 1, 2, 4, 5]);
 const TERM_RELATIONSHIP_FIELDS = new Set([0, 1]);
 const POSTMETA_FIELDS = new Set([1, 2, 3]);
 
-const PUBLIC_OPTIONS = new Set(["siteurl", "home", "blogname", "permalink_structure", "category_base", "tag_base"]);
+const PUBLIC_OPTIONS = new Set([
+  "siteurl",
+  "home",
+  "blogname",
+  "permalink_structure",
+  "category_base",
+  "tag_base",
+  "page_on_front",
+]);
 const IMPORTABLE_POST_TYPES = new Set(["post", "page", "product", "web-story"]);
 const MEDIA_META_KEYS = new Set([
   "_wp_attached_file",

@@ -146,6 +146,33 @@ export function checksumForPayload(payload) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+export function isWordPressFrontPage(state, post) {
+  return post.type === "page" && post.id === state.wordpress.options.page_on_front;
+}
+
+export function buildAuthorSeoPayload({ displayName, legacyAuthorUrl, siteUrl, siteName = "Hackeando El Sistema" }) {
+  const title = normalizeTitle(displayName, "Autor", 160);
+  const canonicalUrl = absoluteUrlForPath(legacyAuthorUrl, siteUrl);
+
+  return {
+    title: `${title} - ${siteName}`.slice(0, 255),
+    description: `Articulos y publicaciones de ${title} en ${siteName}.`.slice(0, 320),
+    canonicalUrl,
+    robotsIndex: "INDEX",
+    robotsFollow: "FOLLOW",
+    robotsDirectives: null,
+    ogTitle: `${title} - ${siteName}`.slice(0, 255),
+    ogDescription: `Articulos y publicaciones de ${title} en ${siteName}.`.slice(0, 320),
+    ogType: "profile",
+    ogImageUrl: null,
+    twitterTitle: `${title} - ${siteName}`.slice(0, 255),
+    twitterDescription: `Articulos y publicaciones de ${title} en ${siteName}.`.slice(0, 320),
+    twitterCard: "summary",
+    yoastHeadJson: null,
+    importedFromYoast: false,
+  };
+}
+
 function collectWriteBlockers(dryRun) {
   const blockers = [];
 
@@ -205,6 +232,8 @@ async function writeCoreImport({ prisma, state, dryRun, limit }) {
     products: 0,
     webStories: 0,
     routes: 0,
+    homeRoutes: 0,
+    authorRoutes: 0,
     seoMetadata: 0,
     yoastMetadata: 0,
     importMappings: 0,
@@ -305,6 +334,8 @@ async function upsertUsers({ prisma, state, importRunId, authorIds, counters }) 
 
     const username = `wp-${legacyId}-${safeSlug(user.nicename || user.login, "author")}`.slice(0, 120);
     const displayName = normalizeTitle(user.displayName || user.nicename || user.login, `Autor ${legacyId}`, 160);
+    const legacyAuthorSlug = safeSlug(user.nicename || username, username);
+    const legacyAuthorUrl = `/author/${legacyAuthorSlug}/`;
     const dbUser = await prisma.user.upsert({
       where: { legacyWordpressId: Number(legacyId) },
       create: {
@@ -312,15 +343,35 @@ async function upsertUsers({ prisma, state, importRunId, authorIds, counters }) 
         displayName,
         username,
         legacyWordpressId: Number(legacyId),
-        legacyAuthorSlug: safeSlug(user.nicename || username, username),
-        legacyAuthorUrl: `/author/${safeSlug(user.nicename || username, username)}/`,
+        legacyAuthorSlug,
+        legacyAuthorUrl,
       },
       update: {
         displayName,
         username,
-        legacyAuthorSlug: safeSlug(user.nicename || username, username),
-        legacyAuthorUrl: `/author/${safeSlug(user.nicename || username, username)}/`,
+        legacyAuthorSlug,
+        legacyAuthorUrl,
       },
+    });
+
+    const authorRoute = await upsertRoute(prisma, {
+      path: legacyAuthorUrl,
+      entityType: "AUTHOR",
+      entityId: dbUser.id,
+      lastmodAt: null,
+    });
+    counters.routes += 1;
+    counters.authorRoutes += 1;
+    await upsertStaticSeoMetadata({
+      prisma,
+      route: authorRoute,
+      payload: buildAuthorSeoPayload({
+        displayName,
+        legacyAuthorUrl,
+        siteUrl: state.wordpress.options.home || state.wordpress.options.siteurl,
+        siteName: state.wordpress.options.blogname || "Hackeando El Sistema",
+      }),
+      counters,
     });
 
     await upsertMapping(prisma, {
@@ -329,8 +380,8 @@ async function upsertUsers({ prisma, state, importRunId, authorIds, counters }) 
       legacyId,
       newEntityType: "AUTHOR",
       newEntityId: dbUser.id,
-      legacyUrl: dbUser.legacyAuthorUrl,
-      newUrl: dbUser.legacyAuthorUrl,
+      legacyUrl: legacyAuthorUrl,
+      newUrl: legacyAuthorUrl,
       checksum: checksumForPayload({ displayName, username }),
     });
 
@@ -706,6 +757,18 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
   counters.routes += 1;
   await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
 
+  if (isWordPressFrontPage(state, post)) {
+    const homeRoute = await upsertRoute(prisma, {
+      path: "/",
+      entityType: "HOME",
+      entityId: dbPage.id,
+      lastmodAt: parseWordPressDate(post.updatedAtGmt),
+    });
+    counters.routes += 1;
+    counters.homeRoutes += 1;
+    await upsertSeoMetadata({ prisma, state, post, route: homeRoute, routePath: "/", counters });
+  }
+
   await upsertMapping(prisma, {
     importRunId,
     objectType: "PAGE",
@@ -894,6 +957,19 @@ async function upsertSeoMetadata({ prisma, state, post, route, routePath, counte
   }
 }
 
+async function upsertStaticSeoMetadata({ prisma, route, payload, counters }) {
+  await prisma.seoMetadata.upsert({
+    where: { routeId: route.id },
+    create: {
+      routeId: route.id,
+      ...payload,
+    },
+    update: payload,
+  });
+
+  counters.seoMetadata += 1;
+}
+
 async function upsertMapping(
   prisma,
   { importRunId, objectType, legacyId, newEntityType, newEntityId, legacyUrl, newUrl, checksum },
@@ -997,6 +1073,20 @@ function pathFromUrl(value) {
 
   try {
     return new URL(value).pathname.replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function absoluteUrlForPath(routePath, siteUrl) {
+  const base = String(siteUrl || "").replace(/\/+$/g, "");
+
+  if (!base || !routePath) {
+    return null;
+  }
+
+  try {
+    return new URL(routePath, `${base}/`).toString();
   } catch {
     return null;
   }
