@@ -58,7 +58,13 @@ async function loadRoute(pathParts) {
   }
 }
 
-async function loadEntity(route) {
+function parsePage(value) {
+  const page = Number(value || 1);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+async function loadEntity(route, options = {}) {
   if (!route?.entityId) {
     return null;
   }
@@ -84,11 +90,11 @@ async function loadEntity(route) {
   }
 
   if (route.entityType === 'CATEGORY') {
-    return getCategoryFeedById(route.entityId);
+    return getCategoryFeedById(route.entityId, options.page || 1);
   }
 
   if (route.entityType === 'TAG') {
-    return getTagFeedById(route.entityId);
+    return getTagFeedById(route.entityId, options.page || 1);
   }
 
   return null;
@@ -234,6 +240,7 @@ export async function generateMetadata({ params }) {
 export default async function LegacyRoutePage({ params, searchParams }) {
   const { path } = await params;
   const query = await searchParams;
+  const page = parsePage(query?.page);
   const route = await loadRoute(path);
 
   if (!route) {
@@ -313,7 +320,7 @@ export default async function LegacyRoutePage({ params, searchParams }) {
   }
 
   if (route.entityType === 'CATEGORY') {
-    const feed = await loadEntity(route);
+    const feed = await loadEntity(route, { page });
 
     return (
       <Layout>
@@ -328,7 +335,7 @@ export default async function LegacyRoutePage({ params, searchParams }) {
   }
 
   if (route.entityType === 'TAG') {
-    const feed = await loadEntity(route);
+    const feed = await loadEntity(route, { page });
 
     return (
       <Layout>

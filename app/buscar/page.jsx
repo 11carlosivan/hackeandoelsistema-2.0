@@ -11,10 +11,16 @@ export const metadata = buildMetadata({
   noIndex: true,
 });
 
+function parsePage(value) {
+  const page = Number(value || 1);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
 export default async function Page({ searchParams }) {
   const params = await searchParams;
   const query = String(params?.q || '').trim();
-  const page = Number(params?.page || 1);
+  const page = parsePage(params?.page);
   let result = { articles: [], meta: { page, limit: 24, total: 0, totalPages: 1 } };
 
   if (query) {

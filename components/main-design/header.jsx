@@ -23,6 +23,7 @@ export default function Header() {
     { name: 'ECONOMIA', path: '/category/economia/' },
     { name: 'DEPORTES', path: '/category/deportes/' },
     { name: 'ULTIMA HORA', path: '/category/ultima-hora/' },
+    { name: 'ARCHIVO', path: '/archivo' },
   ];
 
   return (

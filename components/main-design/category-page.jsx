@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArticleListItem, EmptyState, SystemPageHeader } from './content-primitives';
+import { ArticleListItem, EmptyState, PaginationControls, SystemPageHeader } from './content-primitives';
 
 const categoryDescriptions = {
   NACIONALES: 'Noticias nacionales, actualidad dominicana y reportes de interes publico.',
@@ -13,6 +13,7 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
   const categoryName = decodeURIComponent(categoryId || '').toUpperCase();
   const latestArticle = articles[0];
   const title = category?.title || categoryName || 'NOTICIAS';
+  const canonicalPath = category?.fullPath || `/category/${category?.slug || categoryId}/`;
   const visibleCategories = categories.length > 0
     ? categories
     : Object.keys(categoryDescriptions).map((name) => ({
@@ -44,6 +45,8 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
               description="No hay publicaciones asociadas a esta categoria en la API publica."
             />
           )}
+
+          <PaginationControls meta={meta} basePath={canonicalPath} />
         </section>
 
         <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-36">

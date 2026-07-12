@@ -93,6 +93,99 @@ export function ArticleListItem({ article }) {
   );
 }
 
+export function PaginationControls({ meta = {}, basePath = '/', query = {} }) {
+  const page = Number(meta.page || 1);
+  const totalPages = Number(meta.totalPages || 1);
+
+  if (!Number.isFinite(totalPages) || totalPages <= 1) {
+    return null;
+  }
+
+  const buildHref = (nextPage) => {
+    const params = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        params.set(key, String(value));
+      }
+    }
+
+    if (nextPage > 1) {
+      params.set('page', String(nextPage));
+    } else {
+      params.delete('page');
+    }
+
+    const queryString = params.toString();
+
+    return queryString ? `${basePath}?${queryString}` : basePath;
+  };
+
+  const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+  const visiblePages = [...pages]
+    .filter((item) => item >= 1 && item <= totalPages)
+    .sort((a, b) => a - b);
+
+  return (
+    <nav
+      className="border border-terminal-gray bg-surface-container-low/25 p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+      aria-label="Paginacion"
+    >
+      <div className="font-label-caps text-[10px] text-on-surface-variant">
+        PAGINA <span className="text-white">{page}</span> DE <span className="text-white">{totalPages}</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={buildHref(Math.max(1, page - 1))}
+          aria-disabled={page <= 1}
+          className={`border border-terminal-gray px-3 py-2 font-label-caps text-[10px] transition-colors ${
+            page <= 1
+              ? 'pointer-events-none opacity-40 text-on-surface-variant'
+              : 'text-on-surface-variant hover:border-system-red hover:text-system-red'
+          }`}
+        >
+          ANTERIOR
+        </Link>
+
+        {visiblePages.map((item, index) => {
+          const previous = visiblePages[index - 1];
+          const hasGap = previous && item - previous > 1;
+
+          return (
+            <span key={item} className="flex items-center gap-2">
+              {hasGap && <span className="text-on-surface-variant text-xs">...</span>}
+              <Link
+                href={buildHref(item)}
+                aria-current={item === page ? 'page' : undefined}
+                className={`min-w-9 border px-3 py-2 text-center font-label-caps text-[10px] transition-colors ${
+                  item === page
+                    ? 'border-system-red bg-system-red text-black'
+                    : 'border-terminal-gray text-on-surface-variant hover:border-system-red hover:text-system-red'
+                }`}
+              >
+                {item}
+              </Link>
+            </span>
+          );
+        })}
+
+        <Link
+          href={buildHref(Math.min(totalPages, page + 1))}
+          aria-disabled={page >= totalPages}
+          className={`border border-terminal-gray px-3 py-2 font-label-caps text-[10px] transition-colors ${
+            page >= totalPages
+              ? 'pointer-events-none opacity-40 text-on-surface-variant'
+              : 'text-on-surface-variant hover:border-system-red hover:text-system-red'
+          }`}
+        >
+          SIGUIENTE
+        </Link>
+      </div>
+    </nav>
+  );
+}
+
 export function EmptyState({ title, description }) {
   return (
     <div className="border border-dashed border-terminal-gray p-10 text-center bg-surface-container-low/20">

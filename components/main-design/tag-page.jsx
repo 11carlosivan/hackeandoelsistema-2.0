@@ -1,4 +1,4 @@
-import { ArticleListItem, EmptyState, SystemPageHeader } from './content-primitives';
+import { ArticleListItem, EmptyState, PaginationControls, SystemPageHeader } from './content-primitives';
 
 export default function TagPage({ tag, articles = [], meta }) {
   const latestArticle = articles[0];
@@ -22,6 +22,8 @@ export default function TagPage({ tag, articles = [], meta }) {
         ) : (
           <EmptyState title="SIN REGISTROS" description="No hay publicaciones asociadas a este tag." />
         )}
+
+        <PaginationControls meta={meta} basePath={tag.canonicalPath || `/tag/${tag.slug}/`} />
       </section>
     </div>
   );

@@ -4,11 +4,17 @@ import CategoryPage from '@/components/main-design/category-page';
 import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
-async function loadCategory(slugParts) {
+function parsePage(value) {
+  const page = Number(value || 1);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+async function loadCategory(slugParts, page = 1) {
   const slug = slugParts.at(-1);
 
   try {
-    return await getCategoryFeed(slug);
+    return await getCategoryFeed(slug, page);
   } catch {
     return null;
   }
@@ -30,9 +36,11 @@ export async function generateMetadata({ params }) {
   });
 }
 
-export default async function WordPressCategoryPage({ params }) {
+export default async function WordPressCategoryPage({ params, searchParams }) {
   const { slug } = await params;
-  const feed = await loadCategory(slug);
+  const query = await searchParams;
+  const page = parsePage(query?.page);
+  const feed = await loadCategory(slug, page);
   let categories = [];
 
   if (!feed) {

@@ -17,6 +17,12 @@ async function loadCategory(id) {
   });
 }
 
+function parsePage(value) {
+  const page = Number(value || 1);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
 export async function generateMetadata({ params }) {
   const { id } = await params;
   const sourcePath = `/categoria/${id}/`;
@@ -38,10 +44,14 @@ export function generateStaticParams() {
   return [];
 }
 
-export default async function Page({ params }) {
+export default async function Page({ params, searchParams }) {
   const { id } = await params;
+  const query = await searchParams;
+  const page = parsePage(query?.page);
   const sourcePath = `/categoria/${id}/`;
-  const feed = await loadCategory(id);
+  const feed = await tryLoadCategoryByIdentifier(id, {
+    getBySlug: (slug) => getCategoryFeed(slug, page),
+  });
   let categories = [];
 
   try {

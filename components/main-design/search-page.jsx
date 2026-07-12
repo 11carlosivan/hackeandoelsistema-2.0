@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArticleListItem, EmptyState, SystemPageHeader } from './content-primitives';
+import { ArticleListItem, EmptyState, PaginationControls, SystemPageHeader } from './content-primitives';
 
 export default function SearchPage({ initialQuery = '', results = [], meta = {}, error = false }) {
   const router = useRouter();
@@ -60,6 +60,10 @@ export default function SearchPage({ initialQuery = '', results = [], meta = {},
             title="EN ESPERA"
             description="Introduce una busqueda para consultar el archivo."
           />
+        )}
+
+        {initialQuery && !error && (
+          <PaginationControls meta={meta} basePath="/buscar" query={{ q: initialQuery }} />
         )}
       </section>
     </div>
