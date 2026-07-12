@@ -217,6 +217,14 @@ describe('api app', () => {
         route: {
           findUnique: async () => null,
           findMany: async ({ where }) => {
+            expect(where.status).toBe('ACTIVE');
+            expect(where.httpStatus).toBe(200);
+            expect(where.includeInSitemap).toBe(true);
+            expect(where.canonicalRouteId).toBeNull();
+            expect(where.OR).toEqual([
+              { seoMetadata: { is: null } },
+              { seoMetadata: { is: { robotsIndex: 'INDEX' } } },
+            ]);
             expect(where.path.notIn).toContain('/checkout/');
             expect(where.NOT).toContainEqual({ path: { startsWith: '/cms/' } });
 

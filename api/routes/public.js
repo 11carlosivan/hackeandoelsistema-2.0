@@ -1337,7 +1337,23 @@ export async function registerPublicRoutes(app) {
     const routes = await app.prisma.route.findMany({
       where: {
         status: 'ACTIVE',
+        httpStatus: 200,
         includeInSitemap: true,
+        canonicalRouteId: null,
+        OR: [
+          {
+            seoMetadata: {
+              is: null,
+            },
+          },
+          {
+            seoMetadata: {
+              is: {
+                robotsIndex: 'INDEX',
+              },
+            },
+          },
+        ],
         path: {
           notIn: SITEMAP_EXCLUDED_PATHS,
         },
