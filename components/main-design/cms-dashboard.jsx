@@ -49,6 +49,18 @@ export default function CmsDashboard({ summary }) {
             Media
           </Link>
           <Link
+            href="/cms/categorias"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
+          >
+            Categorias
+          </Link>
+          <Link
+            href="/cms/tags"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
+          >
+            Tags
+          </Link>
+          <Link
             href="/cms/auditoria"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >

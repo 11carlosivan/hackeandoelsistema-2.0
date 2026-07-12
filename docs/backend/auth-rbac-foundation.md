@@ -238,6 +238,68 @@ MEDIA_MAX_FILE_SIZE_BYTES=8388608
 
 Cada subida registra auditoria `MEDIA_UPLOADED`.
 
+### `GET /api/v1/cms/categories`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/categorias` con paginacion, busqueda, jerarquia, flags de menu/home y conteo de publicaciones.
+
+Query params:
+
+```http
+page=1
+limit=50
+q=nacionales
+```
+
+### `POST /api/v1/cms/categories`
+
+Requiere permiso `posts:manage`.
+
+```json
+{
+  "name": "Politica",
+  "slug": "politica",
+  "description": "Gobierno, poder y vida publica",
+  "sortOrder": 10,
+  "showInMenu": true,
+  "showOnHome": true
+}
+```
+
+La API normaliza slugs, calcula `fullPath` y registra auditoria `CATEGORY_CREATED`.
+
+### `PATCH /api/v1/cms/categories/:id`
+
+Requiere permiso `posts:manage`.
+
+Actualiza nombre, slug, descripcion, orden y flags editoriales. Registra auditoria `CATEGORY_UPDATED`.
+
+### `GET /api/v1/cms/tags`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/tags` con paginacion, busqueda y conteo de publicaciones.
+
+### `POST /api/v1/cms/tags`
+
+Requiere permiso `posts:manage`.
+
+```json
+{
+  "name": "Fiscalidad",
+  "slug": "fiscalidad"
+}
+```
+
+Registra auditoria `TAG_CREATED`.
+
+### `PATCH /api/v1/cms/tags/:id`
+
+Requiere permiso `posts:manage`.
+
+Actualiza nombre y slug. Registra auditoria `TAG_UPDATED`.
+
 ### `GET /api/v1/cms/media/:id`
 
 Requiere permiso `cms:read`.

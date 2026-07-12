@@ -29,6 +29,11 @@ const mediaQuerySchema = z.object({
   q: z.string().trim().min(1).max(120).optional(),
   type: z.enum(['IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'OTHER']).optional(),
 });
+const taxonomyQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  q: z.string().trim().min(1).max(120).optional(),
+});
 const postParamsSchema = z.object({
   id: z.uuid(),
 });
@@ -36,6 +41,12 @@ const commentParamsSchema = z.object({
   id: z.uuid(),
 });
 const mediaParamsSchema = z.object({
+  id: z.uuid(),
+});
+const categoryParamsSchema = z.object({
+  id: z.uuid(),
+});
+const tagParamsSchema = z.object({
   id: z.uuid(),
 });
 const commentStatusSchema = z.object({
@@ -54,6 +65,19 @@ const mediaUploadFieldSchema = z.object({
   altText: z.string().trim().max(255).optional(),
   caption: z.string().trim().max(1000).optional(),
   credit: z.string().trim().max(255).optional(),
+});
+const categoryWriteSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  slug: z.string().trim().min(2).max(180).optional(),
+  parentId: z.uuid().nullable().optional(),
+  description: z.string().trim().max(1000).nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(100000).optional(),
+  showInMenu: z.coerce.boolean().optional(),
+  showOnHome: z.coerce.boolean().optional(),
+});
+const tagWriteSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  slug: z.string().trim().min(2).max(180).optional(),
 });
 const postCreateSchema = z.object({
   title: z.string().trim().min(3).max(255),
@@ -148,6 +172,92 @@ async function createUniqueSlug(prisma, value) {
   }
 
   return `${base}-${randomUUID().slice(0, 8)}`;
+}
+
+async function createUniqueTaxonomySlug(prisma, model, value, currentId = null) {
+  const base = slugify(value) || `taxonomia-${Date.now()}`;
+
+  for (let index = 0; index < 50; index += 1) {
+    const slug = index === 0 ? base : `${base}-${index + 1}`;
+    const existing = await prisma[model].findFirst({
+      where: {
+        slug,
+        ...(currentId ? { NOT: { id: currentId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return slug;
+    }
+  }
+
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
+
+async function buildCategoryFullPath(prisma, { slug, parentId }) {
+  if (!parentId) {
+    return slug;
+  }
+
+  const parent = await prisma.category.findUnique({
+    where: { id: parentId },
+    select: { fullPath: true },
+  });
+
+  if (!parent) {
+    return slug;
+  }
+
+  return `${parent.fullPath}/${slug}`.replace(/\/+/g, '/');
+}
+
+function normalizeCmsCategory(category) {
+  return {
+    id: category.id,
+    parentId: category.parentId,
+    name: category.name,
+    slug: category.slug,
+    fullPath: category.fullPath,
+    description: category.description,
+    sortOrder: category.sortOrder,
+    showInMenu: category.showInMenu,
+    showOnHome: category.showOnHome,
+    legacyWordpressId: category.legacyWordpressId,
+    legacyUrl: category.legacyUrl,
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt,
+    parent: category.parent
+      ? {
+          id: category.parent.id,
+          name: category.parent.name,
+          slug: category.parent.slug,
+          fullPath: category.parent.fullPath,
+        }
+      : null,
+    usage: category._count
+      ? {
+          posts: category._count.posts || 0,
+          children: category._count.children || 0,
+        }
+      : null,
+  };
+}
+
+function normalizeCmsTag(tag) {
+  return {
+    id: tag.id,
+    name: tag.name,
+    slug: tag.slug,
+    legacyWordpressId: tag.legacyWordpressId,
+    legacyUrl: tag.legacyUrl,
+    createdAt: tag.createdAt,
+    usage: tag._count
+      ? {
+          posts: tag._count.posts || 0,
+        }
+      : null,
+  };
 }
 
 function normalizeCmsPost(post) {
@@ -436,6 +546,396 @@ export async function registerCmsRoutes(app) {
         latestImportRun,
         recentPosts: recentPosts.map(normalizeCmsPost),
         securityEvents,
+      },
+    };
+  });
+
+  app.get('/api/v1/cms/categories', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = taxonomyQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS category query');
+    }
+
+    noStoreHeaders(reply);
+
+    const { page, limit, q } = parsed.data;
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { slug: { contains: q, mode: 'insensitive' } },
+            { fullPath: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+    const [items, total] = await Promise.all([
+      app.prisma.category.findMany({
+        where,
+        orderBy: [{ sortOrder: 'asc' }, { fullPath: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              fullPath: true,
+            },
+          },
+          _count: {
+            select: {
+              posts: true,
+              children: true,
+            },
+          },
+        },
+      }),
+      app.prisma.category.count({ where }),
+    ]);
+
+    return {
+      data: items.map(normalizeCmsCategory),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        filters: {
+          q: q || null,
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/cms/categories', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+    const body = categoryWriteSchema.safeParse(request.body);
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS category payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const slug = await createUniqueTaxonomySlug(app.prisma, 'category', body.data.slug || body.data.name);
+    const fullPath = await buildCategoryFullPath(app.prisma, {
+      slug,
+      parentId: body.data.parentId || null,
+    });
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const category = await tx.category.create({
+        data: {
+          parentId: body.data.parentId || null,
+          name: body.data.name,
+          slug,
+          fullPath,
+          description: body.data.description || null,
+          sortOrder: body.data.sortOrder || 0,
+          showInMenu: body.data.showInMenu || false,
+          showOnHome: body.data.showOnHome || false,
+        },
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              fullPath: true,
+            },
+          },
+          _count: {
+            select: {
+              posts: true,
+              children: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'CATEGORY_CREATED',
+          entityType: 'CATEGORY',
+          entityId: category.id,
+          metadata: {
+            name: category.name,
+            slug: category.slug,
+            fullPath: category.fullPath,
+          },
+        },
+      });
+
+      return category;
+    });
+
+    reply.code(201);
+
+    return {
+      data: {
+        category: normalizeCmsCategory(result),
+      },
+    };
+  });
+
+  app.patch('/api/v1/cms/categories/:id', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+    const params = categoryParamsSchema.safeParse(request.params);
+    const body = categoryWriteSchema.partial().refine((value) => Object.keys(value).length > 0).safeParse(request.body);
+
+    if (!params.success || !body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS category update payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const existing = await app.prisma.category.findUnique({
+      where: { id: params.data.id },
+      select: {
+        id: true,
+        parentId: true,
+        name: true,
+        slug: true,
+        fullPath: true,
+        description: true,
+        sortOrder: true,
+        showInMenu: true,
+        showOnHome: true,
+      },
+    });
+
+    if (!existing) {
+      throw app.httpErrors.notFound('CMS category not found');
+    }
+
+    if (body.data.parentId === params.data.id) {
+      throw app.httpErrors.badRequest('Category cannot be its own parent');
+    }
+
+    const nextSlug = body.data.slug || (body.data.name && body.data.name !== existing.name)
+      ? await createUniqueTaxonomySlug(app.prisma, 'category', body.data.slug || body.data.name, params.data.id)
+      : existing.slug;
+    const nextParentId = Object.hasOwn(body.data, 'parentId') ? body.data.parentId || null : existing.parentId;
+    const nextFullPath = nextSlug !== existing.slug || nextParentId !== existing.parentId
+      ? await buildCategoryFullPath(app.prisma, { slug: nextSlug, parentId: nextParentId })
+      : existing.fullPath;
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const category = await tx.category.update({
+        where: { id: params.data.id },
+        data: {
+          ...(Object.hasOwn(body.data, 'parentId') ? { parentId: nextParentId } : {}),
+          ...(Object.hasOwn(body.data, 'name') ? { name: body.data.name } : {}),
+          slug: nextSlug,
+          fullPath: nextFullPath,
+          ...(Object.hasOwn(body.data, 'description') ? { description: body.data.description || null } : {}),
+          ...(Object.hasOwn(body.data, 'sortOrder') ? { sortOrder: body.data.sortOrder || 0 } : {}),
+          ...(Object.hasOwn(body.data, 'showInMenu') ? { showInMenu: body.data.showInMenu || false } : {}),
+          ...(Object.hasOwn(body.data, 'showOnHome') ? { showOnHome: body.data.showOnHome || false } : {}),
+        },
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              fullPath: true,
+            },
+          },
+          _count: {
+            select: {
+              posts: true,
+              children: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'CATEGORY_UPDATED',
+          entityType: 'CATEGORY',
+          entityId: category.id,
+          metadata: {
+            fields: Object.keys(body.data),
+            from: existing,
+          },
+        },
+      });
+
+      return category;
+    });
+
+    return {
+      data: {
+        category: normalizeCmsCategory(result),
+      },
+    };
+  });
+
+  app.get('/api/v1/cms/tags', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = taxonomyQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS tag query');
+    }
+
+    noStoreHeaders(reply);
+
+    const { page, limit, q } = parsed.data;
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { slug: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+    const [items, total] = await Promise.all([
+      app.prisma.tag.findMany({
+        where,
+        orderBy: [{ name: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          _count: {
+            select: {
+              posts: true,
+            },
+          },
+        },
+      }),
+      app.prisma.tag.count({ where }),
+    ]);
+
+    return {
+      data: items.map(normalizeCmsTag),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        filters: {
+          q: q || null,
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/cms/tags', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+    const body = tagWriteSchema.safeParse(request.body);
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS tag payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const slug = await createUniqueTaxonomySlug(app.prisma, 'tag', body.data.slug || body.data.name);
+    const result = await app.prisma.$transaction(async (tx) => {
+      const tag = await tx.tag.create({
+        data: {
+          name: body.data.name,
+          slug,
+        },
+        include: {
+          _count: {
+            select: {
+              posts: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'TAG_CREATED',
+          entityType: 'TAG',
+          entityId: tag.id,
+          metadata: {
+            name: tag.name,
+            slug: tag.slug,
+          },
+        },
+      });
+
+      return tag;
+    });
+
+    reply.code(201);
+
+    return {
+      data: {
+        tag: normalizeCmsTag(result),
+      },
+    };
+  });
+
+  app.patch('/api/v1/cms/tags/:id', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+    const params = tagParamsSchema.safeParse(request.params);
+    const body = tagWriteSchema.partial().refine((value) => Object.keys(value).length > 0).safeParse(request.body);
+
+    if (!params.success || !body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS tag update payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const existing = await app.prisma.tag.findUnique({
+      where: { id: params.data.id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+
+    if (!existing) {
+      throw app.httpErrors.notFound('CMS tag not found');
+    }
+
+    const nextSlug = body.data.slug || (body.data.name && body.data.name !== existing.name)
+      ? await createUniqueTaxonomySlug(app.prisma, 'tag', body.data.slug || body.data.name, params.data.id)
+      : existing.slug;
+    const result = await app.prisma.$transaction(async (tx) => {
+      const tag = await tx.tag.update({
+        where: { id: params.data.id },
+        data: {
+          ...(Object.hasOwn(body.data, 'name') ? { name: body.data.name } : {}),
+          slug: nextSlug,
+        },
+        include: {
+          _count: {
+            select: {
+              posts: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'TAG_UPDATED',
+          entityType: 'TAG',
+          entityId: tag.id,
+          metadata: {
+            fields: Object.keys(body.data),
+            from: existing,
+          },
+        },
+      });
+
+      return tag;
+    });
+
+    return {
+      data: {
+        tag: normalizeCmsTag(result),
       },
     };
   });

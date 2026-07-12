@@ -140,6 +140,37 @@ function createPrismaStub(user, options = {}) {
       ads: 0,
     },
   };
+  const category = {
+    id: '77777777-7777-4777-8777-777777777777',
+    parentId: null,
+    name: 'Nacionales',
+    slug: 'nacionales',
+    fullPath: 'nacionales',
+    description: 'Actualidad dominicana',
+    sortOrder: 1,
+    showInMenu: true,
+    showOnHome: true,
+    legacyWordpressId: 30,
+    legacyUrl: '/category/nacionales/',
+    createdAt: new Date('2026-01-08T00:00:00Z'),
+    updatedAt: new Date('2026-01-08T00:00:00Z'),
+    parent: null,
+    _count: {
+      posts: 3,
+      children: 0,
+    },
+  };
+  const tag = {
+    id: '88888888-8888-4888-8888-888888888888',
+    name: 'Economia',
+    slug: 'economia',
+    legacyWordpressId: 40,
+    legacyUrl: '/tag/economia/',
+    createdAt: new Date('2026-01-09T00:00:00Z'),
+    _count: {
+      posts: 2,
+    },
+  };
 
   const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
@@ -210,8 +241,51 @@ function createPrismaStub(user, options = {}) {
       }),
     },
     redirect: { count },
-    category: { count },
-    tag: { count },
+    category: {
+      count,
+      findMany: async () => [category],
+      findFirst: async ({ where }) => (where?.slug === category.slug ? category : null),
+      findUnique: async ({ where }) => (where.id === category.id ? category : null),
+      create: async ({ data }) => ({
+        ...category,
+        id: '99999999-9999-4999-8999-999999999999',
+        legacyWordpressId: null,
+        legacyUrl: null,
+        createdAt: new Date('2026-01-10T00:00:00Z'),
+        updatedAt: new Date('2026-01-10T00:00:00Z'),
+        _count: {
+          posts: 0,
+          children: 0,
+        },
+        ...data,
+      }),
+      update: async ({ data }) => ({
+        ...category,
+        ...data,
+        updatedAt: new Date('2026-01-11T00:00:00Z'),
+      }),
+    },
+    tag: {
+      count,
+      findMany: async () => [tag],
+      findFirst: async ({ where }) => (where?.slug === tag.slug ? tag : null),
+      findUnique: async ({ where }) => (where.id === tag.id ? tag : null),
+      create: async ({ data }) => ({
+        ...tag,
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        legacyWordpressId: null,
+        legacyUrl: null,
+        createdAt: new Date('2026-01-10T00:00:00Z'),
+        _count: {
+          posts: 0,
+        },
+        ...data,
+      }),
+      update: async ({ data }) => ({
+        ...tag,
+        ...data,
+      }),
+    },
     userSession: { count },
     comment: {
       count,
@@ -392,6 +466,146 @@ describe('cms routes', () => {
     expect(response.json().data.recentPosts[0]).toMatchObject({
       title: 'Sample Post',
       status: 'DRAFT',
+    });
+  });
+
+  it('lists CMS categories with usage metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/categories?q=nacionales',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data[0]).toMatchObject({
+      name: 'Nacionales',
+      fullPath: 'nacionales',
+      usage: {
+        posts: 3,
+        children: 0,
+      },
+    });
+  });
+
+  it('creates and updates CMS categories with audit events', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/categories',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        name: 'Investigacion',
+        showInMenu: true,
+      },
+    });
+    const updateResponse = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/categories/77777777-7777-4777-8777-777777777777',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        name: 'Politica',
+        slug: 'politica',
+        showInMenu: true,
+        showOnHome: false,
+      },
+    });
+
+    await app.close();
+
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+    expect(createResponse.json().data.category).toMatchObject({
+      id: '99999999-9999-4999-8999-999999999999',
+      slug: 'investigacion',
+      fullPath: 'investigacion',
+    });
+    expect(updateResponse.statusCode, updateResponse.body).toBe(200);
+    expect(updateResponse.json().data.category).toMatchObject({
+      id: '77777777-7777-4777-8777-777777777777',
+      name: 'Politica',
+      slug: 'politica',
+      fullPath: 'politica',
+    });
+  });
+
+  it('lists, creates and updates CMS tags', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const listResponse = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/tags?q=economia',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/tags',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        name: 'Fiscalidad',
+      },
+    });
+    const updateResponse = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/tags/88888888-8888-4888-8888-888888888888',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        name: 'Macroeconomia',
+      },
+    });
+
+    await app.close();
+
+    expect(listResponse.statusCode, listResponse.body).toBe(200);
+    expect(listResponse.json().data[0]).toMatchObject({
+      name: 'Economia',
+      usage: {
+        posts: 2,
+      },
+    });
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+    expect(createResponse.json().data.tag).toMatchObject({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      slug: 'fiscalidad',
+    });
+    expect(updateResponse.statusCode, updateResponse.body).toBe(200);
+    expect(updateResponse.json().data.tag).toMatchObject({
+      id: '88888888-8888-4888-8888-888888888888',
+      name: 'Macroeconomia',
+      slug: 'macroeconomia',
     });
   });
 
