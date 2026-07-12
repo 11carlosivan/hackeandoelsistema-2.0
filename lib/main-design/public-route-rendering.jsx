@@ -159,6 +159,16 @@ function routeRobots(route) {
   };
 }
 
+function routeSocialMetadata(route) {
+  return {
+    ogTitle: route.seo?.ogTitle,
+    ogDescription: route.seo?.ogDescription,
+    twitterTitle: route.seo?.twitterTitle,
+    twitterDescription: route.seo?.twitterDescription,
+    twitterCard: route.seo?.twitterCard,
+  };
+}
+
 export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = null) {
   const pagination = parseLegacyPagination(pathParts);
   const routePath = buildRoutePath(pathParts);
@@ -191,6 +201,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         modifiedTime: route.lastmodAt,
         authors: article.authorName ? [article.authorName] : undefined,
         tags: [article.category, article.tag].filter(Boolean),
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -206,6 +217,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         title: route.seo?.title || page.title,
         description: route.seo?.description || page.contentText?.slice(0, 160),
         path: route.canonicalPath || route.path,
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -218,6 +230,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       title: route.seo?.title || route.path,
       description: route.seo?.description,
       path: route.canonicalPath || route.path,
+      ...routeSocialMetadata(route),
       ...routeRobots(route),
     });
   }
@@ -231,6 +244,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         description: route.seo?.description || author.bio || `Archivo de ${author.displayName}`,
         path: canonicalPath,
         image: route.seo?.ogImageUrl || author.avatar?.url,
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -247,6 +261,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         description: route.seo?.description || product.shortDescription,
         path: route.canonicalPath || route.path,
         image: route.seo?.ogImageUrl || product.image,
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -263,6 +278,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         description: route.seo?.description || 'Web Story migrada desde WordPress',
         path: route.canonicalPath || route.path,
         image: route.seo?.ogImageUrl || story.image,
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -279,6 +295,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         description: route.seo?.description || feed.category.description,
         path: canonicalPath,
         tags: [feed.category.title],
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -295,6 +312,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         description: route.seo?.description || feed.tag.description,
         path: canonicalPath,
         tags: [feed.tag.title],
+        ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
     } catch {
@@ -302,7 +320,12 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
     }
   }
 
-  return buildMetadata({ title: route.path, path: route.canonicalPath || route.path, ...routeRobots(route) });
+  return buildMetadata({
+    title: route.path,
+    path: route.canonicalPath || route.path,
+    ...routeSocialMetadata(route),
+    ...routeRobots(route),
+  });
 }
 
 export async function renderPublicRoutePage(pathParts, searchParams, fallback = null) {

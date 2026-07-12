@@ -96,7 +96,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
             </p>
 
             <div className="flex flex-wrap items-center gap-4 border-t border-terminal-gray/60 mt-7 pt-5 text-[10px] font-label-caps text-on-surface-variant">
-              <Link href={`/perfil/${author.id}`} className="flex items-center gap-3 hover:text-system-red">
+              <Link href={article.authorPath || `/perfil/${author.id}`} className="flex items-center gap-3 hover:text-system-red">
                 <img className="w-9 h-9 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
               <span>{(article.authorName || getAuthorName(article.authorId)).toUpperCase()}</span>
               </Link>
@@ -169,7 +169,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
           <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-36 self-start">
             <div className="border border-terminal-gray bg-surface-container-low p-6">
               <h2 className="font-headline-md text-xl text-white uppercase mb-3">Agente</h2>
-              <Link href={`/perfil/${author.id}`} className="flex items-center gap-4 group">
+              <Link href={article.authorPath || `/perfil/${author.id}`} className="flex items-center gap-4 group">
                 <img className="w-14 h-14 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
                 <div>
                   <div className="font-bold text-white group-hover:text-system-red">{author.name}</div>

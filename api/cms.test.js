@@ -680,6 +680,45 @@ describe('cms routes', () => {
     });
   });
 
+  it('requires CSRF headers for cookie-authenticated CMS mutations', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+    const csrfToken = 'csrf-test-token-with-valid-length-123456';
+    const cookie = `hes_access_token=${access.token}; hes_csrf_token=${csrfToken}`;
+
+    const missingCsrfResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/categories',
+      headers: {
+        cookie,
+      },
+      payload: {
+        name: 'Seguridad',
+      },
+    });
+    const validCsrfResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/categories',
+      headers: {
+        cookie,
+        'x-csrf-token': csrfToken,
+      },
+      payload: {
+        name: 'Seguridad',
+      },
+    });
+
+    await app.close();
+
+    expect(missingCsrfResponse.statusCode, missingCsrfResponse.body).toBe(403);
+    expect(validCsrfResponse.statusCode, validCsrfResponse.body).toBe(201);
+  });
+
   it('lists, creates and updates CMS tags', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

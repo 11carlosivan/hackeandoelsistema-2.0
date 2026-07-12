@@ -39,6 +39,8 @@ const SITEMAP_EXCLUDED_PATHS = [
   '/password-recover/',
   '/register/',
 ];
+const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
+const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 
 let lastScheduledPublishCheckAt = 0;
 let scheduledPublishInFlight = null;
@@ -167,11 +169,19 @@ function canonicalPathFromUrl(value) {
 
   try {
     const url = new URL(value);
+    const site = new URL(PUBLIC_SITE_URL);
 
-    return normalizeRoutePath(url.pathname);
+    return url.origin === site.origin ? normalizeRoutePath(url.pathname) : url.href;
   } catch {
     return value.startsWith('/') ? normalizeRoutePath(value) : null;
   }
+}
+
+function isSitemapRouteAllowed(path) {
+  const normalizedPath = normalizeRoutePath(path);
+
+  return !SITEMAP_EXCLUDED_PATHS.includes(normalizedPath) &&
+    !SITEMAP_EXCLUDED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
 }
 
 function normalizePublicPost(post) {
@@ -193,6 +203,8 @@ function normalizePublicPost(post) {
           id: post.author.id,
           username: post.author.username,
           displayName: post.author.displayName,
+          legacyAuthorSlug: post.author.legacyAuthorSlug,
+          legacyAuthorUrl: post.author.legacyAuthorUrl,
         }
       : null,
     primaryCategory: primaryCategory
@@ -224,6 +236,14 @@ function normalizePublicComment(comment) {
   };
 }
 
+const publicPostAuthorSelect = {
+  id: true,
+  username: true,
+  displayName: true,
+  legacyAuthorSlug: true,
+  legacyAuthorUrl: true,
+};
+
 async function findRelatedPosts(app, post, take = 3) {
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
 
@@ -246,11 +266,7 @@ async function findRelatedPosts(app, post, take = 3) {
     take,
     include: {
       author: {
-        select: {
-          id: true,
-          username: true,
-          displayName: true,
-        },
+        select: publicPostAuthorSelect,
       },
       featuredMedia: true,
       categories: {
@@ -264,11 +280,7 @@ async function findRelatedPosts(app, post, take = 3) {
 
 const publicPostInclude = {
   author: {
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-    },
+    select: publicPostAuthorSelect,
   },
   featuredMedia: {
     select: {
@@ -510,11 +522,7 @@ export async function registerPublicRoutes(app) {
         take: limit,
         include: {
           author: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-            },
+            select: publicPostAuthorSelect,
           },
           featuredMedia: true,
           categories: {
@@ -585,11 +593,7 @@ export async function registerPublicRoutes(app) {
         take: limit,
         include: {
           author: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-            },
+            select: publicPostAuthorSelect,
           },
           featuredMedia: true,
           categories: {
@@ -659,11 +663,7 @@ export async function registerPublicRoutes(app) {
         take: limit,
         include: {
           author: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-            },
+            select: publicPostAuthorSelect,
           },
           featuredMedia: true,
           categories: {
@@ -749,11 +749,7 @@ export async function registerPublicRoutes(app) {
       },
       include: {
         author: {
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
-          },
+          select: publicPostAuthorSelect,
         },
         featuredMedia: true,
         categories: {
@@ -823,11 +819,7 @@ export async function registerPublicRoutes(app) {
       },
       include: {
         author: {
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
-          },
+          select: publicPostAuthorSelect,
         },
         featuredMedia: true,
         categories: {
@@ -1035,11 +1027,7 @@ export async function registerPublicRoutes(app) {
         take: limit,
         include: {
           author: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-            },
+            select: publicPostAuthorSelect,
           },
           featuredMedia: true,
           categories: {
@@ -1259,6 +1247,11 @@ export async function registerPublicRoutes(app) {
         path: {
           notIn: SITEMAP_EXCLUDED_PATHS,
         },
+        NOT: SITEMAP_EXCLUDED_PREFIXES.map((prefix) => ({
+          path: {
+            startsWith: prefix,
+          },
+        })),
       },
       orderBy: [{ lastmodAt: 'desc' }, { path: 'asc' }],
       select: {
@@ -1269,6 +1262,6 @@ export async function registerPublicRoutes(app) {
       },
     });
 
-    return { data: routes };
+    return { data: routes.filter((route) => isSitemapRouteAllowed(route.path)) };
   });
 }

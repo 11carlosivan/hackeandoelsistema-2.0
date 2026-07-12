@@ -55,6 +55,7 @@ export function ArticleStructuredData({ article, author }) {
   const publishedDate = toIsoDate(article.publishedAt || article.date);
   const modifiedDate = toIsoDate(article.raw?.updatedAt || article.updatedAt || article.publishedAt || article.date);
   const articlePath = article.route || article.raw?.canonicalPath || `/articulo/${article.id}`;
+  const authorPath = article.authorPath || (author?.id ? `/perfil/${author.id}` : null);
 
   return (
     <JsonLd
@@ -68,7 +69,7 @@ export function ArticleStructuredData({ article, author }) {
         author: {
           '@type': 'Person',
           name: author?.name || 'Hackeando el Sistema',
-          url: author?.id ? absoluteUrl(`/perfil/${author.id}`) : siteConfig.url,
+          url: authorPath ? absoluteUrl(authorPath) : siteConfig.url,
         },
         publisher: {
           '@type': 'NewsMediaOrganization',

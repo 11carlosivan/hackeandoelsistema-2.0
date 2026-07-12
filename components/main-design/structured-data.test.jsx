@@ -23,4 +23,24 @@ describe('ArticleStructuredData', () => {
     expect(script.innerHTML).not.toContain('</script>');
     expect(script.innerHTML).toContain('\\u003c/script\\u003e');
   });
+
+  it('uses canonical author paths in article JSON-LD', () => {
+    const { container } = render(
+      <ArticleStructuredData
+        article={{
+          id: 'post-demo',
+          title: 'Post demo',
+          subtitle: 'Prueba',
+          image: '/isotipo.png',
+          route: '/post-demo/',
+          authorPath: '/author/redaccion/',
+        }}
+        author={{ id: '11111111-1111-4111-8111-111111111111', name: 'Redaccion' }}
+      />,
+    );
+
+    const data = JSON.parse(container.querySelector('script[type="application/ld+json"]').innerHTML);
+
+    expect(data.author.url).toBe('https://hackeandoelsistema.net/author/redaccion/');
+  });
 });

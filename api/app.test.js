@@ -218,6 +218,7 @@ describe('api app', () => {
           findUnique: async () => null,
           findMany: async ({ where }) => {
             expect(where.path.notIn).toContain('/checkout/');
+            expect(where.NOT).toContainEqual({ path: { startsWith: '/cms/' } });
 
             return [
               {
@@ -225,6 +226,12 @@ describe('api app', () => {
                 lastmodAt: new Date('2026-01-01T00:00:00Z'),
                 changefreq: 'weekly',
                 priority: 0.8,
+              },
+              {
+                path: '/cms/publicaciones/',
+                lastmodAt: new Date('2026-01-01T00:00:00Z'),
+                changefreq: 'weekly',
+                priority: 0.2,
               },
             ];
           },
@@ -283,6 +290,40 @@ describe('api app', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data.canonicalPath).toBe('/canonical-sample/');
+  });
+
+  it('preserves external SEO canonicals when there is no canonical route alias', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        route: {
+          findUnique: async () => ({
+            id: 'route-3',
+            path: '/syndicated-sample/',
+            entityType: 'POST',
+            entityId: 'post-3',
+            status: 'ACTIVE',
+            httpStatus: 200,
+            lastmodAt: new Date('2026-01-01T00:00:00Z'),
+            canonicalRoute: null,
+            seoMetadata: {
+              canonicalUrl: 'https://example.com/original-story/',
+            },
+          }),
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/route?path=/syndicated-sample/',
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.canonicalPath).toBe('https://example.com/original-story/');
   });
 
   it('normalizes redirect lookup for missing routes', async () => {

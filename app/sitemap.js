@@ -12,6 +12,16 @@ const SITEMAP_EXCLUDED_PATHS = new Set([
   '/register/',
 ]);
 
+const SITEMAP_EXCLUDED_PREFIXES = [
+  '/buscar/',
+  '/checkout/',
+  '/cms/',
+  '/crear-publicacion/',
+  '/iniciar-sesion/',
+  '/password-recover/',
+  '/register/',
+];
+
 function normalizeSitemapPath(path) {
   if (!path || path === '/') return '/';
 
@@ -19,17 +29,36 @@ function normalizeSitemapPath(path) {
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
 }
 
+export function isSitemapPathAllowed(path) {
+  const normalizedPath = normalizeSitemapPath(path);
+
+  return !SITEMAP_EXCLUDED_PATHS.has(normalizedPath) &&
+    !SITEMAP_EXCLUDED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
+}
+
+function sitemapPriority(route) {
+  if (route.priority !== null && route.priority !== undefined && route.priority !== '') {
+    const priority = Number(route.priority);
+
+    if (Number.isFinite(priority) && priority >= 0 && priority <= 1) {
+      return priority;
+    }
+  }
+
+  return route.path === '/' ? 1 : 0.8;
+}
+
 export default async function sitemap() {
   try {
     const routes = await getSitemapRoutes();
 
     return routes
-      .filter((route) => !SITEMAP_EXCLUDED_PATHS.has(normalizeSitemapPath(route.path)))
+      .filter((route) => isSitemapPathAllowed(route.path))
       .map((route) => ({
         url: absoluteUrl(route.path),
         lastModified: route.lastmodAt ? new Date(route.lastmodAt) : new Date(),
         changeFrequency: route.changefreq || 'weekly',
-        priority: route.priority ? Number(route.priority) : route.path === '/' ? 1 : 0.8,
+        priority: sitemapPriority(route),
       }));
   } catch (error) {
     if (process.env.NODE_ENV === 'production') {
