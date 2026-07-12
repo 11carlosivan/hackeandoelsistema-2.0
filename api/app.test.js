@@ -377,6 +377,15 @@ describe('api app', () => {
                   featuredMedia: null,
                   categories: [],
                   tags: [],
+                  comments: [
+                    {
+                      id: 'comment-1',
+                      authorName: 'Visitante',
+                      body: 'Comentario aprobado',
+                      createdAt: new Date('2026-01-03T00:00:00Z'),
+                      user: null,
+                    },
+                  ],
                 }
               : null,
         },
@@ -397,6 +406,13 @@ describe('api app', () => {
       slug: 'sample-post',
       title: 'Sample Post',
       canonicalPath: '/sample-post/',
+      comments: [
+        {
+          id: 'comment-1',
+          user: 'Visitante',
+          text: 'Comentario aprobado',
+        },
+      ],
     });
   });
 

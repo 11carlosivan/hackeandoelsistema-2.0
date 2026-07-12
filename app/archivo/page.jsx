@@ -1,4 +1,4 @@
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import ArchivePage from '@/components/main-design/archive-page';
 import { searchPublicPosts } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -28,8 +28,8 @@ export default async function Page({ searchParams }) {
   }
 
   return (
-    <Layout>
+    <PublicLayout>
       <ArchivePage articles={result.articles} meta={result.meta} query={query} error={result.error} />
-    </Layout>
+    </PublicLayout>
   );
 }

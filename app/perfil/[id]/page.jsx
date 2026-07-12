@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import AuthorArchivePage from '@/components/main-design/author-archive-page';
 import { getAuthorArchiveById } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -55,8 +55,8 @@ export default async function Page({ params }) {
   }
 
   return (
-    <Layout>
+    <PublicLayout>
       <AuthorArchivePage author={author} />
-    </Layout>
+    </PublicLayout>
   );
 }

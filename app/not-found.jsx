@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import { EmptyState } from '@/components/main-design/content-primitives';
 import { buildMetadata } from '@/lib/main-design/seo';
 
@@ -12,7 +12,7 @@ export const metadata = buildMetadata({
 
 export default function NotFound() {
   return (
-    <Layout>
+    <PublicLayout>
       <div className="max-w-3xl mx-auto py-16">
         <EmptyState
           title="404 / NODO NO ENCONTRADO"
@@ -27,6 +27,6 @@ export default function NotFound() {
           </Link>
         </div>
       </div>
-    </Layout>
+    </PublicLayout>
   );
 }

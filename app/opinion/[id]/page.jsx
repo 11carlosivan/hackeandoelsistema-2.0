@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import { ArticlePageView } from '@/components/main-design/article-page';
 import { ArticleStructuredData } from '@/components/main-design/structured-data';
 import { getArticleById, getArticleBySlug } from '@/lib/main-design/api';
@@ -61,9 +61,9 @@ export default async function Page({ params }) {
   }
 
   return (
-    <Layout>
+    <PublicLayout>
       <ArticleStructuredData article={article} author={{ id: article.authorId, name: article.authorName }} />
       <ArticlePageView article={article} />
-    </Layout>
+    </PublicLayout>
   );
 }

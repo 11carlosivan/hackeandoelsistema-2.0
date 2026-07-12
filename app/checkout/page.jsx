@@ -1,4 +1,4 @@
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import TerminalPage from '@/components/main-design/terminal-page';
 import { buildMetadata } from '@/lib/main-design/seo';
 
@@ -11,8 +11,8 @@ export const metadata = buildMetadata({
 
 export default function Page() {
   return (
-    <Layout>
+    <PublicLayout>
       <TerminalPage variant="checkout" />
-    </Layout>
+    </PublicLayout>
   );
 }

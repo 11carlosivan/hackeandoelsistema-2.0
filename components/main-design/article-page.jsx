@@ -62,7 +62,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
     role: 'Equipo editorial',
     photo: '/isotipo.png',
   };
-  const articleComments = comments;
+  const articleComments = comments.length > 0 ? comments : article.comments || [];
   const relatedArticles = related.length > 0 ? related : article.related || [];
 
   return (

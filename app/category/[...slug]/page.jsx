@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import CategoryPage from '@/components/main-design/category-page';
 import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -54,7 +54,7 @@ export default async function WordPressCategoryPage({ params, searchParams }) {
   }
 
   return (
-    <Layout>
+    <PublicLayout>
       <CategoryPage
         categoryId={feed.category.slug}
         category={feed.category}
@@ -62,6 +62,6 @@ export default async function WordPressCategoryPage({ params, searchParams }) {
         meta={feed.meta}
         categories={categories}
       />
-    </Layout>
+    </PublicLayout>
   );
 }

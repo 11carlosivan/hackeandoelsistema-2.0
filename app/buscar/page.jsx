@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import SearchPage from '@/components/main-design/search-page';
 import { searchPublicPosts } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -32,10 +32,10 @@ export default async function Page({ searchParams }) {
   }
 
   return (
-    <Layout>
+    <PublicLayout>
       <Suspense fallback={<div className="text-on-surface-variant">Cargando busqueda...</div>}>
         <SearchPage initialQuery={query} results={result.articles} meta={result.meta} error={result.error} />
       </Suspense>
-    </Layout>
+    </PublicLayout>
   );
 }

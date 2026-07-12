@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import StaticContentPage from '@/components/main-design/static-content-page';
 import TerminalPage from '@/components/main-design/terminal-page';
 import { getPageBySlug } from '@/lib/main-design/api';
@@ -55,8 +55,8 @@ export default async function Page({ params }) {
   }
 
   return (
-    <Layout>
+    <PublicLayout>
       {apiPage ? <StaticContentPage page={apiPage} /> : <TerminalPage slug={slug} />}
-    </Layout>
+    </PublicLayout>
   );
 }

@@ -1,4 +1,4 @@
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import TerminalPage from '@/components/main-design/terminal-page';
 import { buildMetadata } from '@/lib/main-design/seo';
 import {
@@ -21,8 +21,8 @@ export default async function Page({ searchParams }) {
   return renderPublicRoutePage(
     routeParts,
     searchParams,
-    <Layout>
+    <PublicLayout>
       <TerminalPage variant="plans" />
-    </Layout>,
+    </PublicLayout>,
   );
 }
