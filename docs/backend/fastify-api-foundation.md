@@ -34,6 +34,8 @@ GET /health/ready
 GET /api/v1
 GET /api/v1/public/categories
 GET /api/v1/public/posts?page=1&limit=12
+GET /api/v1/public/categories/id/:id/posts
+GET /api/v1/public/tags/id/:id/posts
 GET /api/v1/public/posts/:slug
 GET /api/v1/public/posts/id/:id
 GET /api/v1/public/pages/:slug
@@ -55,7 +57,7 @@ Devuelve:
 - `status`, `httpStatus`, `lastmodAt` y metadata SEO.
 - `type=REDIRECT` con `statusCode`, `targetUrl` y `preserveQuery` cuando la ruta no existe pero hay redirect activo.
 
-La app Next usa `app/[...path]/page.jsx` como resolver universal para posts, paginas, autores, productos, web stories y archivos estaticos heredados, preservando rutas jerarquicas de WordPress antes del E2E.
+La app Next usa `app/[...path]/page.jsx` como resolver universal para posts, paginas, categorias, tags, autores, productos, web stories y archivos estaticos heredados, preservando rutas jerarquicas de WordPress antes del E2E.
 
 ## Seguridad Aplicada
 

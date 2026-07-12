@@ -7,6 +7,7 @@ function createPrismaStub(overrides = {}) {
     $disconnect: async () => undefined,
     category: {
       findMany: async () => [],
+      findFirst: async () => null,
     },
     post: {
       findMany: async () => [],
@@ -24,6 +25,10 @@ function createPrismaStub(overrides = {}) {
     },
     product: {
       findFirst: async () => null,
+    },
+    tag: {
+      findFirst: async () => null,
+      count: async () => 0,
     },
     webStory: {
       findFirst: async () => null,
@@ -488,5 +493,128 @@ describe('api app', () => {
       canonicalPath: '/web-stories/historia-demo/',
       author: { displayName: 'Redaccion' },
     });
+  });
+
+  it('returns category archives by entity id', async () => {
+    const categoryId = '66666666-6666-4666-8666-666666666666';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        category: {
+          findMany: async () => [],
+          findFirst: async ({ where }) =>
+            where.id === categoryId
+              ? {
+                  id: categoryId,
+                  name: 'Politica',
+                  slug: 'politica',
+                  fullPath: '/category/politica/',
+                  description: 'Archivo politico.',
+                }
+              : null,
+        },
+        post: {
+          findMany: async ({ where }) =>
+            where.categories?.some?.categoryId === categoryId
+              ? [
+                  {
+                    id: '22222222-2222-4222-8222-222222222222',
+                    slug: 'sample-post',
+                    title: 'Sample Post',
+                    excerpt: 'Sample excerpt',
+                    postType: 'NEWS',
+                    publishedAt: new Date('2026-01-01T00:00:00Z'),
+                    updatedAt: new Date('2026-01-02T00:00:00Z'),
+                    viewCount: 12,
+                    commentCount: 0,
+                    legacyUrl: '/sample-post/',
+                    author: null,
+                    featuredMedia: null,
+                    categories: [{ isPrimary: true, category: { id: categoryId, name: 'Politica', slug: 'politica', fullPath: '/category/politica/' } }],
+                  },
+                ]
+              : [],
+          count: async ({ where }) => (where.categories?.some?.categoryId === categoryId ? 1 : 0),
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/categories/id/${categoryId}/posts`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.category).toMatchObject({
+      id: categoryId,
+      slug: 'politica',
+      fullPath: '/category/politica/',
+    });
+    expect(response.json().meta.total).toBe(1);
+  });
+
+  it('returns tag archives by entity id', async () => {
+    const tagId = '77777777-7777-4777-8777-777777777777';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        tag: {
+          findFirst: async ({ where }) =>
+            where.id === tagId
+              ? {
+                  id: tagId,
+                  name: 'SEO',
+                  slug: 'seo',
+                  legacyUrl: '/tag/seo/',
+                }
+              : null,
+          count: async () => 1,
+        },
+        post: {
+          findMany: async ({ where }) =>
+            where.tags?.some?.tagId === tagId
+              ? [
+                  {
+                    id: '22222222-2222-4222-8222-222222222222',
+                    slug: 'sample-post',
+                    title: 'Sample Post',
+                    excerpt: 'Sample excerpt',
+                    postType: 'NEWS',
+                    publishedAt: new Date('2026-01-01T00:00:00Z'),
+                    updatedAt: new Date('2026-01-02T00:00:00Z'),
+                    viewCount: 12,
+                    commentCount: 0,
+                    legacyUrl: '/sample-post/',
+                    author: null,
+                    featuredMedia: null,
+                    categories: [],
+                  },
+                ]
+              : [],
+          count: async ({ where }) => (where.tags?.some?.tagId === tagId ? 1 : 0),
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/tags/id/${tagId}/posts`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.tag).toMatchObject({
+      id: tagId,
+      slug: 'seo',
+      canonicalPath: '/tag/seo/',
+    });
+    expect(response.json().meta.total).toBe(1);
   });
 });

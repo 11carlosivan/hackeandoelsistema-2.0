@@ -173,6 +173,16 @@ function normalizePublicWebStory(story) {
   };
 }
 
+function normalizePublicTag(tag) {
+  return {
+    id: tag.id,
+    name: tag.name,
+    slug: tag.slug,
+    description: null,
+    canonicalPath: tag.legacyUrl || `/tag/${tag.slug}/`,
+  };
+}
+
 export async function registerPublicRoutes(app) {
   app.get('/api/v1/public/categories', async (request, reply) => {
     const parsed = categoryQuerySchema.safeParse(request.query);
@@ -263,6 +273,155 @@ export async function registerPublicRoutes(app) {
     return {
       data: {
         category,
+        posts: items.map(normalizePublicPost),
+      },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  });
+
+  app.get('/api/v1/public/categories/id/:id/posts', async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    const query = paginationSchema.safeParse(request.query);
+
+    if (!params.success || !query.success) {
+      throw app.httpErrors.badRequest('Invalid category posts query');
+    }
+
+    const { id } = params.data;
+    const { page, limit } = query.data;
+    const category = await app.prisma.category.findFirst({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        fullPath: true,
+        description: true,
+      },
+    });
+
+    if (!category) {
+      throw app.httpErrors.notFound('Category not found');
+    }
+
+    publicCacheHeaders(reply, 180);
+
+    const where = {
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+      categories: {
+        some: {
+          categoryId: category.id,
+        },
+      },
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.post.findMany({
+        where,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          featuredMedia: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      }),
+      app.prisma.post.count({ where }),
+    ]);
+
+    return {
+      data: {
+        category,
+        posts: items.map(normalizePublicPost),
+      },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  });
+
+  app.get('/api/v1/public/tags/id/:id/posts', async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    const query = paginationSchema.safeParse(request.query);
+
+    if (!params.success || !query.success) {
+      throw app.httpErrors.badRequest('Invalid tag posts query');
+    }
+
+    const { id } = params.data;
+    const { page, limit } = query.data;
+    const tag = await app.prisma.tag.findFirst({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        legacyUrl: true,
+      },
+    });
+
+    if (!tag) {
+      throw app.httpErrors.notFound('Tag not found');
+    }
+
+    publicCacheHeaders(reply, 180);
+
+    const where = {
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+      tags: {
+        some: {
+          tagId: tag.id,
+        },
+      },
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.post.findMany({
+        where,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          featuredMedia: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      }),
+      app.prisma.post.count({ where }),
+    ]);
+
+    return {
+      data: {
+        tag: normalizePublicTag(tag),
         posts: items.map(normalizePublicPost),
       },
       meta: {

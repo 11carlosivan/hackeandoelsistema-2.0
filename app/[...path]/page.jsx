@@ -5,15 +5,19 @@ import AuthorArchivePage from '@/components/main-design/author-archive-page';
 import ProductPage from '@/components/main-design/product-page';
 import StaticArchivePage from '@/components/main-design/static-archive-page';
 import StaticContentPage from '@/components/main-design/static-content-page';
+import TagPage from '@/components/main-design/tag-page';
 import {
   getArticleById,
   getAuthorArchiveById,
+  getCategoryFeedById,
   getPageById,
   getProductById,
+  getTagFeedById,
   getWebStoryById,
   resolvePublicRoute,
 } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
+import CategoryPage from '@/components/main-design/category-page';
 import WebStoryPage from '@/components/main-design/web-story-page';
 
 function buildRoutePath(pathParts = []) {
@@ -77,6 +81,14 @@ async function loadEntity(route) {
 
   if (route.entityType === 'WEB_STORY') {
     return getWebStoryById(route.entityId);
+  }
+
+  if (route.entityType === 'CATEGORY') {
+    return getCategoryFeedById(route.entityId);
+  }
+
+  if (route.entityType === 'TAG') {
+    return getTagFeedById(route.entityId);
   }
 
   return null;
@@ -184,6 +196,38 @@ export async function generateMetadata({ params }) {
     }
   }
 
+  if (route.entityType === 'CATEGORY') {
+    try {
+      const feed = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || feed.category.title,
+        description: route.seo?.description || feed.category.description,
+        path: route.canonicalPath || route.path,
+        tags: [feed.category.title],
+        noIndex: route.seo?.robotsIndex === 'NOINDEX',
+      });
+    } catch {
+      return buildMetadata({ title: 'Categoria no encontrada', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'TAG') {
+    try {
+      const feed = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || feed.tag.title,
+        description: route.seo?.description || feed.tag.description,
+        path: route.canonicalPath || route.path,
+        tags: [feed.tag.title],
+        noIndex: route.seo?.robotsIndex === 'NOINDEX',
+      });
+    } catch {
+      return buildMetadata({ title: 'Tag no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
   return buildMetadata({ title: route.path, path: route.canonicalPath || route.path });
 }
 
@@ -264,6 +308,31 @@ export default async function LegacyRoutePage({ params, searchParams }) {
     return (
       <Layout>
         <WebStoryPage story={story} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'CATEGORY') {
+    const feed = await loadEntity(route);
+
+    return (
+      <Layout>
+        <CategoryPage
+          categoryId={feed.category.slug}
+          category={feed.category}
+          articles={feed.articles}
+          meta={feed.meta}
+        />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'TAG') {
+    const feed = await loadEntity(route);
+
+    return (
+      <Layout>
+        <TagPage tag={feed.tag} articles={feed.articles} meta={feed.meta} />
       </Layout>
     );
   }
