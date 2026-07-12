@@ -38,6 +38,7 @@ GET /api/v1/public/posts/:slug
 GET /api/v1/public/posts/id/:id
 GET /api/v1/public/pages/:slug
 GET /api/v1/public/pages/id/:id
+GET /api/v1/public/authors/id/:id
 GET /api/v1/public/route?path=/slug-wordpress/
 ```
 
@@ -52,7 +53,7 @@ Devuelve:
 - `status`, `httpStatus`, `lastmodAt` y metadata SEO.
 - `type=REDIRECT` con `statusCode`, `targetUrl` y `preserveQuery` cuando la ruta no existe pero hay redirect activo.
 
-La app Next usa `app/[...path]/page.jsx` como resolver universal para posts y paginas heredadas, preservando rutas jerarquicas de WordPress antes del E2E.
+La app Next usa `app/[...path]/page.jsx` como resolver universal para posts, paginas, autores y archivos estaticos heredados, preservando rutas jerarquicas de WordPress antes del E2E.
 
 ## Seguridad Aplicada
 

@@ -95,6 +95,32 @@ function normalizePublicPost(post) {
   };
 }
 
+function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
+  return {
+    id: author.id,
+    username: author.username,
+    displayName: author.displayName,
+    legacyAuthorSlug: author.legacyAuthorSlug,
+    legacyAuthorUrl: author.legacyAuthorUrl,
+    canonicalPath: author.legacyAuthorUrl || (author.legacyAuthorSlug ? `/author/${author.legacyAuthorSlug}/` : null),
+    bio: author.profile?.bio || null,
+    websiteUrl: author.profile?.websiteUrl || null,
+    avatar: author.avatarMedia
+      ? {
+          id: author.avatarMedia.id,
+          url: author.avatarMedia.url,
+          altText: author.avatarMedia.altText,
+          width: author.avatarMedia.width,
+          height: author.avatarMedia.height,
+        }
+      : null,
+    stats: {
+      posts: totalPosts,
+    },
+    posts: posts.map(normalizePublicPost),
+  };
+}
+
 export async function registerPublicRoutes(app) {
   app.get('/api/v1/public/categories', async (request, reply) => {
     const parsed = categoryQuerySchema.safeParse(request.query);
@@ -461,6 +487,78 @@ export async function registerPublicRoutes(app) {
             }
           : null,
       },
+    };
+  });
+
+  app.get('/api/v1/public/authors/id/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+
+    const author = await app.prisma.user.findFirst({
+      where: {
+        id,
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        legacyAuthorSlug: true,
+        legacyAuthorUrl: true,
+        profile: {
+          select: {
+            bio: true,
+            websiteUrl: true,
+          },
+        },
+        avatarMedia: {
+          select: {
+            id: true,
+            url: true,
+            altText: true,
+            width: true,
+            height: true,
+          },
+        },
+      },
+    });
+
+    if (!author) {
+      throw app.httpErrors.notFound('Author not found');
+    }
+
+    const where = {
+      authorId: id,
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+    };
+    const [posts, totalPosts] = await Promise.all([
+      app.prisma.post.findMany({
+        where,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 12,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          featuredMedia: true,
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      }),
+      app.prisma.post.count({ where }),
+    ]);
+
+    publicCacheHeaders(reply, 180);
+
+    return {
+      data: normalizePublicAuthor(author, posts, totalPosts),
     };
   });
 

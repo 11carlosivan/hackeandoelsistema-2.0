@@ -1,9 +1,10 @@
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import { ArticlePageView } from '@/components/main-design/article-page';
+import AuthorArchivePage from '@/components/main-design/author-archive-page';
 import StaticArchivePage from '@/components/main-design/static-archive-page';
 import StaticContentPage from '@/components/main-design/static-content-page';
-import { getArticleById, getPageById, resolvePublicRoute } from '@/lib/main-design/api';
+import { getArticleById, getAuthorArchiveById, getPageById, resolvePublicRoute } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 function buildRoutePath(pathParts = []) {
@@ -55,6 +56,10 @@ async function loadEntity(route) {
 
   if (route.entityType === 'PAGE') {
     return getPageById(route.entityId);
+  }
+
+  if (route.entityType === 'AUTHOR') {
+    return getAuthorArchiveById(route.entityId);
   }
 
   return null;
@@ -114,6 +119,22 @@ export async function generateMetadata({ params }) {
     });
   }
 
+  if (route.entityType === 'AUTHOR') {
+    try {
+      const author = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || author.displayName,
+        description: route.seo?.description || author.bio || `Archivo de ${author.displayName}`,
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || author.avatar?.url,
+        noIndex: route.seo?.robotsIndex === 'NOINDEX',
+      });
+    } catch {
+      return buildMetadata({ title: 'Autor no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
   return buildMetadata({ title: route.path, path: route.canonicalPath || route.path });
 }
 
@@ -164,6 +185,16 @@ export default async function LegacyRoutePage({ params, searchParams }) {
     return (
       <Layout>
         <StaticArchivePage route={route} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'AUTHOR') {
+    const author = await loadEntity(route);
+
+    return (
+      <Layout>
+        <AuthorArchivePage author={author} />
       </Layout>
     );
   }

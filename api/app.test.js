@@ -19,6 +19,9 @@ function createPrismaStub(overrides = {}) {
     redirect: {
       findFirst: async () => null,
     },
+    user: {
+      findFirst: async () => null,
+    },
     ...overrides,
   };
 }
@@ -310,5 +313,80 @@ describe('api app', () => {
       slug: 'equipo',
       canonicalPath: '/sobre-nosotros/equipo/',
     });
+  });
+
+  it('returns public author archives by entity id without sensitive fields', async () => {
+    const authorId = '11111111-1111-4111-8111-111111111111';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        user: {
+          findFirst: async ({ where }) =>
+            where.id === authorId
+              ? {
+                  id: authorId,
+                  username: 'redaccion',
+                  displayName: 'Redaccion',
+                  email: 'private@example.com',
+                  legacyAuthorSlug: 'redaccion',
+                  legacyAuthorUrl: '/author/redaccion/',
+                  profile: {
+                    bio: 'Equipo editorial.',
+                    websiteUrl: 'https://hackeandoelsistema.net',
+                  },
+                  avatarMedia: null,
+                }
+              : null,
+        },
+        post: {
+          findMany: async ({ where }) =>
+            where.authorId === authorId
+              ? [
+                  {
+                    id: '22222222-2222-4222-8222-222222222222',
+                    slug: 'sample-post',
+                    title: 'Sample Post',
+                    excerpt: 'Sample excerpt',
+                    postType: 'NEWS',
+                    publishedAt: new Date('2026-01-01T00:00:00Z'),
+                    updatedAt: new Date('2026-01-02T00:00:00Z'),
+                    viewCount: 12,
+                    commentCount: 0,
+                    legacyUrl: '/sample-post/',
+                    author: {
+                      id: authorId,
+                      username: 'redaccion',
+                      displayName: 'Redaccion',
+                    },
+                    featuredMedia: null,
+                    categories: [],
+                  },
+                ]
+              : [],
+          count: async ({ where }) => (where.authorId === authorId ? 1 : 0),
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/authors/id/${authorId}`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toMatchObject({
+      id: authorId,
+      username: 'redaccion',
+      displayName: 'Redaccion',
+      canonicalPath: '/author/redaccion/',
+      bio: 'Equipo editorial.',
+      stats: { posts: 1 },
+      posts: [{ title: 'Sample Post', canonicalPath: '/sample-post/' }],
+    });
+    expect(response.json().data.email).toBeUndefined();
   });
 });
