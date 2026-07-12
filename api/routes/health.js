@@ -1,7 +1,7 @@
 import { noStoreHeaders } from '../utils/http.js';
 
 export async function registerHealthRoutes(app) {
-  app.get('/health/live', async (_request, reply) => {
+  const liveHandler = async (_request, reply) => {
     noStoreHeaders(reply);
     return {
       ok: true,
@@ -9,9 +9,9 @@ export async function registerHealthRoutes(app) {
       status: 'live',
       timestamp: new Date().toISOString(),
     };
-  });
+  };
 
-  app.get('/health/ready', async (_request, reply) => {
+  const readyHandler = async (_request, reply) => {
     noStoreHeaders(reply);
 
     try {
@@ -33,5 +33,15 @@ export async function registerHealthRoutes(app) {
         timestamp: new Date().toISOString(),
       };
     }
-  });
+  };
+
+  app.get('/health', liveHandler);
+  app.get('/live', liveHandler);
+  app.get('/health/live', liveHandler);
+  app.get('/api/v1/health', liveHandler);
+  app.get('/api/v1/health/live', liveHandler);
+
+  app.get('/ready', readyHandler);
+  app.get('/health/ready', readyHandler);
+  app.get('/api/v1/health/ready', readyHandler);
 }

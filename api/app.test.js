@@ -72,6 +72,30 @@ describe('api app', () => {
     });
   });
 
+  it('returns live health status from operational aliases', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(),
+      logger: false,
+    });
+
+    const [rootHealth, apiHealth, live] = await Promise.all([
+      app.inject({ method: 'GET', url: '/health' }),
+      app.inject({ method: 'GET', url: '/api/v1/health' }),
+      app.inject({ method: 'GET', url: '/live' }),
+    ]);
+
+    await app.close();
+
+    expect(rootHealth.statusCode).toBe(200);
+    expect(apiHealth.statusCode).toBe(200);
+    expect(live.statusCode).toBe(200);
+    expect(rootHealth.json()).toMatchObject({
+      ok: true,
+      status: 'live',
+    });
+  });
+
   it('returns readiness when database responds', async () => {
     const app = await buildApp({
       env: testEnv,
@@ -90,6 +114,55 @@ describe('api app', () => {
     expect(response.json()).toMatchObject({
       ok: true,
       database: 'connected',
+    });
+  });
+
+  it('returns readiness from operational aliases', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(),
+      logger: false,
+    });
+
+    const [rootReady, apiReady] = await Promise.all([
+      app.inject({ method: 'GET', url: '/ready' }),
+      app.inject({ method: 'GET', url: '/api/v1/health/ready' }),
+    ]);
+
+    await app.close();
+
+    expect(rootReady.statusCode).toBe(200);
+    expect(apiReady.statusCode).toBe(200);
+    expect(apiReady.json()).toMatchObject({
+      ok: true,
+      status: 'ready',
+      database: 'connected',
+    });
+  });
+
+  it('returns 503 readiness when database is unavailable', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $queryRaw: async () => {
+          throw new Error('database unavailable');
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/ready',
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({
+      ok: false,
+      status: 'not_ready',
+      database: 'unavailable',
     });
   });
 
