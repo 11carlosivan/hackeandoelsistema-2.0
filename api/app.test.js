@@ -534,7 +534,8 @@ describe('api app', () => {
       env: testEnv,
       prisma: createPrismaStub({
         post: {
-          findMany: async ({ where }) => (where?.status === 'SCHEDULED' ? [{ id: duePostId }] : []),
+          findMany: async ({ where }) =>
+            (where?.status === 'SCHEDULED' ? [{ id: duePostId, visibility: 'PUBLIC' }] : []),
           updateMany: async ({ where, data }) => {
             postUpdated = where.id.in.includes(duePostId) && data.status === 'PUBLISHED';
             return { count: 1 };
@@ -571,6 +572,57 @@ describe('api app', () => {
     expect(postUpdated).toBe(true);
     expect(routeUpdated).toBe(true);
     expect(seoUpdated).toBe(true);
+  });
+
+  it('does not expose private scheduled posts to sitemap when publishing is due', async () => {
+    const duePostId = '99999999-9999-4999-8999-999999999999';
+    let postUpdated = false;
+    let routeUpdated = false;
+    let seoUpdated = false;
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        post: {
+          findMany: async ({ where }) =>
+            (where?.status === 'SCHEDULED' ? [{ id: duePostId, visibility: 'PRIVATE' }] : []),
+          updateMany: async ({ where, data }) => {
+            postUpdated = where.id.in.includes(duePostId) && data.status === 'PUBLISHED';
+            return { count: 1 };
+          },
+          count: async () => 0,
+          findFirst: async () => null,
+        },
+        route: {
+          findUnique: async () => null,
+          findMany: async () => {
+            throw new Error('Private scheduled post routes must not be queried for sitemap activation');
+          },
+          updateMany: async () => {
+            routeUpdated = true;
+            return { count: 1 };
+          },
+        },
+        seoMetadata: {
+          updateMany: async () => {
+            seoUpdated = true;
+            return { count: 1 };
+          },
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/posts',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(postUpdated).toBe(true);
+    expect(routeUpdated).toBe(false);
+    expect(seoUpdated).toBe(false);
   });
 
   it('returns public pages by entity id for hierarchical route rendering', async () => {

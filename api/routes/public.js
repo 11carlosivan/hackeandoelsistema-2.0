@@ -73,9 +73,14 @@ async function publishDueScheduledPosts(app) {
       take: 100,
       select: {
         id: true,
+        visibility: true,
       },
     });
     const postIds = duePosts.map((post) => post.id).filter(Boolean);
+    const publicPostIds = duePosts
+      .filter((post) => post.visibility === 'PUBLIC')
+      .map((post) => post.id)
+      .filter(Boolean);
 
     if (postIds.length === 0) {
       return;
@@ -98,11 +103,11 @@ async function publishDueScheduledPosts(app) {
 
     let routeIds = [];
 
-    if (typeof app.prisma.route?.findMany === 'function') {
+    if (publicPostIds.length > 0 && typeof app.prisma.route?.findMany === 'function') {
       const routes = await app.prisma.route.findMany({
         where: {
           entityType: 'POST',
-          entityId: { in: postIds },
+          entityId: { in: publicPostIds },
         },
         select: {
           id: true,
@@ -112,18 +117,20 @@ async function publishDueScheduledPosts(app) {
       routeIds = routes.map((route) => route.id).filter(Boolean);
     }
 
-    await app.prisma.route.updateMany({
-      where: {
-        entityType: 'POST',
-        entityId: { in: postIds },
-      },
-      data: {
-        status: 'ACTIVE',
-        httpStatus: 200,
-        includeInSitemap: true,
-        lastmodAt: now,
-      },
-    });
+    if (publicPostIds.length > 0) {
+      await app.prisma.route.updateMany({
+        where: {
+          entityType: 'POST',
+          entityId: { in: publicPostIds },
+        },
+        data: {
+          status: 'ACTIVE',
+          httpStatus: 200,
+          includeInSitemap: true,
+          lastmodAt: now,
+        },
+      });
+    }
 
     if (routeIds.length > 0 && typeof app.prisma.seoMetadata?.updateMany === 'function') {
       await app.prisma.seoMetadata.updateMany({
