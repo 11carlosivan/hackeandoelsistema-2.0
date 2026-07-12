@@ -290,3 +290,226 @@ Falta antes de E2E final:
 ## Decision recomendada
 
 No hacer cutover todavia. La data esta importada y las bases funcionan, pero para no perder SEO se debe cerrar primero media + sitemap + metadata/JSON-LD + mocks de produccion. Despues de eso, ya tiene sentido preparar la prueba E2E del sistema completo.
+
+## Segunda pasada manual: bugs y brechas tecnicas adicionales
+
+Esta seccion baja a hallazgos mas especificos encontrados despues del primer informe.
+
+### P0 - Taxonomias creadas desde CMS no quedan como rutas SEO completas
+
+Evidencia:
+
+- `api/routes/cms.js` crea categorias en `/api/v1/cms/categories`, pero solo escribe `Category`; no crea `Route` ni `SeoMetadata`.
+- `api/routes/cms.js` crea tags en `/api/v1/cms/tags`, pero solo escribe `Tag`; no crea `Route` ni `SeoMetadata`.
+- El importador si crea rutas para categorias y tags importados, por eso los 16 categories y 306 tags heredados existen como rutas.
+- Las 322 rutas sin SEO metadata son 306 tags y 16 categories.
+
+Impacto:
+
+- Una categoria o tag creado por el CMS puede existir en DB, pero no entrar al sitemap ni tener canonical/robots propio.
+- El comportamiento deja de parecerse a WordPress, donde una taxonomia publicada tiene archivo publico.
+- Si luego el frontend enlaza esa categoria/tag, puede generar canonical incorrecto o archivo no indexado.
+
+Recomendacion:
+
+- Al crear categoria/tag desde CMS, crear/actualizar `Route` + `SeoMetadata`.
+- Para categorias usar `fullPath` canonico tipo `/category/slug/` o respetar la base configurada.
+- Al renombrar slug/fullPath, actualizar la ruta y crear redirect desde la ruta anterior.
+- Agregar tests para create/update category/tag verificando route, seo, sitemap y redirect.
+
+### P0 - `fullPath` de categorias nuevas no sigue la forma importada de WordPress
+
+Evidencia:
+
+- Importadas: `fullPath` como `/category/nacionales/`.
+- CMS nuevo: `buildCategoryFullPath()` devuelve `slug` o `parent.fullPath/slug`, sin prefijo `/category/`.
+- `CategoryPage` usa `category.fullPath` como canonical.
+
+Impacto:
+
+- Una categoria nueva podria terminar con canonical `https://hackeandoelsistema.net/nueva-categoria` en vez de `/category/nueva-categoria/`.
+- Esto rompe consistencia con WP y puede crear URLs duplicadas.
+
+Recomendacion:
+
+- Normalizar `fullPath` siempre con slash inicial/final y base de categoria.
+- Crear helper unico `buildCategoryCanonicalPath()` compartido por importador, CMS y frontend.
+
+### P1 - Programacion editorial esta modelada, pero no operativa
+
+Evidencia:
+
+- `PostStatus` incluye `SCHEDULED`.
+- El formulario de crear post envia `scheduledAt`.
+- El backend guarda `scheduledAt`, pero crea el post siempre como `DRAFT`.
+- No existe transicion visible a `SCHEDULED`.
+- `PUBLISH` publica inmediatamente y usa `publishedAt` actual si no existia.
+
+Impacto:
+
+- El usuario puede creer que programo una publicacion, pero queda como borrador.
+- No hay job/worker que publique automaticamente al llegar la fecha.
+- No hay paridad con WordPress para programar entradas.
+
+Recomendacion:
+
+- Agregar accion `SCHEDULE` o crear post con status `SCHEDULED` cuando `scheduledAt` exista.
+- Crear worker/cron que publique posts vencidos.
+- Mostrar estado programado y permitir cancelar/reprogramar.
+- Tests: crear programado, no aparece publico, al vencer se publica y entra al sitemap.
+
+### P1 - Menu publico no esta conectado a la data real
+
+Evidencia:
+
+- `components/main-design/header.jsx` tiene categorias hardcodeadas.
+- DB local no tiene rutas `/category/economia/` ni `/category/deportes/`.
+- `showInMenu=true` no esta seteado en ninguna categoria importada, por eso `/api/v1/public/categories?menuOnly=true` devuelve vacio.
+
+Impacto:
+
+- Navegacion principal puede mandar a 404.
+- No replica el menu real de WordPress.
+- Crawlers y usuarios pierden enlaces internos importantes.
+
+Recomendacion:
+
+- Importar menu WP o configurar `Menu/MenuItem`.
+- Sembrar `showInMenu` solo si se decide no usar tabla Menu.
+- Header debe venir de API o de una config server-side versionada, no de slugs hardcodeados.
+
+### P1 - Links internos de articulo a categoria pueden construir slugs equivocados
+
+Evidencia:
+
+- `ArticlePageView` enlaza categorias con `/categoria/${encodeURIComponent(article.category)}`.
+- `article.category` es el nombre mapeado en mayuscula, no el slug/fullPath.
+- Categoria importada `Economia &amp; Negocios` puede convertirse en una ruta derivada de texto visible, no en `/category/economia-negocios/`.
+
+Impacto:
+
+- Algunos links internos pueden fallar o redirigir mal.
+- Esto reduce calidad SEO por enlaces internos rotos.
+
+Recomendacion:
+
+- Mapear en `mapApiPostToArticle()` el `primaryCategory.fullPath` y usarlo para href.
+- Usar nombre solo para label visual.
+
+### P1 - Redirects manuales pueden ser inalcanzables si chocan con rutas activas
+
+Evidencia:
+
+- `/api/v1/public/route` busca primero `Route`.
+- Solo si no encuentra route busca `Redirect`.
+- El CMS de redirects valida duplicados en `redirects`, pero no valida conflicto con `routes`.
+
+Impacto:
+
+- Si se crea redirect desde una ruta activa, el redirect no se ejecuta.
+- El operador puede creer que arreglo una URL SEO, pero la ruta anterior sigue sirviendo.
+
+Recomendacion:
+
+- Al crear redirect, bloquear si `sourcePath` existe como `Route ACTIVE`, o cambiar esa route a `REDIRECTED/GONE`.
+- Registrar `hitCount` y `lastHitAt` al resolver redirect.
+
+### P1 - Busqueda no usa la infraestructura full-text ya creada
+
+Evidencia:
+
+- `prisma/sql/001_postgres_foundation.sql` crea `search_vector`, trigger y GIN index.
+- `api/routes/public.js` busca con `contains` en title/excerpt/contentText.
+
+Impacto:
+
+- Con 8k posts funciona, pero escala peor y da relevancia pobre.
+- No aprovecha ranking, acentos, idioma espanol ni indices full-text.
+
+Recomendacion:
+
+- Cambiar busqueda publica/CMS a `to_tsquery/websearch_to_tsquery` o Prisma raw controlado.
+- Ordenar por relevancia + fecha.
+- Mantener fallback `contains` solo para casos simples.
+
+### P1 - Metricas visibles no son reales
+
+Evidencia:
+
+- `viewCount` agregado local suma 0 en todos los posts.
+- `Home` calcula tendencias con `views`, pero todos los posts vienen con `0`.
+- `commentCount` suma 897 en posts, pero la tabla `comments` esta vacia.
+
+Impacto:
+
+- Tendencias, lecturas y comentarios no representan comportamiento real.
+- Puede confundir al cliente y al lector.
+
+Recomendacion:
+
+- Importar comentarios si se conservaran, o ocultar bloque de comentarios.
+- Implementar tracking de vistas con deduplicacion/rate limit.
+- Definir fuente real para tendencias: vistas, publicaciones recientes, manual editorial o combinacion.
+
+### P1 - Contenido legacy conserva referencias internas a uploads de WP
+
+Evidencia:
+
+- 4,194 posts contienen `wp-content/uploads` dentro de `contentHtml`.
+- 7,892 media assets importados estan en `disk = wordpress`.
+
+Impacto:
+
+- Aunque se cambie featured image, el cuerpo de miles de posts puede seguir cargando imagenes desde WP.
+- Si WP se apaga, se rompen articulos historicos.
+
+Recomendacion:
+
+- El mirror de media debe reescribir HTML completo, no solo `media_assets.url`.
+- Reescribir `src`, `srcset`, `href` a uploads y metadata OG.
+
+### P2 - Autores importados son usuarios activos sin password ni roles
+
+Evidencia:
+
+- 6 usuarios legacy estan `ACTIVE`, sin password y sin roles.
+- Solo `admin@hackeando.local` tiene password y rol `ADMIN`.
+
+Impacto:
+
+- No es una vulnerabilidad directa porque login requiere password, pero mezcla "autor publico" con "usuario operativo".
+- Para administracion futura de usuarios puede confundir conteos y permisos.
+
+Recomendacion:
+
+- Definir estado/rol de autores legacy: autor publico sin login, o usuarios invitables.
+- Si se les dara acceso, generar flujo de invitacion/password reset.
+
+### P2 - Foundation SQL no reemplaza migraciones de produccion
+
+Evidencia:
+
+- Existe `prisma/schema.prisma` y `prisma/sql/001_postgres_foundation.sql`.
+- No existe `prisma/migrations`.
+- El SQL de constraints usa `ALTER TABLE ADD CONSTRAINT` sin `IF NOT EXISTS`, por lo que no es seguro re-ejecutarlo sin control.
+
+Impacto:
+
+- Deploy/rollback de DB queda manual.
+- Un ambiente nuevo puede quedar distinto si no se aplica el SQL en el orden correcto.
+
+Recomendacion:
+
+- Crear migraciones Prisma versionadas.
+- Separar SQL idempotente de SQL one-shot.
+- Agregar runbook de restore/rollback.
+
+## Acciones inmediatas antes de seguir con E2E
+
+1. Arreglar taxonomias CMS: route + SEO + canonical + redirect al cambiar slug.
+2. Arreglar navegacion: menu real y links internos a categorias por `fullPath`.
+3. Implementar JSON-LD en rutas canonicas de posts.
+4. Eliminar mocks/fallbacks en produccion.
+5. Definir sitemap estricto vs ampliado.
+6. Empezar mirror/rewrite de media, incluyendo HTML.
+7. Corregir scheduling o quitar UI de programacion hasta implementarlo.
