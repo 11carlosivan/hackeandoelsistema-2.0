@@ -121,6 +121,18 @@ const postCreateSchema = z.object({
   contentText: z.string().trim().max(50000).nullable().optional(),
   postType: z.enum(['NEWS', 'OPINION', 'SPONSORED', 'EXTERNAL_SUBMISSION', 'PAGE_ARTICLE']).default('NEWS'),
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'UNLISTED']).default('PUBLIC'),
+  featuredMediaId: z.uuid().nullable().optional(),
+  categoryIds: z.array(z.uuid()).max(12).default([]),
+  primaryCategoryId: z.uuid().nullable().optional(),
+  tagIds: z.array(z.uuid()).max(30).default([]),
+  seoTitle: z.string().trim().max(255).nullable().optional(),
+  seoDescription: z.string().trim().max(320).nullable().optional(),
+  robotsIndex: z.enum(['INDEX', 'NOINDEX']).default('NOINDEX'),
+  robotsFollow: z.enum(['FOLLOW', 'NOFOLLOW']).default('FOLLOW'),
+  isFeatured: z.coerce.boolean().default(false),
+  isBreaking: z.coerce.boolean().default(false),
+  isSponsored: z.coerce.boolean().default(false),
+  scheduledAt: z.coerce.date().nullable().optional(),
 });
 const pageCreateSchema = z.object({
   title: z.string().trim().min(3).max(255),
@@ -2267,11 +2279,64 @@ export async function registerCmsRoutes(app) {
     const slug = await createUniqueSlug(app.prisma, input.slug || input.title);
     const path = `/${slug}/`;
     const contentHtml = textToHtml(input.contentText);
+    const categoryIds = [...new Set(input.categoryIds)];
+    const tagIds = [...new Set(input.tagIds)];
+    const primaryCategoryId = input.primaryCategoryId || categoryIds[0] || null;
+
+    if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
+      throw app.httpErrors.badRequest('Primary category must be included in categoryIds');
+    }
+
+    const [categories, tags, featuredMedia] = await Promise.all([
+      categoryIds.length
+        ? app.prisma.category.findMany({
+            where: {
+              id: { in: categoryIds },
+            },
+            select: {
+              id: true,
+            },
+          })
+        : [],
+      tagIds.length
+        ? app.prisma.tag.findMany({
+            where: {
+              id: { in: tagIds },
+            },
+            select: {
+              id: true,
+            },
+          })
+        : [],
+      input.featuredMediaId
+        ? app.prisma.mediaAsset.findUnique({
+            where: {
+              id: input.featuredMediaId,
+            },
+            select: {
+              id: true,
+            },
+          })
+        : null,
+    ]);
+
+    if (categories.length !== categoryIds.length) {
+      throw app.httpErrors.badRequest('One or more categories do not exist');
+    }
+
+    if (tags.length !== tagIds.length) {
+      throw app.httpErrors.badRequest('One or more tags do not exist');
+    }
+
+    if (input.featuredMediaId && !featuredMedia) {
+      throw app.httpErrors.badRequest('Featured media does not exist');
+    }
 
     const result = await app.prisma.$transaction(async (tx) => {
       const post = await tx.post.create({
         data: {
           authorId: request.auth.user.id,
+          featuredMediaId: input.featuredMediaId || null,
           title: input.title,
           slug,
           excerpt: input.excerpt || null,
@@ -2280,8 +2345,34 @@ export async function registerCmsRoutes(app) {
           status: 'DRAFT',
           visibility: input.visibility,
           postType: input.postType,
+          isFeatured: input.isFeatured,
+          isBreaking: input.isBreaking,
+          isSponsored: input.isSponsored || input.postType === 'SPONSORED',
+          scheduledAt: input.scheduledAt || null,
         },
       });
+
+      if (categoryIds.length > 0) {
+        await tx.postCategory.createMany({
+          data: categoryIds.map((categoryId) => ({
+            postId: post.id,
+            categoryId,
+            isPrimary: categoryId === primaryCategoryId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      if (tagIds.length > 0) {
+        await tx.postTag.createMany({
+          data: tagIds.map((tagId) => ({
+            postId: post.id,
+            tagId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       const route = await tx.route.create({
         data: {
           path,
@@ -2297,10 +2388,10 @@ export async function registerCmsRoutes(app) {
       const seo = await tx.seoMetadata.create({
         data: {
           routeId: route.id,
-          title: input.title,
-          description: input.excerpt || null,
-          robotsIndex: 'NOINDEX',
-          robotsFollow: 'FOLLOW',
+          title: input.seoTitle || input.title,
+          description: input.seoDescription || input.excerpt || null,
+          robotsIndex: input.robotsIndex,
+          robotsFollow: input.robotsFollow,
         },
       });
 
@@ -2313,6 +2404,11 @@ export async function registerCmsRoutes(app) {
           metadata: {
             routeId: route.id,
             path,
+            categoryIds,
+            primaryCategoryId,
+            tagIds,
+            featuredMediaId: input.featuredMediaId || null,
+            seoId: seo.id,
           },
         },
       });

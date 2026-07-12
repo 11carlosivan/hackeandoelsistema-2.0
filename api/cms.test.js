@@ -1298,6 +1298,16 @@ describe('cms routes', () => {
         title: 'Nuevo borrador E2E',
         excerpt: 'Resumen del borrador',
         contentText: 'Primer parrafo\n\nSegundo parrafo',
+        featuredMediaId: '55555555-5555-4555-8555-555555555555',
+        categoryIds: ['77777777-7777-4777-8777-777777777777'],
+        primaryCategoryId: '77777777-7777-4777-8777-777777777777',
+        tagIds: ['88888888-8888-4888-8888-888888888888'],
+        seoTitle: 'SEO borrador E2E',
+        seoDescription: 'Descripcion SEO inicial',
+        robotsIndex: 'NOINDEX',
+        robotsFollow: 'FOLLOW',
+        isBreaking: true,
+        isFeatured: true,
       },
     });
 
@@ -1313,7 +1323,10 @@ describe('cms routes', () => {
         status: 'GONE',
         includeInSitemap: false,
         seo: {
+          title: 'SEO borrador E2E',
+          description: 'Descripcion SEO inicial',
           robotsIndex: 'NOINDEX',
+          robotsFollow: 'FOLLOW',
         },
       },
     });

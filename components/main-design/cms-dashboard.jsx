@@ -37,6 +37,21 @@ export default function CmsDashboard({ summary }) {
       <div className="flex justify-end mb-8">
         <div className="flex flex-wrap gap-3">
           <Link
+            href="/cms/publicaciones/nueva"
+            className="bg-system-red text-black px-4 py-3 font-label-caps text-[10px] font-bold hover:bg-white transition-colors"
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              Nueva publicacion
+            </span>
+          </Link>
+          <Link
+            href="/cms/publicaciones"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
+          >
+            Publicaciones
+          </Link>
+          <Link
             href="/cms/comentarios"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >

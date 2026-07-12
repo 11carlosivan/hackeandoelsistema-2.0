@@ -59,7 +59,10 @@ export default function CmsPosts({ posts, meta, filters, error }) {
             href="/cms/publicaciones/nueva"
             className="bg-system-red text-black px-4 py-3 font-label-caps text-[10px] font-bold hover:bg-white transition-colors"
           >
-            Nuevo borrador
+            <span className="inline-flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              Crear publicacion
+            </span>
           </Link>
           <CmsSessionActions />
         </div>
