@@ -1,0 +1,202 @@
+{
+  "generatedAt": "2026-07-12T03:32:37.831Z",
+  "mode": "ops-preflight",
+  "summary": {
+    "status": "PASS",
+    "failures": 0,
+    "warnings": 0,
+    "passed": 9
+  },
+  "checks": [
+    {
+      "name": "env:api",
+      "status": "PASS",
+      "details": {
+        "nodeEnv": "development",
+        "webOrigin": "http://localhost:3000",
+        "apiHost": "127.0.0.1",
+        "apiPort": 4000,
+        "authCookieSecure": false,
+        "mediaUploadDir": "public/uploads/cms"
+      }
+    },
+    {
+      "name": "database:connection",
+      "status": "PASS",
+      "details": {
+        "provider": "postgresql"
+      }
+    },
+    {
+      "name": "database:core-counts",
+      "status": "PASS",
+      "details": {
+        "posts": 8350,
+        "pages": 27,
+        "routes": 8719,
+        "sitemapRoutes": 8719,
+        "media": 7892,
+        "categories": 16,
+        "activeUsers": 7,
+        "latestImportRun": {
+          "id": "3b3c1661-1138-4962-a7ac-6196aed22b87",
+          "source": "wordpress-core",
+          "status": "COMPLETED",
+          "startedAt": "2026-07-12T01:42:08.999Z",
+          "finishedAt": "2026-07-12T01:51:42.317Z",
+          "stats": {
+            "tags": 306,
+            "limit": null,
+            "media": 7892,
+            "pages": 27,
+            "posts": 8350,
+            "users": 6,
+            "routes": 8719,
+            "skipped": 19167,
+            "products": 6,
+            "categories": 16,
+            "durationMs": 573318,
+            "homeRoutes": 1,
+            "webStories": 4,
+            "seoMetadata": 8397,
+            "authorRoutes": 6,
+            "staticRoutes": 3,
+            "yoastMetadata": 8330,
+            "importMappings": 16607
+          }
+        },
+        "missing": []
+      }
+    },
+    {
+      "name": "api:health",
+      "status": "PASS",
+      "details": {
+        "method": "GET",
+        "url": "/health",
+        "statusCode": 200,
+        "body": {
+          "ok": true,
+          "service": "hackeando-api",
+          "status": "live",
+          "timestamp": "2026-07-12T03:32:37.673Z"
+        }
+      }
+    },
+    {
+      "name": "api:ready",
+      "status": "PASS",
+      "details": {
+        "method": "GET",
+        "url": "/ready",
+        "statusCode": 200,
+        "body": {
+          "ok": true,
+          "service": "hackeando-api",
+          "status": "ready",
+          "database": "connected",
+          "timestamp": "2026-07-12T03:32:37.678Z"
+        }
+      }
+    },
+    {
+      "name": "api:public-summary",
+      "status": "PASS",
+      "details": {
+        "method": "GET",
+        "url": "/api/v1/public/site-summary",
+        "statusCode": 200,
+        "body": {
+          "counts": {
+            "posts": 8350,
+            "pages": 27,
+            "routes": 8719,
+            "categories": 16,
+            "tags": 306
+          },
+          "latestImportRun": {
+            "id": "3b3c1661-1138-4962-a7ac-6196aed22b87",
+            "source": "wordpress-core",
+            "status": "COMPLETED",
+            "startedAt": "2026-07-12T01:42:08.999Z",
+            "finishedAt": "2026-07-12T01:51:42.317Z"
+          },
+          "recentPosts": 8
+        }
+      }
+    },
+    {
+      "name": "api:public-posts",
+      "status": "PASS",
+      "details": {
+        "method": "GET",
+        "url": "/api/v1/public/posts?page=1&limit=1",
+        "statusCode": 200,
+        "body": {
+          "meta": {
+            "page": 1,
+            "limit": 1,
+            "total": 8350,
+            "totalPages": 8350
+          },
+          "firstPost": {
+            "id": "c632c6de-9f32-4fb1-b79b-0d7d8e03a813",
+            "slug": "ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal",
+            "title": "Ni Alofoke ni El Piro hicieron cambiar el Código Penal. Y explico por qué",
+            "canonicalPath": "/ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal/"
+          }
+        }
+      }
+    },
+    {
+      "name": "api:sitemap-routes",
+      "status": "PASS",
+      "details": {
+        "method": "GET",
+        "url": "/api/v1/public/sitemap-routes",
+        "statusCode": 200,
+        "body": {
+          "total": 8719,
+          "samples": [
+            {
+              "path": "/author/11carlosivan/",
+              "lastmodAt": null
+            },
+            {
+              "path": "/author/admin-hackeandoelsistema/",
+              "lastmodAt": null
+            },
+            {
+              "path": "/author/heriberto-tejeda/",
+              "lastmodAt": null
+            },
+            {
+              "path": "/author/redaccion/",
+              "lastmodAt": null
+            },
+            {
+              "path": "/author/redaccion2/",
+              "lastmodAt": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "auth:admin-login",
+      "status": "PASS",
+      "details": {
+        "loginStatusCode": 200,
+        "adminCheckStatusCode": 200,
+        "user": {
+          "id": "f2096e26-8e55-4204-b218-1fd3ba8830d2",
+          "username": "admin",
+          "displayName": "Administrador HES",
+          "roles": [
+            "ADMIN"
+          ]
+        }
+      }
+    }
+  ]
+}
