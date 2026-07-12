@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   checksumForPayload,
   buildAuthorSeoPayload,
+  buildStaticArchiveSeoPayload,
   legacyPlaceholderEmail,
   isWordPressFrontPage,
   normalizeTitle,
@@ -155,6 +156,32 @@ describe("WordPress core importer", () => {
       robotsFollow: "FOLLOW",
       ogType: "profile",
       twitterCard: "summary",
+    });
+  });
+
+  it("builds indexable static archive SEO metadata", () => {
+    const payload = buildStaticArchiveSeoPayload({
+      archive: {
+        path: "/shop/",
+        title: "Tienda",
+        description: "Archivo heredado de tienda.",
+      },
+      siteUrl: "https://hackeandoelsistema.net",
+      siteName: "Hackeando el Sistema",
+    });
+
+    expect(payload).toMatchObject({
+      title: "Tienda - Hackeando el Sistema",
+      description: "Archivo heredado de tienda.",
+      canonicalUrl: "https://hackeandoelsistema.net/shop/",
+      robotsIndex: "INDEX",
+      robotsFollow: "FOLLOW",
+      ogType: "website",
+      twitterCard: "summary",
+    });
+    expect(payload.schemaJson).toMatchObject({
+      "@type": "CollectionPage",
+      url: "https://hackeandoelsistema.net/shop/",
     });
   });
 });

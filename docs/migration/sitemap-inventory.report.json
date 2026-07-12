@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-12T01:37:23.141Z",
+  "generatedAt": "2026-07-12T01:53:04.696Z",
   "sitemapUrl": "https://hackeandoelsistema.net/sitemap.xml",
   "sitemapsCrawled": 15,
   "urlsFound": 8396,
@@ -267,31 +267,9 @@
   "mode": "sitemap-compare",
   "writesDatabase": false,
   "database": {
-    "matchedRoutes": 8393,
-    "missingRoutes": 3,
-    "missingSamples": [
-      {
-        "url": "https://hackeandoelsistema.net/shop/",
-        "path": "/shop/",
-        "lastmod": "2025-11-08T23:18:28+00:00",
-        "sitemap": "https://hackeandoelsistema.net/product-sitemap.xml",
-        "inferredEntityType": "POST"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/web-stories/",
-        "path": "/web-stories/",
-        "lastmod": "2024-09-29T02:15:22+00:00",
-        "sitemap": "https://hackeandoelsistema.net/web-story-sitemap.xml",
-        "inferredEntityType": "WEB_STORY"
-      },
-      {
-        "url": "https://hackeandoelsistema.net/categoria-producto/sin-categorizar/",
-        "path": "/categoria-producto/sin-categorizar/",
-        "lastmod": "2025-11-08T23:18:28+00:00",
-        "sitemap": "https://hackeandoelsistema.net/product_cat-sitemap.xml",
-        "inferredEntityType": "POST"
-      }
-    ],
+    "matchedRoutes": 8396,
+    "missingRoutes": 0,
+    "missingSamples": [],
     "written": 0
   }
 }

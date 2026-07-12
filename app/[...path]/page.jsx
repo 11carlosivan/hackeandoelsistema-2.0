@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import { ArticlePageView } from '@/components/main-design/article-page';
+import StaticArchivePage from '@/components/main-design/static-archive-page';
 import StaticContentPage from '@/components/main-design/static-content-page';
 import { getArticleById, getPageById, resolvePublicRoute } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -104,6 +105,15 @@ export async function generateMetadata({ params }) {
     }
   }
 
+  if (route.entityType === 'STATIC') {
+    return buildMetadata({
+      title: route.seo?.title || route.path,
+      description: route.seo?.description,
+      path: route.canonicalPath || route.path,
+      noIndex: route.seo?.robotsIndex === 'NOINDEX',
+    });
+  }
+
   return buildMetadata({ title: route.path, path: route.canonicalPath || route.path });
 }
 
@@ -146,6 +156,14 @@ export default async function LegacyRoutePage({ params, searchParams }) {
     return (
       <Layout>
         <StaticContentPage page={page} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'STATIC') {
+    return (
+      <Layout>
+        <StaticArchivePage route={route} />
       </Layout>
     );
   }

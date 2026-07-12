@@ -21,6 +21,26 @@ import { buildYoastSeoPayload } from "./yoast-metadata.mjs";
 
 const DEFAULT_REPORT_PATH = "docs/migration/wp-import-core.report.json";
 const IMPORT_SOURCE = "wordpress-core";
+const LEGACY_STATIC_ARCHIVE_ROUTES = [
+  {
+    path: "/shop/",
+    title: "Tienda",
+    description: "Archivo heredado de tienda y planes publicados en WordPress.",
+    icon: "storefront",
+  },
+  {
+    path: "/web-stories/",
+    title: "Web Stories",
+    description: "Archivo heredado de Web Stories publicadas en WordPress.",
+    icon: "auto_stories",
+  },
+  {
+    path: "/categoria-producto/sin-categorizar/",
+    title: "Productos sin categorizar",
+    description: "Archivo heredado de categoria de producto desde WordPress.",
+    icon: "inventory_2",
+  },
+];
 
 const HTML_SANITIZE_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
@@ -173,6 +193,35 @@ export function buildAuthorSeoPayload({ displayName, legacyAuthorUrl, siteUrl, s
   };
 }
 
+export function buildStaticArchiveSeoPayload({ archive, siteUrl, siteName = "Hackeando El Sistema" }) {
+  const title = normalizeTitle(archive.title, "Archivo", 160);
+
+  return {
+    title: `${title} - ${siteName}`.slice(0, 255),
+    description: String(archive.description || `Archivo heredado de ${siteName}.`).slice(0, 320),
+    canonicalUrl: absoluteUrlForPath(archive.path, siteUrl),
+    robotsIndex: "INDEX",
+    robotsFollow: "FOLLOW",
+    robotsDirectives: null,
+    ogTitle: `${title} - ${siteName}`.slice(0, 255),
+    ogDescription: String(archive.description || `Archivo heredado de ${siteName}.`).slice(0, 320),
+    ogType: "website",
+    ogImageUrl: null,
+    twitterTitle: `${title} - ${siteName}`.slice(0, 255),
+    twitterDescription: String(archive.description || `Archivo heredado de ${siteName}.`).slice(0, 320),
+    twitterCard: "summary",
+    schemaJson: {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: title,
+      description: archive.description,
+      url: absoluteUrlForPath(archive.path, siteUrl),
+    },
+    yoastHeadJson: null,
+    importedFromYoast: false,
+  };
+}
+
 function collectWriteBlockers(dryRun) {
   const blockers = [];
 
@@ -234,6 +283,7 @@ async function writeCoreImport({ prisma, state, dryRun, limit }) {
     routes: 0,
     homeRoutes: 0,
     authorRoutes: 0,
+    staticRoutes: 0,
     seoMetadata: 0,
     yoastMetadata: 0,
     importMappings: 0,
@@ -273,6 +323,7 @@ async function writeCoreImport({ prisma, state, dryRun, limit }) {
       limit,
       counters,
     });
+    await upsertLegacyStaticArchiveRoutes({ prisma, state, counters });
 
     const finishedAt = new Date();
     const stats = { ...counters, durationMs: finishedAt.getTime() - startedAt.getTime(), limit };
@@ -968,6 +1019,30 @@ async function upsertStaticSeoMetadata({ prisma, route, payload, counters }) {
   });
 
   counters.seoMetadata += 1;
+}
+
+async function upsertLegacyStaticArchiveRoutes({ prisma, state, counters }) {
+  for (const archive of LEGACY_STATIC_ARCHIVE_ROUTES) {
+    const route = await upsertRoute(prisma, {
+      path: archive.path,
+      entityType: "STATIC",
+      entityId: null,
+      lastmodAt: null,
+    });
+
+    counters.routes += 1;
+    counters.staticRoutes += 1;
+    await upsertStaticSeoMetadata({
+      prisma,
+      route,
+      payload: buildStaticArchiveSeoPayload({
+        archive,
+        siteUrl: state.wordpress.options.home || state.wordpress.options.siteurl,
+        siteName: state.wordpress.options.blogname || "Hackeando El Sistema",
+      }),
+      counters,
+    });
+  }
 }
 
 async function upsertMapping(

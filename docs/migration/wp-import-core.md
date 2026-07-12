@@ -101,9 +101,10 @@ Ademas de las rutas canonicas de contenido, el importador crea:
 
 - route `HOME` para `/` cuando WordPress define `page_on_front`;
 - routes `AUTHOR` para `/author/{legacy_author_slug}/`;
+- routes `STATIC` para archivos heredados detectados en sitemap: `/shop/`, `/web-stories/` y `/categoria-producto/sin-categorizar/`;
 - metadata SEO base para esas rutas.
 
-Esto reduce el gap del sitemap real antes del E2E. Las URLs especiales de WooCommerce o archivos agregados, como `/shop/`, `/web-stories/` o `/categoria-producto/.../`, deben decidirse en una fase especifica de archivos/tienda: render publico, redirect 301 o `NOINDEX`.
+Esto reduce el gap del sitemap real antes del E2E. Las rutas `STATIC` son pantallas puente: evitan 404 y conservan canonical, pero pueden reemplazarse por archivos reales de tienda/web stories cuando se cierre esa funcionalidad.
 
 ## SEO migrado
 
