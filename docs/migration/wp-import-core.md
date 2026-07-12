@@ -53,6 +53,7 @@ El importador crea/actualiza:
 - `products`.
 - `web_stories`.
 - `routes`.
+- `seo_metadata` con canonical, robots, Open Graph, Twitter Card y JSON Yoast cuando exista.
 - `import_runs`.
 - `import_mappings`.
 - relaciones `post_categories` y `post_tags`.
@@ -94,10 +95,24 @@ El importador usa:
 
 Reejecutar el importador actualiza registros existentes en vez de duplicarlos.
 
+## SEO migrado
+
+Para cada post, pagina, producto y web story publicada, el importador crea una fila en `seo_metadata`.
+
+Si WordPress trae metadata Yoast en `wp_postmeta`, se importan:
+
+- title y meta description;
+- canonical;
+- robots `INDEX/NOINDEX` y `FOLLOW/NOFOLLOW`;
+- Open Graph title, description e imagen;
+- Twitter title, description, imagen y card;
+- `yoast_head_json` con las keys originales para auditoria.
+
+Si una entrada no tiene Yoast, se crea una base segura con canonical absoluto, title, description de excerpt/contenido y robots indexables. Esto evita que el frontend quede sin metadata mientras se revisa el contenido migrado.
+
 ## Pendiente para fases siguientes
 
 - Importar medios fisicos y variantes optimizadas.
-- Importar metadata Yoast completa.
 - Importar redirects historicos.
 - Comparar sitemap viejo contra `routes` y `url_inventory`.
 - Hacer prueba E2E Next -> Fastify -> PostgreSQL con contenido migrado.

@@ -10,6 +10,12 @@ import {
   safeSlug,
   sanitizeLegacyHtml,
 } from "../scripts/wordpress/import-core.mjs";
+import {
+  buildYoastSeoPayload,
+  robotsFollowFromYoast,
+  robotsIndexFromYoast,
+  resolveYoastTemplate,
+} from "../scripts/wordpress/yoast-metadata.mjs";
 
 describe("WordPress core importer", () => {
   it("generates placeholder emails instead of reusing WordPress emails", () => {
@@ -50,5 +56,76 @@ describe("WordPress core importer", () => {
     expect(parseAttachmentDimensions("")).toEqual({ width: null, height: null });
     expect(inferMimeType("2026/01/sample.webp")).toBe("image/webp");
     expect(inferMimeType("documento.pdf")).toBe("application/pdf");
+  });
+
+  it("resolves Yoast templates and robot policies", () => {
+    expect(resolveYoastTemplate("%%title%% %%sep%% %%sitename%%", {
+      title: "Articulo RD",
+      sep: "-",
+      sitename: "Hackeando",
+    })).toBe("Articulo RD - Hackeando");
+    expect(robotsIndexFromYoast("1")).toBe("NOINDEX");
+    expect(robotsIndexFromYoast("0")).toBe("INDEX");
+    expect(robotsFollowFromYoast("nofollow")).toBe("NOFOLLOW");
+  });
+
+  it("builds SEO metadata from Yoast postmeta", () => {
+    const payload = buildYoastSeoPayload({
+      post: {
+        id: "99",
+        type: "post",
+        title: "Titulo real",
+        slug: "titulo-real",
+        excerpt: "<p>Resumen editorial</p>",
+      },
+      routePath: "/titulo-real/",
+      siteUrl: "https://hackeandoelsistema.net",
+      siteName: "Hackeando El Sistema",
+      meta: {
+        _yoast_wpseo_title: "SEO %%title%%",
+        _yoast_wpseo_metadesc: "Descripcion de Yoast",
+        _yoast_wpseo_canonical: "/canonical-real/",
+        "_yoast_wpseo_meta-robots-noindex": "1",
+        "_yoast_wpseo_meta-robots-nofollow": "1",
+        "_yoast_wpseo_opengraph-image": "/wp-content/uploads/og.jpg",
+      },
+    });
+
+    expect(payload).toMatchObject({
+      title: "SEO Titulo real",
+      description: "Descripcion de Yoast",
+      canonicalUrl: "https://hackeandoelsistema.net/canonical-real/",
+      robotsIndex: "NOINDEX",
+      robotsFollow: "NOFOLLOW",
+      ogImageUrl: "https://hackeandoelsistema.net/wp-content/uploads/og.jpg",
+      importedFromYoast: true,
+    });
+    expect(payload.yoastHeadJson.raw._yoast_wpseo_title).toBe("SEO %%title%%");
+  });
+
+  it("builds safe baseline SEO metadata when Yoast is absent", () => {
+    const payload = buildYoastSeoPayload({
+      post: {
+        id: "100",
+        type: "page",
+        title: "Sobre nosotros",
+        slug: "sobre-nosotros",
+        excerpt: "",
+        contentHtml: "<p>Conoce el medio y su equipo.</p>",
+      },
+      routePath: "/sobre-nosotros/",
+      siteUrl: "https://hackeandoelsistema.net",
+      meta: {},
+    });
+
+    expect(payload).toMatchObject({
+      title: "Sobre nosotros",
+      description: "Conoce el medio y su equipo.",
+      canonicalUrl: "https://hackeandoelsistema.net/sobre-nosotros/",
+      robotsIndex: "INDEX",
+      robotsFollow: "FOLLOW",
+      importedFromYoast: false,
+      yoastHeadJson: null,
+    });
   });
 });

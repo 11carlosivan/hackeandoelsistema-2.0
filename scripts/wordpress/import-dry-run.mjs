@@ -11,6 +11,7 @@ import {
   pickSqlFields,
   iterateSqlTuples,
 } from "./inspect-dump.mjs";
+import { YOAST_META_KEYS } from "./yoast-metadata.mjs";
 
 const DEFAULT_REPORT_PATH = "docs/migration/wp-import-dry-run.report.json";
 
@@ -23,7 +24,7 @@ const TERM_TAXONOMY_FIELDS = new Set([0, 1, 2, 4, 5]);
 const TERM_RELATIONSHIP_FIELDS = new Set([0, 1]);
 const POSTMETA_FIELDS = new Set([1, 2, 3]);
 
-const PUBLIC_OPTIONS = new Set(["siteurl", "home", "permalink_structure", "category_base", "tag_base"]);
+const PUBLIC_OPTIONS = new Set(["siteurl", "home", "blogname", "permalink_structure", "category_base", "tag_base"]);
 const IMPORTABLE_POST_TYPES = new Set(["post", "page", "product", "web-story"]);
 const MEDIA_META_KEYS = new Set([
   "_wp_attached_file",
@@ -31,6 +32,7 @@ const MEDIA_META_KEYS = new Set([
   "_wp_attachment_image_alt",
   "_thumbnail_id",
 ]);
+const CAPTURED_POST_META_KEYS = new Set([...MEDIA_META_KEYS, ...YOAST_META_KEYS]);
 
 export async function buildImportDryRun(dumpPath) {
   const state = await buildWordPressImportState(dumpPath);
@@ -297,7 +299,7 @@ function processPostMeta(valuesSql, state) {
     const postId = fields[1];
     const metaKey = fields[2];
 
-    if (!postId || !MEDIA_META_KEYS.has(metaKey)) {
+    if (!postId || !CAPTURED_POST_META_KEYS.has(metaKey)) {
       continue;
     }
 

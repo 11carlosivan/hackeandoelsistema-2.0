@@ -17,6 +17,7 @@ import {
   pagePathForPost,
 } from "./import-dry-run.mjs";
 import { canonicalPathForPost } from "./inspect-dump.mjs";
+import { buildYoastSeoPayload } from "./yoast-metadata.mjs";
 
 const DEFAULT_REPORT_PATH = "docs/migration/wp-import-core.report.json";
 const IMPORT_SOURCE = "wordpress-core";
@@ -204,6 +205,8 @@ async function writeCoreImport({ prisma, state, dryRun, limit }) {
     products: 0,
     webStories: 0,
     routes: 0,
+    seoMetadata: 0,
+    yoastMetadata: 0,
     importMappings: 0,
     skipped: 0,
   };
@@ -615,13 +618,14 @@ async function upsertPost({
     update: payload,
   });
 
-  await upsertRoute(prisma, {
+  const route = await upsertRoute(prisma, {
     path: legacyUrl,
     entityType: "POST",
     entityId: dbPost.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
   });
   counters.routes += 1;
+  await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
 
   await syncPostTerms({ prisma, state, post, postId: dbPost.id, categoryIdByTermId, tagIdByTermId });
   await upsertMapping(prisma, {
@@ -693,13 +697,14 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
     update: payload,
   });
 
-  await upsertRoute(prisma, {
+  const route = await upsertRoute(prisma, {
     path: legacyUrl,
     entityType: "PAGE",
     entityId: dbPage.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
   });
   counters.routes += 1;
+  await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
 
   await upsertMapping(prisma, {
     importRunId,
@@ -734,13 +739,14 @@ async function upsertProduct({ prisma, state, post, importRunId, counters }) {
     update: payload,
   });
 
-  await upsertRoute(prisma, {
+  const route = await upsertRoute(prisma, {
     path: legacyUrl,
     entityType: "PRODUCT",
     entityId: dbProduct.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
   });
   counters.routes += 1;
+  await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
 
   await upsertMapping(prisma, {
     importRunId,
@@ -776,13 +782,14 @@ async function upsertWebStory({ prisma, state, post, importRunId, userIdByLegacy
     update: payload,
   });
 
-  await upsertRoute(prisma, {
+  const route = await upsertRoute(prisma, {
     path: legacyUrl,
     entityType: "WEB_STORY",
     entityId: dbWebStory.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
   });
   counters.routes += 1;
+  await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
 
   await upsertMapping(prisma, {
     importRunId,
@@ -860,6 +867,31 @@ async function upsertRoute(prisma, { path: routePath, entityType, entityId, last
       includeInSitemap: true,
     },
   });
+}
+
+async function upsertSeoMetadata({ prisma, state, post, route, routePath, counters }) {
+  const payload = buildYoastSeoPayload({
+    post,
+    meta: state.postMetaByPostId.get(post.id) ?? {},
+    routePath,
+    siteUrl: state.wordpress.options.home || state.wordpress.options.siteurl,
+    siteName: state.wordpress.options.blogname || "Hackeando El Sistema",
+  });
+
+  await prisma.seoMetadata.upsert({
+    where: { routeId: route.id },
+    create: {
+      routeId: route.id,
+      ...payload,
+    },
+    update: payload,
+  });
+
+  counters.seoMetadata += 1;
+
+  if (payload.importedFromYoast) {
+    counters.yoastMetadata += 1;
+  }
 }
 
 async function upsertMapping(
