@@ -230,8 +230,17 @@ async function findActiveRedirect(app, request, sourcePath) {
   };
 }
 
-function normalizePublicPost(post) {
+function canonicalPathForPost(post, route = null) {
+  return route?.canonicalRoute?.path ||
+    canonicalPathFromUrl(route?.seoMetadata?.canonicalUrl) ||
+    route?.path ||
+    post.legacyUrl ||
+    `/${post.slug}/`;
+}
+
+function normalizePublicPost(post, options = {}) {
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
+  const canonicalPath = canonicalPathForPost(post, options.route);
 
   return {
     id: post.id,
@@ -243,7 +252,7 @@ function normalizePublicPost(post) {
     updatedAt: post.updatedAt,
     viewCount: post.viewCount,
     commentCount: post.commentCount,
-    canonicalPath: post.legacyUrl || `/${post.slug}/`,
+    canonicalPath,
     author: post.author
       ? {
           id: post.author.id,
@@ -271,6 +280,33 @@ function normalizePublicPost(post) {
         }
       : null,
   };
+}
+
+async function findPublicEntityRoute(app, entityType, entityId) {
+  if (!entityId || typeof app.prisma.route?.findFirst !== 'function') {
+    return null;
+  }
+
+  return app.prisma.route.findFirst({
+    where: {
+      entityType,
+      entityId,
+      status: 'ACTIVE',
+    },
+    select: {
+      path: true,
+      canonicalRoute: {
+        select: {
+          path: true,
+        },
+      },
+      seoMetadata: {
+        select: {
+          canonicalUrl: true,
+        },
+      },
+    },
+  });
 }
 
 function normalizePublicComment(comment) {
@@ -854,11 +890,14 @@ export async function registerPublicRoutes(app) {
     }
 
     publicCacheHeaders(reply, 180);
-    const relatedPosts = await findRelatedPosts(app, post);
+    const [relatedPosts, route] = await Promise.all([
+      findRelatedPosts(app, post),
+      findPublicEntityRoute(app, 'POST', post.id),
+    ]);
 
     return {
       data: {
-        ...normalizePublicPost(post),
+        ...normalizePublicPost(post, { route }),
         contentHtml: post.contentHtml,
         contentJson: post.contentJson,
         relatedPosts: relatedPosts.map(normalizePublicPost),
@@ -924,11 +963,14 @@ export async function registerPublicRoutes(app) {
     }
 
     publicCacheHeaders(reply, 180);
-    const relatedPosts = await findRelatedPosts(app, post);
+    const [relatedPosts, route] = await Promise.all([
+      findRelatedPosts(app, post),
+      findPublicEntityRoute(app, 'POST', post.id),
+    ]);
 
     return {
       data: {
-        ...normalizePublicPost(post),
+        ...normalizePublicPost(post, { route }),
         contentHtml: post.contentHtml,
         contentJson: post.contentJson,
         relatedPosts: relatedPosts.map(normalizePublicPost),

@@ -477,6 +477,19 @@ describe('api app', () => {
                 }
               : null,
         },
+        route: {
+          findUnique: async () => null,
+          findFirst: async ({ where }) =>
+            where.entityType === 'POST' && where.entityId === postId
+              ? {
+                  path: '/sample-post/',
+                  canonicalRoute: null,
+                  seoMetadata: {
+                    canonicalUrl: 'https://example.com/original-story/',
+                  },
+                }
+              : null,
+        },
       }),
       logger: false,
     });
@@ -493,7 +506,7 @@ describe('api app', () => {
       id: postId,
       slug: 'sample-post',
       title: 'Sample Post',
-      canonicalPath: '/sample-post/',
+      canonicalPath: 'https://example.com/original-story/',
       comments: [
         {
           id: 'comment-1',
