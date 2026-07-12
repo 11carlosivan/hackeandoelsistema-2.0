@@ -160,7 +160,26 @@ async function publishDueScheduledPosts(app) {
 }
 
 function normalizeRoutePath(path) {
-  const withLeadingSlash = path.startsWith('/') ? path : `/${path}`;
+  const rawPath = String(path || '').trim();
+  let cleanPath;
+
+  try {
+    const url = new URL(rawPath, PUBLIC_SITE_URL);
+
+    if (/^https?:\/\//i.test(rawPath)) {
+      const site = new URL(PUBLIC_SITE_URL);
+
+      if (url.origin !== site.origin) {
+        return null;
+      }
+    }
+
+    cleanPath = url.pathname;
+  } catch {
+    cleanPath = rawPath.split(/[?#]/, 1)[0];
+  }
+
+  const withLeadingSlash = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
 
   if (withLeadingSlash === '/') {
     return withLeadingSlash;
@@ -187,7 +206,8 @@ function canonicalPathFromUrl(value) {
 function isSitemapRouteAllowed(path) {
   const normalizedPath = normalizeRoutePath(path);
 
-  return !SITEMAP_EXCLUDED_PATHS.includes(normalizedPath) &&
+  return Boolean(normalizedPath) &&
+    !SITEMAP_EXCLUDED_PATHS.includes(normalizedPath) &&
     !SITEMAP_EXCLUDED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
 }
 
@@ -1240,6 +1260,10 @@ export async function registerPublicRoutes(app) {
     }
 
     const normalizedPath = normalizeRoutePath(parsed.data.path);
+
+    if (!normalizedPath) {
+      throw app.httpErrors.badRequest('Invalid public route path');
+    }
 
     const route = await app.prisma.route.findUnique({
       where: { path: normalizedPath },

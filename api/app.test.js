@@ -339,11 +339,14 @@ describe('api app', () => {
       env: testEnv,
       prisma: createPrismaStub({
         redirect: {
-          findFirst: async () => ({
-            statusCode: 301,
-            targetUrl: '/new-post/',
-            preserveQuery: false,
-          }),
+          findFirst: async ({ where }) =>
+            where.sourcePath === '/old-post/'
+              ? {
+                  statusCode: 301,
+                  targetUrl: '/new-post/',
+                  preserveQuery: false,
+                }
+              : null,
         },
       }),
       logger: false,
@@ -362,6 +365,58 @@ describe('api app', () => {
       statusCode: 301,
       targetUrl: '/new-post/',
     });
+  });
+
+  it('normalizes full same-site legacy URLs before route lookup', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        route: {
+          findUnique: async ({ where }) =>
+            where.path === '/legacy-post/'
+              ? {
+                  id: 'route-full-url',
+                  path: '/legacy-post/',
+                  entityType: 'POST',
+                  entityId: '22222222-2222-4222-8222-222222222222',
+                  status: 'ACTIVE',
+                  httpStatus: 200,
+                  canonicalRoute: null,
+                  seoMetadata: null,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+    const legacyUrl = encodeURIComponent('https://hackeandoelsistema.net/legacy-post/?utm_source=wp#comments');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/route?path=${legacyUrl}`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.path).toBe('/legacy-post/');
+  });
+
+  it('rejects external absolute URLs in public route lookup', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/route?path=https%3A%2F%2Fexample.com%2Flegacy-post%2F',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
   });
 
   it('returns redirect preserveQuery metadata for legacy URLs', async () => {
