@@ -3,7 +3,7 @@ import Home from './home';
 
 export function MainDesignApp({ feed }) {
   return (
-    <Layout>
+    <Layout categories={feed?.categories}>
       <Home
         initialArticles={feed?.articles}
         initialCategories={feed?.categories}

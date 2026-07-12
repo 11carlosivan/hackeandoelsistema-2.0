@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { storeLocalMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
+const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
+
 const postsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -318,7 +320,7 @@ async function createUniqueTaxonomySlug(prisma, model, value, currentId = null) 
 
 async function buildCategoryFullPath(prisma, { slug, parentId }) {
   if (!parentId) {
-    return slug;
+    return `/category/${slug}/`;
   }
 
   const parent = await prisma.category.findUnique({
@@ -327,10 +329,71 @@ async function buildCategoryFullPath(prisma, { slug, parentId }) {
   });
 
   if (!parent) {
-    return slug;
+    return `/category/${slug}/`;
   }
 
-  return `${parent.fullPath}/${slug}`.replace(/\/+/g, '/');
+  return `${parent.fullPath.replace(/\/+$/g, '')}/${slug}/`.replace(/\/+/g, '/');
+}
+
+function buildTagPath(slug) {
+  return `/tag/${slug}/`;
+}
+
+function seoTitleForTaxonomy(name, type) {
+  return `${name} | ${type === 'CATEGORY' ? 'Categoria' : 'Tag'} | Hackeando el Sistema`;
+}
+
+function seoDescriptionForTaxonomy(name, description, type) {
+  return description || `Archivo editorial de ${type === 'CATEGORY' ? 'la categoria' : 'la etiqueta'} ${name}.`;
+}
+
+async function upsertTaxonomyRoute(tx, { entityType, entityId, path, name, description }) {
+  const route = await tx.route.upsert({
+    where: { path },
+    create: {
+      path,
+      entityType,
+      entityId,
+      status: 'ACTIVE',
+      httpStatus: 200,
+      includeInSitemap: true,
+      changefreq: 'daily',
+      priority: 0.7,
+      lastmodAt: new Date(),
+    },
+    update: {
+      entityType,
+      entityId,
+      status: 'ACTIVE',
+      httpStatus: 200,
+      includeInSitemap: true,
+      lastmodAt: new Date(),
+    },
+    select: { id: true },
+  });
+
+  await tx.seoMetadata.upsert({
+    where: { routeId: route.id },
+    create: {
+      routeId: route.id,
+      title: seoTitleForTaxonomy(name, entityType),
+      description: seoDescriptionForTaxonomy(name, description, entityType),
+      canonicalUrl: `${PUBLIC_SITE_URL}${path}`,
+      robotsIndex: 'INDEX',
+      robotsFollow: 'FOLLOW',
+      ogType: 'website',
+    },
+    update: {
+      title: seoTitleForTaxonomy(name, entityType),
+      description: seoDescriptionForTaxonomy(name, description, entityType),
+      canonicalUrl: `${PUBLIC_SITE_URL}${path}`,
+      robotsIndex: 'INDEX',
+      robotsFollow: 'FOLLOW',
+      ogType: 'website',
+    },
+  });
+
+  return route;
 }
 
 function normalizeCmsCategory(category) {
@@ -833,6 +896,14 @@ export async function registerCmsRoutes(app) {
         },
       });
 
+      await upsertTaxonomyRoute(tx, {
+        entityType: 'CATEGORY',
+        entityId: category.id,
+        path: category.fullPath,
+        name: category.name,
+        description: category.description,
+      });
+
       await tx.auditLog.create({
         data: {
           actorId: request.auth.user.id,
@@ -929,6 +1000,28 @@ export async function registerCmsRoutes(app) {
             },
           },
         },
+      });
+
+      if (nextFullPath !== existing.fullPath) {
+        await tx.route.updateMany({
+          where: {
+            path: existing.fullPath,
+            entityType: 'CATEGORY',
+            entityId: category.id,
+          },
+          data: {
+            path: nextFullPath,
+            lastmodAt: new Date(),
+          },
+        });
+      }
+
+      await upsertTaxonomyRoute(tx, {
+        entityType: 'CATEGORY',
+        entityId: category.id,
+        path: category.fullPath,
+        name: category.name,
+        description: category.description,
       });
 
       await tx.auditLog.create({
@@ -1028,6 +1121,13 @@ export async function registerCmsRoutes(app) {
         },
       });
 
+      await upsertTaxonomyRoute(tx, {
+        entityType: 'TAG',
+        entityId: tag.id,
+        path: buildTagPath(tag.slug),
+        name: tag.name,
+      });
+
       await tx.auditLog.create({
         data: {
           actorId: request.auth.user.id,
@@ -1093,6 +1193,27 @@ export async function registerCmsRoutes(app) {
             },
           },
         },
+      });
+
+      if (nextSlug !== existing.slug) {
+        await tx.route.updateMany({
+          where: {
+            path: buildTagPath(existing.slug),
+            entityType: 'TAG',
+            entityId: tag.id,
+          },
+          data: {
+            path: buildTagPath(nextSlug),
+            lastmodAt: new Date(),
+          },
+        });
+      }
+
+      await upsertTaxonomyRoute(tx, {
+        entityType: 'TAG',
+        entityId: tag.id,
+        path: buildTagPath(tag.slug),
+        name: tag.name,
       });
 
       await tx.auditLog.create({

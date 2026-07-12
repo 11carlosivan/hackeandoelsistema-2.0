@@ -1,4 +1,4 @@
-import { ArticleListItem, EmptyState, SystemPageHeader } from './content-primitives';
+import { ArticleListItem, EmptyState, PaginationControls, SystemPageHeader } from './content-primitives';
 
 export default function AuthorArchivePage({ author }) {
   const avatarUrl = author.avatar?.url || '/isotipo.png';
@@ -48,6 +48,8 @@ export default function AuthorArchivePage({ author }) {
         ) : (
           <EmptyState title="SIN PUBLICACIONES" description="Este autor no tiene publicaciones visibles por ahora." />
         )}
+
+        <PaginationControls meta={author.meta} basePath={author.canonicalPath || '/author/'} />
       </section>
     </div>
   );

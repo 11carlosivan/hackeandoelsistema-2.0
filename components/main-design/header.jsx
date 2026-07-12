@@ -4,10 +4,46 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
-export default function Header() {
+function normalizeCategoryPath(category) {
+  if (category.fullPath) {
+    return category.fullPath;
+  }
+
+  if (category.slug) {
+    return `/category/${category.slug}/`;
+  }
+
+  return '/archivo';
+}
+
+function buildNavigation(categories = []) {
+  const categoryLinks = categories
+    .filter((category) => category?.slug || category?.fullPath)
+    .slice(0, 8)
+    .map((category) => ({
+      name: (category.title || category.name || category.slug).toUpperCase(),
+      path: normalizeCategoryPath(category),
+    }));
+
+  return [
+    { name: 'INICIO', path: '/' },
+    ...categoryLinks,
+    { name: 'ARCHIVO', path: '/archivo' },
+  ];
+}
+
+function normalizePath(path) {
+  if (!path || path === '/') return '/';
+
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
+export default function Header({ categories = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   const pathname = usePathname();
+  const navigation = buildNavigation(categories);
+  const activePath = normalizePath(pathname);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -15,16 +51,6 @@ export default function Header() {
       router.push(`/buscar?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
-
-  const categories = [
-    { name: 'INICIO', path: '/' },
-    { name: 'NACIONALES', path: '/category/nacionales/' },
-    { name: 'POLITICA', path: '/category/politica/' },
-    { name: 'ECONOMIA', path: '/category/economia/' },
-    { name: 'DEPORTES', path: '/category/deportes/' },
-    { name: 'ULTIMA HORA', path: '/category/ultima-hora/' },
-    { name: 'ARCHIVO', path: '/archivo' },
-  ];
 
   return (
     <header className="bg-background border-b border-terminal-gray fixed top-0 w-full z-50">
@@ -76,9 +102,10 @@ export default function Header() {
         </div>
 
         <nav className="flex overflow-x-auto no-scrollbar gap-8 py-2">
-          {categories.map((category) => {
-            const isActive = pathname === category.path ||
-              (category.path !== '/' && pathname.startsWith(category.path));
+          {navigation.map((category) => {
+            const categoryPath = normalizePath(category.path);
+            const isActive = activePath === categoryPath ||
+              (categoryPath !== '/' && activePath.startsWith(categoryPath));
 
             return (
               <Link

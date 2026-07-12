@@ -105,6 +105,44 @@ function normalizePublicPost(post) {
   };
 }
 
+async function findRelatedPosts(app, post, take = 3) {
+  const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
+
+  if (!primaryCategory?.id) {
+    return [];
+  }
+
+  return app.prisma.post.findMany({
+    where: {
+      id: { not: post.id },
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+      categories: {
+        some: {
+          categoryId: primaryCategory.id,
+        },
+      },
+    },
+    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+    take,
+    include: {
+      author: {
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+        },
+      },
+      featuredMedia: true,
+      categories: {
+        include: {
+          category: true,
+        },
+      },
+    },
+  });
+}
+
 function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
   return {
     id: author.id,
@@ -553,12 +591,14 @@ export async function registerPublicRoutes(app) {
     }
 
     publicCacheHeaders(reply, 180);
+    const relatedPosts = await findRelatedPosts(app, post);
 
     return {
       data: {
         ...normalizePublicPost(post),
         contentHtml: post.contentHtml,
         contentJson: post.contentJson,
+        relatedPosts: relatedPosts.map(normalizePublicPost),
         tags: post.tags.map((item) => ({
           id: item.tag.id,
           name: item.tag.name,
@@ -604,12 +644,14 @@ export async function registerPublicRoutes(app) {
     }
 
     publicCacheHeaders(reply, 180);
+    const relatedPosts = await findRelatedPosts(app, post);
 
     return {
       data: {
         ...normalizePublicPost(post),
         contentHtml: post.contentHtml,
         contentJson: post.contentJson,
+        relatedPosts: relatedPosts.map(normalizePublicPost),
         tags: post.tags.map((item) => ({
           id: item.tag.id,
           name: item.tag.name,
@@ -712,7 +754,15 @@ export async function registerPublicRoutes(app) {
   });
 
   app.get('/api/v1/public/authors/id/:id', async (request, reply) => {
-    const { id } = idParamSchema.parse(request.params);
+    const params = idParamSchema.safeParse(request.params);
+    const query = paginationSchema.safeParse(request.query);
+
+    if (!params.success || !query.success) {
+      throw app.httpErrors.badRequest('Invalid author archive query');
+    }
+
+    const { id } = params.data;
+    const { page, limit } = query.data;
 
     const author = await app.prisma.user.findFirst({
       where: {
@@ -756,7 +806,8 @@ export async function registerPublicRoutes(app) {
       app.prisma.post.findMany({
         where,
         orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-        take: 12,
+        skip: (page - 1) * limit,
+        take: limit,
         include: {
           author: {
             select: {
@@ -780,6 +831,12 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: normalizePublicAuthor(author, posts, totalPosts),
+      meta: {
+        page,
+        limit,
+        total: totalPosts,
+        totalPages: Math.ceil(totalPosts / limit),
+      },
     };
   });
 

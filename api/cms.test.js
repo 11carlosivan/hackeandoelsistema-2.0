@@ -299,6 +299,12 @@ function createPrismaStub(user, options = {}) {
         lastmodAt: null,
         ...data,
       }),
+      upsert: async ({ create, update }) => ({
+        id: 'taxonomy-route-1',
+        lastmodAt: new Date('2026-01-18T00:00:00Z'),
+        ...(create || {}),
+        ...(update || {}),
+      }),
       update: async ({ data }) => ({
         id: 'route-1',
         path: data.path || '/sample-post/',
@@ -307,6 +313,7 @@ function createPrismaStub(user, options = {}) {
         includeInSitemap: data.includeInSitemap,
         lastmodAt: data.lastmodAt,
       }),
+      updateMany: async () => ({ count: 1 }),
     },
     redirect: {
       count,
@@ -662,14 +669,14 @@ describe('cms routes', () => {
     expect(createResponse.json().data.category).toMatchObject({
       id: '99999999-9999-4999-8999-999999999999',
       slug: 'investigacion',
-      fullPath: 'investigacion',
+      fullPath: '/category/investigacion/',
     });
     expect(updateResponse.statusCode, updateResponse.body).toBe(200);
     expect(updateResponse.json().data.category).toMatchObject({
       id: '77777777-7777-4777-8777-777777777777',
       name: 'Politica',
       slug: 'politica',
-      fullPath: 'politica',
+      fullPath: '/category/politica/',
     });
   });
 

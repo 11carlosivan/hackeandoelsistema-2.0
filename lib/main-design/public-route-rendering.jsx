@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import Layout from '@/components/main-design/layout';
+import PublicLayout from '@/components/main-design/public-layout';
 import { ArticlePageView } from '@/components/main-design/article-page';
 import { ArticleStructuredData } from '@/components/main-design/structured-data';
 import AuthorArchivePage from '@/components/main-design/author-archive-page';
@@ -15,6 +15,7 @@ import {
   getCategoryFeedById,
   getPageById,
   getProductById,
+  getPublicCategories,
   getTagFeedById,
   getWebStoryById,
   resolvePublicRoute,
@@ -79,7 +80,7 @@ async function loadEntity(route, options = {}) {
   }
 
   if (route.entityType === 'AUTHOR') {
-    return getAuthorArchiveById(route.entityId);
+    return getAuthorArchiveById(route.entityId, options.page || 1);
   }
 
   if (route.entityType === 'PRODUCT') {
@@ -273,10 +274,10 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
     const article = await loadEntity(route);
 
     return (
-      <Layout>
+      <PublicLayout>
         <ArticleStructuredData article={article} author={{ id: article.authorId, name: article.authorName }} />
         <ArticlePageView article={article} />
-      </Layout>
+      </PublicLayout>
     );
   }
 
@@ -284,27 +285,27 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
     const pageEntity = await loadEntity(route);
 
     return (
-      <Layout>
+      <PublicLayout>
         <StaticContentPage page={pageEntity} />
-      </Layout>
+      </PublicLayout>
     );
   }
 
   if (route.entityType === 'STATIC') {
     return (
-      <Layout>
+      <PublicLayout>
         <StaticArchivePage route={route} />
-      </Layout>
+      </PublicLayout>
     );
   }
 
   if (route.entityType === 'AUTHOR') {
-    const author = await loadEntity(route);
+    const author = await loadEntity(route, { page });
 
     return (
-      <Layout>
+      <PublicLayout>
         <AuthorArchivePage author={author} />
-      </Layout>
+      </PublicLayout>
     );
   }
 
@@ -312,9 +313,9 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
     const product = await loadEntity(route);
 
     return (
-      <Layout>
+      <PublicLayout>
         <ProductPage product={product} />
-      </Layout>
+      </PublicLayout>
     );
   }
 
@@ -322,24 +323,26 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
     const story = await loadEntity(route);
 
     return (
-      <Layout>
+      <PublicLayout>
         <WebStoryPage story={story} />
-      </Layout>
+      </PublicLayout>
     );
   }
 
   if (route.entityType === 'CATEGORY') {
     const feed = await loadEntity(route, { page });
+    const categories = await getPublicCategories().catch(() => []);
 
     return (
-      <Layout>
+      <PublicLayout>
         <CategoryPage
           categoryId={feed.category.slug}
           category={feed.category}
           articles={feed.articles}
           meta={feed.meta}
+          categories={categories}
         />
-      </Layout>
+      </PublicLayout>
     );
   }
 
@@ -347,9 +350,9 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
     const feed = await loadEntity(route, { page });
 
     return (
-      <Layout>
+      <PublicLayout>
         <TagPage tag={feed.tag} articles={feed.articles} meta={feed.meta} />
-      </Layout>
+      </PublicLayout>
     );
   }
 

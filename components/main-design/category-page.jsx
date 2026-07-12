@@ -3,11 +3,21 @@ import { ArticleListItem, EmptyState, PaginationControls, SystemPageHeader } fro
 
 const categoryDescriptions = {
   NACIONALES: 'Noticias nacionales, actualidad dominicana y reportes de interes publico.',
-  'POLÍTICA': 'Poder, gobierno, campanas, decisiones y sus efectos en la vida publica.',
-  'TECNOLOGÍA': 'Infraestructura digital, ciberseguridad, datos, vigilancia e innovacion.',
+  POLITICA: 'Poder, gobierno, campanas, decisiones y sus efectos en la vida publica.',
+  TECNOLOGIA: 'Infraestructura digital, ciberseguridad, datos, vigilancia e innovacion.',
   INTERNACIONAL: 'Contexto global, geopolitica y hechos externos que impactan la region.',
-  'INVESTIGACIÓN': 'Reportes profundos, filtraciones, verificaciones y analisis de datos.',
+  INVESTIGACION: 'Reportes profundos, filtraciones, verificaciones y analisis de datos.',
 };
+
+function normalizeCategoryHref(category) {
+  if (category.fullPath) {
+    return category.fullPath;
+  }
+
+  const slug = category.slug || category.id;
+
+  return slug ? `/category/${slug}/` : '/archivo';
+}
 
 export default function CategoryPage({ categoryId, category, articles = [], meta, categories = [] }) {
   const categoryName = decodeURIComponent(categoryId || '').toUpperCase();
@@ -19,7 +29,7 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
     : Object.keys(categoryDescriptions).map((name) => ({
         id: name,
         title: name,
-        slug: name,
+        slug: name.toLowerCase(),
       }));
 
   return (
@@ -55,21 +65,20 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
               MODULO SEO
             </div>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              Esta ruta queda lista para recibir metadata dinamica, canonicals y paginacion
-              server-side sin depender del runtime anterior.
+              Esta ruta usa metadata dinamica, canonical y paginacion server-side desde la API publica.
             </p>
           </div>
 
           <div className="border border-terminal-gray bg-black/20 p-6">
             <h2 className="font-headline-md text-white text-xl uppercase mb-4">Categorias</h2>
             <div className="flex flex-wrap gap-2">
-              {visibleCategories.map((category) => (
+              {visibleCategories.map((item) => (
                 <Link
-                  key={category.slug || category.id}
-                  href={`/category/${category.fullPath || category.slug || category.id}/`}
+                  key={item.slug || item.id}
+                  href={normalizeCategoryHref(item)}
                   className="border border-terminal-gray px-3 py-1 text-[10px] font-label-caps text-on-surface-variant hover:text-system-red hover:border-system-red transition-colors"
                 >
-                  {category.title || category.name || category.slug}
+                  {item.title || item.name || item.slug}
                 </Link>
               ))}
             </div>

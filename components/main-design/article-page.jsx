@@ -63,7 +63,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
     photo: '/isotipo.png',
   };
   const articleComments = comments;
-  const relatedArticles = related;
+  const relatedArticles = related.length > 0 ? related : article.related || [];
 
   return (
     <div className="w-full bg-background text-on-surface">
