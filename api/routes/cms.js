@@ -11,6 +11,12 @@ const postsQuerySchema = z.object({
     .enum(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'SCHEDULED', 'PUBLISHED', 'ARCHIVED'])
     .optional(),
 });
+const pagesQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  q: z.string().trim().min(1).max(120).optional(),
+  status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+});
 const auditLogsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -41,6 +47,9 @@ const redirectsQuerySchema = z.object({
   isActive: z.coerce.boolean().optional(),
 });
 const postParamsSchema = z.object({
+  id: z.uuid(),
+});
+const pageParamsSchema = z.object({
   id: z.uuid(),
 });
 const commentParamsSchema = z.object({
@@ -113,6 +122,11 @@ const postCreateSchema = z.object({
   postType: z.enum(['NEWS', 'OPINION', 'SPONSORED', 'EXTERNAL_SUBMISSION', 'PAGE_ARTICLE']).default('NEWS'),
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'UNLISTED']).default('PUBLIC'),
 });
+const pageCreateSchema = z.object({
+  title: z.string().trim().min(3).max(255),
+  slug: z.string().trim().min(3).max(280).optional(),
+  contentText: z.string().trim().max(50000).nullable().optional(),
+});
 const postUpdateSchema = z
   .object({
     title: z.string().trim().min(3).max(255).optional(),
@@ -123,6 +137,16 @@ const postUpdateSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one post field is required',
+  });
+const pageUpdateSchema = z
+  .object({
+    title: z.string().trim().min(3).max(255).optional(),
+    slug: z.string().trim().min(3).max(280).optional(),
+    contentText: z.string().trim().max(50000).nullable().optional(),
+    status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one page field is required',
   });
 const postTaxonomySchema = z.object({
   categoryIds: z.array(z.uuid()).max(12).default([]),
@@ -239,6 +263,25 @@ async function createUniqueSlug(prisma, value) {
   return `${base}-${randomUUID().slice(0, 8)}`;
 }
 
+async function createUniquePageSlug(prisma, value, currentId = null) {
+  const base = slugify(value) || `pagina-${Date.now()}`;
+
+  for (let index = 0; index < 50; index += 1) {
+    const slug = index === 0 ? base : `${base}-${index + 1}`;
+    const path = `/${slug}/`;
+    const [existingPage, existingRoute] = await Promise.all([
+      prisma.page.findUnique({ where: { slug }, select: { id: true } }),
+      prisma.route.findUnique({ where: { path }, select: { id: true } }),
+    ]);
+
+    if ((!existingPage || existingPage.id === currentId) && !existingRoute) {
+      return slug;
+    }
+  }
+
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
+
 async function createUniqueTaxonomySlug(prisma, model, value, currentId = null) {
   const base = slugify(value) || `taxonomia-${Date.now()}`;
 
@@ -338,6 +381,47 @@ function normalizeCmsRedirect(redirect) {
     lastHitAt: redirect.lastHitAt,
     createdAt: redirect.createdAt,
     updatedAt: redirect.updatedAt,
+  };
+}
+
+function normalizeCmsPage(page, route = null, importMapping = null) {
+  return {
+    id: page.id,
+    title: page.title,
+    slug: page.slug,
+    contentHtml: page.contentHtml,
+    contentText: page.contentText,
+    status: page.status,
+    legacyWordpressId: page.legacyWordpressId,
+    legacyGuid: page.legacyGuid,
+    legacyUrl: page.legacyUrl,
+    legacySlug: page.legacySlug,
+    publishedAt: page.publishedAt,
+    createdAt: page.createdAt,
+    updatedAt: page.updatedAt,
+    author: page.author
+      ? {
+          id: page.author.id,
+          username: page.author.username,
+          displayName: page.author.displayName,
+          email: page.author.email,
+        }
+      : null,
+    route: route
+      ? {
+          id: route.id,
+          path: route.path,
+          status: route.status,
+          httpStatus: route.httpStatus,
+          includeInSitemap: route.includeInSitemap,
+          changefreq: route.changefreq,
+          priority: route.priority,
+          lastmodAt: route.lastmodAt,
+          canonicalPath: route.canonicalRoute?.path || route.path,
+          seo: route.seoMetadata,
+        }
+      : null,
+    importMapping,
   };
 }
 
@@ -1739,6 +1823,364 @@ export async function registerCmsRoutes(app) {
     return {
       data: {
         media: normalizeCmsMediaAsset(result),
+      },
+    };
+  });
+
+  app.get('/api/v1/cms/pages', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = pagesQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS pages query');
+    }
+
+    noStoreHeaders(reply);
+
+    const { page, limit, q, status } = parsed.data;
+    const where = {
+      ...(status ? { status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { slug: { contains: q, mode: 'insensitive' } },
+              { contentText: { contains: q, mode: 'insensitive' } },
+              { legacyUrl: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.page.findMany({
+        where,
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+        },
+      }),
+      app.prisma.page.count({ where }),
+    ]);
+
+    return {
+      data: items.map((item) => normalizeCmsPage(item)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        filters: {
+          q: q || null,
+          status: status || null,
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/cms/pages', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+    const parsed = pageCreateSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS page create payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const input = parsed.data;
+    const slug = await createUniquePageSlug(app.prisma, input.slug || input.title);
+    const path = `/${slug}/`;
+    const contentHtml = textToHtml(input.contentText);
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const page = await tx.page.create({
+        data: {
+          authorId: request.auth.user.id,
+          title: input.title,
+          slug,
+          contentText: input.contentText || null,
+          contentHtml,
+          status: 'DRAFT',
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+      const route = await tx.route.create({
+        data: {
+          path,
+          entityType: 'PAGE',
+          entityId: page.id,
+          status: 'GONE',
+          httpStatus: 404,
+          includeInSitemap: false,
+          changefreq: 'monthly',
+          priority: 0.4,
+        },
+      });
+      const seo = await tx.seoMetadata.create({
+        data: {
+          routeId: route.id,
+          title: input.title,
+          description: input.contentText ? String(input.contentText).slice(0, 300) : null,
+          robotsIndex: 'NOINDEX',
+          robotsFollow: 'FOLLOW',
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'PAGE_DRAFT_CREATED',
+          entityType: 'PAGE',
+          entityId: page.id,
+          metadata: {
+            routeId: route.id,
+            path,
+          },
+        },
+      });
+
+      return { page, route: { ...route, seoMetadata: seo } };
+    });
+
+    reply.code(201);
+
+    return {
+      data: {
+        page: normalizeCmsPage(result.page, result.route),
+      },
+    };
+  });
+
+  app.get('/api/v1/cms/pages/:id', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const params = pageParamsSchema.safeParse(request.params);
+
+    if (!params.success) {
+      throw app.httpErrors.badRequest('Invalid CMS page id');
+    }
+
+    noStoreHeaders(reply);
+
+    const page = await app.prisma.page.findUnique({
+      where: { id: params.data.id },
+      include: {
+        author: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!page) {
+      throw app.httpErrors.notFound('CMS page not found');
+    }
+
+    const [route, importMapping] = await Promise.all([
+      app.prisma.route.findFirst({
+        where: {
+          entityType: 'PAGE',
+          entityId: page.id,
+        },
+        include: {
+          canonicalRoute: {
+            select: {
+              path: true,
+            },
+          },
+          seoMetadata: true,
+        },
+      }),
+      app.prisma.importMapping.findFirst({
+        where: {
+          objectType: 'PAGE',
+          newEntityId: page.id,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    ]);
+
+    return {
+      data: normalizeCmsPage(page, route, importMapping),
+    };
+  });
+
+  app.patch('/api/v1/cms/pages/:id', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+    const params = pageParamsSchema.safeParse(request.params);
+    const body = pageUpdateSchema.safeParse(request.body);
+
+    if (!params.success || !body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS page update payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const existingPage = await app.prisma.page.findUnique({
+      where: { id: params.data.id },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        contentText: true,
+        status: true,
+        publishedAt: true,
+      },
+    });
+
+    if (!existingPage) {
+      throw app.httpErrors.notFound('CMS page not found');
+    }
+
+    const nextSlug = Object.hasOwn(body.data, 'slug') && body.data.slug !== existingPage.slug
+      ? await createUniquePageSlug(app.prisma, body.data.slug || body.data.title || existingPage.title, existingPage.id)
+      : existingPage.slug;
+    const nextPath = `/${nextSlug}/`;
+    const nextStatus = body.data.status || existingPage.status;
+    const now = new Date();
+    const statusRouteData = {
+      DRAFT: {
+        status: 'GONE',
+        httpStatus: 404,
+        includeInSitemap: false,
+        lastmodAt: now,
+      },
+      PUBLISHED: {
+        status: 'ACTIVE',
+        httpStatus: 200,
+        includeInSitemap: true,
+        lastmodAt: now,
+      },
+      ARCHIVED: {
+        status: 'GONE',
+        httpStatus: 410,
+        includeInSitemap: false,
+        lastmodAt: now,
+      },
+    };
+    const statusSeoData = {
+      DRAFT: {
+        robotsIndex: 'NOINDEX',
+        robotsFollow: 'FOLLOW',
+      },
+      PUBLISHED: {
+        robotsIndex: 'INDEX',
+        robotsFollow: 'FOLLOW',
+      },
+      ARCHIVED: {
+        robotsIndex: 'NOINDEX',
+        robotsFollow: 'NOFOLLOW',
+      },
+    };
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const page = await tx.page.update({
+        where: { id: params.data.id },
+        data: {
+          ...(Object.hasOwn(body.data, 'title') ? { title: body.data.title } : {}),
+          ...(nextSlug !== existingPage.slug ? { slug: nextSlug } : {}),
+          ...(Object.hasOwn(body.data, 'contentText')
+            ? {
+                contentText: body.data.contentText || null,
+                contentHtml: textToHtml(body.data.contentText),
+              }
+            : {}),
+          ...(nextStatus !== existingPage.status ? { status: nextStatus } : {}),
+          ...(nextStatus === 'PUBLISHED' && !existingPage.publishedAt ? { publishedAt: now } : {}),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+      const route = await tx.route.findFirst({
+        where: {
+          entityType: 'PAGE',
+          entityId: page.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+      const routeData = {
+        ...statusRouteData[nextStatus],
+        ...(nextSlug !== existingPage.slug ? { path: nextPath } : {}),
+      };
+      const updatedRoute = route
+        ? await tx.route.update({
+            where: { id: route.id },
+            data: routeData,
+          })
+        : await tx.route.create({
+            data: {
+              path: nextPath,
+              entityType: 'PAGE',
+              entityId: page.id,
+              changefreq: 'monthly',
+              priority: 0.4,
+              ...statusRouteData[nextStatus],
+            },
+          });
+      const seo = await tx.seoMetadata.upsert({
+        where: { routeId: updatedRoute.id },
+        create: {
+          routeId: updatedRoute.id,
+          title: page.title,
+          description: page.contentText ? String(page.contentText).slice(0, 300) : null,
+          ...statusSeoData[nextStatus],
+        },
+        update: {
+          ...(Object.hasOwn(body.data, 'title') ? { title: page.title } : {}),
+          ...(Object.hasOwn(body.data, 'contentText')
+            ? { description: page.contentText ? String(page.contentText).slice(0, 300) : null }
+            : {}),
+          ...statusSeoData[nextStatus],
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'PAGE_UPDATED',
+          entityType: 'PAGE',
+          entityId: page.id,
+          metadata: {
+            fields: Object.keys(body.data),
+            from: existingPage,
+          },
+        },
+      });
+
+      return { page, route: { ...updatedRoute, seoMetadata: seo } };
+    });
+
+    return {
+      data: {
+        page: normalizeCmsPage(result.page, result.route),
       },
     };
   });

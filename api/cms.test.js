@@ -68,6 +68,28 @@ function createPrismaStub(user, options = {}) {
     categories: [],
     tags: [],
   };
+  const page = {
+    id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    authorId: user.id,
+    title: 'Privacy Policy',
+    slug: 'privacy-policy',
+    contentHtml: '<p>Privacy content</p>',
+    contentText: 'Privacy content',
+    status: 'DRAFT',
+    legacyWordpressId: 50,
+    legacyGuid: 'https://example.com/?page_id=50',
+    legacyUrl: '/privacy-policy/',
+    legacySlug: 'privacy-policy',
+    publishedAt: null,
+    createdAt: new Date('2026-01-15T00:00:00Z'),
+    updatedAt: new Date('2026-01-15T00:00:00Z'),
+    author: {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+    },
+  };
   const comment = {
     id: '44444444-4444-4444-8444-444444444444',
     postId: post.id,
@@ -223,7 +245,33 @@ function createPrismaStub(user, options = {}) {
         updatedAt: new Date('2026-01-03T00:00:00Z'),
       }),
     },
-    page: { count },
+    page: {
+      count,
+      findMany: async () => [page],
+      findUnique: async ({ where }) => {
+        if (where.id === page.id) return page;
+        if (where.slug === page.slug) return page;
+        return null;
+      },
+      create: async ({ data }) => ({
+        ...page,
+        id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        legacyWordpressId: null,
+        legacyGuid: null,
+        legacyUrl: null,
+        legacySlug: null,
+        createdAt: new Date('2026-01-16T00:00:00Z'),
+        updatedAt: new Date('2026-01-16T00:00:00Z'),
+        publishedAt: null,
+        author: page.author,
+        ...data,
+      }),
+      update: async ({ data }) => ({
+        ...page,
+        ...data,
+        updatedAt: new Date('2026-01-17T00:00:00Z'),
+      }),
+    },
     route: {
       count,
       findUnique: async () => null,
@@ -253,7 +301,7 @@ function createPrismaStub(user, options = {}) {
       }),
       update: async ({ data }) => ({
         id: 'route-1',
-        path: '/sample-post/',
+        path: data.path || '/sample-post/',
         status: data.status,
         httpStatus: data.httpStatus,
         includeInSitemap: data.includeInSitemap,
@@ -771,6 +819,160 @@ describe('cms routes', () => {
       targetUrl: 'https://hackeandoelsistema.net/nueva-url/',
       statusCode: 308,
       isActive: false,
+    });
+  });
+
+  it('lists protected CMS pages with pagination metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/pages?status=DRAFT&q=privacy&page=1&limit=10',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data[0]).toMatchObject({
+      title: 'Privacy Policy',
+      slug: 'privacy-policy',
+      status: 'DRAFT',
+      legacyWordpressId: 50,
+    });
+    expect(response.json().meta).toMatchObject({
+      page: 1,
+      limit: 10,
+      total: 1,
+      filters: {
+        q: 'privacy',
+        status: 'DRAFT',
+      },
+    });
+  });
+
+  it('creates a draft CMS page with a protected route and SEO metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/pages',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'About HES',
+        contentText: 'About content',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.page).toMatchObject({
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      title: 'About HES',
+      slug: 'about-hes',
+      status: 'DRAFT',
+      route: {
+        path: '/about-hes/',
+        status: 'GONE',
+        includeInSitemap: false,
+        seo: {
+          robotsIndex: 'NOINDEX',
+        },
+      },
+    });
+  });
+
+  it('returns CMS page detail with route and import metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/pages/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toMatchObject({
+      title: 'Privacy Policy',
+      route: {
+        path: '/sample-post/',
+        seo: {
+          title: 'SEO Sample',
+        },
+      },
+      importMapping: {
+        legacyUrl: '/sample-post/',
+      },
+    });
+  });
+
+  it('updates and publishes a CMS page while opening its route for indexing', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/pages/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Privacy Policy Updated',
+        slug: 'privacy-policy-updated',
+        contentText: 'Updated privacy',
+        status: 'PUBLISHED',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.page).toMatchObject({
+      title: 'Privacy Policy Updated',
+      slug: 'privacy-policy-updated',
+      status: 'PUBLISHED',
+      route: {
+        path: '/privacy-policy-updated/',
+        status: 'ACTIVE',
+        httpStatus: 200,
+        includeInSitemap: true,
+        seo: {
+          robotsIndex: 'INDEX',
+          robotsFollow: 'FOLLOW',
+        },
+      },
     });
   });
 

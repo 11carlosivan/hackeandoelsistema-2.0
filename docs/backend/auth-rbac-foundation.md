@@ -359,6 +359,55 @@ Requiere permiso `seo:manage`.
 
 Actualiza origen, destino, status, preserve query, source e indicador activo/inactivo. Registra auditoria `REDIRECT_UPDATED`.
 
+### `GET /api/v1/cms/pages`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/paginas` con paginas estaticas migradas o creadas desde el nuevo CMS.
+
+Query params:
+
+```http
+page=1
+limit=20
+status=PUBLISHED
+q=privacy
+```
+
+### `POST /api/v1/cms/pages`
+
+Requiere permiso `posts:manage`.
+
+Crea una pagina en `DRAFT`, su route queda fuera de sitemap y con robots `NOINDEX`.
+
+```json
+{
+  "title": "Politica de privacidad",
+  "slug": "privacy-policy",
+  "contentText": "Contenido textual inicial"
+}
+```
+
+Registra auditoria `PAGE_DRAFT_CREATED`.
+
+### `GET /api/v1/cms/pages/:id`
+
+Requiere permiso `cms:read`.
+
+Devuelve contenido, ruta, SEO e import mapping para `/cms/paginas/[id]`.
+
+### `PATCH /api/v1/cms/pages/:id`
+
+Requiere permiso `posts:manage`.
+
+Actualiza titulo, slug, contenido y estado. Si el estado cambia:
+
+- `PUBLISHED`: route `ACTIVE`, HTTP `200`, sitemap incluido, robots `INDEX/FOLLOW`.
+- `DRAFT`: route `GONE`, HTTP `404`, fuera de sitemap, robots `NOINDEX/FOLLOW`.
+- `ARCHIVED`: route `GONE`, HTTP `410`, fuera de sitemap, robots `NOINDEX/NOFOLLOW`.
+
+Registra auditoria `PAGE_UPDATED`.
+
 ### `GET /api/v1/cms/media/:id`
 
 Requiere permiso `cms:read`.
