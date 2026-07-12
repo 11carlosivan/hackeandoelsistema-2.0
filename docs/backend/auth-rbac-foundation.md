@@ -321,6 +321,44 @@ Reglas:
 - Si hay categorias y no se manda primaria, se usa la primera categoria recibida.
 - Registra auditoria `POST_TAXONOMY_UPDATED` con valores anteriores y nuevos.
 
+### `GET /api/v1/cms/redirects`
+
+Requiere permiso `cms:read`.
+
+Alimenta `/cms/redirects` para auditar y filtrar redirects manuales, WordPress, Yoast o importados.
+
+Query params:
+
+```http
+page=1
+limit=50
+q=/url-antigua/
+isActive=true
+```
+
+### `POST /api/v1/cms/redirects`
+
+Requiere permiso `seo:manage`.
+
+```json
+{
+  "sourcePath": "/url-antigua/",
+  "targetUrl": "/url-nueva/",
+  "statusCode": 301,
+  "preserveQuery": true,
+  "source": "MANUAL",
+  "isActive": true
+}
+```
+
+La API normaliza `sourcePath` con slash inicial/final, acepta destino interno o URL absoluta, bloquea redirects hacia el mismo path y evita duplicados. Registra auditoria `REDIRECT_CREATED`.
+
+### `PATCH /api/v1/cms/redirects/:id`
+
+Requiere permiso `seo:manage`.
+
+Actualiza origen, destino, status, preserve query, source e indicador activo/inactivo. Registra auditoria `REDIRECT_UPDATED`.
+
 ### `GET /api/v1/cms/media/:id`
 
 Requiere permiso `cms:read`.

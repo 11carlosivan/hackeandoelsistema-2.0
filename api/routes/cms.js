@@ -34,6 +34,12 @@ const taxonomyQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   q: z.string().trim().min(1).max(120).optional(),
 });
+const redirectsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  q: z.string().trim().min(1).max(160).optional(),
+  isActive: z.coerce.boolean().optional(),
+});
 const postParamsSchema = z.object({
   id: z.uuid(),
 });
@@ -47,6 +53,9 @@ const categoryParamsSchema = z.object({
   id: z.uuid(),
 });
 const tagParamsSchema = z.object({
+  id: z.uuid(),
+});
+const redirectParamsSchema = z.object({
   id: z.uuid(),
 });
 const commentStatusSchema = z.object({
@@ -78,6 +87,23 @@ const categoryWriteSchema = z.object({
 const tagWriteSchema = z.object({
   name: z.string().trim().min(2).max(160),
   slug: z.string().trim().min(2).max(180).optional(),
+});
+const redirectWriteSchema = z.object({
+  sourcePath: z.string().trim().min(1).max(500),
+  targetUrl: z
+    .string()
+    .trim()
+    .min(1)
+    .max(1000)
+    .refine((value) => value.startsWith('/') || /^https?:\/\//i.test(value), {
+      message: 'Target URL must be absolute or start with /',
+    }),
+  statusCode: z.coerce.number().int().refine((value) => [301, 302, 307, 308].includes(value), {
+    message: 'Redirect status must be 301, 302, 307 or 308',
+  }).default(301),
+  preserveQuery: z.coerce.boolean().default(false),
+  source: z.enum(['WORDPRESS', 'YOAST', 'MANUAL', 'IMPORTER', 'SYSTEM']).default('MANUAL'),
+  isActive: z.coerce.boolean().default(true),
 });
 const postCreateSchema = z.object({
   title: z.string().trim().min(3).max(255),
@@ -136,6 +162,40 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 240);
+}
+
+function normalizeRedirectPath(value) {
+  const trimmed = String(value || '').trim();
+
+  if (!trimmed) {
+    return '/';
+  }
+
+  let path;
+
+  try {
+    path = new URL(trimmed).pathname;
+  } catch {
+    path = trimmed;
+  }
+
+  const withLeadingSlash = path.startsWith('/') ? path : `/${path}`;
+
+  if (withLeadingSlash === '/') {
+    return withLeadingSlash;
+  }
+
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+function normalizeRedirectTarget(value) {
+  const trimmed = String(value || '').trim();
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return normalizeRedirectPath(trimmed);
 }
 
 function escapeHtml(value) {
@@ -262,6 +322,22 @@ function normalizeCmsTag(tag) {
           posts: tag._count.posts || 0,
         }
       : null,
+  };
+}
+
+function normalizeCmsRedirect(redirect) {
+  return {
+    id: redirect.id,
+    sourcePath: redirect.sourcePath,
+    targetUrl: redirect.targetUrl,
+    statusCode: redirect.statusCode,
+    preserveQuery: redirect.preserveQuery,
+    source: redirect.source,
+    isActive: redirect.isActive,
+    hitCount: redirect.hitCount,
+    lastHitAt: redirect.lastHitAt,
+    createdAt: redirect.createdAt,
+    updatedAt: redirect.updatedAt,
   };
 }
 
@@ -941,6 +1017,191 @@ export async function registerCmsRoutes(app) {
     return {
       data: {
         tag: normalizeCmsTag(result),
+      },
+    };
+  });
+
+  app.get('/api/v1/cms/redirects', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = redirectsQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid CMS redirects query');
+    }
+
+    noStoreHeaders(reply);
+
+    const { page, limit, q, isActive } = parsed.data;
+    const where = {
+      ...(typeof isActive === 'boolean' ? { isActive } : {}),
+      ...(q
+        ? {
+            OR: [
+              { sourcePath: { contains: q, mode: 'insensitive' } },
+              { targetUrl: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.redirect.findMany({
+        where,
+        orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      app.prisma.redirect.count({ where }),
+    ]);
+
+    return {
+      data: items.map(normalizeCmsRedirect),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        filters: {
+          q: q || null,
+          isActive: typeof isActive === 'boolean' ? isActive : null,
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/cms/redirects', { preHandler: app.requirePermission('seo:manage') }, async (request, reply) => {
+    const body = redirectWriteSchema.safeParse(request.body);
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS redirect payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const sourcePath = normalizeRedirectPath(body.data.sourcePath);
+    const targetUrl = normalizeRedirectTarget(body.data.targetUrl);
+
+    if (sourcePath === targetUrl) {
+      throw app.httpErrors.badRequest('Redirect source and target cannot be the same path');
+    }
+
+    const duplicate = await app.prisma.redirect.findUnique({
+      where: { sourcePath },
+      select: { id: true },
+    });
+
+    if (duplicate) {
+      throw app.httpErrors.conflict('A redirect already exists for this source path');
+    }
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const redirect = await tx.redirect.create({
+        data: {
+          sourcePath,
+          targetUrl,
+          statusCode: body.data.statusCode,
+          preserveQuery: body.data.preserveQuery,
+          source: body.data.source,
+          isActive: body.data.isActive,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'REDIRECT_CREATED',
+          entityType: 'REDIRECT',
+          entityId: redirect.id,
+          metadata: {
+            sourcePath: redirect.sourcePath,
+            targetUrl: redirect.targetUrl,
+            statusCode: redirect.statusCode,
+          },
+        },
+      });
+
+      return redirect;
+    });
+
+    reply.code(201);
+
+    return {
+      data: {
+        redirect: normalizeCmsRedirect(result),
+      },
+    };
+  });
+
+  app.patch('/api/v1/cms/redirects/:id', { preHandler: app.requirePermission('seo:manage') }, async (request, reply) => {
+    const params = redirectParamsSchema.safeParse(request.params);
+    const body = redirectWriteSchema.partial().refine((value) => Object.keys(value).length > 0).safeParse(request.body);
+
+    if (!params.success || !body.success) {
+      throw app.httpErrors.badRequest('Invalid CMS redirect update payload');
+    }
+
+    noStoreHeaders(reply);
+
+    const existing = await app.prisma.redirect.findUnique({
+      where: { id: params.data.id },
+    });
+
+    if (!existing) {
+      throw app.httpErrors.notFound('CMS redirect not found');
+    }
+
+    const nextSourcePath = Object.hasOwn(body.data, 'sourcePath')
+      ? normalizeRedirectPath(body.data.sourcePath)
+      : existing.sourcePath;
+    const nextTargetUrl = Object.hasOwn(body.data, 'targetUrl')
+      ? normalizeRedirectTarget(body.data.targetUrl)
+      : existing.targetUrl;
+
+    if (nextSourcePath === nextTargetUrl) {
+      throw app.httpErrors.badRequest('Redirect source and target cannot be the same path');
+    }
+
+    if (nextSourcePath !== existing.sourcePath) {
+      const duplicate = await app.prisma.redirect.findUnique({
+        where: { sourcePath: nextSourcePath },
+        select: { id: true },
+      });
+
+      if (duplicate) {
+        throw app.httpErrors.conflict('A redirect already exists for this source path');
+      }
+    }
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const redirect = await tx.redirect.update({
+        where: { id: params.data.id },
+        data: {
+          ...(Object.hasOwn(body.data, 'sourcePath') ? { sourcePath: nextSourcePath } : {}),
+          ...(Object.hasOwn(body.data, 'targetUrl') ? { targetUrl: nextTargetUrl } : {}),
+          ...(Object.hasOwn(body.data, 'statusCode') ? { statusCode: body.data.statusCode } : {}),
+          ...(Object.hasOwn(body.data, 'preserveQuery') ? { preserveQuery: body.data.preserveQuery } : {}),
+          ...(Object.hasOwn(body.data, 'source') ? { source: body.data.source } : {}),
+          ...(Object.hasOwn(body.data, 'isActive') ? { isActive: body.data.isActive } : {}),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'REDIRECT_UPDATED',
+          entityType: 'REDIRECT',
+          entityId: redirect.id,
+          metadata: {
+            fields: Object.keys(body.data),
+            from: existing,
+          },
+        },
+      });
+
+      return redirect;
+    });
+
+    return {
+      data: {
+        redirect: normalizeCmsRedirect(result),
       },
     };
   });

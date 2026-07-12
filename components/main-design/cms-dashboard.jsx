@@ -66,6 +66,12 @@ export default function CmsDashboard({ summary }) {
           >
             Auditoria
           </Link>
+          <Link
+            href="/cms/redirects"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
+          >
+            Redirects
+          </Link>
           <CmsSessionActions />
         </div>
       </div>

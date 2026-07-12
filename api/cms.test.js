@@ -171,6 +171,19 @@ function createPrismaStub(user, options = {}) {
       posts: 2,
     },
   };
+  const redirect = {
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    sourcePath: '/vieja-url/',
+    targetUrl: '/nueva-url/',
+    statusCode: 301,
+    preserveQuery: true,
+    source: 'MANUAL',
+    isActive: true,
+    hitCount: 5,
+    lastHitAt: new Date('2026-01-12T00:00:00Z'),
+    createdAt: new Date('2026-01-12T00:00:00Z'),
+    updatedAt: new Date('2026-01-12T00:00:00Z'),
+  };
   let assignedCategoryRelations = [];
   let assignedTagRelations = [];
 
@@ -247,7 +260,29 @@ function createPrismaStub(user, options = {}) {
         lastmodAt: data.lastmodAt,
       }),
     },
-    redirect: { count },
+    redirect: {
+      count,
+      findMany: async () => [redirect],
+      findUnique: async ({ where }) => {
+        if (where.id === redirect.id) return redirect;
+        if (where.sourcePath === redirect.sourcePath) return redirect;
+        return null;
+      },
+      create: async ({ data }) => ({
+        ...redirect,
+        id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        hitCount: 0,
+        lastHitAt: null,
+        createdAt: new Date('2026-01-13T00:00:00Z'),
+        updatedAt: new Date('2026-01-13T00:00:00Z'),
+        ...data,
+      }),
+      update: async ({ data }) => ({
+        ...redirect,
+        ...data,
+        updatedAt: new Date('2026-01-14T00:00:00Z'),
+      }),
+    },
     category: {
       count,
       findMany: async () => [category],
@@ -646,6 +681,96 @@ describe('cms routes', () => {
       id: '88888888-8888-4888-8888-888888888888',
       name: 'Macroeconomia',
       slug: 'macroeconomia',
+    });
+  });
+
+  it('lists CMS redirects with SEO metadata', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/cms/redirects?q=vieja&isActive=true',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data[0]).toMatchObject({
+      sourcePath: '/vieja-url/',
+      targetUrl: '/nueva-url/',
+      statusCode: 301,
+      preserveQuery: true,
+      isActive: true,
+      hitCount: 5,
+    });
+    expect(response.json().meta.filters).toMatchObject({
+      q: 'vieja',
+      isActive: true,
+    });
+  });
+
+  it('creates and updates CMS redirects with normalized paths', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: 'antigua-ruta',
+        targetUrl: '/nueva-ruta',
+        statusCode: 301,
+        preserveQuery: true,
+      },
+    });
+    const updateResponse = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/redirects/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/vieja-url-editada',
+        targetUrl: 'https://hackeandoelsistema.net/nueva-url/',
+        statusCode: 308,
+        isActive: false,
+      },
+    });
+
+    await app.close();
+
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+    expect(createResponse.json().data.redirect).toMatchObject({
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      sourcePath: '/antigua-ruta/',
+      targetUrl: '/nueva-ruta/',
+      statusCode: 301,
+      preserveQuery: true,
+    });
+    expect(updateResponse.statusCode, updateResponse.body).toBe(200);
+    expect(updateResponse.json().data.redirect).toMatchObject({
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      sourcePath: '/vieja-url-editada/',
+      targetUrl: 'https://hackeandoelsistema.net/nueva-url/',
+      statusCode: 308,
+      isActive: false,
     });
   });
 
