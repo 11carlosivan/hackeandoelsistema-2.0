@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { appendQueryIfNeeded, generatePublicRouteMetadata } from '../lib/main-design/public-route-rendering.jsx';
+import { permanentRedirect } from 'next/navigation';
+import { resolvePublicRoute } from '@/lib/main-design/api';
+import {
+  appendQueryIfNeeded,
+  generatePublicRouteMetadata,
+  renderPublicRoutePage,
+} from '../lib/main-design/public-route-rendering.jsx';
 
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
@@ -35,5 +41,23 @@ describe('public route rendering', () => {
     );
     expect(appendQueryIfNeeded('/nuevo/#comentarios', { page: '2' }, true)).toBe('/nuevo/?page=2#comentarios');
     expect(appendQueryIfNeeded('/nuevo/#comentarios', { page: '2' }, false)).toBe('/nuevo/#comentarios');
+  });
+
+  it('redirects legacy archive query pagination to WordPress page paths', async () => {
+    resolvePublicRoute.mockResolvedValueOnce({
+      type: 'ENTITY',
+      entityType: 'AUTHOR',
+      entityId: 'author-1',
+      path: '/author/redaccion/',
+      canonicalPath: '/author/redaccion/',
+      status: 'ACTIVE',
+    });
+    permanentRedirect.mockImplementationOnce((target) => {
+      throw new Error(`redirect:${target}`);
+    });
+
+    await expect(
+      renderPublicRoutePage(['author', 'redaccion'], Promise.resolve({ page: '2' })),
+    ).rejects.toThrow('redirect:/author/redaccion/page/2/');
   });
 });

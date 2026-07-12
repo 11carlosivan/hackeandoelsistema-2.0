@@ -1,7 +1,8 @@
 import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
 import SearchPage from '@/components/main-design/search-page';
-import { searchPublicPosts } from '@/lib/main-design/api';
+import { isApiNotFound, searchPublicPosts } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export const metadata = buildMetadata({
@@ -26,7 +27,11 @@ export default async function Page({ searchParams }) {
   if (query) {
     try {
       result = await searchPublicPosts(query, page);
-    } catch {
+    } catch (error) {
+      if (isApiNotFound(error)) {
+        notFound();
+      }
+
       result = { ...result, error: true };
     }
   }

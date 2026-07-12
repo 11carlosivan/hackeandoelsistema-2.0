@@ -81,6 +81,14 @@ function paginatedCanonicalPath(route, page) {
   return `${normalizedBasePath}page/${page}/`;
 }
 
+function archiveQueryPaginationRedirectPath(route, page, searchParams) {
+  if (!isArchiveRoute(route) || !searchParams?.page || !page || page <= 1) {
+    return null;
+  }
+
+  return paginatedCanonicalPath(route, page);
+}
+
 export function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
   if (!preserveQuery || !searchParams || Object.keys(searchParams).length === 0) {
     return targetUrl;
@@ -367,6 +375,12 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
 
   if (route.status === 'GONE' || route.httpStatus === 410) {
     notFound();
+  }
+
+  const archiveRedirectPath = archiveQueryPaginationRedirectPath(route, page, query);
+
+  if (archiveRedirectPath) {
+    permanentRedirect(archiveRedirectPath);
   }
 
   if (route.entityType === 'POST') {

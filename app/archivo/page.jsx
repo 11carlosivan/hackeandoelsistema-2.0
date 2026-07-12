@@ -1,6 +1,7 @@
+import { notFound } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
 import ArchivePage from '@/components/main-design/archive-page';
-import { searchPublicPosts } from '@/lib/main-design/api';
+import { isApiNotFound, searchPublicPosts } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 function parsePage(value) {
@@ -31,7 +32,11 @@ export default async function Page({ searchParams }) {
 
   try {
     result = await searchPublicPosts(query, page);
-  } catch {
+  } catch (error) {
+    if (isApiNotFound(error)) {
+      notFound();
+    }
+
     result = { ...result, error: true };
   }
 
