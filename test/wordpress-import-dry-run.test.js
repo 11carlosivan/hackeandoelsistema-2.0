@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   categoryPathForTerm,
   detectRouteCollisions,
+  isPasswordProtectedPost,
   pagePathForPost,
   wordpressStatusToTarget,
 } from "../scripts/wordpress/import-dry-run.mjs";
@@ -25,6 +26,12 @@ describe("WordPress import dry-run", () => {
     ]);
 
     expect(pagePathForPost(child, posts)).toBe("/network/miembros/");
+  });
+
+  it("detects WordPress password protected content", () => {
+    expect(isPasswordProtectedPost({ password: "clave-wp" })).toBe(true);
+    expect(isPasswordProtectedPost({ password: "" })).toBe(false);
+    expect(isPasswordProtectedPost({})).toBe(false);
   });
 
   it("builds hierarchical category paths", () => {

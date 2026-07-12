@@ -22,7 +22,7 @@ const PUBLIC_OPTIONS = new Set([
   "page_for_posts",
 ]);
 
-const POST_FIELD_INDEXES = new Set([0, 2, 3, 7, 11, 14, 15, 17, 18, 20, 21, 22]);
+const POST_FIELD_INDEXES = new Set([0, 2, 3, 7, 10, 11, 14, 15, 17, 18, 20, 21, 22]);
 const OPTION_FIELD_INDEXES = new Set([1, 2]);
 const DEFAULT_REPORT_PATH = "docs/migration/wp-dump-inventory.report.json";
 
@@ -411,6 +411,7 @@ function processPostsInsert(valuesSql, report) {
       createdAt: fields[2],
       createdAtGmt: fields[3],
       status: fields[7],
+      password: fields[10],
       slug: fields[11],
       updatedAt: fields[14],
       updatedAtGmt: fields[15],

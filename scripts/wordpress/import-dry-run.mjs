@@ -16,7 +16,7 @@ import { YOAST_META_KEYS } from "./yoast-metadata.mjs";
 const DEFAULT_REPORT_PATH = "docs/migration/wp-import-dry-run.report.json";
 
 const OPTIONS_FIELDS = new Set([1, 2]);
-const POSTS_FIELDS = new Set([0, 1, 2, 3, 7, 11, 14, 15, 17, 18, 20, 21, 22]);
+const POSTS_FIELDS = new Set([0, 1, 2, 3, 7, 10, 11, 14, 15, 17, 18, 20, 21, 22]);
 const POST_CONTENT_FIELDS = new Set([4, 5, 6]);
 const USERS_FIELDS = new Set([0, 1, 3, 8, 9]);
 const TERMS_FIELDS = new Set([0, 1, 2]);
@@ -279,6 +279,7 @@ function processPosts(valuesSql, state) {
       createdAt: fields[2],
       createdAtGmt: fields[3],
       status: fields[7],
+      password: fields[10],
       slug: fields[11],
       updatedAt: fields[14],
       updatedAtGmt: fields[15],
@@ -409,6 +410,7 @@ export function createDryRunReport(state) {
   const skippedByReason = {};
   let publishedImportableContentWithCategory = 0;
   let publishedImportableContentWithTag = 0;
+  let passwordProtectedPublishedContent = 0;
   let importableMedia = 0;
   let contentWithThumbnail = 0;
 
@@ -436,6 +438,10 @@ export function createDryRunReport(state) {
       }
 
       continue;
+    }
+
+    if (isPasswordProtectedPost(post)) {
+      passwordProtectedPublishedContent += 1;
     }
 
     const route = routeForPublishedPost(post, state.posts, state.wordpress.options.permalink_structure);
@@ -530,6 +536,7 @@ export function createDryRunReport(state) {
     plannedPublishedPages: postsByType.page?.publish ?? 0,
     plannedProducts: postsByType.product?.publish ?? 0,
     plannedWebStories: postsByType["web-story"]?.publish ?? 0,
+    passwordProtectedPublishedContent,
     mediaInventoryOnly: postsByType.attachment?.inherit ?? 0,
     skippedByReason,
   };
@@ -568,6 +575,10 @@ export function createDryRunReport(state) {
   }
 
   return report;
+}
+
+export function isPasswordProtectedPost(post) {
+  return Boolean(String(post?.password || "").trim());
 }
 
 function routeForPublishedPost(post, postsById, permalinkStructure) {

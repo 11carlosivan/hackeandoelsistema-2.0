@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyPasswordProtectedSeoPolicy,
+  buildPostPayload,
   checksumForPayload,
   buildAuthorSeoPayload,
   buildStaticArchiveSeoPayload,
@@ -50,6 +52,38 @@ describe("WordPress core importer", () => {
   it("creates stable checksums for idempotent imports", () => {
     expect(checksumForPayload({ id: 1, slug: "uno" })).toBe(checksumForPayload({ id: 1, slug: "uno" }));
     expect(checksumForPayload({ id: 1, slug: "uno" })).not.toBe(checksumForPayload({ id: 1, slug: "dos" }));
+  });
+
+  it("imports WordPress password protected posts as private content", () => {
+    const payload = buildPostPayload({
+      post: {
+        id: "10",
+        title: "Protegido",
+        slug: "protegido",
+        password: "clave",
+        contentHtml: "<p>Privado</p>",
+        commentCount: "0",
+      },
+      legacyUrl: "/protegido/",
+      authorId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    expect(payload.visibility).toBe("PRIVATE");
+  });
+
+  it("forces noindex SEO policy for WordPress password protected content", () => {
+    const payload = applyPasswordProtectedSeoPolicy(
+      { password: "clave" },
+      { robotsIndex: "INDEX", robotsFollow: "FOLLOW", robotsDirectives: null },
+    );
+
+    expect(payload).toMatchObject({
+      robotsIndex: "NOINDEX",
+      robotsFollow: "FOLLOW",
+      robotsDirectives: {
+        wordpressPasswordProtected: true,
+      },
+    });
   });
 
   it("extracts attachment dimensions and MIME fallbacks for media imports", () => {

@@ -14,6 +14,7 @@ import {
   buildWordPressImportState,
   categoryPathForTerm,
   createDryRunReport,
+  isPasswordProtectedPost,
   pagePathForPost,
 } from "./import-dry-run.mjs";
 import { canonicalPathForPost } from "./inspect-dump.mjs";
@@ -725,6 +726,7 @@ async function upsertPost({
     entityType: "POST",
     entityId: dbPost.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
+    includeInSitemap: !isPasswordProtectedPost(post),
   });
   counters.routes += 1;
   await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
@@ -745,7 +747,7 @@ async function upsertPost({
   counters.importMappings += 1;
 }
 
-function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = null }) {
+export function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = null }) {
   const contentHtml = sanitizeLegacyHtml(post.contentHtml);
   const payload = {
     authorId,
@@ -757,7 +759,7 @@ function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = null })
     contentText: htmlToText(contentHtml),
     status: "PUBLISHED",
     postType: "NEWS",
-    visibility: "PUBLIC",
+    visibility: isPasswordProtectedPost(post) ? "PRIVATE" : "PUBLIC",
     commentCount: Number(post.commentCount ?? 0),
     legacyWordpressId: Number(post.id),
     legacyGuid: post.guid || null,
@@ -776,6 +778,22 @@ function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = null })
   return payload;
 }
 
+export function applyPasswordProtectedSeoPolicy(post, payload) {
+  if (!isPasswordProtectedPost(post)) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    robotsIndex: "NOINDEX",
+    robotsFollow: "FOLLOW",
+    robotsDirectives: {
+      ...(payload.robotsDirectives && typeof payload.robotsDirectives === "object" ? payload.robotsDirectives : {}),
+      wordpressPasswordProtected: true,
+    },
+  };
+}
+
 async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, counters }) {
   const legacyUrl = pagePathForPost(post, state.posts);
   assertCanonicalPath(legacyUrl, post);
@@ -786,7 +804,7 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
     slug: safeSlug(post.slug, `page-${post.id}`).slice(0, 280),
     contentHtml,
     contentText: htmlToText(contentHtml),
-    status: "PUBLISHED",
+    status: isPasswordProtectedPost(post) ? "DRAFT" : "PUBLISHED",
     legacyWordpressId: Number(post.id),
     legacyGuid: post.guid || null,
     legacyUrl,
@@ -804,6 +822,7 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
     entityType: "PAGE",
     entityId: dbPage.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
+    includeInSitemap: !isPasswordProtectedPost(post),
   });
   counters.routes += 1;
   await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
@@ -814,6 +833,7 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
       entityType: "HOME",
       entityId: dbPage.id,
       lastmodAt: parseWordPressDate(post.updatedAtGmt),
+      includeInSitemap: !isPasswordProtectedPost(post),
     });
     counters.routes += 1;
     counters.homeRoutes += 1;
@@ -843,7 +863,7 @@ async function upsertProduct({ prisma, state, post, importRunId, counters }) {
     slug: safeSlug(post.slug, `product-${post.id}`).slice(0, 280),
     descriptionHtml: sanitizeLegacyHtml(post.contentHtml),
     shortDescription: normalizeExcerpt(post.excerpt),
-    isActive: true,
+    isActive: !isPasswordProtectedPost(post),
     legacyWordpressId: Number(post.id),
     legacyUrl,
   };
@@ -858,6 +878,7 @@ async function upsertProduct({ prisma, state, post, importRunId, counters }) {
     entityType: "PRODUCT",
     entityId: dbProduct.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
+    includeInSitemap: !isPasswordProtectedPost(post),
   });
   counters.routes += 1;
   await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
@@ -885,7 +906,7 @@ async function upsertWebStory({ prisma, state, post, importRunId, userIdByLegacy
     title: normalizeTitle(post.title, post.slug),
     slug: safeSlug(post.slug, `web-story-${post.id}`).slice(0, 280),
     contentJson: { legacyContentHtml: sanitizeLegacyHtml(post.contentHtml) },
-    status: "PUBLISHED",
+    status: isPasswordProtectedPost(post) ? "DRAFT" : "PUBLISHED",
     legacyWordpressId: Number(post.id),
     legacyUrl,
     publishedAt: parseWordPressDate(post.createdAt),
@@ -901,6 +922,7 @@ async function upsertWebStory({ prisma, state, post, importRunId, userIdByLegacy
     entityType: "WEB_STORY",
     entityId: dbWebStory.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
+    includeInSitemap: !isPasswordProtectedPost(post),
   });
   counters.routes += 1;
   await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
@@ -960,7 +982,7 @@ async function syncPostTerms({ prisma, state, post, postId, categoryIdByTermId, 
   }
 }
 
-async function upsertRoute(prisma, { path: routePath, entityType, entityId, lastmodAt }) {
+async function upsertRoute(prisma, { path: routePath, entityType, entityId, lastmodAt, includeInSitemap = true }) {
   return prisma.route.upsert({
     where: { path: routePath },
     create: {
@@ -970,7 +992,7 @@ async function upsertRoute(prisma, { path: routePath, entityType, entityId, last
       status: "ACTIVE",
       httpStatus: 200,
       lastmodAt,
-      includeInSitemap: true,
+      includeInSitemap,
     },
     update: {
       entityType,
@@ -978,7 +1000,7 @@ async function upsertRoute(prisma, { path: routePath, entityType, entityId, last
       status: "ACTIVE",
       httpStatus: 200,
       lastmodAt,
-      includeInSitemap: true,
+      includeInSitemap,
     },
   });
 }
@@ -992,18 +1014,20 @@ async function upsertSeoMetadata({ prisma, state, post, route, routePath, counte
     siteName: state.wordpress.options.blogname || "Hackeando El Sistema",
   });
 
+  const protectedAwarePayload = applyPasswordProtectedSeoPolicy(post, payload);
+
   await prisma.seoMetadata.upsert({
     where: { routeId: route.id },
     create: {
       routeId: route.id,
-      ...payload,
+      ...protectedAwarePayload,
     },
-    update: payload,
+    update: protectedAwarePayload,
   });
 
   counters.seoMetadata += 1;
 
-  if (payload.importedFromYoast) {
+  if (protectedAwarePayload.importedFromYoast) {
     counters.yoastMetadata += 1;
   }
 }
