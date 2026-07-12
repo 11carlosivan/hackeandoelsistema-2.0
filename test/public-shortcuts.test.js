@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   getArticleCanonicalPath,
   getAuthorCanonicalPath,
+  getCategoryCanonicalPath,
   normalizePublicPath,
   shouldRedirectToCanonical,
   tryLoadArticleByIdentifier,
   tryLoadAuthorByIdentifier,
+  tryLoadCategoryByIdentifier,
 } from '../lib/main-design/public-shortcuts.js';
 
 describe('public shortcuts', () => {
@@ -25,6 +27,11 @@ describe('public shortcuts', () => {
   it('builds author canonical paths from imported author data', () => {
     expect(getAuthorCanonicalPath({ canonicalPath: '/author/melvin/' })).toBe('/author/melvin/');
     expect(getAuthorCanonicalPath({ legacyAuthorSlug: 'redaccion' })).toBe('/author/redaccion/');
+  });
+
+  it('builds category canonical paths from imported taxonomy data', () => {
+    expect(getCategoryCanonicalPath({ fullPath: '/category/economia/' })).toBe('/category/economia/');
+    expect(getCategoryCanonicalPath({ slug: 'politica' })).toBe('/category/politica/');
   });
 
   it('detects when a shortcut should redirect to canonical', () => {
@@ -52,5 +59,14 @@ describe('public shortcuts', () => {
     });
 
     await expect(tryLoadAuthorByIdentifier('missing-author', { getById })).resolves.toBeNull();
+  });
+
+  it('normalizes category shortcut identifiers before loading', async () => {
+    const getBySlug = vi.fn(async (slug) => ({ category: { slug } }));
+
+    await expect(tryLoadCategoryByIdentifier('Economia y Negocios', { getBySlug })).resolves.toEqual({
+      category: { slug: 'economia-y-negocios' },
+    });
+    expect(getBySlug).toHaveBeenCalledWith('economia-y-negocios');
   });
 });

@@ -1,49 +1,48 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import CategoryPage from '@/components/main-design/category-page';
-import { getAllCategoryIds, getCategoryById } from '@/lib/main-design/content';
 import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
-import { categoryMetadata } from '@/lib/main-design/seo';
+import { buildMetadata } from '@/lib/main-design/seo';
+import {
+  getCategoryCanonicalPath,
+  shouldRedirectToCanonical,
+  tryLoadCategoryByIdentifier,
+} from '@/lib/main-design/public-shortcuts';
 
-function toCategorySlug(id) {
-  return decodeURIComponent(id || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+export const dynamicParams = true;
+
+async function loadCategory(id) {
+  return tryLoadCategoryByIdentifier(id, {
+    getBySlug: getCategoryFeed,
+  });
 }
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
-  try {
-    const feed = await getCategoryFeed(toCategorySlug(id));
+  const sourcePath = `/categoria/${id}/`;
+  const feed = await loadCategory(id);
 
-    return categoryMetadata({
-      id: feed.category.slug,
-      title: feed.category.title,
-      description: feed.category.description,
-    });
-  } catch {
-    return categoryMetadata(getCategoryById(id));
+  if (!feed) {
+    return buildMetadata({ title: 'Categoria no encontrada', path: sourcePath, noIndex: true });
   }
+
+  return buildMetadata({
+    title: feed.category.title,
+    description: feed.category.description,
+    path: getCategoryCanonicalPath(feed.category) || sourcePath,
+    tags: [feed.category.title],
+  });
 }
 
 export function generateStaticParams() {
-  return getAllCategoryIds().map((id) => ({ id }));
+  return [];
 }
 
 export default async function Page({ params }) {
   const { id } = await params;
-  const category = getCategoryById(id);
-  let apiFeed = null;
+  const sourcePath = `/categoria/${id}/`;
+  const feed = await loadCategory(id);
   let categories = [];
-
-  try {
-    apiFeed = await getCategoryFeed(toCategorySlug(id));
-  } catch {
-    apiFeed = null;
-  }
 
   try {
     categories = await getPublicCategories();
@@ -51,17 +50,23 @@ export default async function Page({ params }) {
     categories = [];
   }
 
-  if (!category && !apiFeed) {
+  if (!feed) {
     notFound();
+  }
+
+  const canonicalPath = getCategoryCanonicalPath(feed.category);
+
+  if (shouldRedirectToCanonical(sourcePath, canonicalPath)) {
+    permanentRedirect(canonicalPath);
   }
 
   return (
     <Layout>
       <CategoryPage
-        categoryId={apiFeed?.category.slug || id}
-        category={apiFeed?.category}
-        articles={apiFeed?.articles}
-        meta={apiFeed?.meta}
+        categoryId={feed.category.slug}
+        category={feed.category}
+        articles={feed.articles}
+        meta={feed.meta}
         categories={categories}
       />
     </Layout>
