@@ -826,6 +826,12 @@ export async function registerPublicRoutes(app) {
           }),
           app.prisma.post.count({ where }),
         ]);
+    const totalPages = ensurePublicPageInRange(app, {
+      page,
+      total,
+      limit,
+      resourceName: 'Posts',
+    });
 
     return {
       data: items.map(normalizePublicPost),
@@ -833,7 +839,7 @@ export async function registerPublicRoutes(app) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
     };
   });

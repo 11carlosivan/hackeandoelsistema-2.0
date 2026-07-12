@@ -873,6 +873,29 @@ describe('api app', () => {
     expect(response.statusCode, response.body).toBe(404);
   });
 
+  it('returns 404 for public post listing pages outside the available range', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        post: {
+          findMany: async () => [],
+          count: async () => 25,
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/posts?page=3&limit=24',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(404);
+  });
+
   it('returns tag archives by entity id', async () => {
     const tagId = '77777777-7777-4777-8777-777777777777';
     const app = await buildApp({

@@ -57,4 +57,22 @@ describe('RSS feed parity', () => {
       ]),
     );
   });
+
+  it('sets conservative security headers for the public frontend', async () => {
+    const headers = await nextConfig.headers();
+
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: '/:path*',
+          headers: expect.arrayContaining([
+            { key: 'X-Content-Type-Options', value: 'nosniff' },
+            { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+            { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+            { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+          ]),
+        }),
+      ]),
+    );
+  });
 });
