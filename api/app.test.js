@@ -22,6 +22,12 @@ function createPrismaStub(overrides = {}) {
     user: {
       findFirst: async () => null,
     },
+    product: {
+      findFirst: async () => null,
+    },
+    webStory: {
+      findFirst: async () => null,
+    },
     ...overrides,
   };
 }
@@ -388,5 +394,99 @@ describe('api app', () => {
       posts: [{ title: 'Sample Post', canonicalPath: '/sample-post/' }],
     });
     expect(response.json().data.email).toBeUndefined();
+  });
+
+  it('returns active public products by entity id', async () => {
+    const productId = '44444444-4444-4444-8444-444444444444';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        product: {
+          findFirst: async ({ where }) =>
+            where.id === productId && where.isActive
+              ? {
+                  id: productId,
+                  slug: 'plan-mensual',
+                  title: 'Plan mensual',
+                  descriptionHtml: '<p>Descripcion</p>',
+                  shortDescription: 'Campana mensual',
+                  priceAmount: 250000,
+                  currency: 'DOP',
+                  legacyUrl: '/producto/plan-mensual/',
+                  featuredMedia: {
+                    id: '55555555-5555-4555-8555-555555555555',
+                    url: 'https://example.com/product.jpg',
+                    altText: 'Producto',
+                    width: 1200,
+                    height: 800,
+                  },
+                  createdAt: new Date('2026-01-01T00:00:00Z'),
+                  updatedAt: new Date('2026-01-02T00:00:00Z'),
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/products/id/${productId}`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toMatchObject({
+      id: productId,
+      title: 'Plan mensual',
+      canonicalPath: '/producto/plan-mensual/',
+      featuredMedia: { altText: 'Producto' },
+    });
+  });
+
+  it('returns published public web stories by entity id', async () => {
+    const storyId = '55555555-5555-4555-8555-555555555555';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        webStory: {
+          findFirst: async ({ where }) =>
+            where.id === storyId && where.status === 'PUBLISHED'
+              ? {
+                  id: storyId,
+                  slug: 'historia-demo',
+                  title: 'Historia demo',
+                  contentJson: { legacyContentHtml: '<p>Historia</p>' },
+                  legacyUrl: '/web-stories/historia-demo/',
+                  publishedAt: new Date('2026-01-01T00:00:00Z'),
+                  updatedAt: new Date('2026-01-02T00:00:00Z'),
+                  author: {
+                    id: '11111111-1111-4111-8111-111111111111',
+                    username: 'redaccion',
+                    displayName: 'Redaccion',
+                  },
+                  featuredMedia: null,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/web-stories/id/${storyId}`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toMatchObject({
+      id: storyId,
+      title: 'Historia demo',
+      canonicalPath: '/web-stories/historia-demo/',
+      author: { displayName: 'Redaccion' },
+    });
   });
 });

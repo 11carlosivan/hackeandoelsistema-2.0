@@ -121,6 +121,58 @@ function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
   };
 }
 
+function normalizePublicProduct(product) {
+  return {
+    id: product.id,
+    slug: product.slug,
+    title: product.title,
+    descriptionHtml: product.descriptionHtml,
+    shortDescription: product.shortDescription,
+    priceAmount: product.priceAmount,
+    currency: product.currency,
+    canonicalPath: product.legacyUrl || `/producto/${product.slug}/`,
+    featuredMedia: product.featuredMedia
+      ? {
+          id: product.featuredMedia.id,
+          url: product.featuredMedia.url,
+          altText: product.featuredMedia.altText,
+          width: product.featuredMedia.width,
+          height: product.featuredMedia.height,
+        }
+      : null,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+  };
+}
+
+function normalizePublicWebStory(story) {
+  return {
+    id: story.id,
+    slug: story.slug,
+    title: story.title,
+    contentJson: story.contentJson,
+    canonicalPath: story.legacyUrl || `/web-stories/${story.slug}/`,
+    publishedAt: story.publishedAt,
+    updatedAt: story.updatedAt,
+    author: story.author
+      ? {
+          id: story.author.id,
+          username: story.author.username,
+          displayName: story.author.displayName,
+        }
+      : null,
+    featuredMedia: story.featuredMedia
+      ? {
+          id: story.featuredMedia.id,
+          url: story.featuredMedia.url,
+          altText: story.featuredMedia.altText,
+          width: story.featuredMedia.width,
+          height: story.featuredMedia.height,
+        }
+      : null,
+  };
+}
+
 export async function registerPublicRoutes(app) {
   app.get('/api/v1/public/categories', async (request, reply) => {
     const parsed = categoryQuerySchema.safeParse(request.query);
@@ -559,6 +611,61 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: normalizePublicAuthor(author, posts, totalPosts),
+    };
+  });
+
+  app.get('/api/v1/public/products/id/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+
+    const product = await app.prisma.product.findFirst({
+      where: {
+        id,
+        isActive: true,
+      },
+      include: {
+        featuredMedia: true,
+      },
+    });
+
+    if (!product) {
+      throw app.httpErrors.notFound('Product not found');
+    }
+
+    publicCacheHeaders(reply, 300);
+
+    return {
+      data: normalizePublicProduct(product),
+    };
+  });
+
+  app.get('/api/v1/public/web-stories/id/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+
+    const story = await app.prisma.webStory.findFirst({
+      where: {
+        id,
+        status: 'PUBLISHED',
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+          },
+        },
+        featuredMedia: true,
+      },
+    });
+
+    if (!story) {
+      throw app.httpErrors.notFound('Web story not found');
+    }
+
+    publicCacheHeaders(reply, 300);
+
+    return {
+      data: normalizePublicWebStory(story),
     };
   });
 

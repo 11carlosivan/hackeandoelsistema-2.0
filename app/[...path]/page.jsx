@@ -2,10 +2,19 @@ import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import { ArticlePageView } from '@/components/main-design/article-page';
 import AuthorArchivePage from '@/components/main-design/author-archive-page';
+import ProductPage from '@/components/main-design/product-page';
 import StaticArchivePage from '@/components/main-design/static-archive-page';
 import StaticContentPage from '@/components/main-design/static-content-page';
-import { getArticleById, getAuthorArchiveById, getPageById, resolvePublicRoute } from '@/lib/main-design/api';
+import {
+  getArticleById,
+  getAuthorArchiveById,
+  getPageById,
+  getProductById,
+  getWebStoryById,
+  resolvePublicRoute,
+} from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
+import WebStoryPage from '@/components/main-design/web-story-page';
 
 function buildRoutePath(pathParts = []) {
   const cleanParts = pathParts.map((part) => String(part || '').trim()).filter(Boolean);
@@ -60,6 +69,14 @@ async function loadEntity(route) {
 
   if (route.entityType === 'AUTHOR') {
     return getAuthorArchiveById(route.entityId);
+  }
+
+  if (route.entityType === 'PRODUCT') {
+    return getProductById(route.entityId);
+  }
+
+  if (route.entityType === 'WEB_STORY') {
+    return getWebStoryById(route.entityId);
   }
 
   return null;
@@ -135,6 +152,38 @@ export async function generateMetadata({ params }) {
     }
   }
 
+  if (route.entityType === 'PRODUCT') {
+    try {
+      const product = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || product.title,
+        description: route.seo?.description || product.shortDescription,
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || product.image,
+        noIndex: route.seo?.robotsIndex === 'NOINDEX',
+      });
+    } catch {
+      return buildMetadata({ title: 'Producto no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'WEB_STORY') {
+    try {
+      const story = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || story.title,
+        description: route.seo?.description || 'Web Story migrada desde WordPress',
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || story.image,
+        noIndex: route.seo?.robotsIndex === 'NOINDEX',
+      });
+    } catch {
+      return buildMetadata({ title: 'Web Story no encontrada', path: routePath, noIndex: true });
+    }
+  }
+
   return buildMetadata({ title: route.path, path: route.canonicalPath || route.path });
 }
 
@@ -195,6 +244,26 @@ export default async function LegacyRoutePage({ params, searchParams }) {
     return (
       <Layout>
         <AuthorArchivePage author={author} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'PRODUCT') {
+    const product = await loadEntity(route);
+
+    return (
+      <Layout>
+        <ProductPage product={product} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'WEB_STORY') {
+    const story = await loadEntity(route);
+
+    return (
+      <Layout>
+        <WebStoryPage story={story} />
       </Layout>
     );
   }
