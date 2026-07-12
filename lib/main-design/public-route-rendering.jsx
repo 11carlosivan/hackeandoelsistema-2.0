@@ -66,6 +66,10 @@ function isArchiveRoute(route) {
 }
 
 function paginatedCanonicalPath(route, page) {
+  if (!route) {
+    return null;
+  }
+
   const basePath = route.canonicalPath || route.path;
 
   if (!page || page <= 1 || !basePath) {

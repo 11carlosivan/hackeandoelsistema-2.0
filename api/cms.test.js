@@ -901,11 +901,23 @@ describe('cms routes', () => {
         targetUrl: 'https://hackeandoelsistema.net/sin-bucle/',
       },
     });
+    const systemPathResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/cms/publicaciones/',
+        targetUrl: '/archivo/',
+      },
+    });
 
     await app.close();
 
     expect(routeConflictResponse.statusCode, routeConflictResponse.body).toBe(409);
     expect(loopResponse.statusCode, loopResponse.body).toBe(400);
+    expect(systemPathResponse.statusCode, systemPathResponse.body).toBe(400);
   });
 
   it('lists protected CMS pages with pagination metadata', async () => {

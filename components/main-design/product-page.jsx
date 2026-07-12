@@ -1,3 +1,4 @@
+import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { SystemPageHeader } from './content-primitives';
 
 function formatPrice(amount, currency) {
@@ -13,6 +14,8 @@ function formatPrice(amount, currency) {
 }
 
 export default function ProductPage({ product }) {
+  const safeDescriptionHtml = product.descriptionHtml ? sanitizeEditorialHtml(product.descriptionHtml) : null;
+
   return (
     <div className="w-full bg-background text-on-surface">
       <SystemPageHeader
@@ -35,10 +38,10 @@ export default function ProductPage({ product }) {
         </div>
 
         <article className="border border-terminal-gray bg-surface-container-low/25 p-6 md:p-8">
-          {product.descriptionHtml ? (
+          {safeDescriptionHtml ? (
             <div
               className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-p:leading-relaxed prose-a:text-system-red prose-headings:text-white"
-              dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+              dangerouslySetInnerHTML={{ __html: safeDescriptionHtml }}
             />
           ) : (
             <p className="text-on-surface-variant leading-relaxed">

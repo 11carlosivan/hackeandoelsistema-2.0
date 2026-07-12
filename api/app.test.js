@@ -387,6 +387,53 @@ describe('api app', () => {
     });
   });
 
+  it('resolves redirected route records through the redirect table', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        route: {
+          findUnique: async () => ({
+            id: 'route-redirected',
+            path: '/old-route/',
+            entityType: 'POST',
+            entityId: '22222222-2222-4222-8222-222222222222',
+            status: 'REDIRECTED',
+            httpStatus: 301,
+            canonicalRoute: null,
+            seoMetadata: null,
+          }),
+        },
+        redirect: {
+          findFirst: async ({ where }) =>
+            where.sourcePath === '/old-route/'
+              ? {
+                  id: 'redirect-1',
+                  statusCode: 301,
+                  targetUrl: '/new-route/',
+                  preserveQuery: false,
+                }
+              : null,
+          update: async () => ({}),
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/route?path=/old-route/',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toMatchObject({
+      type: 'REDIRECT',
+      statusCode: 301,
+      targetUrl: '/new-route/',
+    });
+  });
+
   it('returns public posts by entity id for route based rendering', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     const app = await buildApp({

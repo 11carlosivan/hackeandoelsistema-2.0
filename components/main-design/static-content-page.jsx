@@ -1,6 +1,9 @@
+import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { SystemPageHeader } from './content-primitives';
 
 export default function StaticContentPage({ page }) {
+  const safeContentHtml = page.contentHtml ? sanitizeEditorialHtml(page.contentHtml) : null;
+
   return (
     <div className="w-full bg-background text-on-surface">
       <SystemPageHeader
@@ -14,10 +17,10 @@ export default function StaticContentPage({ page }) {
       />
 
       <article className="border border-terminal-gray bg-surface-container-low/20 p-6 md:p-8">
-        {page.contentHtml ? (
+        {safeContentHtml ? (
           <div
             className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-p:leading-relaxed prose-a:text-system-red prose-headings:text-white"
-            dangerouslySetInnerHTML={{ __html: page.contentHtml }}
+            dangerouslySetInnerHTML={{ __html: safeContentHtml }}
           />
         ) : (
           <p className="text-on-surface-variant leading-relaxed">

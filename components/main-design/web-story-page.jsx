@@ -1,3 +1,4 @@
+import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { SystemPageHeader } from './content-primitives';
 
 function legacyHtmlFromStory(story) {
@@ -6,6 +7,7 @@ function legacyHtmlFromStory(story) {
 
 export default function WebStoryPage({ story }) {
   const legacyHtml = legacyHtmlFromStory(story);
+  const safeLegacyHtml = legacyHtml ? sanitizeEditorialHtml(legacyHtml) : null;
 
   return (
     <div className="w-full bg-background text-on-surface">
@@ -29,10 +31,10 @@ export default function WebStoryPage({ story }) {
         </div>
 
         <article className="border border-terminal-gray bg-surface-container-low/25 p-6 md:p-8">
-          {legacyHtml ? (
+          {safeLegacyHtml ? (
             <div
               className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-p:leading-relaxed prose-a:text-system-red prose-headings:text-white"
-              dangerouslySetInnerHTML={{ __html: legacyHtml }}
+              dangerouslySetInnerHTML={{ __html: safeLegacyHtml }}
             />
           ) : (
             <p className="text-on-surface-variant leading-relaxed">

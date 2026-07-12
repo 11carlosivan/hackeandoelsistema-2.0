@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import CmsFeaturedMediaForm from './cms-featured-media-form';
@@ -47,6 +48,7 @@ export default function CmsPostDetail({ post, error, categories = [], tags = [] 
 
   const seo = post.route?.seo;
   const publicPath = post.route?.path || post.canonicalPath || `/${post.slug}/`;
+  const safeContentHtml = sanitizeEditorialHtml(post.contentHtml || '<p>Sin contenido HTML.</p>');
 
   return (
     <div className="w-full bg-background text-on-surface">
@@ -102,7 +104,7 @@ export default function CmsPostDetail({ post, error, categories = [], tags = [] 
           <div className="font-label-caps text-[10px] text-system-red font-bold mb-4">Contenido</div>
           <div
             className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-a:text-system-red prose-headings:font-headline-md prose-headings:uppercase"
-            dangerouslySetInnerHTML={{ __html: post.contentHtml || '<p>Sin contenido HTML.</p>' }}
+            dangerouslySetInnerHTML={{ __html: safeContentHtml }}
           />
         </article>
 

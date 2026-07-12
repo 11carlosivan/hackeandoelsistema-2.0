@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { articles as fallbackArticles, authors as fallbackAuthors, comments as fallbackComments } from '@/lib/main-design/mock-data';
 import { getAuthorName } from '@/lib/main-design/authors';
+import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { ArticleListItem } from './content-primitives';
 
 function renderBlock(block, index) {
@@ -64,6 +65,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
   };
   const articleComments = comments.length > 0 ? comments : article.comments || [];
   const relatedArticles = related.length > 0 ? related : article.related || [];
+  const safeContentHtml = article.contentHtml ? sanitizeEditorialHtml(article.contentHtml) : null;
 
   return (
     <div className="w-full bg-background text-on-surface">
@@ -117,10 +119,10 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
             <div className="border border-terminal-gray bg-surface-container-low/20 p-6 md:p-8 space-y-7">
-              {article.contentHtml ? (
+              {safeContentHtml ? (
                 <div
                   className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-p:leading-relaxed prose-a:text-system-red prose-headings:text-white"
-                  dangerouslySetInnerHTML={{ __html: article.contentHtml }}
+                  dangerouslySetInnerHTML={{ __html: safeContentHtml }}
                 />
               ) : (
                 (article.content || []).map(renderBlock)

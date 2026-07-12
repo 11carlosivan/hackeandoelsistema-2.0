@@ -31,4 +31,15 @@ describe('sitemap route filtering', () => {
     expect(metadata.twitter.description).toBe('Descripcion Twitter de Yoast');
     expect(metadata.twitter.card).toBe('summary');
   });
+
+  it('does not advertise RSS alternates from noindex pages', () => {
+    const metadata = buildMetadata({
+      title: 'CMS protegido',
+      path: '/cms/',
+      noIndex: true,
+    });
+
+    expect(metadata.robots.index).toBe(false);
+    expect(metadata.alternates.types).toBeUndefined();
+  });
 });

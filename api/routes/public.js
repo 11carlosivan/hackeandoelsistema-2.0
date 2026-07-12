@@ -184,6 +184,38 @@ function isSitemapRouteAllowed(path) {
     !SITEMAP_EXCLUDED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
 }
 
+async function findActiveRedirect(app, request, sourcePath) {
+  const redirect = await app.prisma.redirect.findFirst({
+    where: {
+      sourcePath,
+      isActive: true,
+    },
+  });
+
+  if (!redirect) {
+    return null;
+  }
+
+  if (redirect.id && typeof app.prisma.redirect.update === 'function') {
+    app.prisma.redirect
+      .update({
+        where: { id: redirect.id },
+        data: {
+          hitCount: { increment: 1 },
+          lastHitAt: new Date(),
+        },
+      })
+      .catch((error) => request.log.warn({ error }, 'Unable to update redirect hit count'));
+  }
+
+  return {
+    type: 'REDIRECT',
+    statusCode: redirect.statusCode,
+    targetUrl: redirect.targetUrl,
+    preserveQuery: redirect.preserveQuery,
+  };
+}
+
 function normalizePublicPost(post) {
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
 
@@ -1128,35 +1160,11 @@ export async function registerPublicRoutes(app) {
       },
     });
 
-    if (!route) {
-      const redirect = await app.prisma.redirect.findFirst({
-        where: {
-          sourcePath: normalizedPath,
-          isActive: true,
-        },
-      });
+    if (!route || route.status === 'REDIRECTED') {
+      const redirect = await findActiveRedirect(app, request, normalizedPath);
 
       if (redirect) {
-        if (redirect.id && typeof app.prisma.redirect.update === 'function') {
-          app.prisma.redirect
-            .update({
-              where: { id: redirect.id },
-              data: {
-                hitCount: { increment: 1 },
-                lastHitAt: new Date(),
-              },
-            })
-            .catch((error) => request.log.warn({ error }, 'Unable to update redirect hit count'));
-        }
-
-        return {
-          data: {
-            type: 'REDIRECT',
-            statusCode: redirect.statusCode,
-            targetUrl: redirect.targetUrl,
-            preserveQuery: redirect.preserveQuery,
-          },
-        };
+        return { data: redirect };
       }
 
       throw app.httpErrors.notFound('Route not found');

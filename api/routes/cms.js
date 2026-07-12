@@ -4,6 +4,7 @@ import { storeLocalMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
+const REDIRECT_SOURCE_RESERVED_PREFIXES = ['/api/', '/_next/', '/cms/'];
 
 const postsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -260,6 +261,10 @@ function internalRedirectPath(value) {
 async function getRedirectSourceBlocker(prisma, sourcePath) {
   if (sourcePath === '/') {
     return 'HOME';
+  }
+
+  if (REDIRECT_SOURCE_RESERVED_PREFIXES.some((prefix) => sourcePath.startsWith(prefix))) {
+    return 'SYSTEM';
   }
 
   const route = await prisma.route.findUnique({
@@ -1345,6 +1350,10 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.badRequest('Homepage cannot be used as a redirect source');
     }
 
+    if (sourceBlocker === 'SYSTEM') {
+      throw app.httpErrors.badRequest('System paths cannot be used as redirect sources');
+    }
+
     if (sourceBlocker === 'ROUTE') {
       throw app.httpErrors.conflict('A public route already exists for this source path');
     }
@@ -1431,6 +1440,10 @@ export async function registerCmsRoutes(app) {
 
       if (sourceBlocker === 'HOME') {
         throw app.httpErrors.badRequest('Homepage cannot be used as a redirect source');
+      }
+
+      if (sourceBlocker === 'SYSTEM') {
+        throw app.httpErrors.badRequest('System paths cannot be used as redirect sources');
       }
 
       if (sourceBlocker === 'ROUTE') {
