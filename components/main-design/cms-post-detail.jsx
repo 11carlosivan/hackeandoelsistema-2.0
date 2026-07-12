@@ -3,6 +3,7 @@ import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import CmsFeaturedMediaForm from './cms-featured-media-form';
 import CmsPostEditForm from './cms-post-edit-form';
+import CmsPostTaxonomyForm from './cms-post-taxonomy-form';
 import CmsSeoForm from './cms-seo-form';
 import CmsWorkflowActions from './cms-workflow-actions';
 
@@ -24,7 +25,7 @@ function Field({ label, value }) {
   );
 }
 
-export default function CmsPostDetail({ post, error }) {
+export default function CmsPostDetail({ post, error, categories = [], tags = [] }) {
   if (error || !post) {
     return (
       <div className="w-full bg-background text-on-surface">
@@ -177,6 +178,7 @@ export default function CmsPostDetail({ post, error }) {
                 )) : <span className="text-on-surface-variant text-sm">Sin tags</span>}
               </div>
             </div>
+            <CmsPostTaxonomyForm post={post} categories={categories} tags={tags} />
           </div>
 
           <div className="border border-terminal-gray bg-surface-container-low/30 p-6">

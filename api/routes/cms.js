@@ -98,6 +98,11 @@ const postUpdateSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one post field is required',
   });
+const postTaxonomySchema = z.object({
+  categoryIds: z.array(z.uuid()).max(12).default([]),
+  primaryCategoryId: z.uuid().nullable().optional(),
+  tagIds: z.array(z.uuid()).max(30).default([]),
+});
 const workflowSchema = z.object({
   action: z.enum(['SUBMIT_REVIEW', 'RETURN_TO_DRAFT', 'PUBLISH', 'ARCHIVE']),
 });
@@ -1707,6 +1712,176 @@ export async function registerCmsRoutes(app) {
       },
     };
   });
+
+  app.patch(
+    '/api/v1/cms/posts/:id/taxonomy',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request, reply) => {
+      const params = postParamsSchema.safeParse(request.params);
+      const body = postTaxonomySchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        throw app.httpErrors.badRequest('Invalid CMS post taxonomy payload');
+      }
+
+      noStoreHeaders(reply);
+
+      const { id } = params.data;
+      const categoryIds = [...new Set(body.data.categoryIds)];
+      const tagIds = [...new Set(body.data.tagIds)];
+      const primaryCategoryId = body.data.primaryCategoryId || categoryIds[0] || null;
+
+      if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
+        throw app.httpErrors.badRequest('Primary category must be included in categoryIds');
+      }
+
+      const existingPost = await app.prisma.post.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+          tags: {
+            include: {
+              tag: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!existingPost) {
+        throw app.httpErrors.notFound('CMS post not found');
+      }
+
+      const [categories, tags] = await Promise.all([
+        categoryIds.length
+          ? app.prisma.category.findMany({
+              where: {
+                id: { in: categoryIds },
+              },
+              select: {
+                id: true,
+              },
+            })
+          : [],
+        tagIds.length
+          ? app.prisma.tag.findMany({
+              where: {
+                id: { in: tagIds },
+              },
+              select: {
+                id: true,
+              },
+            })
+          : [],
+      ]);
+
+      if (categories.length !== categoryIds.length) {
+        throw app.httpErrors.badRequest('One or more categories do not exist');
+      }
+
+      if (tags.length !== tagIds.length) {
+        throw app.httpErrors.badRequest('One or more tags do not exist');
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        await tx.postCategory.deleteMany({
+          where: { postId: id },
+        });
+        await tx.postTag.deleteMany({
+          where: { postId: id },
+        });
+
+        if (categoryIds.length > 0) {
+          await tx.postCategory.createMany({
+            data: categoryIds.map((categoryId) => ({
+              postId: id,
+              categoryId,
+              isPrimary: categoryId === primaryCategoryId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        if (tagIds.length > 0) {
+          await tx.postTag.createMany({
+            data: tagIds.map((tagId) => ({
+              postId: id,
+              tagId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        await tx.auditLog.create({
+          data: {
+            actorId: request.auth.user.id,
+            action: 'POST_TAXONOMY_UPDATED',
+            entityType: 'POST',
+            entityId: id,
+            metadata: {
+              from: {
+                categoryIds: existingPost.categories.map((item) => item.category.id),
+                primaryCategoryId: existingPost.categories.find((item) => item.isPrimary)?.category.id || null,
+                tagIds: existingPost.tags.map((item) => item.tag.id),
+              },
+              to: {
+                categoryIds,
+                primaryCategoryId,
+                tagIds,
+              },
+            },
+          },
+        });
+
+        return tx.post.findUnique({
+          where: { id },
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    fullPath: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+      });
+
+      return {
+        data: {
+          post: normalizeCmsPost(result),
+        },
+      };
+    },
+  );
 
   app.patch(
     '/api/v1/cms/posts/:id/workflow',

@@ -171,6 +171,8 @@ function createPrismaStub(user, options = {}) {
       posts: 2,
     },
   };
+  let assignedCategoryRelations = [];
+  let assignedTagRelations = [];
 
   const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
@@ -183,8 +185,13 @@ function createPrismaStub(user, options = {}) {
       count,
       findMany: async () => [post],
       findUnique: async ({ where }) => {
-        if (where.id === post.id) return post;
-        if (where.slug === post.slug) return post;
+        const normalizedPost = {
+          ...post,
+          categories: assignedCategoryRelations.length > 0 ? assignedCategoryRelations : post.categories,
+          tags: assignedTagRelations.length > 0 ? assignedTagRelations : post.tags,
+        };
+        if (where.id === post.id) return normalizedPost;
+        if (where.slug === post.slug) return normalizedPost;
         return null;
       },
       create: async ({ data }) => ({
@@ -285,6 +292,39 @@ function createPrismaStub(user, options = {}) {
         ...tag,
         ...data,
       }),
+    },
+    postCategory: {
+      deleteMany: async () => {
+        assignedCategoryRelations = [];
+        return { count: 1 };
+      },
+      createMany: async ({ data }) => {
+        assignedCategoryRelations = data.map((item) => ({
+          id: `post-category-${item.categoryId}`,
+          postId: item.postId,
+          categoryId: item.categoryId,
+          isPrimary: item.isPrimary,
+          category,
+        }));
+
+        return { count: data.length };
+      },
+    },
+    postTag: {
+      deleteMany: async () => {
+        assignedTagRelations = [];
+        return { count: 1 };
+      },
+      createMany: async ({ data }) => {
+        assignedTagRelations = data.map((item) => ({
+          id: `post-tag-${item.tagId}`,
+          postId: item.postId,
+          tagId: item.tagId,
+          tag,
+        }));
+
+        return { count: data.length };
+      },
     },
     userSession: { count },
     comment: {
@@ -1007,6 +1047,40 @@ describe('cms routes', () => {
       title: 'Draft updated',
       excerpt: 'Updated excerpt',
       status: 'DRAFT',
+    });
+  });
+
+  it('updates CMS post taxonomy with a primary category and tags', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/taxonomy',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        categoryIds: ['77777777-7777-4777-8777-777777777777'],
+        primaryCategoryId: '77777777-7777-4777-8777-777777777777',
+        tagIds: ['88888888-8888-4888-8888-888888888888'],
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post).toMatchObject({
+      id: '22222222-2222-4222-8222-222222222222',
+      primaryCategory: {
+        id: '77777777-7777-4777-8777-777777777777',
+        name: 'Nacionales',
+      },
     });
   });
 

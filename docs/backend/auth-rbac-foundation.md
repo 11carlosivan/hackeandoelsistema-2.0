@@ -300,6 +300,27 @@ Requiere permiso `posts:manage`.
 
 Actualiza nombre y slug. Registra auditoria `TAG_UPDATED`.
 
+### `PATCH /api/v1/cms/posts/:id/taxonomy`
+
+Requiere permiso `posts:manage`.
+
+Asigna categorias y tags a una publicacion desde `/cms/publicaciones/[id]`.
+
+```json
+{
+  "categoryIds": ["uuid-categoria"],
+  "primaryCategoryId": "uuid-categoria",
+  "tagIds": ["uuid-tag"]
+}
+```
+
+Reglas:
+
+- `primaryCategoryId` debe estar dentro de `categoryIds`.
+- La API reemplaza la taxonomia completa de la publicacion de forma idempotente.
+- Si hay categorias y no se manda primaria, se usa la primera categoria recibida.
+- Registra auditoria `POST_TAXONOMY_UPDATED` con valores anteriores y nuevos.
+
 ### `GET /api/v1/cms/media/:id`
 
 Requiere permiso `cms:read`.
