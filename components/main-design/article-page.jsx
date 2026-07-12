@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { articles, authors, comments } from '@/lib/main-design/mock-data';
+import { articles as fallbackArticles, authors as fallbackAuthors, comments as fallbackComments } from '@/lib/main-design/mock-data';
 import { getAuthorName } from '@/lib/main-design/authors';
 import { ArticleListItem } from './content-primitives';
 
@@ -40,20 +40,30 @@ function renderBlock(block, index) {
 }
 
 export default function ArticlePage({ articleId }) {
-  return <ArticlePageView article={articles.find((item) => item.id === articleId) || articles[0]} />;
+  const article = fallbackArticles.find((item) => item.id === articleId) || fallbackArticles[0];
+  const related = fallbackArticles
+    .filter((item) => item.category === article.category && item.id !== article.id)
+    .slice(0, 3);
+
+  return (
+    <ArticlePageView
+      article={article}
+      authors={fallbackAuthors}
+      comments={fallbackComments[article.id] || []}
+      related={related}
+    />
+  );
 }
 
-export function ArticlePageView({ article, related = [] }) {
-  const author = authors.find((item) => item.id === article.authorId) || {
+export function ArticlePageView({ article, author: providedAuthor = null, authors = [], comments = [], related = [] }) {
+  const author = providedAuthor || authors.find((item) => item.id === article.authorId) || {
     id: article.authorId || 'redaccion-hes',
     name: article.authorName || 'Redaccion',
     role: 'Equipo editorial',
     photo: '/isotipo.png',
   };
-  const articleComments = comments[article.id] || [];
-  const relatedArticles = related.length > 0 ? related : articles
-    .filter((item) => item.category === article.category && item.id !== article.id)
-    .slice(0, 3);
+  const articleComments = comments;
+  const relatedArticles = related;
 
   return (
     <div className="w-full bg-background text-on-surface">
@@ -172,9 +182,15 @@ export function ArticlePageView({ article, related = [] }) {
               <h2 className="font-headline-md text-xl text-white uppercase border-b border-terminal-gray pb-2">
                 Relacionado
               </h2>
-              {relatedArticles.map((item) => (
-                <ArticleListItem key={item.id} article={item} />
-              ))}
+              {relatedArticles.length > 0 ? (
+                relatedArticles.map((item) => (
+                  <ArticleListItem key={item.id} article={item} />
+                ))
+              ) : (
+                <p className="border border-terminal-gray bg-surface-container-low/20 p-5 text-sm text-on-surface-variant">
+                  No hay publicaciones relacionadas disponibles para este informe.
+                </p>
+              )}
             </div>
           </aside>
         </div>
