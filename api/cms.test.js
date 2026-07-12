@@ -920,6 +920,56 @@ describe('cms routes', () => {
     expect(systemPathResponse.statusCode, systemPathResponse.body).toBe(400);
   });
 
+  it('rejects malformed or ambiguous CMS redirect targets', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const malformedUrlResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/url-rota/',
+        targetUrl: 'https://',
+      },
+    });
+    const protocolRelativeResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/url-ambigua/',
+        targetUrl: '//evil.example/ruta',
+      },
+    });
+    const unsupportedSchemeResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/url-js/',
+        targetUrl: 'javascript:alert(1)',
+      },
+    });
+
+    await app.close();
+
+    expect(malformedUrlResponse.statusCode, malformedUrlResponse.body).toBe(400);
+    expect(protocolRelativeResponse.statusCode, protocolRelativeResponse.body).toBe(400);
+    expect(unsupportedSchemeResponse.statusCode, unsupportedSchemeResponse.body).toBe(400);
+  });
+
   it('lists protected CMS pages with pagination metadata', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

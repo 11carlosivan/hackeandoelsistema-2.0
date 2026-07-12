@@ -6,6 +6,31 @@ import { noStoreHeaders } from '../utils/http.js';
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const REDIRECT_SOURCE_RESERVED_PREFIXES = ['/api/', '/_next/', '/cms/'];
 
+function isValidRedirectTarget(value) {
+  const target = String(value || '').trim();
+  const hasControlCharacter = Array.from(target).some((character) => {
+    const code = character.charCodeAt(0);
+
+    return code <= 31 || code === 127;
+  });
+
+  if (!target || hasControlCharacter || target.startsWith('//')) {
+    return false;
+  }
+
+  if (target.startsWith('/')) {
+    return true;
+  }
+
+  try {
+    const url = new URL(target);
+
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 const postsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -107,8 +132,8 @@ const redirectWriteSchema = z.object({
     .trim()
     .min(1)
     .max(1000)
-    .refine((value) => value.startsWith('/') || /^https?:\/\//i.test(value), {
-      message: 'Target URL must be absolute or start with /',
+    .refine(isValidRedirectTarget, {
+      message: 'Target URL must be a valid http(s) URL or an internal path',
     }),
   statusCode: z.coerce.number().int().refine((value) => [301, 302, 307, 308].includes(value), {
     message: 'Redirect status must be 301, 302, 307 or 308',
@@ -233,7 +258,7 @@ function normalizeRedirectTarget(value) {
   const trimmed = String(value || '').trim();
 
   if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
+    return new URL(trimmed).href;
   }
 
   let url;
