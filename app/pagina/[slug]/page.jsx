@@ -1,10 +1,11 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
 import StaticContentPage from '@/components/main-design/static-content-page';
 import TerminalPage from '@/components/main-design/terminal-page';
 import { getPageBySlug } from '@/lib/main-design/api';
 import { getStaticPageBySlug, publicStaticPages } from '@/lib/main-design/content';
-import { staticPageMetadata } from '@/lib/main-design/seo';
+import { shouldRedirectToCanonical } from '@/lib/main-design/public-shortcuts';
+import { buildMetadata, staticPageMetadata } from '@/lib/main-design/seo';
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -12,17 +13,31 @@ export async function generateMetadata({ params }) {
   try {
     return staticPageMetadata(await getPageBySlug(slug));
   } catch {
-    return staticPageMetadata(getStaticPageBySlug(slug));
+    const staticPage = process.env.NODE_ENV === 'production' ? null : getStaticPageBySlug(slug);
+
+    return staticPage
+      ? buildMetadata({
+          title: staticPage.title,
+          description: staticPage.description,
+          path: `/pagina/${staticPage.slug}`,
+          noIndex: true,
+        })
+      : buildMetadata({ title: 'Pagina no encontrada', path: `/pagina/${slug}`, noIndex: true });
   }
 }
 
 export function generateStaticParams() {
+  if (process.env.NODE_ENV === 'production') {
+    return [];
+  }
+
   return publicStaticPages.map((page) => ({ slug: page.slug }));
 }
 
 export default async function Page({ params }) {
   const { slug } = await params;
-  const staticPage = getStaticPageBySlug(slug);
+  const sourcePath = `/pagina/${slug}/`;
+  const staticPage = process.env.NODE_ENV === 'production' ? null : getStaticPageBySlug(slug);
   let apiPage = null;
 
   try {
@@ -33,6 +48,10 @@ export default async function Page({ params }) {
 
   if (!staticPage && !apiPage) {
     notFound();
+  }
+
+  if (apiPage?.canonicalPath && shouldRedirectToCanonical(sourcePath, apiPage.canonicalPath)) {
+    permanentRedirect(apiPage.canonicalPath);
   }
 
   return (

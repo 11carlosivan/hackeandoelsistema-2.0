@@ -210,6 +210,47 @@ describe('api app', () => {
     });
   });
 
+  it('excludes private app routes from the public sitemap API', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        route: {
+          findUnique: async () => null,
+          findMany: async ({ where }) => {
+            expect(where.path.notIn).toContain('/checkout/');
+
+            return [
+              {
+                path: '/sample-post/',
+                lastmodAt: new Date('2026-01-01T00:00:00Z'),
+                changefreq: 'weekly',
+                priority: 0.8,
+              },
+            ];
+          },
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/sitemap-routes',
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual([
+      {
+        path: '/sample-post/',
+        lastmodAt: '2026-01-01T00:00:00.000Z',
+        changefreq: 'weekly',
+        priority: 0.8,
+      },
+    ]);
+  });
+
   it('normalizes absolute SEO canonicals when there is no canonical route alias', async () => {
     const app = await buildApp({
       env: testEnv,

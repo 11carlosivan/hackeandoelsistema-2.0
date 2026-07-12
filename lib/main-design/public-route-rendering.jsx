@@ -1,0 +1,357 @@
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import Layout from '@/components/main-design/layout';
+import { ArticlePageView } from '@/components/main-design/article-page';
+import { ArticleStructuredData } from '@/components/main-design/structured-data';
+import AuthorArchivePage from '@/components/main-design/author-archive-page';
+import ProductPage from '@/components/main-design/product-page';
+import StaticArchivePage from '@/components/main-design/static-archive-page';
+import StaticContentPage from '@/components/main-design/static-content-page';
+import TagPage from '@/components/main-design/tag-page';
+import CategoryPage from '@/components/main-design/category-page';
+import WebStoryPage from '@/components/main-design/web-story-page';
+import {
+  getArticleById,
+  getAuthorArchiveById,
+  getCategoryFeedById,
+  getPageById,
+  getProductById,
+  getTagFeedById,
+  getWebStoryById,
+  resolvePublicRoute,
+} from '@/lib/main-design/api';
+import { buildMetadata } from '@/lib/main-design/seo';
+
+export function buildRoutePath(pathParts = []) {
+  const cleanParts = pathParts.map((part) => String(part || '').trim()).filter(Boolean);
+
+  return cleanParts.length > 0 ? `/${cleanParts.join('/')}/` : '/';
+}
+
+function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
+  if (!preserveQuery || !searchParams || Object.keys(searchParams).length === 0) {
+    return targetUrl;
+  }
+
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, item));
+    } else if (value !== undefined) {
+      query.set(key, value);
+    }
+  }
+
+  const queryString = query.toString();
+
+  if (!queryString) {
+    return targetUrl;
+  }
+
+  return `${targetUrl}${targetUrl.includes('?') ? '&' : '?'}${queryString}`;
+}
+
+async function loadRoute(pathParts) {
+  try {
+    return await resolvePublicRoute(buildRoutePath(pathParts));
+  } catch {
+    return null;
+  }
+}
+
+function parsePage(value) {
+  const page = Number(value || 1);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+async function loadEntity(route, options = {}) {
+  if (!route?.entityId) {
+    return null;
+  }
+
+  if (route.entityType === 'POST') {
+    return getArticleById(route.entityId);
+  }
+
+  if (route.entityType === 'PAGE') {
+    return getPageById(route.entityId);
+  }
+
+  if (route.entityType === 'AUTHOR') {
+    return getAuthorArchiveById(route.entityId);
+  }
+
+  if (route.entityType === 'PRODUCT') {
+    return getProductById(route.entityId);
+  }
+
+  if (route.entityType === 'WEB_STORY') {
+    return getWebStoryById(route.entityId);
+  }
+
+  if (route.entityType === 'CATEGORY') {
+    return getCategoryFeedById(route.entityId, options.page || 1);
+  }
+
+  if (route.entityType === 'TAG') {
+    return getTagFeedById(route.entityId, options.page || 1);
+  }
+
+  return null;
+}
+
+function routeRobots(route) {
+  return {
+    noIndex: route.seo?.robotsIndex === 'NOINDEX',
+    robotsIndex: route.seo?.robotsIndex,
+    robotsFollow: route.seo?.robotsFollow,
+  };
+}
+
+export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = null) {
+  const routePath = buildRoutePath(pathParts);
+  const route = await loadRoute(pathParts);
+
+  if (!route || route.type === 'REDIRECT' || route.status === 'GONE') {
+    return fallbackMetadata || buildMetadata({ title: 'No encontrado', path: routePath, noIndex: true });
+  }
+
+  if (route.entityType === 'POST') {
+    try {
+      const article = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || article.title,
+        description: route.seo?.description || article.subtitle,
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || article.image,
+        type: 'article',
+        publishedTime: article.publishedAt,
+        modifiedTime: route.lastmodAt,
+        authors: article.authorName ? [article.authorName] : undefined,
+        tags: [article.category, article.tag].filter(Boolean),
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Articulo no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'PAGE') {
+    try {
+      const page = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || page.title,
+        description: route.seo?.description || page.contentText?.slice(0, 160),
+        path: route.canonicalPath || route.path,
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Pagina no encontrada', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'STATIC') {
+    return buildMetadata({
+      title: route.seo?.title || route.path,
+      description: route.seo?.description,
+      path: route.canonicalPath || route.path,
+      ...routeRobots(route),
+    });
+  }
+
+  if (route.entityType === 'AUTHOR') {
+    try {
+      const author = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || author.displayName,
+        description: route.seo?.description || author.bio || `Archivo de ${author.displayName}`,
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || author.avatar?.url,
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Autor no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'PRODUCT') {
+    try {
+      const product = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || product.title,
+        description: route.seo?.description || product.shortDescription,
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || product.image,
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Producto no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'WEB_STORY') {
+    try {
+      const story = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || story.title,
+        description: route.seo?.description || 'Web Story migrada desde WordPress',
+        path: route.canonicalPath || route.path,
+        image: route.seo?.ogImageUrl || story.image,
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Web Story no encontrada', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'CATEGORY') {
+    try {
+      const feed = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || feed.category.title,
+        description: route.seo?.description || feed.category.description,
+        path: route.canonicalPath || route.path,
+        tags: [feed.category.title],
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Categoria no encontrada', path: routePath, noIndex: true });
+    }
+  }
+
+  if (route.entityType === 'TAG') {
+    try {
+      const feed = await loadEntity(route);
+
+      return buildMetadata({
+        title: route.seo?.title || feed.tag.title,
+        description: route.seo?.description || feed.tag.description,
+        path: route.canonicalPath || route.path,
+        tags: [feed.tag.title],
+        ...routeRobots(route),
+      });
+    } catch {
+      return buildMetadata({ title: 'Tag no encontrado', path: routePath, noIndex: true });
+    }
+  }
+
+  return buildMetadata({ title: route.path, path: route.canonicalPath || route.path, ...routeRobots(route) });
+}
+
+export async function renderPublicRoutePage(pathParts, searchParams, fallback = null) {
+  const query = await searchParams;
+  const page = parsePage(query?.page);
+  const route = await loadRoute(pathParts);
+
+  if (!route) {
+    if (fallback) return fallback;
+    notFound();
+  }
+
+  if (route.type === 'REDIRECT') {
+    const targetUrl = appendQueryIfNeeded(route.targetUrl, query, route.preserveQuery);
+
+    if (route.statusCode === 301 || route.statusCode === 308) {
+      permanentRedirect(targetUrl);
+    }
+
+    redirect(targetUrl);
+  }
+
+  if (route.status === 'GONE' || route.httpStatus === 410) {
+    notFound();
+  }
+
+  if (route.entityType === 'POST') {
+    const article = await loadEntity(route);
+
+    return (
+      <Layout>
+        <ArticleStructuredData article={article} author={{ id: article.authorId, name: article.authorName }} />
+        <ArticlePageView article={article} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'PAGE') {
+    const pageEntity = await loadEntity(route);
+
+    return (
+      <Layout>
+        <StaticContentPage page={pageEntity} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'STATIC') {
+    return (
+      <Layout>
+        <StaticArchivePage route={route} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'AUTHOR') {
+    const author = await loadEntity(route);
+
+    return (
+      <Layout>
+        <AuthorArchivePage author={author} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'PRODUCT') {
+    const product = await loadEntity(route);
+
+    return (
+      <Layout>
+        <ProductPage product={product} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'WEB_STORY') {
+    const story = await loadEntity(route);
+
+    return (
+      <Layout>
+        <WebStoryPage story={story} />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'CATEGORY') {
+    const feed = await loadEntity(route, { page });
+
+    return (
+      <Layout>
+        <CategoryPage
+          categoryId={feed.category.slug}
+          category={feed.category}
+          articles={feed.articles}
+          meta={feed.meta}
+        />
+      </Layout>
+    );
+  }
+
+  if (route.entityType === 'TAG') {
+    const feed = await loadEntity(route, { page });
+
+    return (
+      <Layout>
+        <TagPage tag={feed.tag} articles={feed.articles} meta={feed.meta} />
+      </Layout>
+    );
+  }
+
+  notFound();
+}

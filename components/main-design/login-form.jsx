@@ -1,20 +1,9 @@
 'use client';
 
+import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
-
-function getApiBaseUrl() {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  }
-
-  if (typeof window === 'undefined') {
-    return 'http://127.0.0.1:4000';
-  }
-
-  return `${window.location.protocol}//${window.location.hostname}:4000`;
-}
 
 function getNextPath() {
   if (typeof window === 'undefined') return '/cms';

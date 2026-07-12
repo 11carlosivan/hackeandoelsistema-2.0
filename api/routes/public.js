@@ -30,6 +30,16 @@ const categorySlugParamSchema = z.object({
   slug: z.string().trim().min(1).max(180),
 });
 
+const SITEMAP_EXCLUDED_PATHS = [
+  '/buscar/',
+  '/checkout/',
+  '/cms/',
+  '/crear-publicacion/',
+  '/iniciar-sesion/',
+  '/password-recover/',
+  '/register/',
+];
+
 function normalizeRoutePath(path) {
   const withLeadingSlash = path.startsWith('/') ? path : `/${path}`;
 
@@ -857,6 +867,18 @@ export async function registerPublicRoutes(app) {
       });
 
       if (redirect) {
+        if (redirect.id && typeof app.prisma.redirect.update === 'function') {
+          app.prisma.redirect
+            .update({
+              where: { id: redirect.id },
+              data: {
+                hitCount: { increment: 1 },
+                lastHitAt: new Date(),
+              },
+            })
+            .catch((error) => request.log.warn({ error }, 'Unable to update redirect hit count'));
+        }
+
         return {
           data: {
             type: 'REDIRECT',
@@ -952,6 +974,9 @@ export async function registerPublicRoutes(app) {
       where: {
         status: 'ACTIVE',
         includeInSitemap: true,
+        path: {
+          notIn: SITEMAP_EXCLUDED_PATHS,
+        },
       },
       orderBy: [{ lastmodAt: 'desc' }, { path: 'asc' }],
       select: {

@@ -1,16 +1,9 @@
 'use client';
 
+import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { csrfHeaders } from './client-security';
-
-function getApiBaseUrl() {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  }
-
-  return `${window.location.protocol}//${window.location.hostname}:4000`;
-}
 
 export default function CmsMediaUploadForm() {
   const router = useRouter();

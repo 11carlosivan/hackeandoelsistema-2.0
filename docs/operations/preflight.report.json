@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-12T03:32:37.831Z",
+  "generatedAt": "2026-07-12T09:04:18.215Z",
   "mode": "ops-preflight",
   "summary": {
     "status": "PASS",
@@ -79,7 +79,7 @@
           "ok": true,
           "service": "hackeando-api",
           "status": "live",
-          "timestamp": "2026-07-12T03:32:37.673Z"
+          "timestamp": "2026-07-12T09:04:18.004Z"
         }
       }
     },
@@ -95,7 +95,7 @@
           "service": "hackeando-api",
           "status": "ready",
           "database": "connected",
-          "timestamp": "2026-07-12T03:32:37.678Z"
+          "timestamp": "2026-07-12T09:04:18.010Z"
         }
       }
     },
@@ -156,7 +156,7 @@
         "url": "/api/v1/public/sitemap-routes",
         "statusCode": 200,
         "body": {
-          "total": 8719,
+          "total": 8714,
           "samples": [
             {
               "path": "/author/11carlosivan/",

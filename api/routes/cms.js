@@ -2267,7 +2267,7 @@ export async function registerCmsRoutes(app) {
     };
   });
 
-  app.post('/api/v1/cms/posts', { preHandler: app.requirePermission('posts:manage') }, async (request, reply) => {
+  app.post('/api/v1/cms/posts', { preHandler: app.requirePermission(['posts:manage', 'posts:create']) }, async (request, reply) => {
     const parsed = postCreateSchema.safeParse(request.body);
 
     if (!parsed.success) {

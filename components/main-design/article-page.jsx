@@ -76,7 +76,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
           <div className="relative z-10 p-6 md:p-10 max-w-5xl">
             <div className="flex flex-wrap items-center gap-3 mb-5">
               <Link
-                href={`/categoria/${encodeURIComponent(article.category)}`}
+                href={article.categoryPath || `/category/${encodeURIComponent(String(article.category || '').toLowerCase())}/`}
                 className="bg-system-red text-black font-label-caps text-[10px] px-3 py-1 font-bold"
               >
                 {article.category}
