@@ -829,6 +829,46 @@ describe('cms routes', () => {
     });
   });
 
+  it('rejects redirects that would conflict with public routes or loop to the same site path', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const prisma = createPrismaStub(user);
+    prisma.route.findUnique = async ({ where }) => (where.path === '/sample-post/' ? { id: 'route-1' } : null);
+    const app = await buildApp({
+      env: testEnv,
+      prisma,
+      logger: false,
+    });
+
+    const routeConflictResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/sample-post/',
+        targetUrl: '/nueva-ruta/',
+      },
+    });
+    const loopResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/sin-bucle/',
+        targetUrl: 'https://hackeandoelsistema.net/sin-bucle/',
+      },
+    });
+
+    await app.close();
+
+    expect(routeConflictResponse.statusCode, routeConflictResponse.body).toBe(409);
+    expect(loopResponse.statusCode, loopResponse.body).toBe(400);
+  });
+
   it('lists protected CMS pages with pagination metadata', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

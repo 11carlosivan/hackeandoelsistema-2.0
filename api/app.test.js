@@ -416,6 +416,54 @@ describe('api app', () => {
     });
   });
 
+  it('publishes due scheduled posts before serving public content', async () => {
+    const duePostId = '99999999-9999-4999-8999-999999999999';
+    let postUpdated = false;
+    let routeUpdated = false;
+    let seoUpdated = false;
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        post: {
+          findMany: async ({ where }) => (where?.status === 'SCHEDULED' ? [{ id: duePostId }] : []),
+          updateMany: async ({ where, data }) => {
+            postUpdated = where.id.in.includes(duePostId) && data.status === 'PUBLISHED';
+            return { count: 1 };
+          },
+          count: async () => 0,
+          findFirst: async () => null,
+        },
+        route: {
+          findUnique: async () => null,
+          findMany: async ({ where }) => (where.entityId.in.includes(duePostId) ? [{ id: 'route-1' }] : []),
+          updateMany: async ({ where, data }) => {
+            routeUpdated = where.entityId.in.includes(duePostId) && data.includeInSitemap === true;
+            return { count: 1 };
+          },
+        },
+        seoMetadata: {
+          updateMany: async ({ where, data }) => {
+            seoUpdated = where.routeId.in.includes('route-1') && data.robotsIndex === 'INDEX';
+            return { count: 1 };
+          },
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/posts',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(postUpdated).toBe(true);
+    expect(routeUpdated).toBe(true);
+    expect(seoUpdated).toBe(true);
+  });
+
   it('returns public pages by entity id for hierarchical route rendering', async () => {
     const pageId = '33333333-3333-4333-8333-333333333333';
     const app = await buildApp({

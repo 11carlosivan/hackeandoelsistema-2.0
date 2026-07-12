@@ -56,7 +56,7 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
             />
           )}
 
-          <PaginationControls meta={meta} basePath={canonicalPath} />
+          <PaginationControls meta={meta} basePath={canonicalPath} pathPagination />
         </section>
 
         <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-36">

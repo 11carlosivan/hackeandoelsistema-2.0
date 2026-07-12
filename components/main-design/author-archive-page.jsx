@@ -49,7 +49,7 @@ export default function AuthorArchivePage({ author }) {
           <EmptyState title="SIN PUBLICACIONES" description="Este autor no tiene publicaciones visibles por ahora." />
         )}
 
-        <PaginationControls meta={author.meta} basePath={author.canonicalPath || '/author/'} />
+        <PaginationControls meta={author.meta} basePath={author.canonicalPath || '/author/'} pathPagination />
       </section>
     </div>
   );

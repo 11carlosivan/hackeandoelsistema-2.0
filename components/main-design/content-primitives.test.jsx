@@ -30,4 +30,18 @@ describe('PaginationControls', () => {
     expect(screen.getByText('SIGUIENTE')).toHaveAttribute('href', '/archivo?q=codigo+penal&page=3');
     expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2');
   });
+
+  it('builds WordPress-style pagination links for public archives', () => {
+    render(
+      <PaginationControls
+        meta={{ page: 2, totalPages: 5 }}
+        basePath="/category/politica/"
+        pathPagination
+      />,
+    );
+
+    expect(screen.getByText('ANTERIOR')).toHaveAttribute('href', '/category/politica/');
+    expect(screen.getByText('SIGUIENTE')).toHaveAttribute('href', '/category/politica/page/3/');
+    expect(screen.getByRole('link', { current: 'page' })).toHaveAttribute('href', '/category/politica/page/2/');
+  });
 });

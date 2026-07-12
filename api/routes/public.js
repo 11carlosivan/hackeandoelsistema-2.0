@@ -40,6 +40,116 @@ const SITEMAP_EXCLUDED_PATHS = [
   '/register/',
 ];
 
+let lastScheduledPublishCheckAt = 0;
+let scheduledPublishInFlight = null;
+
+async function publishDueScheduledPosts(app) {
+  const nowMs = Date.now();
+  const shouldThrottle = app.config?.NODE_ENV !== 'test';
+
+  if (scheduledPublishInFlight || (shouldThrottle && nowMs - lastScheduledPublishCheckAt < 30000)) {
+    return scheduledPublishInFlight;
+  }
+
+  if (
+    typeof app.prisma.post?.findMany !== 'function' ||
+    typeof app.prisma.post?.updateMany !== 'function' ||
+    typeof app.prisma.route?.updateMany !== 'function'
+  ) {
+    return null;
+  }
+
+  scheduledPublishInFlight = (async () => {
+    const now = new Date();
+    const duePosts = await app.prisma.post.findMany({
+      where: {
+        status: 'SCHEDULED',
+        scheduledAt: {
+          lte: now,
+        },
+      },
+      take: 100,
+      select: {
+        id: true,
+      },
+    });
+    const postIds = duePosts.map((post) => post.id).filter(Boolean);
+
+    if (postIds.length === 0) {
+      return;
+    }
+
+    await app.prisma.post.updateMany({
+      where: {
+        id: { in: postIds },
+        status: 'SCHEDULED',
+        scheduledAt: {
+          lte: now,
+        },
+      },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: now,
+        publishedGmtAt: now,
+      },
+    });
+
+    let routeIds = [];
+
+    if (typeof app.prisma.route?.findMany === 'function') {
+      const routes = await app.prisma.route.findMany({
+        where: {
+          entityType: 'POST',
+          entityId: { in: postIds },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      routeIds = routes.map((route) => route.id).filter(Boolean);
+    }
+
+    await app.prisma.route.updateMany({
+      where: {
+        entityType: 'POST',
+        entityId: { in: postIds },
+      },
+      data: {
+        status: 'ACTIVE',
+        httpStatus: 200,
+        includeInSitemap: true,
+        lastmodAt: now,
+      },
+    });
+
+    if (routeIds.length > 0 && typeof app.prisma.seoMetadata?.updateMany === 'function') {
+      await app.prisma.seoMetadata.updateMany({
+        where: {
+          routeId: { in: routeIds },
+        },
+        data: {
+          robotsIndex: 'INDEX',
+          robotsFollow: 'FOLLOW',
+        },
+      });
+    }
+  })();
+
+  try {
+    await scheduledPublishInFlight;
+    if (shouldThrottle) {
+      lastScheduledPublishCheckAt = Date.now();
+    }
+  } catch (error) {
+    app.log.warn({ error }, 'Unable to publish due scheduled posts');
+  } finally {
+    scheduledPublishInFlight = null;
+  }
+
+  return null;
+}
+
 function normalizeRoutePath(path) {
   const withLeadingSlash = path.startsWith('/') ? path : `/${path}`;
 
@@ -325,6 +435,12 @@ function normalizePublicTag(tag) {
 }
 
 export async function registerPublicRoutes(app) {
+  app.addHook('preHandler', async (request) => {
+    if (request.method === 'GET' && request.url.startsWith('/api/v1/public/')) {
+      await publishDueScheduledPosts(app);
+    }
+  });
+
   app.get('/api/v1/public/categories', async (request, reply) => {
     const parsed = categoryQuerySchema.safeParse(request.query);
     if (!parsed.success) {

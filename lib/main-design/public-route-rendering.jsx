@@ -28,6 +28,55 @@ export function buildRoutePath(pathParts = []) {
   return cleanParts.length > 0 ? `/${cleanParts.join('/')}/` : '/';
 }
 
+function normalizePathParts(pathParts = []) {
+  return pathParts.map((part) => String(part || '').trim()).filter(Boolean);
+}
+
+function parseLegacyPagination(pathParts = []) {
+  const cleanParts = normalizePathParts(pathParts);
+  const pageMarkerIndex = cleanParts.length - 2;
+
+  if (pageMarkerIndex < 0 || cleanParts[pageMarkerIndex] !== 'page') {
+    return {
+      pathParts: cleanParts,
+      page: null,
+      paginatedPath: null,
+    };
+  }
+
+  const page = Number(cleanParts.at(-1));
+
+  if (!Number.isInteger(page) || page <= 1) {
+    return {
+      pathParts: cleanParts,
+      page: null,
+      paginatedPath: null,
+    };
+  }
+
+  return {
+    pathParts: cleanParts.slice(0, pageMarkerIndex),
+    page,
+    paginatedPath: buildRoutePath(cleanParts),
+  };
+}
+
+function isArchiveRoute(route) {
+  return ['AUTHOR', 'CATEGORY', 'TAG'].includes(route?.entityType);
+}
+
+function paginatedCanonicalPath(route, page) {
+  const basePath = route.canonicalPath || route.path;
+
+  if (!page || page <= 1 || !basePath) {
+    return basePath;
+  }
+
+  const normalizedBasePath = basePath.endsWith('/') ? basePath : `${basePath}/`;
+
+  return `${normalizedBasePath}page/${page}/`;
+}
+
 function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
   if (!preserveQuery || !searchParams || Object.keys(searchParams).length === 0) {
     return targetUrl;
@@ -111,8 +160,18 @@ function routeRobots(route) {
 }
 
 export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = null) {
+  const pagination = parseLegacyPagination(pathParts);
   const routePath = buildRoutePath(pathParts);
-  const route = await loadRoute(pathParts);
+  let route = await loadRoute(pathParts);
+
+  if (!route && pagination.page) {
+    const baseRoute = await loadRoute(pagination.pathParts);
+
+    route = isArchiveRoute(baseRoute) ? baseRoute : null;
+  }
+
+  const page = pagination.page && isArchiveRoute(route) ? pagination.page : 1;
+  const canonicalPath = paginatedCanonicalPath(route, page);
 
   if (!route || route.type === 'REDIRECT' || route.status === 'GONE') {
     return fallbackMetadata || buildMetadata({ title: 'No encontrado', path: routePath, noIndex: true });
@@ -170,7 +229,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       return buildMetadata({
         title: route.seo?.title || author.displayName,
         description: route.seo?.description || author.bio || `Archivo de ${author.displayName}`,
-        path: route.canonicalPath || route.path,
+        path: canonicalPath,
         image: route.seo?.ogImageUrl || author.avatar?.url,
         ...routeRobots(route),
       });
@@ -218,7 +277,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       return buildMetadata({
         title: route.seo?.title || feed.category.title,
         description: route.seo?.description || feed.category.description,
-        path: route.canonicalPath || route.path,
+        path: canonicalPath,
         tags: [feed.category.title],
         ...routeRobots(route),
       });
@@ -234,7 +293,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       return buildMetadata({
         title: route.seo?.title || feed.tag.title,
         description: route.seo?.description || feed.tag.description,
-        path: route.canonicalPath || route.path,
+        path: canonicalPath,
         tags: [feed.tag.title],
         ...routeRobots(route),
       });
@@ -248,8 +307,18 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
 
 export async function renderPublicRoutePage(pathParts, searchParams, fallback = null) {
   const query = await searchParams;
-  const page = parsePage(query?.page);
-  const route = await loadRoute(pathParts);
+  const pagination = parseLegacyPagination(pathParts);
+  let page = parsePage(query?.page);
+  let route = await loadRoute(pathParts);
+
+  if (!route && pagination.page) {
+    const baseRoute = await loadRoute(pagination.pathParts);
+
+    if (isArchiveRoute(baseRoute)) {
+      route = baseRoute;
+      page = pagination.page;
+    }
+  }
 
   if (!route) {
     if (fallback) return fallback;

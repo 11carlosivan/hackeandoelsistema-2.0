@@ -6,7 +6,10 @@ import { usePathname, useRouter } from 'next/navigation';
 
 function normalizeCategoryPath(category) {
   if (category.fullPath) {
-    return category.fullPath;
+    const cleanPath = String(category.fullPath).trim().replace(/^\/+|\/+$/g, '');
+    const categoryPath = cleanPath.startsWith('category/') ? cleanPath : `category/${cleanPath}`;
+
+    return `/${categoryPath}/`;
   }
 
   if (category.slug) {

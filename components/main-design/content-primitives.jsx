@@ -93,7 +93,27 @@ export function ArticleListItem({ article }) {
   );
 }
 
-export function PaginationControls({ meta = {}, basePath = '/', query = {} }) {
+function normalizePaginationBasePath(basePath) {
+  if (!basePath || basePath === '/') {
+    return '/';
+  }
+
+  const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
+
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+export function buildPaginatedPath(basePath = '/', page = 1) {
+  const normalizedBasePath = normalizePaginationBasePath(basePath);
+
+  if (page <= 1) {
+    return normalizedBasePath;
+  }
+
+  return `${normalizedBasePath}page/${page}/`;
+}
+
+export function PaginationControls({ meta = {}, basePath = '/', query = {}, pathPagination = false }) {
   const page = Number(meta.page || 1);
   const totalPages = Number(meta.totalPages || 1);
 
@@ -102,6 +122,10 @@ export function PaginationControls({ meta = {}, basePath = '/', query = {} }) {
   }
 
   const buildHref = (nextPage) => {
+    if (pathPagination && Object.keys(query).length === 0) {
+      return buildPaginatedPath(basePath, nextPage);
+    }
+
     const params = new URLSearchParams();
 
     for (const [key, value] of Object.entries(query)) {

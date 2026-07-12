@@ -31,6 +31,7 @@ describe('public shortcuts', () => {
 
   it('builds category canonical paths from imported taxonomy data', () => {
     expect(getCategoryCanonicalPath({ fullPath: '/category/economia/' })).toBe('/category/economia/');
+    expect(getCategoryCanonicalPath({ fullPath: 'economia' })).toBe('/category/economia/');
     expect(getCategoryCanonicalPath({ slug: 'politica' })).toBe('/category/politica/');
   });
 

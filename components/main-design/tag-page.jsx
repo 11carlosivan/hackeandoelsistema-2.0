@@ -23,7 +23,7 @@ export default function TagPage({ tag, articles = [], meta }) {
           <EmptyState title="SIN REGISTROS" description="No hay publicaciones asociadas a este tag." />
         )}
 
-        <PaginationControls meta={meta} basePath={tag.canonicalPath || `/tag/${tag.slug}/`} />
+        <PaginationControls meta={meta} basePath={tag.canonicalPath || `/tag/${tag.slug}/`} pathPagination />
       </section>
     </div>
   );

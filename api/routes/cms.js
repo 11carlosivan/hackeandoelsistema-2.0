@@ -238,6 +238,42 @@ function normalizeRedirectTarget(value) {
   return normalizeRedirectPath(trimmed);
 }
 
+function internalRedirectPath(value) {
+  if (!value || !/^https?:\/\//i.test(value)) {
+    return normalizeRedirectPath(value);
+  }
+
+  try {
+    const target = new URL(value);
+    const site = new URL(PUBLIC_SITE_URL);
+
+    if (target.origin !== site.origin) {
+      return null;
+    }
+
+    return normalizeRedirectPath(target.pathname);
+  } catch {
+    return null;
+  }
+}
+
+async function getRedirectSourceBlocker(prisma, sourcePath) {
+  if (sourcePath === '/') {
+    return 'HOME';
+  }
+
+  const route = await prisma.route.findUnique({
+    where: { path: sourcePath },
+    select: { id: true },
+  });
+
+  if (route) {
+    return 'ROUTE';
+  }
+
+  return null;
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -1297,9 +1333,20 @@ export async function registerCmsRoutes(app) {
 
     const sourcePath = normalizeRedirectPath(body.data.sourcePath);
     const targetUrl = normalizeRedirectTarget(body.data.targetUrl);
+    const internalTargetPath = internalRedirectPath(targetUrl);
 
-    if (sourcePath === targetUrl) {
+    if (sourcePath === targetUrl || sourcePath === internalTargetPath) {
       throw app.httpErrors.badRequest('Redirect source and target cannot be the same path');
+    }
+
+    const sourceBlocker = await getRedirectSourceBlocker(app.prisma, sourcePath);
+
+    if (sourceBlocker === 'HOME') {
+      throw app.httpErrors.badRequest('Homepage cannot be used as a redirect source');
+    }
+
+    if (sourceBlocker === 'ROUTE') {
+      throw app.httpErrors.conflict('A public route already exists for this source path');
     }
 
     const duplicate = await app.prisma.redirect.findUnique({
@@ -1373,12 +1420,23 @@ export async function registerCmsRoutes(app) {
     const nextTargetUrl = Object.hasOwn(body.data, 'targetUrl')
       ? normalizeRedirectTarget(body.data.targetUrl)
       : existing.targetUrl;
+    const internalTargetPath = internalRedirectPath(nextTargetUrl);
 
-    if (nextSourcePath === nextTargetUrl) {
+    if (nextSourcePath === nextTargetUrl || nextSourcePath === internalTargetPath) {
       throw app.httpErrors.badRequest('Redirect source and target cannot be the same path');
     }
 
     if (nextSourcePath !== existing.sourcePath) {
+      const sourceBlocker = await getRedirectSourceBlocker(app.prisma, nextSourcePath);
+
+      if (sourceBlocker === 'HOME') {
+        throw app.httpErrors.badRequest('Homepage cannot be used as a redirect source');
+      }
+
+      if (sourceBlocker === 'ROUTE') {
+        throw app.httpErrors.conflict('A public route already exists for this source path');
+      }
+
       const duplicate = await app.prisma.redirect.findUnique({
         where: { sourcePath: nextSourcePath },
         select: { id: true },
