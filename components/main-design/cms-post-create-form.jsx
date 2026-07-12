@@ -16,6 +16,58 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
   const router = useRouter();
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [tagQuery, setTagQuery] = useState('');
+  const [selectedTagIds, setSelectedTagIds] = useState([]);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [newTags, setNewTags] = useState([]);
+  const selectedTagSet = new Set(selectedTagIds);
+  const selectedTags = tags.filter((tag) => selectedTagSet.has(tag.id));
+  const normalizedTagQuery = tagQuery.trim().toLowerCase();
+  const filteredTags = tags
+    .filter((tag) => {
+      if (selectedTagSet.has(tag.id)) return false;
+      if (!normalizedTagQuery) return true;
+
+      return `${tag.name || ''} ${tag.slug || ''}`.toLowerCase().includes(normalizedTagQuery);
+    })
+    .slice(0, 12);
+
+  const addExistingTag = (tagId) => {
+    setSelectedTagIds((current) => (current.includes(tagId) ? current : [...current, tagId]));
+  };
+
+  const removeExistingTag = (tagId) => {
+    setSelectedTagIds((current) => current.filter((id) => id !== tagId));
+  };
+
+  const addNewTags = () => {
+    const incoming = newTagInput
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (incoming.length === 0) return;
+
+    setNewTags((current) => {
+      const seen = new Set(current.map((tag) => tag.toLowerCase()));
+      const next = [...current];
+
+      for (const tag of incoming) {
+        const key = tag.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          next.push(tag);
+        }
+      }
+
+      return next;
+    });
+    setNewTagInput('');
+  };
+
+  const removeNewTag = (tagName) => {
+    setNewTags((current) => current.filter((tag) => tag !== tagName));
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -24,11 +76,6 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
 
     const formData = new FormData(event.currentTarget);
     const categoryId = String(formData.get('categoryId') || '').trim();
-    const tagIds = formData.getAll('tagIds').map((value) => String(value)).filter(Boolean);
-    const newTagNames = String(formData.get('newTagNames') || '')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
     const scheduledAt = String(formData.get('scheduledAt') || '').trim();
     const payload = {
       title: String(formData.get('title') || '').trim(),
@@ -40,8 +87,8 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
       featuredMediaId: String(formData.get('featuredMediaId') || '').trim() || null,
       categoryIds: categoryId ? [categoryId] : [],
       primaryCategoryId: categoryId || null,
-      tagIds,
-      newTagNames,
+      tagIds: selectedTagIds,
+      newTagNames: newTags,
       seoTitle: String(formData.get('seoTitle') || '').trim() || null,
       seoDescription: String(formData.get('seoDescription') || '').trim() || null,
       robotsIndex: formData.get('robotsIndex') || 'NOINDEX',
@@ -200,34 +247,117 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
               </select>
             </label>
 
-            <label>
-              <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Crear tags nuevos</span>
-              <input
-                name="newTagNames"
-                maxLength={500}
-                placeholder="codigo penal, politica, justicia"
-                className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
-              />
-              <span className="mt-2 block text-xs text-on-surface-variant">
-                Separalos por coma. Si el tag ya existe, se reutiliza automaticamente.
-              </span>
-            </label>
+            <div className="border border-terminal-gray bg-surface-container-low/20 p-4">
+              <div className="font-label-caps text-[10px] text-system-red font-bold mb-3">Tags</div>
 
-            <label>
-              <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Tags existentes opcionales</span>
-              <select
-                name="tagIds"
-                multiple
-                size={5}
-                className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
-              >
-                {tags.map((tag) => (
-                  <option key={tag.id} value={tag.id}>
-                    {tag.name || tag.slug}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="mb-4">
+                <label className="block">
+                  <span className="block font-label-caps text-[9px] text-on-surface-variant font-bold mb-2">
+                    Crear tags nuevos
+                  </span>
+                  <div className="flex gap-2">
+                    <input
+                      value={newTagInput}
+                      onChange={(event) => setNewTagInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          addNewTags();
+                        }
+                      }}
+                      maxLength={500}
+                      placeholder="codigo penal, politica, justicia"
+                      className="min-w-0 flex-1 border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={addNewTags}
+                      className="bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black hover:bg-white transition-colors"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                </label>
+                <p className="mt-2 text-xs text-on-surface-variant">
+                  Puedes escribir uno o varios separados por coma. Antes de guardar puedes quitarlos.
+                </p>
+              </div>
+
+              {newTags.length > 0 || selectedTags.length > 0 ? (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {newTags.map((tag) => (
+                    <span
+                      key={`new-${tag}`}
+                      className="inline-flex items-center gap-2 border border-system-red bg-system-red/10 px-3 py-2 text-xs font-bold text-white"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeNewTag(tag)}
+                        className="material-symbols-outlined text-[16px] text-system-red hover:text-white"
+                        aria-label={`Quitar tag ${tag}`}
+                      >
+                        close
+                      </button>
+                    </span>
+                  ))}
+                  {selectedTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex items-center gap-2 border border-terminal-gray bg-black/40 px-3 py-2 text-xs font-bold text-white"
+                    >
+                      {tag.name || tag.slug}
+                      <button
+                        type="button"
+                        onClick={() => removeExistingTag(tag.id)}
+                        className="material-symbols-outlined text-[16px] text-system-red hover:text-white"
+                        aria-label={`Quitar tag ${tag.name || tag.slug}`}
+                      >
+                        close
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="mb-4 border border-dashed border-terminal-gray p-3 text-sm text-on-surface-variant">
+                  Sin tags seleccionados por ahora.
+                </div>
+              )}
+
+              <label className="block">
+                <span className="block font-label-caps text-[9px] text-on-surface-variant font-bold mb-2">
+                  Buscar tags existentes opcionales
+                </span>
+                <input
+                  value={tagQuery}
+                  onChange={(event) => setTagQuery(event.target.value)}
+                  placeholder="Buscar tag existente"
+                  className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+                />
+              </label>
+
+              <div className="mt-3 max-h-48 overflow-y-auto border border-terminal-gray bg-black/30 p-2">
+                {filteredTags.length > 0 ? (
+                  <div className="grid gap-2">
+                    {filteredTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => addExistingTag(tag.id)}
+                        className="flex items-center justify-between gap-3 border border-terminal-gray bg-black px-3 py-2 text-left text-sm text-white hover:border-system-red transition-colors"
+                      >
+                        <span className="truncate">{tag.name || tag.slug}</span>
+                        <span className="material-symbols-outlined text-[16px] text-system-red">add</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 text-sm text-on-surface-variant">
+                    No hay tags existentes con ese filtro. Crea uno arriba.
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div className="grid gap-3">
               {[
