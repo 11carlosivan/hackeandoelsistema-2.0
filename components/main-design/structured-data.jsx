@@ -43,7 +43,9 @@ export function SiteStructuredData() {
 
 export function ArticleStructuredData({ article, author }) {
   const image = article.image?.startsWith('http') ? article.image : absoluteUrl(article.image || '/isotipo.png');
-  const publishedDate = toIsoDate(article.date);
+  const publishedDate = toIsoDate(article.publishedAt || article.date);
+  const modifiedDate = toIsoDate(article.raw?.updatedAt || article.updatedAt || article.publishedAt || article.date);
+  const articlePath = article.route || article.raw?.canonicalPath || `/articulo/${article.id}`;
 
   return (
     <JsonLd
@@ -53,7 +55,7 @@ export function ArticleStructuredData({ article, author }) {
         headline: article.title,
         description: article.subtitle,
         image: [image],
-        ...(publishedDate ? { datePublished: publishedDate, dateModified: publishedDate } : {}),
+        ...(publishedDate ? { datePublished: publishedDate, dateModified: modifiedDate || publishedDate } : {}),
         author: {
           '@type': 'Person',
           name: author?.name || 'Hackeando el Sistema',
@@ -69,7 +71,7 @@ export function ArticleStructuredData({ article, author }) {
         },
         mainEntityOfPage: {
           '@type': 'WebPage',
-          '@id': absoluteUrl(`/articulo/${article.id}`),
+          '@id': absoluteUrl(articlePath),
         },
       }}
     />

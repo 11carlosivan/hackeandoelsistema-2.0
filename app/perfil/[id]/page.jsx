@@ -1,30 +1,62 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Layout from '@/components/main-design/layout';
-import ProfilePage from '@/components/main-design/profile-page';
-import { authors } from '@/lib/main-design/mock-data';
-import { getAuthorById } from '@/lib/main-design/content';
-import { authorMetadata } from '@/lib/main-design/seo';
+import AuthorArchivePage from '@/components/main-design/author-archive-page';
+import { getAuthorArchiveById } from '@/lib/main-design/api';
+import { buildMetadata } from '@/lib/main-design/seo';
+import {
+  getAuthorCanonicalPath,
+  shouldRedirectToCanonical,
+  tryLoadAuthorByIdentifier,
+} from '@/lib/main-design/public-shortcuts';
+
+export const dynamicParams = true;
+
+async function loadAuthor(id) {
+  return tryLoadAuthorByIdentifier(id, {
+    getById: getAuthorArchiveById,
+  });
+}
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
-  return authorMetadata(getAuthorById(id));
+  const sourcePath = `/perfil/${id}/`;
+  const author = await loadAuthor(id);
+
+  if (!author) {
+    return buildMetadata({ title: 'Perfil no encontrado', path: sourcePath, noIndex: true });
+  }
+
+  return buildMetadata({
+    title: author.displayName,
+    description: author.bio || `Archivo publico de publicaciones de ${author.displayName}.`,
+    path: getAuthorCanonicalPath(author) || sourcePath,
+    image: author.avatar?.url,
+    type: 'profile',
+  });
 }
 
 export function generateStaticParams() {
-  return authors.map((author) => ({ id: author.id }));
+  return [];
 }
 
 export default async function Page({ params }) {
   const { id } = await params;
-  const author = getAuthorById(id);
+  const sourcePath = `/perfil/${id}/`;
+  const author = await loadAuthor(id);
 
   if (!author) {
     notFound();
   }
 
+  const canonicalPath = getAuthorCanonicalPath(author);
+
+  if (shouldRedirectToCanonical(sourcePath, canonicalPath)) {
+    permanentRedirect(canonicalPath);
+  }
+
   return (
     <Layout>
-      <ProfilePage authorId={id} />
+      <AuthorArchivePage author={author} />
     </Layout>
   );
 }
