@@ -1302,6 +1302,7 @@ describe('cms routes', () => {
         categoryIds: ['77777777-7777-4777-8777-777777777777'],
         primaryCategoryId: '77777777-7777-4777-8777-777777777777',
         tagIds: ['88888888-8888-4888-8888-888888888888'],
+        newTagNames: ['Codigo Penal', 'Justicia'],
         seoTitle: 'SEO borrador E2E',
         seoDescription: 'Descripcion SEO inicial',
         robotsIndex: 'NOINDEX',

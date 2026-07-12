@@ -125,6 +125,7 @@ const postCreateSchema = z.object({
   categoryIds: z.array(z.uuid()).max(12).default([]),
   primaryCategoryId: z.uuid().nullable().optional(),
   tagIds: z.array(z.uuid()).max(30).default([]),
+  newTagNames: z.array(z.string().trim().min(2).max(80)).max(20).default([]),
   seoTitle: z.string().trim().max(255).nullable().optional(),
   seoDescription: z.string().trim().max(320).nullable().optional(),
   robotsIndex: z.enum(['INDEX', 'NOINDEX']).default('NOINDEX'),
@@ -2280,14 +2281,26 @@ export async function registerCmsRoutes(app) {
     const path = `/${slug}/`;
     const contentHtml = textToHtml(input.contentText);
     const categoryIds = [...new Set(input.categoryIds)];
-    const tagIds = [...new Set(input.tagIds)];
+    const selectedTagIds = [...new Set(input.tagIds)];
+    const inlineTagBySlug = new Map();
+
+    for (const name of input.newTagNames) {
+      const cleanName = String(name || '').trim();
+      const slug = slugify(cleanName);
+
+      if (cleanName && slug && !inlineTagBySlug.has(slug)) {
+        inlineTagBySlug.set(slug, cleanName);
+      }
+    }
+
+    const inlineTagInputs = [...inlineTagBySlug].map(([slug, name]) => ({ slug, name }));
     const primaryCategoryId = input.primaryCategoryId || categoryIds[0] || null;
 
     if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
       throw app.httpErrors.badRequest('Primary category must be included in categoryIds');
     }
 
-    const [categories, tags, featuredMedia] = await Promise.all([
+    const [categories, tags, inlineExistingTags, featuredMedia] = await Promise.all([
       categoryIds.length
         ? app.prisma.category.findMany({
             where: {
@@ -2298,15 +2311,31 @@ export async function registerCmsRoutes(app) {
             },
           })
         : [],
-      tagIds.length
+      selectedTagIds.length
         ? app.prisma.tag.findMany({
             where: {
-              id: { in: tagIds },
+              id: { in: selectedTagIds },
             },
             select: {
               id: true,
             },
           })
+        : [],
+      inlineTagInputs.length
+        ? Promise.all(
+            inlineTagInputs.map((tagInput) =>
+              app.prisma.tag.findFirst({
+                where: {
+                  slug: tagInput.slug,
+                },
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              }),
+            ),
+          )
         : [],
       input.featuredMediaId
         ? app.prisma.mediaAsset.findUnique({
@@ -2324,7 +2353,7 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.badRequest('One or more categories do not exist');
     }
 
-    if (tags.length !== tagIds.length) {
+    if (tags.length !== selectedTagIds.length) {
       throw app.httpErrors.badRequest('One or more tags do not exist');
     }
 
@@ -2332,7 +2361,37 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.badRequest('Featured media does not exist');
     }
 
+    const existingInlineTagBySlug = new Map(
+      inlineExistingTags.filter(Boolean).map((tag) => [tag.slug, tag]),
+    );
+
     const result = await app.prisma.$transaction(async (tx) => {
+      const createdInlineTags = [];
+
+      for (const tagInput of inlineTagInputs) {
+        if (!existingInlineTagBySlug.has(tagInput.slug)) {
+          createdInlineTags.push(
+            await tx.tag.create({
+              data: {
+                name: tagInput.name,
+                slug: tagInput.slug,
+              },
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            }),
+          );
+        }
+      }
+
+      const finalTagIds = [
+        ...selectedTagIds,
+        ...inlineExistingTags.filter(Boolean).map((tag) => tag.id),
+        ...createdInlineTags.map((tag) => tag.id),
+      ].filter((id, index, values) => values.indexOf(id) === index);
+
       const post = await tx.post.create({
         data: {
           authorId: request.auth.user.id,
@@ -2363,9 +2422,9 @@ export async function registerCmsRoutes(app) {
         });
       }
 
-      if (tagIds.length > 0) {
+      if (finalTagIds.length > 0) {
         await tx.postTag.createMany({
-          data: tagIds.map((tagId) => ({
+          data: finalTagIds.map((tagId) => ({
             postId: post.id,
             tagId,
           })),
@@ -2406,7 +2465,10 @@ export async function registerCmsRoutes(app) {
             path,
             categoryIds,
             primaryCategoryId,
-            tagIds,
+            selectedTagIds,
+            inlineTagNames: inlineTagInputs.map((tag) => tag.name),
+            createdInlineTagIds: createdInlineTags.map((tag) => tag.id),
+            finalTagIds,
             featuredMediaId: input.featuredMediaId || null,
             seoId: seo.id,
           },

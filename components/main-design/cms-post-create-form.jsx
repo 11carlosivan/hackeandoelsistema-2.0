@@ -25,6 +25,10 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
     const formData = new FormData(event.currentTarget);
     const categoryId = String(formData.get('categoryId') || '').trim();
     const tagIds = formData.getAll('tagIds').map((value) => String(value)).filter(Boolean);
+    const newTagNames = String(formData.get('newTagNames') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
     const scheduledAt = String(formData.get('scheduledAt') || '').trim();
     const payload = {
       title: String(formData.get('title') || '').trim(),
@@ -37,6 +41,7 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
       categoryIds: categoryId ? [categoryId] : [],
       primaryCategoryId: categoryId || null,
       tagIds,
+      newTagNames,
       seoTitle: String(formData.get('seoTitle') || '').trim() || null,
       seoDescription: String(formData.get('seoDescription') || '').trim() || null,
       robotsIndex: formData.get('robotsIndex') || 'NOINDEX',
@@ -196,11 +201,24 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
             </label>
 
             <label>
-              <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Tags</span>
+              <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Crear tags nuevos</span>
+              <input
+                name="newTagNames"
+                maxLength={500}
+                placeholder="codigo penal, politica, justicia"
+                className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+              />
+              <span className="mt-2 block text-xs text-on-surface-variant">
+                Separalos por coma. Si el tag ya existe, se reutiliza automaticamente.
+              </span>
+            </label>
+
+            <label>
+              <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Tags existentes opcionales</span>
               <select
                 name="tagIds"
                 multiple
-                size={8}
+                size={5}
                 className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
               >
                 {tags.map((tag) => (
