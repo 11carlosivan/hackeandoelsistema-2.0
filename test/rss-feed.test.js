@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import nextConfig from '../next.config.js';
 import { buildRssFeed } from '../lib/main-design/rss.js';
+import { getSitemapEntries } from '../lib/main-design/seo.js';
 
 describe('RSS feed parity', () => {
   it('renders escaped RSS items with canonical article links', () => {
@@ -74,5 +75,24 @@ describe('RSS feed parity', () => {
         }),
       ]),
     );
+  });
+
+  it('keeps the sitemap fallback free of mock public content routes', () => {
+    const urls = getSitemapEntries().map((entry) => entry.url);
+
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        'https://hackeandoelsistema.net/',
+        'https://hackeandoelsistema.net/contacto-seguro',
+        'https://hackeandoelsistema.net/planes',
+      ]),
+    );
+    expect(urls).not.toEqual(expect.arrayContaining([
+      expect.stringContaining('/articulo/'),
+      expect.stringContaining('/categoria/'),
+      expect.stringContaining('/opinion/'),
+      expect.stringContaining('/perfil/'),
+      expect.stringContaining('/pagina/'),
+    ]));
   });
 });

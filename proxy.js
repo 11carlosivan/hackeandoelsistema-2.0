@@ -59,6 +59,18 @@ function forwardSetCookieHeaders(source, target) {
   }
 }
 
+export function replaceRequestCookie(cookieHeader, name, value) {
+  const cookies = String(cookieHeader || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !part.startsWith(`${name}=`));
+
+  cookies.push(`${name}=${value}`);
+
+  return cookies.join('; ');
+}
+
 async function tryRefreshCmsSession(request, secret) {
   const apiBaseUrl = getProxyApiBaseUrl();
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
@@ -91,7 +103,17 @@ async function tryRefreshCmsSession(request, secret) {
       return null;
     }
 
-    const response = NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(
+      'cookie',
+      replaceRequestCookie(request.headers.get('cookie'), ACCESS_COOKIE, nextAccessToken),
+    );
+
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
     forwardSetCookieHeaders(refreshResponse, response);
     return response;
   } catch {

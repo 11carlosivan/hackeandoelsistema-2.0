@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T03:18:45.108Z",
+  "generatedAt": "2026-07-13T03:43:48.894Z",
   "mode": "ops-preflight",
   "summary": {
     "status": "PASS",
@@ -80,7 +80,7 @@
           "ok": true,
           "service": "hackeando-api",
           "status": "live",
-          "timestamp": "2026-07-13T03:18:42.956Z"
+          "timestamp": "2026-07-13T03:43:46.348Z"
         }
       }
     },
@@ -96,7 +96,7 @@
           "service": "hackeando-api",
           "status": "ready",
           "database": "connected",
-          "timestamp": "2026-07-13T03:18:42.962Z"
+          "timestamp": "2026-07-13T03:43:46.353Z"
         }
       }
     },

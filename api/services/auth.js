@@ -162,10 +162,19 @@ export async function rotateRefreshSession({ prisma, config, request, refreshTok
     return null;
   }
 
-  await prisma.userSession.update({
-    where: { id: session.id },
-    data: { revokedAt: now },
+  const revoked = await prisma.userSession.updateMany({
+    where: {
+      id: session.id,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: now,
+    },
   });
+
+  if (revoked.count !== 1) {
+    return null;
+  }
 
   const nextRefresh = await createRefreshSession({
     prisma,

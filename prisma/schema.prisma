@@ -462,6 +462,7 @@ model Post {
   @@index([legacyWordpressId])
   @@index([legacyUrl])
   @@index([status, visibility, publishedAt])
+  @@index([status, scheduledAt], map: "idx_posts_scheduled_publish")
   @@index([authorId, publishedAt])
   @@index([postType, status, publishedAt])
   @@index([isFeatured, publishedAt])

@@ -44,7 +44,7 @@ function createPrismaStub(user) {
     },
     userSession: {
       create: async ({ data }) => {
-        const session = { id: `session-${sessions.size + 1}`, ...data, user };
+        const session = { id: `session-${sessions.size + 1}`, revokedAt: null, ...data, user };
         sessions.set(data.refreshTokenHash, session);
         return session;
       },
@@ -64,7 +64,22 @@ function createPrismaStub(user) {
 
         return null;
       },
-      updateMany: async () => ({ count: 1 }),
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+
+        for (const [hash, session] of sessions.entries()) {
+          const matchesId = !where.id || session.id === where.id;
+          const matchesHash = !where.refreshTokenHash || session.refreshTokenHash === where.refreshTokenHash;
+          const matchesRevokedAt = !Object.hasOwn(where, 'revokedAt') || session.revokedAt === where.revokedAt;
+
+          if (matchesId && matchesHash && matchesRevokedAt) {
+            sessions.set(hash, { ...session, ...data });
+            count += 1;
+          }
+        }
+
+        return { count };
+      },
     },
     securityEvent: {
       create: async ({ data }) => ({ id: `event-${data.eventType}`, ...data }),
@@ -191,6 +206,49 @@ describe('auth routes', () => {
     expect(response.statusCode, response.body).toBe(200);
     expect(response.json().data.accessToken).toBeTruthy();
     expect(response.json().data.refreshToken).toBeTruthy();
+  });
+
+  it('rotates refresh tokens and rejects reuse of the previous token', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+        tokenResponse: true,
+      },
+    });
+    const refreshToken = login.json().data.refreshToken;
+    const firstRefresh = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: {
+        refreshToken,
+        tokenResponse: true,
+      },
+    });
+    const reusedRefresh = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: {
+        refreshToken,
+        tokenResponse: true,
+      },
+    });
+
+    await app.close();
+
+    expect(firstRefresh.statusCode, firstRefresh.body).toBe(200);
+    expect(firstRefresh.json().data.refreshToken).toBeTruthy();
+    expect(firstRefresh.json().data.refreshToken).not.toBe(refreshToken);
+    expect(reusedRefresh.statusCode, reusedRefresh.body).toBe(401);
   });
 
   it('rejects invalid credentials', async () => {

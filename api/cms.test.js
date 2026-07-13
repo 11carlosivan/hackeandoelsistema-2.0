@@ -1429,6 +1429,45 @@ describe('cms routes', () => {
     expect(response.json().data.media.url).toMatch(/^\/uploads\/cms-test\/\d{4}\/\d{2}\/prueba-cms-[a-f0-9-]+\.png$/);
   });
 
+  it('rejects media uploads when the file signature does not match the declared type', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const uploadDir = await mkdtemp(path.join(tmpdir(), 'hes-media-upload-'));
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        MEDIA_UPLOAD_DIR: uploadDir,
+        MEDIA_PUBLIC_BASE_PATH: '/uploads/cms-test',
+        MEDIA_MAX_FILE_SIZE_BYTES: 1024 * 1024,
+      },
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+    const form = new FormData();
+    const fakePng = Buffer.from('this is not a png file');
+
+    form.append('file', fakePng, {
+      filename: 'fake.png',
+      contentType: 'image/png',
+      knownLength: fakePng.length,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/media',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+        ...form.getHeaders(),
+      },
+      payload: form,
+    });
+
+    await app.close();
+    await rm(uploadDir, { recursive: true, force: true });
+
+    expect(response.statusCode, response.body).toBe(415);
+  });
+
   it('updates media SEO metadata and records an audit event', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
