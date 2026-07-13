@@ -7,6 +7,18 @@ import { csrfHeaders } from './client-security';
 
 const editableStatuses = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
 
+function dateTimeLocalValue(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return '';
+
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+
+  return localDate.toISOString().slice(0, 16);
+}
+
 export default function CmsPostEditForm({ post }) {
   const router = useRouter();
   const [status, setStatus] = useState('idle');
@@ -32,6 +44,9 @@ export default function CmsPostEditForm({ post }) {
       contentText: String(formData.get('contentText') || '').trim() || null,
       postType: formData.get('postType') || 'NEWS',
       visibility: formData.get('visibility') || 'PUBLIC',
+      scheduledAt: String(formData.get('scheduledAt') || '').trim()
+        ? new Date(String(formData.get('scheduledAt'))).toISOString()
+        : null,
     };
 
     try {
@@ -126,6 +141,16 @@ export default function CmsPostEditForm({ post }) {
             </select>
           </label>
         </div>
+
+        <label>
+          <span className="block font-label-caps text-[9px] text-system-red font-bold mb-2">Fecha programada</span>
+          <input
+            name="scheduledAt"
+            type="datetime-local"
+            defaultValue={dateTimeLocalValue(post.scheduledAt)}
+            className="w-full border border-terminal-gray bg-black px-3 py-2 text-sm text-white outline-none focus:border-system-red"
+          />
+        </label>
       </div>
 
       {message ? (

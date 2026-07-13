@@ -175,6 +175,7 @@ const postUpdateSchema = z
     contentText: z.string().trim().max(50000).nullable().optional(),
     postType: z.enum(['NEWS', 'OPINION', 'SPONSORED', 'EXTERNAL_SUBMISSION', 'PAGE_ARTICLE']).optional(),
     visibility: z.enum(['PUBLIC', 'PRIVATE', 'UNLISTED']).optional(),
+    scheduledAt: z.coerce.date().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one post field is required',
@@ -3018,6 +3019,11 @@ export async function registerCmsRoutes(app) {
       const now = new Date();
       const hasFutureSchedule = existingPost.scheduledAt && existingPost.scheduledAt > now;
       const shouldSchedule = action === 'SCHEDULE' || (action === 'PUBLISH' && hasFutureSchedule);
+
+      if (action === 'SCHEDULE' && !hasFutureSchedule) {
+        throw app.httpErrors.badRequest('A future scheduledAt date is required before scheduling a post');
+      }
+
       const postDataByAction = {
         SUBMIT_REVIEW: {
           status: 'PENDING_REVIEW',

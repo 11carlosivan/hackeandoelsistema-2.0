@@ -55,7 +55,7 @@ function createPrismaStub(user, options = {}) {
     readingTimeMinutes: 1,
     submittedAt: null,
     reviewedAt: null,
-    scheduledAt: null,
+    scheduledAt: options.scheduledAt || null,
     author: {
       id: user.id,
       email: user.email,
@@ -1690,6 +1690,67 @@ describe('cms routes', () => {
     });
     expect(response.json().data.seo).toMatchObject({
       robotsIndex: 'INDEX',
+      robotsFollow: 'FOLLOW',
+    });
+  });
+
+  it('rejects scheduling a post without a future scheduled date', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'SCHEDULE',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
+  });
+
+  it('schedules a post with a future scheduled date and keeps it out of sitemap', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { scheduledAt: futureDate }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'SCHEDULE',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.status).toBe('SCHEDULED');
+    expect(response.json().data.route).toMatchObject({
+      status: 'ACTIVE',
+      httpStatus: 200,
+      includeInSitemap: false,
+    });
+    expect(response.json().data.seo).toMatchObject({
+      robotsIndex: 'NOINDEX',
       robotsFollow: 'FOLLOW',
     });
   });
