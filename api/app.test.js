@@ -951,6 +951,69 @@ describe('api app', () => {
     expect(response.json().meta.total).toBe(1);
   });
 
+  it('resolves public category archives by full WordPress category path', async () => {
+    const categoryId = '66666666-6666-4666-8666-666666666666';
+    const categoryFullPath = '/category/opinion/editorial/';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        category: {
+          findMany: async () => [],
+          findFirst: async ({ where }) =>
+            where.OR?.some((item) => item.fullPath === categoryFullPath)
+              ? {
+                  id: categoryId,
+                  name: 'Editorial',
+                  slug: 'editorial',
+                  fullPath: categoryFullPath,
+                  description: 'Opinion editorial.',
+                }
+              : null,
+        },
+        post: {
+          findMany: async ({ where }) =>
+            where.categories?.some?.categoryId === categoryId
+              ? [
+                  {
+                    id: '22222222-2222-4222-8222-222222222222',
+                    slug: 'sample-post',
+                    title: 'Sample Post',
+                    excerpt: 'Sample excerpt',
+                    postType: 'NEWS',
+                    publishedAt: new Date('2026-01-01T00:00:00Z'),
+                    updatedAt: new Date('2026-01-02T00:00:00Z'),
+                    viewCount: 12,
+                    commentCount: 0,
+                    legacyUrl: '/sample-post/',
+                    author: null,
+                    featuredMedia: null,
+                    categories: [{ isPrimary: true, category: { id: categoryId, name: 'Editorial', slug: 'editorial', fullPath: categoryFullPath } }],
+                  },
+                ]
+              : [],
+          count: async ({ where }) => (where.categories?.some?.categoryId === categoryId ? 1 : 0),
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/categories/editorial/posts?path=category/opinion/editorial',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.category).toMatchObject({
+      id: categoryId,
+      slug: 'editorial',
+      fullPath: categoryFullPath,
+    });
+    expect(response.json().meta.total).toBe(1);
+  });
+
   it('returns 404 for public archive pages outside the available range', async () => {
     const categoryId = '66666666-6666-4666-8666-666666666666';
     const app = await buildApp({

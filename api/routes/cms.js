@@ -194,6 +194,7 @@ const postTaxonomySchema = z.object({
   categoryIds: z.array(z.uuid()).max(12).default([]),
   primaryCategoryId: z.uuid().nullable().optional(),
   tagIds: z.array(z.uuid()).max(30).default([]),
+  newTagNames: z.array(z.string().trim().min(2).max(80)).max(20).default([]),
 });
 const workflowSchema = z.object({
   action: z.enum(['SUBMIT_REVIEW', 'RETURN_TO_DRAFT', 'SCHEDULE', 'PUBLISH', 'ARCHIVE']),
@@ -229,6 +230,21 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 240);
+}
+
+function buildInlineTagInputs(tagNames = []) {
+  const inlineTagBySlug = new Map();
+
+  for (const name of tagNames) {
+    const cleanName = String(name || '').trim();
+    const slug = slugify(cleanName);
+
+    if (cleanName && slug && !inlineTagBySlug.has(slug)) {
+      inlineTagBySlug.set(slug, cleanName);
+    }
+  }
+
+  return [...inlineTagBySlug].map(([slug, name]) => ({ slug, name }));
 }
 
 function normalizeRedirectPath(value) {
@@ -685,6 +701,18 @@ function normalizeCmsPost(post) {
           fullPath: primaryCategory.fullPath,
         }
       : null,
+    categories: post.categories?.map((item) => ({
+      id: item.category.id,
+      name: item.category.name,
+      slug: item.category.slug,
+      fullPath: item.category.fullPath,
+      isPrimary: item.isPrimary,
+    })) ?? [],
+    tags: post.tags?.map((item) => ({
+      id: item.tag.id,
+      name: item.tag.name,
+      slug: item.tag.slug,
+    })) ?? [],
   };
 }
 
@@ -2613,18 +2641,7 @@ export async function registerCmsRoutes(app) {
     const contentHtml = textToHtml(input.contentText);
     const categoryIds = [...new Set(input.categoryIds)];
     const selectedTagIds = [...new Set(input.tagIds)];
-    const inlineTagBySlug = new Map();
-
-    for (const name of input.newTagNames) {
-      const cleanName = String(name || '').trim();
-      const slug = slugify(cleanName);
-
-      if (cleanName && slug && !inlineTagBySlug.has(slug)) {
-        inlineTagBySlug.set(slug, cleanName);
-      }
-    }
-
-    const inlineTagInputs = [...inlineTagBySlug].map(([slug, name]) => ({ slug, name }));
+    const inlineTagInputs = buildInlineTagInputs(input.newTagNames);
     const primaryCategoryId = input.primaryCategoryId || categoryIds[0] || null;
 
     if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
@@ -2921,6 +2938,7 @@ export async function registerCmsRoutes(app) {
       const { id } = params.data;
       const categoryIds = [...new Set(body.data.categoryIds)];
       const tagIds = [...new Set(body.data.tagIds)];
+      const inlineTagInputs = buildInlineTagInputs(body.data.newTagNames);
       const primaryCategoryId = body.data.primaryCategoryId || categoryIds[0] || null;
 
       if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
@@ -2960,7 +2978,7 @@ export async function registerCmsRoutes(app) {
         throw app.httpErrors.notFound('CMS post not found');
       }
 
-      const [categories, tags] = await Promise.all([
+      const [categories, tags, inlineExistingTags] = await Promise.all([
         categoryIds.length
           ? app.prisma.category.findMany({
               where: {
@@ -2979,7 +2997,23 @@ export async function registerCmsRoutes(app) {
               select: {
                 id: true,
               },
-            })
+          })
+          : [],
+        inlineTagInputs.length
+          ? Promise.all(
+              inlineTagInputs.map((tagInput) =>
+                app.prisma.tag.findFirst({
+                  where: {
+                    slug: tagInput.slug,
+                  },
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                }),
+              ),
+            )
           : [],
       ]);
 
@@ -2991,7 +3025,37 @@ export async function registerCmsRoutes(app) {
         throw app.httpErrors.badRequest('One or more tags do not exist');
       }
 
+      const existingInlineTagBySlug = new Map(
+        inlineExistingTags.filter(Boolean).map((tag) => [tag.slug, tag]),
+      );
+
       const result = await app.prisma.$transaction(async (tx) => {
+        const createdInlineTags = [];
+
+        for (const tagInput of inlineTagInputs) {
+          if (!existingInlineTagBySlug.has(tagInput.slug)) {
+            createdInlineTags.push(
+              await tx.tag.create({
+                data: {
+                  name: tagInput.name,
+                  slug: tagInput.slug,
+                },
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              }),
+            );
+          }
+        }
+
+        const finalTagIds = [
+          ...tagIds,
+          ...inlineExistingTags.filter(Boolean).map((tag) => tag.id),
+          ...createdInlineTags.map((tag) => tag.id),
+        ].filter((tagId, index, values) => values.indexOf(tagId) === index);
+
         await tx.postCategory.deleteMany({
           where: { postId: id },
         });
@@ -3010,9 +3074,9 @@ export async function registerCmsRoutes(app) {
           });
         }
 
-        if (tagIds.length > 0) {
+        if (finalTagIds.length > 0) {
           await tx.postTag.createMany({
-            data: tagIds.map((tagId) => ({
+            data: finalTagIds.map((tagId) => ({
               postId: id,
               tagId,
             })),
@@ -3035,7 +3099,9 @@ export async function registerCmsRoutes(app) {
               to: {
                 categoryIds,
                 primaryCategoryId,
-                tagIds,
+                tagIds: finalTagIds,
+                inlineTagNames: inlineTagInputs.map((tag) => tag.name),
+                createdInlineTagIds: createdInlineTags.map((tag) => tag.id),
               },
             },
           },
@@ -3059,6 +3125,17 @@ export async function registerCmsRoutes(app) {
                     name: true,
                     slug: true,
                     fullPath: true,
+                  },
+                },
+              },
+            },
+            tags: {
+              include: {
+                tag: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
                   },
                 },
               },

@@ -29,6 +29,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       ).filter(Boolean).map((category) => category.toUpperCase()),
     ),
   ].slice(0, 10);
+  const visibleCategories = useMockFallback || initialCategories.length > 0 ? categories : ['TODAS'];
 
   const getAuthorName = (authorId) => {
     const articleAuthor = articles.find((article) => article.authorId === authorId)?.authorName;
@@ -289,7 +290,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
           
           {/* Category Tabs */}
           <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
+            {visibleCategories.map((cat) => (
               <button 
                 key={cat}
                 onClick={() => setActiveFilter(cat)}

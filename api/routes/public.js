@@ -6,6 +6,10 @@ const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(12),
 });
 
+const categoryPostsQuerySchema = paginationSchema.extend({
+  path: z.string().trim().min(1).max(500).optional(),
+});
+
 const searchSchema = z.object({
   q: z.string().trim().min(1).max(120).optional(),
 });
@@ -186,6 +190,32 @@ function normalizeRoutePath(path) {
   }
 
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+function normalizeCategoryFullPath(value) {
+  const cleanPath = String(value || '').trim().replace(/^\/+|\/+$/g, '');
+
+  if (!cleanPath) {
+    return null;
+  }
+
+  const categoryPath = cleanPath.startsWith('category/') ? cleanPath : `category/${cleanPath}`;
+
+  return `/${categoryPath}/`.replace(/\/+/g, '/');
+}
+
+function categoryFullPathCandidates(slug, path) {
+  const cleanSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+  const cleanPath = String(path || '').trim().replace(/^\/+|\/+$/g, '');
+  const normalizedPath = normalizeCategoryFullPath(cleanPath || cleanSlug);
+  const strippedPath = normalizedPath?.replace(/^\/category\//, '').replace(/\/$/g, '');
+
+  return [
+    normalizedPath,
+    cleanPath,
+    strippedPath,
+    cleanSlug ? normalizeCategoryFullPath(cleanSlug) : null,
+  ].filter(Boolean).filter((value, index, list) => list.indexOf(value) === index);
 }
 
 function canonicalPathFromUrl(value) {
@@ -586,16 +616,22 @@ export async function registerPublicRoutes(app) {
 
   app.get('/api/v1/public/categories/:slug/posts', async (request, reply) => {
     const params = categorySlugParamSchema.safeParse(request.params);
-    const query = paginationSchema.safeParse(request.query);
+    const query = categoryPostsQuerySchema.safeParse(request.query);
 
     if (!params.success || !query.success) {
       throw app.httpErrors.badRequest('Invalid category posts query');
     }
 
     const { slug } = params.data;
-    const { page, limit } = query.data;
+    const { page, limit, path } = query.data;
+    const fullPathCandidates = categoryFullPathCandidates(slug, path);
     const category = await app.prisma.category.findFirst({
-      where: { slug },
+      where: {
+        OR: [
+          { slug },
+          ...fullPathCandidates.map((fullPath) => ({ fullPath })),
+        ],
+      },
       select: {
         id: true,
         name: true,

@@ -8,9 +8,40 @@ import { csrfHeaders } from './client-security';
 export default function CmsPostTaxonomyForm({ post, categories = [], tags = [] }) {
   const router = useRouter();
   const [status, setStatus] = useState('');
+  const [newTagInput, setNewTagInput] = useState('');
+  const [newTags, setNewTags] = useState([]);
   const selectedCategoryIds = new Set((post.categories || []).map((category) => category.id));
   const selectedTagIds = new Set((post.tags || []).map((tag) => tag.id));
   const primaryCategoryId = (post.categories || []).find((category) => category.isPrimary)?.id || '';
+
+  const addNewTags = () => {
+    const incoming = newTagInput
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (incoming.length === 0) return;
+
+    setNewTags((current) => {
+      const seen = new Set(current.map((tag) => tag.toLowerCase()));
+      const next = [...current];
+
+      for (const tag of incoming) {
+        const key = tag.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          next.push(tag);
+        }
+      }
+
+      return next;
+    });
+    setNewTagInput('');
+  };
+
+  const removeNewTag = (tagName) => {
+    setNewTags((current) => current.filter((tag) => tag !== tagName));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -24,6 +55,7 @@ export default function CmsPostTaxonomyForm({ post, categories = [], tags = [] }
       categoryIds,
       primaryCategoryId: categoryIds.includes(selectedPrimary) ? selectedPrimary : categoryIds[0] || null,
       tagIds,
+      newTagNames: newTags,
     };
 
     try {
@@ -43,6 +75,7 @@ export default function CmsPostTaxonomyForm({ post, categories = [], tags = [] }
       }
 
       setStatus('Taxonomia actualizada');
+      setNewTags([]);
       router.refresh();
     } catch (error) {
       setStatus(error.message);
@@ -87,6 +120,57 @@ export default function CmsPostTaxonomyForm({ post, categories = [], tags = [] }
 
       <div>
         <div className="font-label-caps text-[9px] text-system-red font-bold mb-3">Asignar tags</div>
+        <div className="mb-4 border border-terminal-gray bg-black/20 p-3">
+          <label className="block">
+            <span className="block font-label-caps text-[9px] text-on-surface-variant font-bold mb-2">
+              Crear tags nuevos
+            </span>
+            <div className="flex gap-2">
+              <input
+                value={newTagInput}
+                onChange={(event) => setNewTagInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addNewTags();
+                  }
+                }}
+                maxLength={500}
+                placeholder="politica, justicia, economia"
+                className="min-w-0 flex-1 border border-terminal-gray bg-black px-3 py-2 text-xs text-white outline-none focus:border-system-red"
+              />
+              <button
+                type="button"
+                onClick={addNewTags}
+                className="bg-system-red px-3 py-2 font-label-caps text-[9px] font-bold text-black hover:bg-white transition-colors"
+              >
+                Agregar
+              </button>
+            </div>
+          </label>
+
+          {newTags.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {newTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-2 border border-system-red bg-system-red/10 px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => removeNewTag(tag)}
+                    className="material-symbols-outlined text-[14px] text-system-red hover:text-white"
+                    aria-label={`Quitar tag ${tag}`}
+                  >
+                    close
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         <div className="grid gap-2 max-h-56 overflow-y-auto pr-1">
           {tags.length > 0 ? tags.map((tag) => (
             <label

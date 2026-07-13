@@ -11,9 +11,10 @@ import { buildMetadata } from '@/lib/main-design/seo';
 
 async function loadCategory(slugParts, page = 1) {
   const slug = slugParts.at(-1);
+  const fullPath = slugParts.join('/');
 
   try {
-    return await getCategoryFeed(slug, page);
+    return await getCategoryFeed(slug, page, { path: fullPath });
   } catch {
     return null;
   }

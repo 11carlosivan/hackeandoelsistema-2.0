@@ -33,5 +33,6 @@ describe('MainDesignApp', () => {
     );
 
     expect(screen.queryByText(fallbackArticles[0].title)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /nacionales/i })).not.toBeInTheDocument();
   });
 });
