@@ -2,6 +2,7 @@ import { legacyRedirects } from './lib/main-design/legacy-redirects.js';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   poweredByHeader: false,
   trailingSlash: true,
   async headers() {

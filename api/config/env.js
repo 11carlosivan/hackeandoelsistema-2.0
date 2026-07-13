@@ -13,6 +13,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
   API_PORT: z.coerce.number().int().positive().default(4000),
+  PORT: z.coerce.number().int().positive().optional(),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   WEB_ORIGIN: z.string().url().default('http://127.0.0.1:3000'),
   CORS_ORIGINS: z.string().optional(),
@@ -31,7 +32,11 @@ const envSchema = z.object({
 });
 
 export function loadEnv(overrides = {}) {
-  const parsed = envSchema.safeParse({ ...process.env, ...overrides });
+  const rawEnv = { ...process.env, ...overrides };
+  const parsed = envSchema.safeParse({
+    ...rawEnv,
+    API_PORT: rawEnv.API_PORT ?? rawEnv.PORT,
+  });
 
   if (!parsed.success) {
     const message = parsed.error.issues
