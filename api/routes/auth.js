@@ -14,6 +14,7 @@ import {
   verifyPassword,
 } from '../services/auth.js';
 import { addMinutes } from '../utils/crypto.js';
+import { noStoreHeaders } from '../utils/http.js';
 
 const loginSchema = z.object({
   email: z.string().email().max(255),
@@ -127,6 +128,8 @@ async function recordFailedLogin(app, request, user, reason) {
 
 export async function registerAuthRoutes(app) {
   app.post('/api/v1/auth/login', async (request, reply) => {
+    noStoreHeaders(reply);
+
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) {
       throw app.httpErrors.badRequest('Invalid login payload');
@@ -186,6 +189,8 @@ export async function registerAuthRoutes(app) {
   });
 
   app.post('/api/v1/auth/refresh', async (request, reply) => {
+    noStoreHeaders(reply);
+
     const parsed = refreshSchema.safeParse(request.body);
     if (!parsed.success) {
       throw app.httpErrors.badRequest('Invalid refresh payload');
@@ -215,6 +220,8 @@ export async function registerAuthRoutes(app) {
   });
 
   app.post('/api/v1/auth/logout', async (request, reply) => {
+    noStoreHeaders(reply);
+
     const parsed = logoutSchema.safeParse(request.body);
     if (!parsed.success) {
       throw app.httpErrors.badRequest('Invalid logout payload');
@@ -238,16 +245,24 @@ export async function registerAuthRoutes(app) {
     return { data: { ok: true } };
   });
 
-  app.get('/api/v1/auth/me', { preHandler: app.authenticate }, async (request) => ({
-    data: {
-      user: request.auth.safeUser,
-    },
-  }));
+  app.get('/api/v1/auth/me', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
 
-  app.get('/api/v1/auth/admin-check', { preHandler: app.requireRole(['ADMIN', 'EDITOR']) }, async (request) => ({
-    data: {
-      ok: true,
-      user: request.auth.safeUser,
-    },
-  }));
+    return {
+      data: {
+        user: request.auth.safeUser,
+      },
+    };
+  });
+
+  app.get('/api/v1/auth/admin-check', { preHandler: app.requireRole(['ADMIN', 'EDITOR']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+
+    return {
+      data: {
+        ok: true,
+        user: request.auth.safeUser,
+      },
+    };
+  });
 }

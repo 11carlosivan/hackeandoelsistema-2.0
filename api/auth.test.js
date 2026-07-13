@@ -151,6 +151,7 @@ describe('auth routes', () => {
     await app.close();
 
     expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
     expect(response.json().data.user).toMatchObject({
       email: 'admin@example.com',
       roles: ['ADMIN'],
@@ -267,6 +268,7 @@ describe('auth routes', () => {
     await app.close();
 
     expect(me.statusCode).toBe(200);
+    expect(me.headers['cache-control']).toBe('no-store');
     expect(me.json().data.user.roles).toContain('ADMIN');
   });
 
