@@ -166,7 +166,7 @@ Falta o esta incompleto:
 - Comentarios publicos: la tabla local tiene 0 comentarios; la API publica no tiene endpoint de envio de comentario. El articulo muestra bloque de comentarios pero sin data real.
 - Autor: `/api/v1/public/authors/id/:id` trae solo 12 posts y no pagina.
 - Relacionados: `ArticlePageView` recibe `related`, pero la ruta canonica por API no carga relacionados reales.
-- Search: funciona por title/excerpt/contentText con `contains`; no tiene filtros por categoria/tag/fecha como una experiencia de archivo completa.
+- Search: usa FULLTEXT MySQL con fallback `contains`; aun faltan filtros avanzados por categoria/tag/fecha para una experiencia de archivo completa.
 - Productos/Web Stories: hay rutas para conservar SEO, pero no paridad completa de WooCommerce/Web Stories.
 - Formularios publicos: registro, recuperar password, checkout/planes y crear publicacion publica estan como `TerminalPage` en preparacion.
 
@@ -237,7 +237,7 @@ Riesgos:
 - Se usan muchos `<img>` directos; no hay estrategia clara de `next/image`, responsive sizes ni CDN.
 - Todas las imagenes historicas cargan desde WP, sin optimizacion local.
 - Sitemap devuelve 8,719 URLs en una sola respuesta; hoy es manejable, pero conviene preparar sitemap index/chunks si crece.
-- Search usa `contains` sobre texto; con 8k posts puede aguantar, pero para crecer conviene full-text search en mysql o motor dedicado.
+- Search publico usa FULLTEXT MySQL cuando el indice esta disponible y cae a `contains` si el entorno aun no aplico el SQL complementario.
 - Home muestra 12 posts y filtros client-side; no representa todo el archivo si el usuario espera explorar 8k desde home.
 
 Recomendacion:
@@ -419,7 +419,7 @@ Recomendacion:
 Evidencia:
 
 - `prisma/sql/001_mysql_foundation.sql` crea un indice FULLTEXT basico para MySQL.
-- `api/routes/public.js` busca con `contains` en title/excerpt/contentText.
+- `api/routes/public.js` usa `MATCH ... AGAINST` para busqueda publica y mantiene fallback `contains`.
 
 Impacto:
 
@@ -428,7 +428,7 @@ Impacto:
 
 Recomendacion:
 
-- Cambiar busqueda publica/CMS a `MATCH ... AGAINST` o a un servicio de busqueda dedicado.
+- Mantener el indice FULLTEXT aplicado en produccion o migrar a un servicio de busqueda dedicado si el volumen crece mucho mas.
 - Ordenar por relevancia + fecha.
 - Mantener fallback `contains` solo para casos simples.
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { storeLocalMediaUpload } from '../services/media-storage.js';
+import { removeLocalMediaFile, storeLocalMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
@@ -304,10 +304,10 @@ async function getRedirectSourceBlocker(prisma, sourcePath) {
 
   const route = await prisma.route.findUnique({
     where: { path: sourcePath },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 
-  if (route) {
+  if (route && route.status !== 'REDIRECTED') {
     return 'ROUTE';
   }
 
@@ -1862,61 +1862,71 @@ export async function registerCmsRoutes(app) {
       config: app.config,
       file,
     });
+    const { localFilePath, ...storedMedia } = stored;
 
-    const result = await app.prisma.$transaction(async (tx) => {
-      const media = await tx.mediaAsset.create({
-        data: {
-          ...stored,
-          uploadedById: request.auth.user.id,
-          altText: parsedFields.data.altText || null,
-          caption: parsedFields.data.caption || null,
-          credit: parsedFields.data.credit || null,
-          originalUrl: null,
-          legacyWordpressId: null,
-          legacyGuid: null,
-          legacyMetadata: {
-            source: 'cms-upload',
-            originalFileName: file.filename,
-          },
-        },
-        include: {
-          uploadedBy: {
-            select: {
-              id: true,
-              email: true,
-              username: true,
-              displayName: true,
+    let result;
+
+    try {
+      result = await app.prisma.$transaction(async (tx) => {
+        const media = await tx.mediaAsset.create({
+          data: {
+            ...storedMedia,
+            uploadedById: request.auth.user.id,
+            altText: parsedFields.data.altText || null,
+            caption: parsedFields.data.caption || null,
+            credit: parsedFields.data.credit || null,
+            originalUrl: null,
+            legacyWordpressId: null,
+            legacyGuid: null,
+            legacyMetadata: {
+              source: 'cms-upload',
+              originalFileName: file.filename,
             },
           },
-          variants: {
-            orderBy: { variantName: 'asc' },
-          },
-          _count: {
-            select: {
-              featuredPosts: true,
-              seoMetadata: true,
-              ads: true,
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                email: true,
+                username: true,
+                displayName: true,
+              },
+            },
+            variants: {
+              orderBy: { variantName: 'asc' },
+            },
+            _count: {
+              select: {
+                featuredPosts: true,
+                seoMetadata: true,
+                ads: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      await tx.auditLog.create({
-        data: {
-          actorId: request.auth.user.id,
-          action: 'MEDIA_UPLOADED',
-          entityType: 'MEDIA',
-          entityId: media.id,
-          metadata: {
-            fileName: media.fileName,
-            mimeType: media.mimeType,
-            fileSize: media.fileSize,
+        await tx.auditLog.create({
+          data: {
+            actorId: request.auth.user.id,
+            action: 'MEDIA_UPLOADED',
+            entityType: 'MEDIA',
+            entityId: media.id,
+            metadata: {
+              fileName: media.fileName,
+              mimeType: media.mimeType,
+              fileSize: media.fileSize,
+            },
           },
-        },
-      });
+        });
 
-      return media;
-    });
+        return media;
+      });
+    } catch (error) {
+      await removeLocalMediaFile(localFilePath).catch((cleanupError) => {
+        request.log.warn({ error: cleanupError }, 'Unable to remove orphaned media upload');
+      });
+      throw error;
+    }
 
     reply.code(201);
 

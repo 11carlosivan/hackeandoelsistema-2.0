@@ -2,6 +2,8 @@ import { getSitemapEntries } from '@/lib/main-design/seo';
 import { absoluteUrl } from '@/lib/main-design/seo';
 import { getSitemapRoutes } from '@/lib/main-design/api';
 
+export const revalidate = 300;
+
 const SITEMAP_EXCLUDED_PATHS = new Set([
   '/buscar/',
   '/checkout/',

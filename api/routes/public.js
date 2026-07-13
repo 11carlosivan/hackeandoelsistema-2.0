@@ -414,6 +414,56 @@ const publicPostInclude = {
   },
 };
 
+async function searchPublicPostsWithFullText(app, { q, page, limit }) {
+  if (!q || typeof app.prisma.$queryRaw !== 'function') {
+    return null;
+  }
+
+  try {
+    const offset = (page - 1) * limit;
+    const query = q.trim();
+    const rows = await app.prisma.$queryRaw`
+      SELECT
+        id,
+        MATCH(title, excerpt, content_text) AGAINST (${query} IN NATURAL LANGUAGE MODE) AS score
+      FROM posts
+      WHERE status = 'PUBLISHED'
+        AND visibility = 'PUBLIC'
+        AND MATCH(title, excerpt, content_text) AGAINST (${query} IN NATURAL LANGUAGE MODE)
+      ORDER BY score DESC, published_at DESC, created_at DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+    const totalRows = await app.prisma.$queryRaw`
+      SELECT COUNT(*) AS total
+      FROM posts
+      WHERE status = 'PUBLISHED'
+        AND visibility = 'PUBLIC'
+        AND MATCH(title, excerpt, content_text) AGAINST (${query} IN NATURAL LANGUAGE MODE)
+    `;
+    const total = Number(totalRows[0]?.total || 0);
+    const ids = rows.map((row) => row.id).filter(Boolean);
+
+    if (ids.length === 0 || total === 0) {
+      return null;
+    }
+
+    const posts = await app.prisma.post.findMany({
+      where: { id: { in: ids } },
+      include: publicPostInclude,
+    });
+    const postsById = new Map(posts.map((post) => [post.id, post]));
+
+    return {
+      items: ids.map((id) => postsById.get(id)).filter(Boolean),
+      total,
+    };
+  } catch (error) {
+    app.log.warn({ error }, 'MySQL full-text public search unavailable; falling back to contains search');
+    return null;
+  }
+}
+
 function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
   return {
     id: author.id,
@@ -787,16 +837,19 @@ export async function registerPublicRoutes(app) {
 
     publicCacheHeaders(reply, q ? 60 : 180);
 
-    const [items, total] = await Promise.all([
-      app.prisma.post.findMany({
-        where,
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-        include: publicPostInclude,
-      }),
-      app.prisma.post.count({ where }),
-    ]);
+    const fullTextResult = q ? await searchPublicPostsWithFullText(app, { q, page, limit }) : null;
+    const [items, total] = fullTextResult
+      ? [fullTextResult.items, fullTextResult.total]
+      : await Promise.all([
+          app.prisma.post.findMany({
+            where,
+            orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+            skip: (page - 1) * limit,
+            take: limit,
+            include: publicPostInclude,
+          }),
+          app.prisma.post.count({ where }),
+        ]);
     const totalPages = ensurePublicPageInRange(app, {
       page,
       total,

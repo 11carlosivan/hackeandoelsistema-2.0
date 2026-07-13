@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const ALLOWED_MIME_TYPES = new Map([
@@ -199,6 +199,7 @@ export async function storeLocalMediaUpload({ config, file }) {
   await writeFile(targetPath, buffer, { flag: 'wx' });
 
   return {
+    localFilePath: targetPath,
     disk: 'local',
     url: publicPath,
     path: publicPath,
@@ -208,4 +209,18 @@ export async function storeLocalMediaUpload({ config, file }) {
     width: dimensions.width,
     height: dimensions.height,
   };
+}
+
+export async function removeLocalMediaFile(localFilePath) {
+  if (!localFilePath) {
+    return;
+  }
+
+  try {
+    await unlink(localFilePath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
 }

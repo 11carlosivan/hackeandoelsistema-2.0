@@ -166,6 +166,20 @@ async function loadEntity(route, options = {}) {
   return null;
 }
 
+async function loadEntityOrNotFound(route, options = {}) {
+  try {
+    const entity = await loadEntity(route, options);
+
+    if (!entity) {
+      notFound();
+    }
+
+    return entity;
+  } catch {
+    notFound();
+  }
+}
+
 function routeRobots(route) {
   return {
     noIndex: route.seo?.robotsIndex === 'NOINDEX',
@@ -384,7 +398,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'POST') {
-    const article = await loadEntity(route);
+    const article = await loadEntityOrNotFound(route);
 
     return (
       <PublicLayout>
@@ -395,7 +409,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'PAGE') {
-    const pageEntity = await loadEntity(route);
+    const pageEntity = await loadEntityOrNotFound(route);
 
     return (
       <PublicLayout>
@@ -413,7 +427,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'AUTHOR') {
-    const author = await loadEntity(route, { page });
+    const author = await loadEntityOrNotFound(route, { page });
 
     return (
       <PublicLayout>
@@ -423,7 +437,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'PRODUCT') {
-    const product = await loadEntity(route);
+    const product = await loadEntityOrNotFound(route);
 
     return (
       <PublicLayout>
@@ -433,7 +447,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'WEB_STORY') {
-    const story = await loadEntity(route);
+    const story = await loadEntityOrNotFound(route);
 
     return (
       <PublicLayout>
@@ -443,7 +457,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'CATEGORY') {
-    const feed = await loadEntity(route, { page });
+    const feed = await loadEntityOrNotFound(route, { page });
     const categories = await getPublicCategories().catch(() => []);
 
     return (
@@ -460,7 +474,7 @@ export async function renderPublicRoutePage(pathParts, searchParams, fallback = 
   }
 
   if (route.entityType === 'TAG') {
-    const feed = await loadEntity(route, { page });
+    const feed = await loadEntityOrNotFound(route, { page });
 
     return (
       <PublicLayout>

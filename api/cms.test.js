@@ -920,6 +920,41 @@ describe('cms routes', () => {
     expect(systemPathResponse.statusCode, systemPathResponse.body).toBe(400);
   });
 
+  it('allows redirects for route records already marked as redirected', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const prisma = createPrismaStub(user);
+    prisma.route.findUnique = async ({ where }) =>
+      where.path === '/old-route/'
+        ? { id: 'route-redirected', status: 'REDIRECTED' }
+        : null;
+    const app = await buildApp({
+      env: testEnv,
+      prisma,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/redirects',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        sourcePath: '/old-route/',
+        targetUrl: '/new-route/',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.redirect).toMatchObject({
+      sourcePath: '/old-route/',
+      targetUrl: '/new-route/',
+    });
+  });
+
   it('rejects malformed or ambiguous CMS redirect targets', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

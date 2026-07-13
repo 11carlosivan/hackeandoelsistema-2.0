@@ -60,6 +60,8 @@ MEDIA_MAX_FILE_SIZE_BYTES=8388608
 ```bash
 npm ci
 npm run db:generate
+npx prisma db push --schema=prisma/schema.prisma
+mysql -h HOST -u USER -p DATABASE < prisma/sql/001_mysql_foundation.sql
 npm run build:production
 npm run deploy:check
 ```
@@ -99,6 +101,7 @@ Usar Cloudflare delante del dominio, cachear estaticos y media, y activar HTTPS 
 No apuntar el dominio final hasta que:
 
 - `npm run deploy:check` pase.
+- El schema Prisma y `prisma/sql/001_mysql_foundation.sql` hayan sido aplicados sobre MySQL.
 - `/ready` devuelva `database: connected`.
 - El sitemap nuevo tenga las URLs importadas.
 - El login CMS funcione con cookie segura en HTTPS.
