@@ -7,7 +7,7 @@ describe('api env config', () => {
   it('parses boolean strings explicitly', () => {
     const env = loadEnv({
       NODE_ENV: 'test',
-      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test?schema=public',
+      DATABASE_URL: 'mysql://hackeando:hackeando@localhost:3306/test',
       AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
       AUTH_COOKIE_SECURE: 'false',
     });

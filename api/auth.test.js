@@ -116,7 +116,7 @@ const testEnv = {
   NODE_ENV: 'test',
   API_HOST: '127.0.0.1',
   API_PORT: 4000,
-  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test?schema=public',
+  DATABASE_URL: 'mysql://hackeando:hackeando@localhost:3306/test',
   WEB_ORIGIN: 'http://127.0.0.1:3000',
   RATE_LIMIT_MAX: 120,
   RATE_LIMIT_WINDOW: '1 minute',

@@ -1,6 +1,6 @@
 # Auth y roles - base v0.1
 
-Esta fase deja una base real de autenticacion para el CMS y la API, conectada a PostgreSQL por Prisma.
+Esta fase deja una base real de autenticacion para el CMS y la API, conectada a MySQL por Prisma.
 
 ## Alcance implementado
 

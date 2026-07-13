@@ -1,11 +1,11 @@
-# Prisma, Seguridad y Base PostgreSQL
+# Prisma, Seguridad y Base MySQL
 
 Esta fase convierte el ERD de `docs/hackeando-cms-seo-safe.dbml` a Prisma y deja una base preparada para Fastify, migracion WordPress y SEO seguro.
 
 ## Archivos
 
 - `prisma/schema.prisma`: modelos Prisma para CMS, usuarios, roles, media, posts, SEO, rutas, redirects, importacion, pagos, anuncios, auditoria y seguridad.
-- `prisma/sql/001_postgres_foundation.sql`: SQL complementario para PostgreSQL que Prisma no expresa bien.
+- `prisma/sql/001_mysql_foundation.sql`: SQL complementario para MySQL que Prisma no expresa bien.
 - `.env.example`: variables minimas de entorno.
 
 ## Decisiones de Seguridad
@@ -27,22 +27,14 @@ Esta fase convierte el ERD de `docs/hackeando-cms-seo-safe.dbml` a Prisma y deja
 - `audit_logs` registra acciones administrativas y cambios sobre entidades.
 - Vistas privadas y flujos sensibles deben resolverse desde API con autorizacion por permisos, no por datos del cliente.
 
-## Optimizaciones PostgreSQL
+## Optimizaciones MySQL
 
 El SQL complementario agrega:
 
-- `pg_trgm` para busquedas por slug/titulo.
-- `unaccent` para busqueda en espanol sin depender de acentos.
-- `search_vector` con trigger para posts.
-- GIN index para full-text search.
-- BRIN indexes para tablas append-only:
-  - `post_views`
-  - `ad_events`
-  - `audit_logs`
-  - `security_events`
-- Indices parciales para feeds publicos, sitemap y redirects activos.
-- Constraint para permitir una sola categoria primaria por post.
-- Checks de montos, creditos, estados HTTP, redirects y rangos de fechas.
+- Full-text index sobre `posts.title`, `posts.excerpt` y `posts.content_text` como base para busqueda publica cuando se active ranking MySQL.
+- Indices Prisma para feeds publicos, sitemap, redirects, auditoria, sesiones y rutas de CMS.
+- Tipos `Json`, `Decimal`, `DateTime(6)` y `VarChar` acotados para compatibilidad con MySQL/cPanel.
+- Constraint de unicidad para relaciones pivote, slugs, rutas, tokens hasheados y claves externas criticas.
 
 ## Flujo Recomendado
 
@@ -60,10 +52,10 @@ npm run db:validate
 npm run db:migrate
 ```
 
-5. Aplicar SQL complementario contra PostgreSQL despues de la migracion inicial:
+5. Aplicar SQL complementario contra MySQL despues de la migracion inicial:
 
 ```bash
-psql "$DATABASE_URL" -f prisma/sql/001_postgres_foundation.sql
+mysql -h HOST -u USER -p DATABASE < prisma/sql/001_mysql_foundation.sql
 ```
 
 6. Generar client:

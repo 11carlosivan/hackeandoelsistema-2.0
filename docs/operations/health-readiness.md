@@ -26,7 +26,7 @@ Respuesta esperada:
 
 ## Readiness
 
-Usar para saber si la API puede operar contra PostgreSQL:
+Usar para saber si la API puede operar contra MySQL:
 
 ```bash
 GET /ready
@@ -45,4 +45,4 @@ Respuesta esperada cuando la DB responde:
 }
 ```
 
-Si PostgreSQL no responde, devuelve `503` con `status: "not_ready"`.
+Si MySQL no responde, devuelve `503` con `status: "not_ready"`.

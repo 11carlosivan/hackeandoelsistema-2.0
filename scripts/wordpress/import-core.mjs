@@ -82,7 +82,7 @@ export async function runWordPressCoreImport({ dumpPath, write = false, out = DE
     const outputPath = writeJsonReport(out, {
       ...report,
       mode: "core-dry-run",
-      note: "Usa --write para escribir en PostgreSQL. Este modo no toca la base de datos.",
+      note: "Usa --write para escribir en MySQL. Este modo no toca la base de datos.",
     });
 
     return { report, outputPath };

@@ -1,6 +1,6 @@
 # Dry-run de importacion WordPress
 
-Esta fase simula la importacion core desde el dump real de WordPress hacia el modelo Prisma sin escribir en PostgreSQL.
+Esta fase simula la importacion core desde el dump real de WordPress hacia el modelo Prisma sin escribir en MySQL.
 
 El objetivo es validar conteos, rutas canonicas, taxonomias, autores y posibles colisiones antes de construir el importador con escritura real.
 
@@ -52,7 +52,7 @@ El dry-run valida contra el contrato de estos modelos Prisma:
 - `Route`
 - `ImportMapping`
 
-No se escriben datos en PostgreSQL en esta fase.
+No se escriben datos en MySQL en esta fase.
 
 ## Politica canonical
 
@@ -98,4 +98,4 @@ Construir `wp:import:core` con dos modos:
 - `--dry-run`: usa este mismo plan sin escribir.
 - `--write`: crea/actualiza taxonomias, autores editoriales, posts, paginas, rutas e import mappings dentro de transacciones por lote.
 
-Antes de `--write`, se debe tener PostgreSQL local disponible y correr migraciones Prisma.
+Antes de `--write`, se debe tener MySQL local disponible y correr migraciones Prisma.

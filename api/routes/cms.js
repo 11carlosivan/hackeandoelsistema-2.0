@@ -881,10 +881,10 @@ export async function registerCmsRoutes(app) {
     const where = q
       ? {
           OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { slug: { contains: q, mode: 'insensitive' } },
-            { fullPath: { contains: q, mode: 'insensitive' } },
-            { description: { contains: q, mode: 'insensitive' } },
+            { name: { contains: q } },
+            { slug: { contains: q } },
+            { fullPath: { contains: q } },
+            { description: { contains: q } },
           ],
         }
       : {};
@@ -1137,8 +1137,8 @@ export async function registerCmsRoutes(app) {
     const where = q
       ? {
           OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { slug: { contains: q, mode: 'insensitive' } },
+            { name: { contains: q } },
+            { slug: { contains: q } },
           ],
         }
       : {};
@@ -1331,8 +1331,8 @@ export async function registerCmsRoutes(app) {
       ...(q
         ? {
             OR: [
-              { sourcePath: { contains: q, mode: 'insensitive' } },
-              { targetUrl: { contains: q, mode: 'insensitive' } },
+              { sourcePath: { contains: q } },
+              { targetUrl: { contains: q } },
             ],
           }
         : {}),
@@ -1595,9 +1595,9 @@ export async function registerCmsRoutes(app) {
       ...(q
         ? {
             OR: [
-              { body: { contains: q, mode: 'insensitive' } },
-              { authorName: { contains: q, mode: 'insensitive' } },
-              { authorEmail: { contains: q, mode: 'insensitive' } },
+              { body: { contains: q } },
+              { authorName: { contains: q } },
+              { authorEmail: { contains: q } },
             ],
           }
         : {}),
@@ -1770,11 +1770,11 @@ export async function registerCmsRoutes(app) {
       ...(q
         ? {
             OR: [
-              { fileName: { contains: q, mode: 'insensitive' } },
-              { altText: { contains: q, mode: 'insensitive' } },
-              { caption: { contains: q, mode: 'insensitive' } },
-              { credit: { contains: q, mode: 'insensitive' } },
-              { originalUrl: { contains: q, mode: 'insensitive' } },
+              { fileName: { contains: q } },
+              { altText: { contains: q } },
+              { caption: { contains: q } },
+              { credit: { contains: q } },
+              { originalUrl: { contains: q } },
             ],
           }
         : {}),
@@ -2082,10 +2082,10 @@ export async function registerCmsRoutes(app) {
       ...(q
         ? {
             OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { slug: { contains: q, mode: 'insensitive' } },
-              { contentText: { contains: q, mode: 'insensitive' } },
-              { legacyUrl: { contains: q, mode: 'insensitive' } },
+              { title: { contains: q } },
+              { slug: { contains: q } },
+              { contentText: { contains: q } },
+              { legacyUrl: { contains: q } },
             ],
           }
         : {}),
@@ -2440,10 +2440,10 @@ export async function registerCmsRoutes(app) {
       ...(q
         ? {
             OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { excerpt: { contains: q, mode: 'insensitive' } },
-              { contentText: { contains: q, mode: 'insensitive' } },
-              { slug: { contains: q, mode: 'insensitive' } },
+              { title: { contains: q } },
+              { excerpt: { contains: q } },
+              { contentText: { contains: q } },
+              { slug: { contains: q } },
             ],
           }
         : {}),

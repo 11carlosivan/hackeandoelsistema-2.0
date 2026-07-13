@@ -1,21 +1,22 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: hackeando-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: hackeando-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_DB: hackeandoelsistema
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      MYSQL_DATABASE: hackeandoelsistema
+      MYSQL_USER: hackeando
+      MYSQL_PASSWORD: hackeando
+      MYSQL_ROOT_PASSWORD: root
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - hackeando_postgres_data:/var/lib/postgresql/data
+      - hackeando_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d hackeandoelsistema"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -proot --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
 
 volumes:
-  hackeando_postgres_data:
+  hackeando_mysql_data:

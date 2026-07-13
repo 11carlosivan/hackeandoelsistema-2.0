@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T01:19:23.534Z",
+  "generatedAt": "2026-07-13T02:29:47.810Z",
   "mode": "ops-preflight",
   "summary": {
     "status": "PASS",
@@ -25,7 +25,7 @@
       "name": "database:connection",
       "status": "PASS",
       "details": {
-        "provider": "postgresql"
+        "provider": "mysql"
       }
     },
     {
@@ -40,11 +40,11 @@
         "categories": 16,
         "activeUsers": 7,
         "latestImportRun": {
-          "id": "3b3c1661-1138-4962-a7ac-6196aed22b87",
+          "id": "f1f8781f-fa59-4c48-8580-0b5f6fb88d87",
           "source": "wordpress-core",
           "status": "COMPLETED",
-          "startedAt": "2026-07-12T01:42:08.999Z",
-          "finishedAt": "2026-07-12T01:51:42.317Z",
+          "startedAt": "2026-07-13T02:15:07.419Z",
+          "finishedAt": "2026-07-13T02:28:34.648Z",
           "stats": {
             "tags": 306,
             "limit": null,
@@ -56,7 +56,7 @@
             "skipped": 19167,
             "products": 6,
             "categories": 16,
-            "durationMs": 573318,
+            "durationMs": 807229,
             "homeRoutes": 1,
             "webStories": 4,
             "seoMetadata": 8397,
@@ -80,7 +80,7 @@
           "ok": true,
           "service": "hackeando-api",
           "status": "live",
-          "timestamp": "2026-07-13T01:19:23.089Z"
+          "timestamp": "2026-07-13T02:29:43.880Z"
         }
       }
     },
@@ -96,7 +96,7 @@
           "service": "hackeando-api",
           "status": "ready",
           "database": "connected",
-          "timestamp": "2026-07-13T01:19:23.098Z"
+          "timestamp": "2026-07-13T02:29:43.886Z"
         }
       }
     },
@@ -116,11 +116,11 @@
             "tags": 306
           },
           "latestImportRun": {
-            "id": "3b3c1661-1138-4962-a7ac-6196aed22b87",
+            "id": "f1f8781f-fa59-4c48-8580-0b5f6fb88d87",
             "source": "wordpress-core",
             "status": "COMPLETED",
-            "startedAt": "2026-07-12T01:42:08.999Z",
-            "finishedAt": "2026-07-12T01:51:42.317Z"
+            "startedAt": "2026-07-13T02:15:07.419Z",
+            "finishedAt": "2026-07-13T02:28:34.648Z"
           },
           "recentPosts": 8
         }
@@ -141,7 +141,7 @@
             "totalPages": 8350
           },
           "firstPost": {
-            "id": "c632c6de-9f32-4fb1-b79b-0d7d8e03a813",
+            "id": "92889417-63e6-4c66-a945-5c6377fe2f6a",
             "slug": "ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal",
             "title": "Ni Alofoke ni El Piro hicieron cambiar el Código Penal. Y explico por qué",
             "canonicalPath": "/ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal/"
@@ -160,24 +160,24 @@
           "total": 8714,
           "samples": [
             {
-              "path": "/author/11carlosivan/",
-              "lastmodAt": null
+              "path": "/ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal/",
+              "lastmodAt": "2026-07-10T18:19:58.000Z"
             },
             {
-              "path": "/author/admin-hackeandoelsistema/",
-              "lastmodAt": null
+              "path": "/5-capitulos-que-muchos-creen-reconocer-en-la-politica-dominicana/",
+              "lastmodAt": "2026-07-09T19:59:02.000Z"
             },
             {
-              "path": "/author/heriberto-tejeda/",
-              "lastmodAt": null
+              "path": "/abinader-entendio-que-un-presidente-no-puede-vivir-en-campana/",
+              "lastmodAt": "2026-07-09T19:29:49.000Z"
             },
             {
-              "path": "/author/redaccion/",
-              "lastmodAt": null
+              "path": "/el-prm-ya-no-soporta-la-libertad-de-expresion-que-lo-llevo-al-gobierno/",
+              "lastmodAt": "2026-07-08T19:06:46.000Z"
             },
             {
-              "path": "/author/redaccion2/",
-              "lastmodAt": null
+              "path": "/francisco-javier-y-gonzalo-castillo-una-reunion-que-dice-mas-de-lo-que-parece/",
+              "lastmodAt": "2026-07-08T17:53:21.000Z"
             }
           ]
         }
@@ -190,7 +190,7 @@
         "loginStatusCode": 200,
         "adminCheckStatusCode": 200,
         "user": {
-          "id": "f2096e26-8e55-4204-b218-1fd3ba8830d2",
+          "id": "564ea3b1-19cb-48f4-be64-0434a0f59509",
           "username": "admin",
           "displayName": "Administrador HES",
           "roles": [

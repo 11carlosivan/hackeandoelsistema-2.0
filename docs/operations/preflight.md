@@ -17,7 +17,7 @@ docs/operations/preflight.report.json
 ## Que valida
 
 - Variables obligatorias de la API.
-- Conexion a PostgreSQL.
+- Conexion a MySQL.
 - Conteos base importados: posts, paginas, rutas, sitemap, media, categorias y usuarios activos.
 - Ultimo `ImportRun`.
 - Endpoints internos Fastify:

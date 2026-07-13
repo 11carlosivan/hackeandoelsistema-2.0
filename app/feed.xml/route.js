@@ -4,7 +4,14 @@ import { buildRssFeed } from '@/lib/main-design/rss';
 export const revalidate = 300;
 
 export async function GET() {
-  const feed = await getHomeFeed();
+  let feed = { articles: [] };
+
+  try {
+    feed = await getHomeFeed();
+  } catch {
+    feed = { articles: [] };
+  }
+
   const body = buildRssFeed({
     articles: feed.articles || [],
     updatedAt: feed.articles?.[0]?.publishedAt || new Date(),

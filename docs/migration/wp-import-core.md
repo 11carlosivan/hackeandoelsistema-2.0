@@ -2,8 +2,8 @@
 
 Esta fase agrega el importador core con dos modos:
 
-- Sin `--write`: genera el mismo plan seguro del dry-run y no toca PostgreSQL.
-- Con `--write`: escribe datos core en Prisma/PostgreSQL usando upserts idempotentes.
+- Sin `--write`: genera el mismo plan seguro del dry-run y no toca MySQL.
+- Con `--write`: escribe datos core en Prisma/MySQL usando upserts idempotentes.
 
 ## Comandos
 
@@ -36,7 +36,7 @@ npm run wp:import:core:local -- --write
 Antes de escribir:
 
 1. Crear `.env` con `DATABASE_URL`.
-2. Tener PostgreSQL corriendo.
+2. Tener MySQL corriendo.
 3. Ejecutar migraciones Prisma.
 4. Correr `npm run wp:import:core:local` sin `--write` y revisar que no existan bloqueos.
 5. Probar primero con `--write --limit 25`.
@@ -126,4 +126,4 @@ Si una entrada no tiene Yoast, se crea una base segura con canonical absoluto, t
 - Importar medios fisicos y variantes optimizadas.
 - Importar redirects historicos.
 - Comparar sitemap viejo contra `routes` y `url_inventory`.
-- Hacer prueba E2E Next -> Fastify -> PostgreSQL con contenido migrado.
+- Hacer prueba E2E Next -> Fastify -> MySQL con contenido migrado.

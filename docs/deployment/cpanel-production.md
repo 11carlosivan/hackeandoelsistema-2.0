@@ -1,17 +1,17 @@
 # Despliegue cPanel para prueba operativa
 
-Este proyecto no es un sitio PHP estatico. Para correrlo en cPanel se necesita soporte real de Node.js App y una base PostgreSQL accesible desde el hosting.
+Este proyecto no es un sitio PHP estatico. Para correrlo en cPanel se necesita soporte real de Node.js App y una base MySQL accesible desde el hosting.
 
 ## Requisitos minimos
 
 - cPanel con Node.js App habilitado.
 - Node.js 20.11 o superior.
 - SSH o Terminal de cPanel.
-- PostgreSQL disponible. Puede ser PostgreSQL del hosting o una DB externa gestionada.
+- MySQL disponible. Puede ser MySQL del hosting o una DB externa gestionada.
 - Dominio con HTTPS activo.
 - Memoria suficiente para `next build`. Si el cPanel es compartido y limita memoria, hacer build local/CI y subir artefactos.
 
-Si el cPanel solo tiene MySQL/MariaDB, este backend no corre tal cual porque Prisma esta configurado con PostgreSQL.
+La rama de prueba esta configurada para MySQL.
 
 ## Apps recomendadas en cPanel
 
@@ -41,7 +41,7 @@ NEXT_PUBLIC_API_URL=https://api.hackeandoelsistema.net
 
 ```bash
 NODE_ENV=production
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public
+DATABASE_URL=mysql://USER:PASSWORD@HOST:3306/DATABASE
 WEB_ORIGIN=https://hackeandoelsistema.net
 CORS_ORIGINS=https://hackeandoelsistema.net
 AUTH_JWT_SECRET=GENERAR_UN_SECRETO_LARGO_DE_32_BYTES_O_MAS

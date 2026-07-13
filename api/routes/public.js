@@ -414,59 +414,6 @@ const publicPostInclude = {
   },
 };
 
-async function searchPublicPostsWithFullText(app, { q, page, limit }) {
-  if (!q || typeof app.prisma.$queryRaw !== 'function') {
-    return null;
-  }
-
-  try {
-    const offset = (page - 1) * limit;
-    const query = q.trim();
-    const rows = await app.prisma.$queryRaw`
-      SELECT id::text
-      FROM posts
-      WHERE status = 'PUBLISHED'
-        AND visibility = 'PUBLIC'
-        AND search_vector @@ websearch_to_tsquery('spanish', unaccent(${query}))
-      ORDER BY
-        ts_rank_cd(search_vector, websearch_to_tsquery('spanish', unaccent(${query}))) DESC,
-        published_at DESC NULLS LAST,
-        created_at DESC
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `;
-    const totalRows = await app.prisma.$queryRaw`
-      SELECT COUNT(*)::int AS total
-      FROM posts
-      WHERE status = 'PUBLISHED'
-        AND visibility = 'PUBLIC'
-        AND search_vector @@ websearch_to_tsquery('spanish', unaccent(${query}))
-    `;
-    const ids = rows.map((row) => row.id).filter(Boolean);
-
-    if (ids.length === 0) {
-      return {
-        items: [],
-        total: Number(totalRows[0]?.total || 0),
-      };
-    }
-
-    const posts = await app.prisma.post.findMany({
-      where: { id: { in: ids } },
-      include: publicPostInclude,
-    });
-    const postsById = new Map(posts.map((post) => [post.id, post]));
-
-    return {
-      items: ids.map((id) => postsById.get(id)).filter(Boolean),
-      total: Number(totalRows[0]?.total || 0),
-    };
-  } catch (error) {
-    app.log.warn({ error }, 'Full-text public search unavailable; falling back to contains search');
-    return null;
-  }
-}
-
 function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
   return {
     id: author.id,
@@ -830,9 +777,9 @@ export async function registerPublicRoutes(app) {
       ...(q
         ? {
             OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { excerpt: { contains: q, mode: 'insensitive' } },
-              { contentText: { contains: q, mode: 'insensitive' } },
+              { title: { contains: q } },
+              { excerpt: { contains: q } },
+              { contentText: { contains: q } },
             ],
           }
         : {}),
@@ -840,19 +787,16 @@ export async function registerPublicRoutes(app) {
 
     publicCacheHeaders(reply, q ? 60 : 180);
 
-    const fullTextResult = q ? await searchPublicPostsWithFullText(app, { q, page, limit }) : null;
-    const [items, total] = fullTextResult
-      ? [fullTextResult.items, fullTextResult.total]
-      : await Promise.all([
-          app.prisma.post.findMany({
-            where,
-            orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-            skip: (page - 1) * limit,
-            take: limit,
-            include: publicPostInclude,
-          }),
-          app.prisma.post.count({ where }),
-        ]);
+    const [items, total] = await Promise.all([
+      app.prisma.post.findMany({
+        where,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: publicPostInclude,
+      }),
+      app.prisma.post.count({ where }),
+    ]);
     const totalPages = ensurePublicPageInRange(app, {
       page,
       total,

@@ -60,11 +60,7 @@ export default async function sitemap() {
         changeFrequency: route.changefreq || 'weekly',
         priority: sitemapPriority(route),
       }));
-  } catch (error) {
-    if (process.env.NODE_ENV === 'production') {
-      throw error;
-    }
-
+  } catch {
     return getSitemapEntries();
   }
 }

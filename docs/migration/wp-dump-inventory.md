@@ -1,6 +1,6 @@
 # Inventario sanitizado del dump WordPress
 
-Este documento resume la primera lectura segura del dump real de WordPress para preparar la importacion a Next, Fastify, Prisma y PostgreSQL sin perder SEO.
+Este documento resume la primera lectura segura del dump real de WordPress para preparar la importacion a Next, Fastify, Prisma y MySQL sin perder SEO.
 
 El dump original no se versiona. El reporte JSON generado contiene solo opciones publicas, conteos y muestras de rutas publicas.
 
@@ -112,7 +112,7 @@ Respuesta esperada:
 
 ## Siguiente paso
 
-La siguiente fase debe crear el importador controlado para PostgreSQL:
+La siguiente fase debe crear el importador controlado para MySQL:
 
 - `wp:import:dry-run` para validar conteos y rutas sin escribir.
 - `wp:import:core` para insertar taxonomias, autores, posts, paginas y rutas.

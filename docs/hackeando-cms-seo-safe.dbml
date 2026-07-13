@@ -1,4 +1,4 @@
-// Hackeando el Sistema - CMS/PostgreSQL ERD
+// Hackeando el Sistema - CMS/MySQL ERD
 // Version enfocada en migracion WordPress -> Next/Fastify/Prisma sin perder SEO.
 
 Enum user_status {
@@ -297,7 +297,6 @@ Table posts {
   content_html text
   content_json jsonb
   content_text text
-  search_vector tsvector
   status post_status [not null, default: 'DRAFT']
   visibility content_visibility [not null, default: 'PUBLIC']
   post_type post_type [not null, default: 'NEWS']

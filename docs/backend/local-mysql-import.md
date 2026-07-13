@@ -1,17 +1,17 @@
-# PostgreSQL local e import WordPress
+# MySQL local e import WordPress
 
 Esta guia reproduce el entorno local usado para probar la importacion real del dump WordPress.
 
-## Levantar Postgres
+## Levantar mysql
 
 ```bash
-docker compose up -d postgres
+docker compose up -d mysql
 ```
 
 La DB queda disponible en:
 
 ```txt
-postgresql://postgres:postgres@localhost:5432/hackeandoelsistema?schema=public
+mysql://hackeando:hackeando@localhost:3306/hackeandoelsistema
 ```
 
 El archivo `.env` local no se versiona.
@@ -27,7 +27,7 @@ npx prisma db push --schema=prisma/schema.prisma
 Aplicar SQL foundation:
 
 ```powershell
-Get-Content prisma\sql\001_postgres_foundation.sql | docker exec -i hackeando-postgres psql -U postgres -d hackeandoelsistema
+Get-Content prisma\sql\001_mysql_foundation.sql | docker exec -i hackeando-mysql mysql -uroot -proot hackeandoelsistema
 ```
 
 ## Importar WordPress

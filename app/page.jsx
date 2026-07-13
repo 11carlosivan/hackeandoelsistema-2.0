@@ -7,7 +7,18 @@ export const metadata = buildMetadata({
 });
 
 export default async function HomePage() {
-  const feed = await getHomeFeed();
+  let feed;
+
+  try {
+    feed = await getHomeFeed();
+  } catch {
+    feed = {
+      source: 'fallback',
+      articles: [],
+      categories: [],
+      summary: null,
+    };
+  }
 
   return <MainDesignApp feed={feed} />;
 }

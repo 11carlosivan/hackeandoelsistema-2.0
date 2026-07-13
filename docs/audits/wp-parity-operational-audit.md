@@ -237,7 +237,7 @@ Riesgos:
 - Se usan muchos `<img>` directos; no hay estrategia clara de `next/image`, responsive sizes ni CDN.
 - Todas las imagenes historicas cargan desde WP, sin optimizacion local.
 - Sitemap devuelve 8,719 URLs en una sola respuesta; hoy es manejable, pero conviene preparar sitemap index/chunks si crece.
-- Search usa `contains` sobre texto; con 8k posts puede aguantar, pero para crecer conviene full-text search en Postgres o motor dedicado.
+- Search usa `contains` sobre texto; con 8k posts puede aguantar, pero para crecer conviene full-text search en mysql o motor dedicado.
 - Home muestra 12 posts y filtros client-side; no representa todo el archivo si el usuario espera explorar 8k desde home.
 
 Recomendacion:
@@ -414,11 +414,11 @@ Recomendacion:
 - Al crear redirect, bloquear si `sourcePath` existe como `Route ACTIVE`, o cambiar esa route a `REDIRECTED/GONE`.
 - Registrar `hitCount` y `lastHitAt` al resolver redirect.
 
-### P1 - Busqueda no usa la infraestructura full-text ya creada
+### P1 - Busqueda publica pendiente de ranking full-text MySQL
 
 Evidencia:
 
-- `prisma/sql/001_postgres_foundation.sql` crea `search_vector`, trigger y GIN index.
+- `prisma/sql/001_mysql_foundation.sql` crea un indice FULLTEXT basico para MySQL.
 - `api/routes/public.js` busca con `contains` en title/excerpt/contentText.
 
 Impacto:
@@ -428,7 +428,7 @@ Impacto:
 
 Recomendacion:
 
-- Cambiar busqueda publica/CMS a `to_tsquery/websearch_to_tsquery` o Prisma raw controlado.
+- Cambiar busqueda publica/CMS a `MATCH ... AGAINST` o a un servicio de busqueda dedicado.
 - Ordenar por relevancia + fecha.
 - Mantener fallback `contains` solo para casos simples.
 
@@ -489,7 +489,7 @@ Recomendacion:
 
 Evidencia:
 
-- Existe `prisma/schema.prisma` y `prisma/sql/001_postgres_foundation.sql`.
+- Existe `prisma/schema.prisma` y `prisma/sql/001_mysql_foundation.sql`.
 - No existe `prisma/migrations`.
 - El SQL de constraints usa `ALTER TABLE ADD CONSTRAINT` sin `IF NOT EXISTS`, por lo que no es seguro re-ejecutarlo sin control.
 

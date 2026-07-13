@@ -4,7 +4,7 @@ Primera fase de conexion real entre frontend, backend y DB.
 
 ## Objetivo
 
-Dejar un backend Fastify seguro y verificable sobre Prisma/PostgreSQL sin intentar migrar todo WordPress de una vez.
+Dejar un backend Fastify seguro y verificable sobre Prisma/MySQL sin intentar migrar todo WordPress de una vez.
 
 ## Archivos
 

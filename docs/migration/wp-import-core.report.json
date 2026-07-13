@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-12T01:51:42.317Z",
+  "generatedAt": "2026-07-13T02:28:34.648Z",
   "mode": "core-write",
-  "importRunId": "3b3c1661-1138-4962-a7ac-6196aed22b87",
+  "importRunId": "f1f8781f-fa59-4c48-8580-0b5f6fb88d87",
   "source": {
     "fileName": "qscbkfcv_wp999.sql",
     "sizeBytes": 497579837
@@ -24,7 +24,7 @@
     "yoastMetadata": 8330,
     "importMappings": 16607,
     "skipped": 19167,
-    "durationMs": 573318,
+    "durationMs": 807229,
     "limit": null
   },
   "warnings": []

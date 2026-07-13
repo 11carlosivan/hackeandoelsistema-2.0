@@ -111,7 +111,7 @@ async function checkEndpoint(app, { name, method = 'GET', url, expectedStatus = 
 async function checkDatabase(prisma) {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return createCheck('database:connection', 'PASS', { provider: 'postgresql' });
+    return createCheck('database:connection', 'PASS', { provider: 'mysql' });
   } catch (error) {
     return createCheck('database:connection', 'FAIL', { error: error.message });
   }
