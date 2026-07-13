@@ -337,6 +337,16 @@ function createPrismaStub(user, options = {}) {
         ...data,
         updatedAt: new Date('2026-01-14T00:00:00Z'),
       }),
+      upsert: async ({ create, update }) => ({
+        ...redirect,
+        id: 'page-slug-redirect',
+        hitCount: 0,
+        lastHitAt: null,
+        createdAt: new Date('2026-01-14T00:00:00Z'),
+        updatedAt: new Date('2026-01-14T00:00:00Z'),
+        ...(create || {}),
+        ...(update || {}),
+      }),
     },
     category: {
       count,

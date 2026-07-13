@@ -8,6 +8,7 @@ export function MainDesignApp({ feed }) {
         initialArticles={feed?.articles}
         initialCategories={feed?.categories}
         summary={feed?.summary}
+        useMockFallback={!feed || feed.source === 'mock'}
       />
     </Layout>
   );

@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
 
-export default function Home({ initialArticles = fallbackArticles, initialCategories = [], summary = null }) {
+export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
-  const articles = initialArticles.length > 0 ? initialArticles : fallbackArticles;
+  const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
   
   // Hero articles (slider on the left)
   const heroArticles = articles.filter(a => a.isHero || a.isFeatured);
@@ -54,6 +54,10 @@ export default function Home({ initialArticles = fallbackArticles, initialCatego
 
   // Middle stack: take 3 articles that are not the current hero slider article
   const getMiddleArticles = () => {
+    if (!currentHero) {
+      return articles.slice(0, 3);
+    }
+
     return articles
       .filter(a => a.id !== currentHero.id)
       .slice(0, 3);
@@ -83,7 +87,7 @@ export default function Home({ initialArticles = fallbackArticles, initialCatego
   const filteredArticles = getFilteredArticles();
 
   // Featured opinions list
-  const featuredOpinions = opinions.slice(0, 3);
+  const featuredOpinions = useMockFallback ? opinions.slice(0, 3) : [];
 
   const toggleLike = (artId, e) => {
     e.stopPropagation();

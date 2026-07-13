@@ -315,6 +315,81 @@ async function getRedirectSourceBlocker(prisma, sourcePath) {
   return null;
 }
 
+async function upsertSystemRedirect(prisma, sourcePath, targetUrl) {
+  if (!sourcePath || !targetUrl || sourcePath === targetUrl) {
+    return null;
+  }
+
+  return prisma.redirect.upsert({
+    where: { sourcePath },
+    create: {
+      sourcePath,
+      targetUrl,
+      statusCode: 301,
+      preserveQuery: true,
+      source: 'SYSTEM',
+      isActive: true,
+    },
+    update: {
+      targetUrl,
+      statusCode: 301,
+      preserveQuery: true,
+      source: 'SYSTEM',
+      isActive: true,
+    },
+  });
+}
+
+async function syncCategoryDescendantPaths(prisma, { categoryId, oldFullPath, nextFullPath }) {
+  if (!oldFullPath || !nextFullPath || oldFullPath === nextFullPath) {
+    return;
+  }
+
+  const descendants = await prisma.category.findMany({
+    where: {
+      fullPath: {
+        startsWith: oldFullPath,
+      },
+      NOT: {
+        id: categoryId,
+      },
+    },
+    select: {
+      id: true,
+      fullPath: true,
+    },
+  });
+
+  for (const descendant of descendants) {
+    if (descendant.id === categoryId) {
+      continue;
+    }
+
+    if (!descendant.fullPath?.startsWith(oldFullPath)) {
+      continue;
+    }
+
+    const descendantNextPath = `${nextFullPath.replace(/\/+$/g, '')}/${descendant.fullPath.slice(oldFullPath.length)}`.replace(/\/+/g, '/');
+
+    await prisma.category.update({
+      where: { id: descendant.id },
+      data: { fullPath: descendantNextPath },
+    });
+    await prisma.route.updateMany({
+      where: {
+        path: descendant.fullPath,
+        entityType: 'CATEGORY',
+        entityId: descendant.id,
+      },
+      data: {
+        path: descendantNextPath,
+        lastmodAt: new Date(),
+      },
+    });
+    await upsertSystemRedirect(prisma, descendant.fullPath, descendantNextPath);
+  }
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -1092,6 +1167,12 @@ export async function registerCmsRoutes(app) {
             lastmodAt: new Date(),
           },
         });
+        await upsertSystemRedirect(tx, existing.fullPath, nextFullPath);
+        await syncCategoryDescendantPaths(tx, {
+          categoryId: category.id,
+          oldFullPath: existing.fullPath,
+          nextFullPath,
+        });
       }
 
       await upsertTaxonomyRoute(tx, {
@@ -1274,17 +1355,21 @@ export async function registerCmsRoutes(app) {
       });
 
       if (nextSlug !== existing.slug) {
+        const oldPath = buildTagPath(existing.slug);
+        const nextPath = buildTagPath(nextSlug);
+
         await tx.route.updateMany({
           where: {
-            path: buildTagPath(existing.slug),
+            path: oldPath,
             entityType: 'TAG',
             entityId: tag.id,
           },
           data: {
-            path: buildTagPath(nextSlug),
+            path: nextPath,
             lastmodAt: new Date(),
           },
         });
+        await upsertSystemRedirect(tx, oldPath, nextPath);
       }
 
       await upsertTaxonomyRoute(tx, {
@@ -2376,8 +2461,10 @@ export async function registerCmsRoutes(app) {
         },
         select: {
           id: true,
+          path: true,
         },
       });
+      const oldPath = route?.path || `/${existingPage.slug}/`;
       const routeData = {
         ...statusRouteData[nextStatus],
         ...(nextSlug !== existingPage.slug ? { path: nextPath } : {}),
@@ -2397,6 +2484,11 @@ export async function registerCmsRoutes(app) {
               ...statusRouteData[nextStatus],
             },
           });
+
+      if (nextSlug !== existingPage.slug && oldPath !== nextPath) {
+        await upsertSystemRedirect(tx, oldPath, nextPath);
+      }
+
       const seo = await tx.seoMetadata.upsert({
         where: { routeId: updatedRoute.id },
         create: {

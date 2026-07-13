@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchApi, isApiNotFound } from '../lib/main-design/api.js';
+import { fetchApi, getCmsSummary, isApiNotFound } from '../lib/main-design/api.js';
 
 describe('public API client', () => {
   afterEach(() => {
@@ -23,5 +23,19 @@ describe('public API client', () => {
     } catch (error) {
       expect(isApiNotFound(error)).toBe(true);
     }
+  });
+
+  it('does not use the public summary as a CMS summary when the access token is missing', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const summary = await getCmsSummary(null);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({
+      source: 'unavailable',
+      counts: {},
+      recentPosts: [],
+    });
   });
 });
