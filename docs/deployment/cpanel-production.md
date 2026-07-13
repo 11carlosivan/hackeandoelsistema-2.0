@@ -53,19 +53,6 @@ RATE_LIMIT_WINDOW=1 minute
 MEDIA_UPLOAD_DIR=public/uploads/cms
 MEDIA_PUBLIC_BASE_PATH=/uploads/cms
 MEDIA_MAX_FILE_SIZE_BYTES=8388608
-MEDIA_STORAGE_DRIVER=local
-```
-
-Para probar Cloudflare R2 en lugar de storage local:
-
-```bash
-MEDIA_STORAGE_DRIVER=r2
-R2_ACCOUNT_ID=cloudflare-account-id
-R2_BUCKET_NAME=hes-media-staging
-R2_ACCESS_KEY_ID=cloudflare-r2-access-key
-R2_SECRET_ACCESS_KEY=cloudflare-r2-secret-key
-R2_PUBLIC_BASE_URL=https://media.hackeandoelsistema.net
-R2_OBJECT_CACHE_CONTROL=public, max-age=31536000, immutable
 ```
 
 ## Comandos de preparacion
@@ -107,7 +94,7 @@ GET https://hackeandoelsistema.net/robots.txt
 
 ## Para 300k visitas al mes
 
-Usar Cloudflare delante del dominio, cachear estaticos y media, y activar HTTPS estricto. Para una prueba hoy puede usarse storage local en `public/uploads/cms`, pero para produccion estable conviene mover media a R2/S3/Cloudinary o tener backups diarios del directorio.
+Usar Cloudflare delante del dominio, cachear estaticos y media, y activar HTTPS estricto. La media se guarda en disco local bajo `public/uploads/cms`, asi que para produccion estable hay que incluir ese directorio en backups diarios.
 
 No apuntar el dominio final hasta que:
 

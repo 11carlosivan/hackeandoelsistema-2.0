@@ -9,8 +9,6 @@ const booleanEnv = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
-const optionalUrlEnv = z.string().url().optional().or(z.literal('').transform(() => undefined));
-
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
@@ -31,27 +29,6 @@ const envSchema = z.object({
   MEDIA_UPLOAD_DIR: z.string().min(1).default('public/uploads/cms'),
   MEDIA_PUBLIC_BASE_PATH: z.string().min(1).default('/uploads/cms'),
   MEDIA_MAX_FILE_SIZE_BYTES: z.coerce.number().int().min(1024).max(25 * 1024 * 1024).default(8 * 1024 * 1024),
-  MEDIA_STORAGE_DRIVER: z.enum(['local', 'r2']).default('local'),
-  R2_ACCOUNT_ID: z.string().optional(),
-  R2_BUCKET_NAME: z.string().optional(),
-  R2_ACCESS_KEY_ID: z.string().optional(),
-  R2_SECRET_ACCESS_KEY: z.string().optional(),
-  R2_PUBLIC_BASE_URL: optionalUrlEnv,
-  R2_OBJECT_CACHE_CONTROL: z.string().default('public, max-age=31536000, immutable'),
-}).superRefine((env, context) => {
-  if (env.MEDIA_STORAGE_DRIVER !== 'r2') {
-    return;
-  }
-
-  for (const key of ['R2_ACCOUNT_ID', 'R2_BUCKET_NAME', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_PUBLIC_BASE_URL']) {
-    if (!env[key]) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [key],
-        message: `${key} is required when MEDIA_STORAGE_DRIVER=r2`,
-      });
-    }
-  }
 });
 
 export function loadEnv(overrides = {}) {
