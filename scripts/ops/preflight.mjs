@@ -225,7 +225,11 @@ export async function runPreflight() {
       apiHost: env.API_HOST,
       apiPort: env.API_PORT,
       authCookieSecure: env.AUTH_COOKIE_SECURE,
+      mediaStorageDriver: env.MEDIA_STORAGE_DRIVER,
       mediaUploadDir: env.MEDIA_UPLOAD_DIR,
+      mediaPublicBasePath: env.MEDIA_PUBLIC_BASE_PATH,
+      r2BucketName: env.R2_BUCKET_NAME || null,
+      r2PublicBaseUrl: env.R2_PUBLIC_BASE_URL || null,
     }));
   } catch (error) {
     checks.push(createCheck('env:api', 'FAIL', { error: error.message }));

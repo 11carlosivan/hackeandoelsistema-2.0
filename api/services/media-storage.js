@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 const ALLOWED_MIME_TYPES = new Map([
   ['image/jpeg', ['jpg', 'jpeg']],
@@ -16,6 +17,10 @@ const ALLOWED_MIME_TYPES = new Map([
 
 function normalizeBasePath(value) {
   return `/${String(value || '/uploads/cms').replace(/^\/+|\/+$/g, '')}`;
+}
+
+function normalizeBaseUrl(value) {
+  return String(value || '').replace(/\/+$/g, '');
 }
 
 function resolveUploadRoot(config) {
@@ -148,8 +153,7 @@ export function validateMediaUpload({ filename, mimetype, size, maxSize }) {
   return { ok: true, extension };
 }
 
-export async function storeLocalMediaUpload({ config, file }) {
-  const buffer = file.buffer ?? (await file.toBuffer());
+function validateMediaBuffer({ config, file, buffer }) {
   const validation = validateMediaUpload({
     filename: file.filename,
     mimetype: file.mimetype,
@@ -169,11 +173,76 @@ export async function storeLocalMediaUpload({ config, file }) {
     throw error;
   }
 
+  return validation;
+}
+
+function buildMediaObjectName(file, extension) {
   const now = new Date();
   const year = String(now.getUTCFullYear());
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
   const stem = sanitizeFileStem(path.basename(file.filename, path.extname(file.filename)));
-  const fileName = `${stem}-${randomUUID().slice(0, 12)}.${validation.extension}`;
+  const fileName = `${stem}-${randomUUID().slice(0, 12)}.${extension}`;
+
+  return {
+    year,
+    month,
+    fileName,
+    objectKey: `${year}/${month}/${fileName}`,
+  };
+}
+
+function createR2Client(config) {
+  if (!config.R2_ACCOUNT_ID || !config.R2_ACCESS_KEY_ID || !config.R2_SECRET_ACCESS_KEY) {
+    const error = new Error('R2 storage is enabled but Cloudflare R2 credentials are incomplete');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return new S3Client({
+    region: 'auto',
+    endpoint: `https://${config.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: config.R2_ACCESS_KEY_ID,
+      secretAccessKey: config.R2_SECRET_ACCESS_KEY,
+    },
+    forcePathStyle: true,
+  });
+}
+
+async function storeR2MediaUpload({ config, file, buffer, validation }) {
+  if (!config.R2_BUCKET_NAME || !config.R2_PUBLIC_BASE_URL) {
+    const error = new Error('R2 storage is enabled but bucket name or public base URL is missing');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const { fileName, objectKey } = buildMediaObjectName(file, validation.extension);
+  const dimensions = dimensionsFromImage(buffer, file.mimetype);
+  const client = createR2Client(config);
+  const publicUrl = `${normalizeBaseUrl(config.R2_PUBLIC_BASE_URL)}/${objectKey}`;
+
+  await client.send(new PutObjectCommand({
+    Bucket: config.R2_BUCKET_NAME,
+    Key: objectKey,
+    Body: buffer,
+    ContentType: file.mimetype,
+    CacheControl: config.R2_OBJECT_CACHE_CONTROL,
+  }));
+
+  return {
+    disk: 'r2',
+    url: publicUrl,
+    path: objectKey,
+    mimeType: file.mimetype,
+    fileName,
+    fileSize: buffer.length,
+    width: dimensions.width,
+    height: dimensions.height,
+  };
+}
+
+async function storeLocalMediaUpload({ config, file, buffer, validation }) {
+  const { year, month, fileName } = buildMediaObjectName(file, validation.extension);
   const uploadRoot = resolveUploadRoot(config);
   const targetDir = path.join(uploadRoot, year, month);
   const targetPath = path.join(targetDir, fileName);
@@ -193,4 +262,15 @@ export async function storeLocalMediaUpload({ config, file }) {
     width: dimensions.width,
     height: dimensions.height,
   };
+}
+
+export async function storeMediaUpload({ config, file }) {
+  const buffer = file.buffer ?? (await file.toBuffer());
+  const validation = validateMediaBuffer({ config, file, buffer });
+
+  if (config.MEDIA_STORAGE_DRIVER === 'r2') {
+    return storeR2MediaUpload({ config, file, buffer, validation });
+  }
+
+  return storeLocalMediaUpload({ config, file, buffer, validation });
 }

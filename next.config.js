@@ -28,6 +28,58 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: '/uploads/cms/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/sitemap.xml',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, stale-while-revalidate=1800',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'public, max-age=300, stale-while-revalidate=1800',
+          },
+        ],
+      },
+      {
+        source: '/robots.txt',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, stale-while-revalidate=1800',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'public, max-age=300, stale-while-revalidate=1800',
+          },
+        ],
+      },
+      {
+        source: '/feed.xml',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, stale-while-revalidate=1800',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'public, max-age=300, stale-while-revalidate=1800',
+          },
+        ],
+      },
     ];
   },
   async redirects() {

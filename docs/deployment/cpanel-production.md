@@ -53,6 +53,19 @@ RATE_LIMIT_WINDOW=1 minute
 MEDIA_UPLOAD_DIR=public/uploads/cms
 MEDIA_PUBLIC_BASE_PATH=/uploads/cms
 MEDIA_MAX_FILE_SIZE_BYTES=8388608
+MEDIA_STORAGE_DRIVER=local
+```
+
+Para probar Cloudflare R2 en lugar de storage local:
+
+```bash
+MEDIA_STORAGE_DRIVER=r2
+R2_ACCOUNT_ID=cloudflare-account-id
+R2_BUCKET_NAME=hes-media-staging
+R2_ACCESS_KEY_ID=cloudflare-r2-access-key
+R2_SECRET_ACCESS_KEY=cloudflare-r2-secret-key
+R2_PUBLIC_BASE_URL=https://media.hackeandoelsistema.net
+R2_OBJECT_CACHE_CONTROL=public, max-age=31536000, immutable
 ```
 
 ## Comandos de preparacion

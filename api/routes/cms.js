@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { storeLocalMediaUpload } from '../services/media-storage.js';
+import { storeMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
@@ -1858,7 +1858,7 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.badRequest('Invalid media metadata');
     }
 
-    const stored = await storeLocalMediaUpload({
+    const stored = await storeMediaUpload({
       config: app.config,
       file,
     });

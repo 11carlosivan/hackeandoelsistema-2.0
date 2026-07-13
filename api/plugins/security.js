@@ -32,8 +32,20 @@ function csrfTokensMatch(cookieToken, headerToken) {
   return Boolean(cookieToken && headerToken && cookieToken.length >= 32 && cookieToken === headerToken);
 }
 
+function originFromUrl(value) {
+  if (!value) return null;
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 export async function registerSecurityPlugins(app, env) {
   await app.register(sensible);
+  const r2PublicOrigin = originFromUrl(env.R2_PUBLIC_BASE_URL);
+  const imageSources = ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net', r2PublicOrigin].filter(Boolean);
 
   await app.register(helmet, {
     global: true,
@@ -47,7 +59,7 @@ export async function registerSecurityPlugins(app, env) {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net'],
+        imgSrc: imageSources,
         connectSrc: ["'self'", ...env.corsOrigins],
         formAction: ["'self'"],
         upgradeInsecureRequests: env.isProduction ? [] : null,

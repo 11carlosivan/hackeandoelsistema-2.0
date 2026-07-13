@@ -32,9 +32,11 @@
     "seo:sitemap:inventory:live": "node scripts/seo/sitemap-inventory.mjs --sitemap https://hackeandoelsistema.net/sitemap.xml",
     "qa:routes:smoke": "node scripts/qa/public-route-smoke.mjs",
     "ops:preflight": "node scripts/ops/preflight.mjs",
+    "ops:r2:smoke": "node scripts/ops/r2-smoke.mjs",
     "auth:seed-admin": "node scripts/auth/seed-admin.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1085.0",
     "@fastify/cors": "^11.3.0",
     "@fastify/helmet": "^13.1.0",
     "@fastify/multipart": "^10.1.0",
