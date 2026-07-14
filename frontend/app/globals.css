@@ -15,6 +15,36 @@
   vertical-align: middle;
 }
 
+.cms-rich-editor :where(p, ul, ol, blockquote, h2, h3) {
+  margin-bottom: 1rem;
+}
+
+.cms-rich-editor :where(h2, h3) {
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.cms-rich-editor h2 {
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+.cms-rich-editor h3 {
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.cms-rich-editor blockquote {
+  border-left: 3px solid #E63946;
+  background: rgba(230, 57, 70, 0.08);
+  padding: 1rem;
+}
+
+.cms-rich-editor a {
+  color: #E63946;
+  text-decoration: underline;
+}
+
 /* HUD elements */
 .hud-line-v {
   width: 1px;

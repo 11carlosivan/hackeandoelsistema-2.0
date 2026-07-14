@@ -3,6 +3,7 @@ import { absoluteUrl } from '@/lib/main-design/seo';
 import { getSitemapRoutes } from '@/lib/main-design/api';
 
 export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 const SITEMAP_EXCLUDED_PATHS = new Set([
   '/buscar/',
@@ -50,6 +51,10 @@ function sitemapPriority(route) {
   return route.path === '/' ? 1 : 0.8;
 }
 
+export function shouldUseStaticSitemapFallback() {
+  return process.env.NODE_ENV !== 'production';
+}
+
 export default async function sitemap() {
   try {
     const routes = await getSitemapRoutes();
@@ -62,7 +67,11 @@ export default async function sitemap() {
         changeFrequency: route.changefreq || 'weekly',
         priority: sitemapPriority(route),
       }));
-  } catch {
+  } catch (error) {
+    if (!shouldUseStaticSitemapFallback()) {
+      throw error;
+    }
+
     return getSitemapEntries();
   }
 }

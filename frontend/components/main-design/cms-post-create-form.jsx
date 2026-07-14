@@ -2,8 +2,10 @@
 
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { csrfHeaders } from './client-security';
+import CmsMediaSelectorModal from './cms-media-selector-modal';
+import CmsRichTextEditor from './cms-rich-text-editor';
 
 export default function CmsPostCreateForm({ categories = [], tags = [], media = [] }) {
   const router = useRouter();
@@ -13,6 +15,9 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
   const [selectedTagIds, setSelectedTagIds] = useState([]);
   const [newTagInput, setNewTagInput] = useState('');
   const [newTags, setNewTags] = useState([]);
+  const [editorContent, setEditorContent] = useState({ contentHtml: null, contentText: null });
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const selectedTagSet = new Set(selectedTagIds);
   const selectedTags = tags.filter((tag) => selectedTagSet.has(tag.id));
   const normalizedTagQuery = tagQuery.trim().toLowerCase();
@@ -62,6 +67,10 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
     setNewTags((current) => current.filter((tag) => tag !== tagName));
   };
 
+  const handleEditorChange = useCallback((content) => {
+    setEditorContent(content);
+  }, []);
+
   const submit = async (event) => {
     event.preventDefault();
     setStatus('loading');
@@ -74,10 +83,11 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
       title: String(formData.get('title') || '').trim(),
       slug: String(formData.get('slug') || '').trim() || undefined,
       excerpt: String(formData.get('excerpt') || '').trim() || null,
-      contentText: String(formData.get('contentText') || '').trim() || null,
+      contentText: editorContent.contentText || null,
+      contentHtml: editorContent.contentHtml || null,
       postType: formData.get('postType') || 'NEWS',
       visibility: formData.get('visibility') || 'PUBLIC',
-      featuredMediaId: String(formData.get('featuredMediaId') || '').trim() || null,
+      featuredMediaId: selectedMedia?.id || null,
       categoryIds: categoryId ? [categoryId] : [],
       primaryCategoryId: categoryId || null,
       tagIds: selectedTagIds,
@@ -124,6 +134,7 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
   };
 
   return (
+    <>
     <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
       <section className="border border-terminal-gray bg-surface-container-low/30 p-6 md:p-8">
         <div className="font-label-caps text-system-red text-[10px] font-bold mb-6">CONTENIDO EDITORIAL</div>
@@ -160,16 +171,10 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
             />
           </label>
 
-          <label>
-            <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Contenido texto plano</span>
-            <textarea
-              name="contentText"
-              rows={16}
-              maxLength={50000}
-              placeholder="Se convertira a parrafos HTML seguros para el borrador."
-              className="w-full resize-y border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
-            />
-          </label>
+          <div>
+            <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Contenido editorial</span>
+            <CmsRichTextEditor onChange={handleEditorChange} />
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label>
@@ -371,21 +376,42 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
           <div className="font-label-caps text-system-red text-[10px] font-bold mb-5">MEDIA Y PROGRAMACION</div>
 
           <div className="grid gap-5">
-            <label>
+            <div>
               <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Imagen destacada</span>
-              <select
-                name="featuredMediaId"
-                defaultValue=""
-                className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
-              >
-                <option value="">Sin imagen inicial</option>
-                {media.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.altText || item.fileName || item.id}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="border border-terminal-gray bg-black/30 p-3">
+                {selectedMedia ? (
+                  <div className="mb-3 overflow-hidden border border-terminal-gray">
+                    <img
+                      src={selectedMedia.url}
+                      alt={selectedMedia.altText || selectedMedia.fileName || ''}
+                      className="aspect-video w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="mb-3 border border-dashed border-terminal-gray p-6 text-center text-sm text-on-surface-variant">
+                    Sin imagen seleccionada.
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsMediaModalOpen(true)}
+                    className="bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black hover:bg-white transition-colors"
+                  >
+                    Elegir media
+                  </button>
+                  {selectedMedia ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMedia(null)}
+                      className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red"
+                    >
+                      Quitar
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
 
             <label>
               <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Fecha programada opcional</span>
@@ -450,5 +476,13 @@ export default function CmsPostCreateForm({ categories = [], tags = [], media = 
         </section>
       </aside>
     </form>
+    <CmsMediaSelectorModal
+      isOpen={isMediaModalOpen}
+      onClose={() => setIsMediaModalOpen(false)}
+      onSelect={setSelectedMedia}
+      selectedMediaId={selectedMedia?.id}
+      initialMedia={media}
+    />
+    </>
   );
 }

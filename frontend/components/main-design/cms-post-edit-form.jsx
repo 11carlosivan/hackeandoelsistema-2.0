@@ -2,8 +2,9 @@
 
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { csrfHeaders } from './client-security';
+import CmsRichTextEditor from './cms-rich-text-editor';
 
 const editableStatuses = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
 
@@ -23,6 +24,14 @@ export default function CmsPostEditForm({ post }) {
   const router = useRouter();
   const [status, setStatus] = useState('idle');
   const [message, setMessage] = useState('');
+  const [editorContent, setEditorContent] = useState({
+    contentHtml: post.contentHtml || null,
+    contentText: post.contentText || null,
+  });
+
+  const handleEditorChange = useCallback((content) => {
+    setEditorContent(content);
+  }, []);
 
   if (!editableStatuses.has(post.status)) {
     return (
@@ -41,7 +50,8 @@ export default function CmsPostEditForm({ post }) {
     const payload = {
       title: String(formData.get('title') || '').trim(),
       excerpt: String(formData.get('excerpt') || '').trim() || null,
-      contentText: String(formData.get('contentText') || '').trim() || null,
+      contentText: editorContent.contentText || null,
+      contentHtml: editorContent.contentHtml || null,
       postType: formData.get('postType') || 'NEWS',
       visibility: formData.get('visibility') || 'PUBLIC',
       scheduledAt: String(formData.get('scheduledAt') || '').trim()
@@ -101,16 +111,14 @@ export default function CmsPostEditForm({ post }) {
           />
         </label>
 
-        <label>
-          <span className="block font-label-caps text-[9px] text-system-red font-bold mb-2">Contenido texto plano</span>
-          <textarea
-            name="contentText"
-            rows={10}
-            maxLength={50000}
-            defaultValue={post.contentText || ''}
-            className="w-full resize-y border border-terminal-gray bg-black px-3 py-2 text-sm text-white outline-none focus:border-system-red"
+        <div>
+          <span className="block font-label-caps text-[9px] text-system-red font-bold mb-2">Contenido editorial</span>
+          <CmsRichTextEditor
+            initialHtml={post.contentHtml || ''}
+            initialText={post.contentText || ''}
+            onChange={handleEditorChange}
           />
-        </label>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2">
           <label>

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
 import { removeLocalMediaFile, storeLocalMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
@@ -147,6 +148,7 @@ const postCreateSchema = z.object({
   slug: z.string().trim().min(3).max(280).optional(),
   excerpt: z.string().trim().max(500).nullable().optional(),
   contentText: z.string().trim().max(50000).nullable().optional(),
+  contentHtml: z.string().trim().max(100000).nullable().optional(),
   postType: z.enum(['NEWS', 'OPINION', 'SPONSORED', 'EXTERNAL_SUBMISSION', 'PAGE_ARTICLE']).default('NEWS'),
   visibility: z.enum(['PUBLIC', 'PRIVATE', 'UNLISTED']).default('PUBLIC'),
   featuredMediaId: z.uuid().nullable().optional(),
@@ -173,6 +175,7 @@ const postUpdateSchema = z
     title: z.string().trim().min(3).max(255).optional(),
     excerpt: z.string().trim().max(500).nullable().optional(),
     contentText: z.string().trim().max(50000).nullable().optional(),
+    contentHtml: z.string().trim().max(100000).nullable().optional(),
     postType: z.enum(['NEWS', 'OPINION', 'SPONSORED', 'EXTERNAL_SUBMISSION', 'PAGE_ARTICLE']).optional(),
     visibility: z.enum(['PUBLIC', 'PRIVATE', 'UNLISTED']).optional(),
     scheduledAt: z.coerce.date().nullable().optional(),
@@ -413,6 +416,69 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+const EDITORIAL_HTML_OPTIONS = {
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    'img',
+    'figure',
+    'figcaption',
+    'iframe',
+    'picture',
+    'source',
+    'blockquote',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+  ]),
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],
+    a: ['href', 'name', 'target', 'rel'],
+    img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+    iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'frameborder', 'loading', 'title'],
+    source: ['src', 'srcset', 'type', 'media', 'sizes'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
+  transformTags: {
+    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
+  },
+};
+
+function sanitizeEditorialHtml(value) {
+  if (!value) {
+    return null;
+  }
+
+  return sanitizeHtml(value, EDITORIAL_HTML_OPTIONS).trim() || null;
+}
+
+function htmlToText(value) {
+  if (!value) {
+    return null;
+  }
+
+  const text = sanitizeHtml(String(value), {
+    allowedTags: [],
+    allowedAttributes: {},
+    textFilter: (textValue) => textValue.replace(/\s+/g, ' '),
+  }).trim();
+
+  return text || null;
+}
+
+function buildEditorialContent({ contentText, contentHtml }) {
+  const safeHtml = contentHtml ? sanitizeEditorialHtml(contentHtml) : textToHtml(contentText);
+  const safeText = contentText || htmlToText(safeHtml);
+
+  return {
+    contentHtml: safeHtml,
+    contentText: safeText,
+  };
 }
 
 function textToHtml(value) {
@@ -2261,7 +2327,7 @@ export async function registerCmsRoutes(app) {
     const input = parsed.data;
     const slug = await createUniquePageSlug(app.prisma, input.slug || input.title);
     const path = `/${slug}/`;
-    const contentHtml = textToHtml(input.contentText);
+    const { contentHtml, contentText } = buildEditorialContent(input);
 
     const result = await app.prisma.$transaction(async (tx) => {
       const page = await tx.page.create({
@@ -2269,7 +2335,7 @@ export async function registerCmsRoutes(app) {
           authorId: request.auth.user.id,
           title: input.title,
           slug,
-          contentText: input.contentText || null,
+          contentText,
           contentHtml,
           status: 'DRAFT',
         },
@@ -2638,7 +2704,7 @@ export async function registerCmsRoutes(app) {
     const input = parsed.data;
     const slug = await createUniqueSlug(app.prisma, input.slug || input.title);
     const path = `/${slug}/`;
-    const contentHtml = textToHtml(input.contentText);
+    const { contentHtml, contentText } = buildEditorialContent(input);
     const categoryIds = [...new Set(input.categoryIds)];
     const selectedTagIds = [...new Set(input.tagIds)];
     const inlineTagInputs = buildInlineTagInputs(input.newTagNames);
@@ -2747,7 +2813,7 @@ export async function registerCmsRoutes(app) {
           title: input.title,
           slug,
           excerpt: input.excerpt || null,
-          contentText: input.contentText || null,
+          contentText,
           contentHtml,
           status: 'DRAFT',
           visibility: input.visibility,
@@ -2835,6 +2901,8 @@ export async function registerCmsRoutes(app) {
             author: request.auth.safeUser,
             categories: [],
           }),
+          contentHtml: result.post.contentHtml,
+          contentText: result.post.contentText,
           route: {
             path: result.route.path,
             status: result.route.status,
@@ -2873,10 +2941,16 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.conflict('Only draft-like posts can be edited from this endpoint');
     }
 
-    const data = {
-      ...body.data,
-      ...(Object.hasOwn(body.data, 'contentText') ? { contentHtml: textToHtml(body.data.contentText) } : {}),
-    };
+    const data = { ...body.data };
+
+    if (Object.hasOwn(body.data, 'contentText') || Object.hasOwn(body.data, 'contentHtml')) {
+      const content = buildEditorialContent({
+        contentText: body.data.contentText,
+        contentHtml: body.data.contentHtml,
+      });
+      data.contentText = content.contentText;
+      data.contentHtml = content.contentHtml;
+    }
     const post = await app.prisma.post.update({
       where: { id },
       data,
@@ -2917,7 +2991,11 @@ export async function registerCmsRoutes(app) {
 
     return {
       data: {
-        post: normalizeCmsPost(post),
+        post: {
+          ...normalizeCmsPost(post),
+          contentHtml: post.contentHtml,
+          contentText: post.contentText,
+        },
       },
     };
   });

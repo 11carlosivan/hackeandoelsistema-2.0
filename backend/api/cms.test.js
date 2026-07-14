@@ -1565,6 +1565,37 @@ describe('cms routes', () => {
     });
   });
 
+  it('sanitizes rich HTML when creating a draft CMS post', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Borrador con editor visual',
+        contentHtml: '<h2 onclick="alert(1)">Titulo</h2><p>Texto <a href="javascript:alert(1)">link</a></p><script>alert(1)</script>',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.post.contentHtml).toContain('<h2>Titulo</h2>');
+    expect(response.json().data.post.contentHtml).not.toContain('onclick');
+    expect(response.json().data.post.contentHtml).not.toContain('javascript:');
+    expect(response.json().data.post.contentHtml).not.toContain('<script>');
+    expect(response.json().data.post.contentText).toContain('Titulo');
+  });
+
   it('deduplicates draft slugs against existing posts and routes', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
@@ -1621,6 +1652,36 @@ describe('cms routes', () => {
       excerpt: 'Updated excerpt',
       status: 'DRAFT',
     });
+  });
+
+  it('sanitizes rich HTML when updating editable draft content', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        contentHtml: '<p onclick="alert(1)">Contenido seguro</p><img src="javascript:alert(1)" onerror="alert(1)">',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.contentHtml).toContain('<p>Contenido seguro</p>');
+    expect(response.json().data.post.contentHtml).not.toContain('onclick');
+    expect(response.json().data.post.contentHtml).not.toContain('onerror');
+    expect(response.json().data.post.contentHtml).not.toContain('javascript:');
+    expect(response.json().data.post.contentText).toContain('Contenido seguro');
   });
 
   it('updates CMS post taxonomy with a primary category and tags', async () => {

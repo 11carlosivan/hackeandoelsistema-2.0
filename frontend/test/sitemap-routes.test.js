@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSitemapPathAllowed } from '../app/sitemap.js';
+import { isSitemapPathAllowed, shouldUseStaticSitemapFallback } from '../app/sitemap.js';
 import { absoluteUrl, buildMetadata } from '../lib/main-design/seo.js';
 
 describe('sitemap route filtering', () => {
@@ -41,5 +41,17 @@ describe('sitemap route filtering', () => {
 
     expect(metadata.robots.index).toBe(false);
     expect(metadata.alternates.types).toBeUndefined();
+  });
+
+  it('disables static sitemap fallback in production', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+
+    process.env.NODE_ENV = 'production';
+    expect(shouldUseStaticSitemapFallback()).toBe(false);
+
+    process.env.NODE_ENV = 'development';
+    expect(shouldUseStaticSitemapFallback()).toBe(true);
+
+    process.env.NODE_ENV = previousNodeEnv;
   });
 });

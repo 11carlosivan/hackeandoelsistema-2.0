@@ -70,6 +70,12 @@ export default function CmsDashboard({ summary }) {
             Media
           </Link>
           <Link
+            href="/cms/analiticas"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
+          >
+            Analiticas
+          </Link>
+          <Link
             href="/cms/categorias"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >
