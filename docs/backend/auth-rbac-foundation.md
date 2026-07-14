@@ -226,12 +226,12 @@ application/pdf
 text/plain
 ```
 
-La API valida extension, MIME declarado, firma basica del archivo y tamano maximo. En desarrollo guarda en `public/uploads/cms/YYYY/MM` y expone la URL publica como `/uploads/cms/YYYY/MM/archivo.ext`.
+La API valida extension, MIME declarado, firma basica del archivo y tamano maximo. En desarrollo guarda en `frontend/public/uploads/cms/YYYY/MM` y expone la URL publica como `/uploads/cms/YYYY/MM/archivo.ext`.
 
 Variables:
 
 ```env
-MEDIA_UPLOAD_DIR=public/uploads/cms
+MEDIA_UPLOAD_DIR=../frontend/public/uploads/cms
 MEDIA_PUBLIC_BASE_PATH=/uploads/cms
 MEDIA_MAX_FILE_SIZE_BYTES=8388608
 ```

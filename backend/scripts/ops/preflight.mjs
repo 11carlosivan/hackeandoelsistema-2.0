@@ -9,7 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { buildApp } from '../../api/app.js';
 import { loadEnv } from '../../api/config/env.js';
 
-const REPORT_PATH = path.resolve('docs/operations/preflight.report.json');
+const REPORT_PATH = path.resolve('../docs/operations/preflight.report.json');
 
 export function createCheck(name, status, details = {}) {
   return {

@@ -23,7 +23,8 @@ dist-ssr
 /*.sql
 /*.sql.gz
 /*.dump
-/public/uploads/cms/
+/frontend/public/uploads/cms/
+/backend/public/uploads/cms/
 
 # Editor directories and files
 .vscode/*

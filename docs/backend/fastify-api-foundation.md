@@ -8,14 +8,14 @@ Dejar un backend Fastify seguro y verificable sobre Prisma/MySQL sin intentar mi
 
 ## Archivos
 
-- `api/server.js`: entrypoint del API.
-- `api/app.js`: fabrica de Fastify con Prisma inyectable para tests.
-- `api/config/env.js`: validacion de variables con Zod.
-- `api/db/prisma.js`: Prisma Client singleton.
-- `api/plugins/security.js`: Helmet, CORS, rate limit y errores HTTP.
-- `api/routes/health.js`: health checks.
-- `api/routes/public.js`: endpoints publicos iniciales.
-- `api/app.test.js`: tests de API con Prisma fake.
+- `backend/api/server.js`: entrypoint del API.
+- `backend/api/app.js`: fabrica de Fastify con Prisma inyectable para tests.
+- `backend/api/config/env.js`: validacion de variables con Zod.
+- `backend/api/db/prisma.js`: Prisma Client singleton.
+- `backend/api/plugins/security.js`: Helmet, CORS, rate limit y errores HTTP.
+- `backend/api/routes/health.js`: health checks.
+- `backend/api/routes/public.js`: endpoints publicos iniciales.
+- `backend/api/app.test.js`: tests de API con Prisma fake.
 
 ## Scripts
 

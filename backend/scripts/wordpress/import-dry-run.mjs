@@ -13,7 +13,7 @@ import {
 } from "./inspect-dump.mjs";
 import { YOAST_META_KEYS } from "./yoast-metadata.mjs";
 
-const DEFAULT_REPORT_PATH = "docs/migration/wp-import-dry-run.report.json";
+const DEFAULT_REPORT_PATH = "../docs/migration/wp-import-dry-run.report.json";
 
 const OPTIONS_FIELDS = new Set([1, 2]);
 const POSTS_FIELDS = new Set([0, 1, 2, 3, 7, 10, 11, 14, 15, 17, 18, 20, 21, 22]);

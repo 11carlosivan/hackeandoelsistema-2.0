@@ -20,7 +20,7 @@ import {
 import { canonicalPathForPost } from "./inspect-dump.mjs";
 import { buildYoastSeoPayload } from "./yoast-metadata.mjs";
 
-const DEFAULT_REPORT_PATH = "docs/migration/wp-import-core.report.json";
+const DEFAULT_REPORT_PATH = "../docs/migration/wp-import-core.report.json";
 const IMPORT_SOURCE = "wordpress-core";
 const LEGACY_STATIC_ARCHIVE_ROUTES = [
   {

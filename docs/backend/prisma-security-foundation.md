@@ -4,8 +4,8 @@ Esta fase convierte el ERD de `docs/hackeando-cms-seo-safe.dbml` a Prisma y deja
 
 ## Archivos
 
-- `prisma/schema.prisma`: modelos Prisma para CMS, usuarios, roles, media, posts, SEO, rutas, redirects, importacion, pagos, anuncios, auditoria y seguridad.
-- `prisma/sql/001_mysql_foundation.sql`: SQL complementario para MySQL que Prisma no expresa bien.
+- `backend/prisma/schema.prisma`: modelos Prisma para CMS, usuarios, roles, media, posts, SEO, rutas, redirects, importacion, pagos, anuncios, auditoria y seguridad.
+- `backend/prisma/sql/001_mysql_foundation.sql`: SQL complementario para MySQL que Prisma no expresa bien.
 - `.env.example`: variables minimas de entorno.
 
 ## Decisiones de Seguridad
@@ -55,7 +55,7 @@ npm run db:migrate
 5. Aplicar SQL complementario contra MySQL despues de la migracion inicial:
 
 ```bash
-mysql -h HOST -u USER -p DATABASE < prisma/sql/001_mysql_foundation.sql
+mysql -h HOST -u USER -p DATABASE < backend/prisma/sql/001_mysql_foundation.sql
 ```
 
 6. Generar client:

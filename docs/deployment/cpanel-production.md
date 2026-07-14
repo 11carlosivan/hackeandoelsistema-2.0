@@ -19,12 +19,14 @@ Usar dos Node Apps separadas:
 
 1. Frontend Next.js
    - Dominio: `https://hackeandoelsistema.net`
+   - App root: `frontend`
    - Startup: `npm start` o `.next/standalone/server.js`
    - Puerto: el asignado por cPanel/Passenger.
 
 2. API Fastify
    - Subdominio recomendado: `https://api.hackeandoelsistema.net`
-   - Startup: `npm run start:api` o `api/server.js`
+   - App root: `backend`
+   - Startup: `npm start` o `api/server.js`
    - Puerto: el asignado por cPanel/Passenger. El backend ya acepta `PORT` como fallback de `API_PORT`.
 
 ## Variables frontend
@@ -50,7 +52,7 @@ AUTH_ACCESS_TOKEN_TTL_SECONDS=900
 AUTH_REFRESH_TOKEN_TTL_DAYS=30
 RATE_LIMIT_MAX=120
 RATE_LIMIT_WINDOW=1 minute
-MEDIA_UPLOAD_DIR=public/uploads/cms
+MEDIA_UPLOAD_DIR=../frontend/public/uploads/cms
 MEDIA_PUBLIC_BASE_PATH=/uploads/cms
 MEDIA_MAX_FILE_SIZE_BYTES=8388608
 ```
@@ -58,23 +60,26 @@ MEDIA_MAX_FILE_SIZE_BYTES=8388608
 ## Comandos de preparacion
 
 ```bash
-npm ci
+npm --prefix backend ci
+npm --prefix frontend ci
 npm run db:generate
-npx prisma db push --schema=prisma/schema.prisma
-mysql -h HOST -u USER -p DATABASE < prisma/sql/001_mysql_foundation.sql
-npm run build:production
+npm --prefix backend exec prisma db push -- --schema=prisma/schema.prisma
+mysql -h HOST -u USER -p DATABASE < backend/prisma/sql/001_mysql_foundation.sql
+npm run build
 npm run deploy:check
 ```
 
-En cPanel compartido, si `npm run build:production` consume demasiada memoria, hacer el build fuera del servidor y subir:
+En cPanel compartido, si `npm run build` consume demasiada memoria, hacer el build fuera del servidor y subir:
 
-- `.next/standalone`
-- `.next/static`
-- `public`
-- `package.json`
-- `package-lock.json`
-- `prisma`
-- `api`
+- `frontend/.next/standalone`
+- `frontend/.next/static`
+- `frontend/public`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `backend/package.json`
+- `backend/package-lock.json`
+- `backend/prisma`
+- `backend/api`
 
 ## Validacion antes de apuntar DNS
 
@@ -96,13 +101,13 @@ GET https://hackeandoelsistema.net/robots.txt
 
 ## Para 300k visitas al mes
 
-Usar Cloudflare delante del dominio, cachear estaticos y media, y activar HTTPS estricto. La media se guarda en disco local bajo `public/uploads/cms`, asi que para produccion estable hay que incluir ese directorio en backups diarios.
+Usar Cloudflare delante del dominio, cachear estaticos y media, y activar HTTPS estricto. La media se guarda en disco local bajo `frontend/public/uploads/cms`, asi que para produccion estable hay que incluir ese directorio en backups diarios.
 
 No apuntar el dominio final hasta que:
 
 - `npm run deploy:check` pase.
-- El schema Prisma y `prisma/sql/001_mysql_foundation.sql` hayan sido aplicados sobre MySQL.
+- El schema Prisma y `backend/prisma/sql/001_mysql_foundation.sql` hayan sido aplicados sobre MySQL.
 - `/ready` devuelva `database: connected`.
 - El sitemap nuevo tenga las URLs importadas.
 - El login CMS funcione con cookie segura en HTTPS.
-- Exista backup de DB y de `public/uploads/cms`.
+- Exista backup de DB y de `frontend/public/uploads/cms`.

@@ -26,7 +26,7 @@ const envSchema = z.object({
   AUTH_MAX_LOGIN_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   AUTH_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   SECURITY_CSP_REPORT_ONLY: booleanEnv.default(false),
-  MEDIA_UPLOAD_DIR: z.string().min(1).default('public/uploads/cms'),
+  MEDIA_UPLOAD_DIR: z.string().min(1).default('../frontend/public/uploads/cms'),
   MEDIA_PUBLIC_BASE_PATH: z.string().min(1).default('/uploads/cms'),
   MEDIA_MAX_FILE_SIZE_BYTES: z.coerce.number().int().min(1024).max(25 * 1024 * 1024).default(8 * 1024 * 1024),
 });

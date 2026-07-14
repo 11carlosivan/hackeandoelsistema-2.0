@@ -1,58 +1,72 @@
 # Hackeando el Sistema
 
-Frontend Next.js para Hackeando el Sistema Network. Mantiene la estetica actual aprobada por el cliente y reemplaza el runtime legacy de Vite/React Router por App Router de Next.
+Migracion WordPress a una arquitectura separada:
 
-## Stack
+- `frontend/`: Next.js App Router, React, TailwindCSS, SEO, sitemap, robots, CMS UI y experiencia publica.
+- `backend/`: Fastify, Prisma, MySQL, auth/RBAC, CMS API, importadores WordPress, QA operativa y scripts de preflight.
+- `package.json` raiz: orquestador sin dependencias propias. Delega comandos hacia `backend` y `frontend`.
 
-- Next.js
-- React
-- TailwindCSS
-- Vitest + Testing Library
-- oxlint
-
-## SEO
-
-La metadata vive en la capa nativa de Next para que Google reciba HTML rastreable desde el primer render.
-
-- Metadata por ruta: home, articulos, categorias, opiniones, perfiles y paginas estaticas generan `title`, `description`, canonical, Open Graph y Twitter cards.
-- Indexacion selectiva: busqueda interna, checkout, CMS, login, registro, recuperacion y crear publicacion usan `NOINDEX, NOFOLLOW`.
-- Sitemap y robots: `app/sitemap.js` y `app/robots.js` exponen `/sitemap.xml` y `/robots.txt`.
-- Datos estructurados: Organization/WebSite global y NewsArticle por publicacion mediante JSON-LD.
-- Redirects 301: `lib/main-design/legacy-redirects.js` queda preparado para cargar el mapa real de URLs antiguas de WordPress.
-
-Para produccion se debe configurar:
+## Instalacion
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://hackeandoelsistema.net
+npm run install:all
 ```
 
-## Rutas Principales
+Cada app mantiene su propio lock y sus propias dependencias:
 
-- `/`
-- `/articulo/[id]`
-- `/categoria/[id]`
-- `/opinion/[id]`
-- `/perfil/[id]`
-- `/pagina/[slug]`
-- `/buscar`
-- `/cms`
-- `/contacto-seguro`
-- `/planes`
+```txt
+backend/package.json
+backend/package-lock.json
+frontend/package.json
+frontend/package-lock.json
+```
 
 ## Desarrollo
 
+En terminales separadas:
+
 ```bash
-npm install
-npm run dev
+npm run dev:backend
+npm run dev:frontend
+```
+
+## Variables
+
+Copiar y ajustar:
+
+```bash
+backend/.env.example -> backend/.env
+frontend/.env.example -> frontend/.env
+```
+
+Para media local, el backend escribe por defecto en:
+
+```txt
+../frontend/public/uploads/cms
+```
+
+La URL publica se mantiene como:
+
+```txt
+/uploads/cms
 ```
 
 ## Validacion
 
+Desde la raiz:
+
 ```bash
-npm run lint
-npm test
-npm run build
-npm audit --audit-level=moderate
+npm run deploy:check
 ```
 
-La build de produccion se genera con Next en `.next/` y debe desplegarse en un runtime compatible con Next.js.
+Ese comando valida Prisma, lint, tests backend, tests frontend, build Next, smoke de rutas publicas y preflight operativo.
+
+## Comandos utiles
+
+```bash
+npm run db:validate
+npm run db:generate
+npm run wp:import:core:local -- --write
+npm run qa:routes:smoke
+npm run ops:preflight
+```

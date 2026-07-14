@@ -8,7 +8,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 
 const DEFAULT_SITEMAP_URL = "https://hackeandoelsistema.net/sitemap.xml";
-const DEFAULT_REPORT_PATH = "docs/migration/sitemap-inventory.report.json";
+const DEFAULT_REPORT_PATH = "../docs/migration/sitemap-inventory.report.json";
 const DISCOVERED_FROM = "wordpress-sitemap";
 
 export async function runSitemapInventory({

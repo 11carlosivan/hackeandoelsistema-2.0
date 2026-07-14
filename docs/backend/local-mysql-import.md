@@ -21,13 +21,13 @@ El archivo `.env` local no se versiona.
 ```bash
 npm run db:generate
 npm run db:validate
-npx prisma db push --schema=prisma/schema.prisma
+npm --prefix backend exec prisma db push -- --schema=prisma/schema.prisma
 ```
 
 Aplicar SQL foundation:
 
 ```powershell
-Get-Content prisma\sql\001_mysql_foundation.sql | docker exec -i hackeando-mysql mysql -uroot -proot hackeandoelsistema
+Get-Content backend\prisma\sql\001_mysql_foundation.sql | docker exec -i hackeando-mysql mysql -uroot -proot hackeandoelsistema
 ```
 
 ## Importar WordPress
@@ -50,7 +50,8 @@ npm run wp:import:core:local -- --write
 npm test
 npm run lint
 npm run db:validate
-npm audit --audit-level=moderate
+npm --prefix backend audit --audit-level=moderate
+npm --prefix frontend audit --audit-level=moderate
 npm run build
 ```
 

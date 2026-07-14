@@ -24,7 +24,7 @@ const PUBLIC_OPTIONS = new Set([
 
 const POST_FIELD_INDEXES = new Set([0, 2, 3, 7, 10, 11, 14, 15, 17, 18, 20, 21, 22]);
 const OPTION_FIELD_INDEXES = new Set([1, 2]);
-const DEFAULT_REPORT_PATH = "docs/migration/wp-dump-inventory.report.json";
+const DEFAULT_REPORT_PATH = "../docs/migration/wp-dump-inventory.report.json";
 
 export function decodeSqlValue(rawValue) {
   const value = rawValue.trim();

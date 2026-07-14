@@ -19,7 +19,7 @@ function normalizeBasePath(value) {
 }
 
 function resolveUploadRoot(config) {
-  const uploadDir = config.MEDIA_UPLOAD_DIR || 'public/uploads/cms';
+  const uploadDir = config.MEDIA_UPLOAD_DIR || '../frontend/public/uploads/cms';
 
   return path.isAbsolute(uploadDir) ? uploadDir : path.resolve(process.cwd(), uploadDir);
 }

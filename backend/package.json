@@ -1,0 +1,52 @@
+{
+  "name": "hackeando-backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "node api/server.js",
+    "start": "node api/server.js",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma",
+    "lint": "oxlint api scripts test",
+    "test": "vitest run",
+    "db:format": "prisma format --schema=prisma/schema.prisma",
+    "db:validate": "prisma validate --schema=prisma/schema.prisma",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "wp:inspect": "node scripts/wordpress/inspect-dump.mjs",
+    "wp:inspect:local": "node scripts/wordpress/inspect-dump.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
+    "wp:import:dry-run": "node scripts/wordpress/import-dry-run.mjs",
+    "wp:import:dry-run:local": "node scripts/wordpress/import-dry-run.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
+    "wp:import:core": "node scripts/wordpress/import-core.mjs",
+    "wp:import:core:local": "node scripts/wordpress/import-core.mjs --dump %TEMP%/hes-wp-db/qscbkfcv_wp999.sql",
+    "seo:sitemap:inventory": "node scripts/seo/sitemap-inventory.mjs",
+    "seo:sitemap:inventory:live": "node scripts/seo/sitemap-inventory.mjs --sitemap https://hackeandoelsistema.net/sitemap.xml",
+    "qa:routes:smoke": "node scripts/qa/public-route-smoke.mjs",
+    "ops:preflight": "node scripts/ops/preflight.mjs",
+    "auth:seed-admin": "node scripts/auth/seed-admin.mjs"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.0",
+    "@fastify/multipart": "^10.1.0",
+    "@fastify/rate-limit": "^11.1.0",
+    "@fastify/sensible": "^6.0.4",
+    "@prisma/client": "^6.19.3",
+    "argon2": "^0.44.0",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.10.0",
+    "jose": "^6.2.3",
+    "sanitize-html": "^2.17.6",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "form-data": "^4.0.6",
+    "oxlint": "^1.71.0",
+    "prisma": "^6.19.3",
+    "vitest": "^4.1.10"
+  }
+}

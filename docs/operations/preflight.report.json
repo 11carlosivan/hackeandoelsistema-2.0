@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T04:18:30.524Z",
+  "generatedAt": "2026-07-14T19:05:50.953Z",
   "mode": "ops-preflight",
   "summary": {
     "status": "PASS",
@@ -17,7 +17,7 @@
         "apiHost": "127.0.0.1",
         "apiPort": 4000,
         "authCookieSecure": false,
-        "mediaUploadDir": "public/uploads/cms",
+        "mediaUploadDir": "../frontend/public/uploads/cms",
         "mediaPublicBasePath": "/uploads/cms"
       }
     },
@@ -80,7 +80,7 @@
           "ok": true,
           "service": "hackeando-api",
           "status": "live",
-          "timestamp": "2026-07-13T04:18:28.015Z"
+          "timestamp": "2026-07-14T19:05:47.733Z"
         }
       }
     },
@@ -96,7 +96,7 @@
           "service": "hackeando-api",
           "status": "ready",
           "database": "connected",
-          "timestamp": "2026-07-13T04:18:28.021Z"
+          "timestamp": "2026-07-14T19:05:47.739Z"
         }
       }
     },

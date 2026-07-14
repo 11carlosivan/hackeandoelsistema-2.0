@@ -8,7 +8,7 @@ import { buildApp } from "../../api/app.js";
 import { loadEnv } from "../../api/config/env.js";
 import { disconnectPrismaClient, getPrismaClient } from "../../api/db/prisma.js";
 
-const DEFAULT_REPORT_PATH = "docs/qa/public-route-smoke.report.json";
+const DEFAULT_REPORT_PATH = "../docs/qa/public-route-smoke.report.json";
 const DEFAULT_LIMIT_PER_TYPE = 3;
 
 export function entityEndpointForRoute(route) {
