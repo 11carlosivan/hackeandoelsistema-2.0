@@ -30,6 +30,13 @@
     "seo:sitemap:inventory:live": "npm --prefix backend run seo:sitemap:inventory:live",
     "qa:routes:smoke": "npm --prefix backend run qa:routes:smoke",
     "ops:preflight": "npm --prefix backend run ops:preflight",
-    "auth:seed-admin": "npm --prefix backend run auth:seed-admin"
+    "auth:seed-admin": "npm --prefix backend run auth:seed-admin",
+    "docker:build": "docker compose --env-file .env.production -f compose.prod.yaml build",
+    "docker:up": "docker compose --env-file .env.production -f compose.prod.yaml up -d",
+    "docker:down": "docker compose --env-file .env.production -f compose.prod.yaml down",
+    "docker:logs": "docker compose --env-file .env.production -f compose.prod.yaml logs -f",
+    "docker:ps": "docker compose --env-file .env.production -f compose.prod.yaml ps",
+    "docker:db:push": "docker compose --env-file .env.production -f compose.prod.yaml --profile tools run --rm backend-tools npm exec prisma db push -- --schema=prisma/schema.prisma",
+    "docker:seed-admin": "docker compose --env-file .env.production -f compose.prod.yaml exec backend npm run auth:seed-admin"
   }
 }
