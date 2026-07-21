@@ -5,7 +5,7 @@ Este despliegue corre el proyecto completo en Docker:
 - `mysql`: base MySQL 8.4.
 - `backend`: API Fastify + Prisma.
 - `frontend`: Next.js standalone.
-- `caddy`: reverse proxy con HTTPS automatico.
+- `caddy`: reverse proxy opcional con HTTPS automatico. En VPS con Nginx existente, usar Nginx del host.
 
 ## 1. DNS
 
@@ -15,7 +15,7 @@ En el DNS del cliente, crear un registro `A`:
 subdominio.cliente.com  A  IP_DEL_VPS
 ```
 
-Antes de levantar Caddy, el dominio debe resolver al VPS y los puertos `80` y `443` deben estar abiertos.
+Antes de configurar HTTPS, el dominio debe resolver al VPS y los puertos `80` y `443` deben estar abiertos.
 
 ## 2. Preparar VPS
 
@@ -83,14 +83,78 @@ docker compose --env-file .env.production -f compose.prod.yaml up -d
 
 ## 4. Crear admin inicial
 
-Si `ADMIN_EMAIL` y `ADMIN_PASSWORD` estan definidos:
+Si `ADMIN_EMAIL`, `ADMIN_USERNAME` y `ADMIN_PASSWORD` estan definidos:
 
 ```bash
 docker compose --env-file .env.production -f compose.prod.yaml exec backend \
   npm run auth:seed-admin
 ```
 
-Despues del primer login, rotar la clave desde el CMS o cambiar `ADMIN_PASSWORD` y volver a sembrar.
+Para crear varios administradores, cambiar `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_DISPLAY_NAME` y `ADMIN_PASSWORD` temporalmente en el entorno del comando:
+
+```bash
+docker compose --env-file .env.production -f compose.prod.yaml exec \
+  -e ADMIN_EMAIL=admin2@example.com \
+  -e ADMIN_USERNAME=admin2 \
+  -e ADMIN_DISPLAY_NAME="Admin 2" \
+  -e ADMIN_PASSWORD="clave-temporal-segura" \
+  backend npm run auth:seed-admin
+```
+
+Despues del primer login, rotar las claves desde el CMS.
+
+## Nginx del host
+
+Cuando se usa Nginx del VPS, `compose.prod.yaml` publica:
+
+- frontend: `127.0.0.1:3000`
+- backend: `127.0.0.1:4000`
+
+Ejemplo de server block:
+
+```nginx
+server {
+    listen 80;
+    server_name subdominio.cliente.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name subdominio.cliente.com;
+
+    ssl_certificate /etc/letsencrypt/live/subdominio.cliente.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/subdominio.cliente.com/privkey.pem;
+
+    client_max_body_size 32m;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:4000;
+    }
+
+    location /ready {
+        proxy_pass http://127.0.0.1:4000;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
 ## 5. Importar contenido WordPress
 
