@@ -796,6 +796,7 @@ export function applyPasswordProtectedSeoPolicy(post, payload) {
 
 async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, counters }) {
   const legacyUrl = pagePathForPost(post, state.posts);
+  const isFrontPage = isWordPressFrontPage(state, post);
   assertCanonicalPath(legacyUrl, post);
   const contentHtml = sanitizeLegacyHtml(post.contentHtml);
   const payload = {
@@ -822,12 +823,12 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
     entityType: "PAGE",
     entityId: dbPage.id,
     lastmodAt: parseWordPressDate(post.updatedAtGmt),
-    includeInSitemap: !isPasswordProtectedPost(post),
+    includeInSitemap: !isFrontPage && !isPasswordProtectedPost(post),
   });
   counters.routes += 1;
   await upsertSeoMetadata({ prisma, state, post, route, routePath: legacyUrl, counters });
 
-  if (isWordPressFrontPage(state, post)) {
+  if (isFrontPage) {
     const homeRoute = await upsertRoute(prisma, {
       path: "/",
       entityType: "HOME",
@@ -838,6 +839,33 @@ async function upsertPage({ prisma, state, post, importRunId, userIdByLegacyId, 
     counters.routes += 1;
     counters.homeRoutes += 1;
     await upsertSeoMetadata({ prisma, state, post, route: homeRoute, routePath: "/", counters });
+    await prisma.route.update({
+      where: { id: route.id },
+      data: {
+        status: "REDIRECTED",
+        httpStatus: 301,
+        includeInSitemap: false,
+        canonicalRouteId: homeRoute.id,
+      },
+    });
+    await prisma.redirect.upsert({
+      where: { sourcePath: legacyUrl },
+      create: {
+        sourcePath: legacyUrl,
+        targetUrl: "/",
+        statusCode: 301,
+        preserveQuery: false,
+        source: "WORDPRESS",
+        isActive: true,
+      },
+      update: {
+        targetUrl: "/",
+        statusCode: 301,
+        preserveQuery: false,
+        source: "WORDPRESS",
+        isActive: true,
+      },
+    });
   }
 
   await upsertMapping(prisma, {
