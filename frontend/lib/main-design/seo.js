@@ -6,6 +6,7 @@ export const siteConfig = {
   title: 'Hackeando el Sistema | Digital Intelligence Unit',
   description: 'Noticias, opinion e inteligencia digital desde Republica Dominicana.',
   url: process.env.NEXT_PUBLIC_SITE_URL || productionUrl,
+  indexingEnabled: process.env.NEXT_PUBLIC_INDEXING_ENABLED !== 'false',
   locale: 'es_DO',
   twitterHandle: '@hackeandoelsistema',
   defaultImage: '/isotipo.png',
@@ -54,8 +55,8 @@ export function buildMetadata({
   const imageUrl = image?.startsWith('http') ? image : absoluteUrl(image || siteConfig.defaultImage);
   const validPublishedTime = toIsoDate(publishedTime);
   const validModifiedTime = toIsoDate(modifiedTime);
-  const shouldIndex = robotsIndex ? robotsIndex === 'INDEX' : !noIndex;
-  const shouldFollow = robotsFollow ? robotsFollow === 'FOLLOW' : !noIndex;
+  const shouldIndex = siteConfig.indexingEnabled && (robotsIndex ? robotsIndex === 'INDEX' : !noIndex);
+  const shouldFollow = robotsFollow ? robotsFollow === 'FOLLOW' : true;
   const resolvedOgTitle = ogTitle || pageTitle;
   const resolvedOgDescription = ogDescription || description;
   const resolvedTwitterTitle = twitterTitle || resolvedOgTitle;

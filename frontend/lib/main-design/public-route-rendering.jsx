@@ -180,11 +180,14 @@ async function loadEntityOrNotFound(route, options = {}) {
   }
 }
 
-function routeRobots(route) {
+function routeRobots(route, defaults = {}) {
+  const robotsIndex = route.seo?.robotsIndex || defaults.robotsIndex;
+  const robotsFollow = route.seo?.robotsFollow || defaults.robotsFollow;
+
   return {
-    noIndex: route.seo?.robotsIndex === 'NOINDEX',
-    robotsIndex: route.seo?.robotsIndex,
-    robotsFollow: route.seo?.robotsFollow,
+    noIndex: robotsIndex === 'NOINDEX',
+    robotsIndex,
+    robotsFollow,
   };
 }
 
@@ -325,7 +328,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         path: canonicalPath,
         tags: [feed.category.title],
         ...routeSocialMetadata(route),
-        ...routeRobots(route),
+        ...routeRobots(route, { robotsIndex: 'NOINDEX', robotsFollow: 'FOLLOW' }),
       });
     } catch {
       return buildMetadata({ title: 'Categoria no encontrada', path: routePath, noIndex: true });
@@ -342,7 +345,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         path: canonicalPath,
         tags: [feed.tag.title],
         ...routeSocialMetadata(route),
-        ...routeRobots(route),
+        ...routeRobots(route, { robotsIndex: 'NOINDEX', robotsFollow: 'FOLLOW' }),
       });
     } catch {
       return buildMetadata({ title: 'Tag no encontrado', path: routePath, noIndex: true });

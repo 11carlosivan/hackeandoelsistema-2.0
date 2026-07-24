@@ -1404,6 +1404,9 @@ export async function registerPublicRoutes(app) {
         httpStatus: 200,
         includeInSitemap: true,
         canonicalRouteId: null,
+        entityType: {
+          notIn: ['CATEGORY', 'TAG'],
+        },
         OR: [
           {
             seoMetadata: {

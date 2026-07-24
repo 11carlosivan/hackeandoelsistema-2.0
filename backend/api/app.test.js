@@ -221,6 +221,7 @@ describe('api app', () => {
             expect(where.httpStatus).toBe(200);
             expect(where.includeInSitemap).toBe(true);
             expect(where.canonicalRouteId).toBeNull();
+            expect(where.entityType).toEqual({ notIn: ['CATEGORY', 'TAG'] });
             expect(where.OR).toEqual([
               { seoMetadata: { is: null } },
               { seoMetadata: { is: { robotsIndex: 'INDEX' } } },
