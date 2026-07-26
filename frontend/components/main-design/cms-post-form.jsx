@@ -1,0 +1,1088 @@
+﻿'use client';
+
+import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { csrfHeaders } from './client-security';
+import CmsMediaSelectorModal from './cms-media-selector-modal';
+import CmsGutenbergEditor from './cms-gutenberg-editor';
+import CmsWorkflowActions from './cms-workflow-actions';
+
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+export default function CmsPostForm({ categories = [], tags = [], media = [], post = null }) {
+  const router = useRouter();
+  const [postId, setPostId] = useState(post?.id || null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(post?.featuredMedia || null);
+  
+  // Tags states
+  const [tagQuery, setTagQuery] = useState('');
+  const [selectedTagIds, setSelectedTagIds] = useState(post?.tags?.map(t => t.id) || []);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [newTags, setNewTags] = useState([]);
+  
+  // Content states (using Gutenberg HTML editor)
+  const [contentHtml, setContentHtml] = useState(post?.contentHtml || '');
+  const [contentText, setContentText] = useState(post?.contentText || '');
+  
+  // Post Title and Slug states
+  const [postTitle, setPostTitle] = useState(post?.title || '');
+  const [postSlug, setPostSlug] = useState(post?.slug || '');
+  const [isSlugManual, setIsSlugManual] = useState(Boolean(post?.slug));
+
+  // Categories states
+  const [localCategories, setLocalCategories] = useState(categories);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(post?.categories?.map(c => c.id) || []);
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  
+  // Inline category creation states
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryParentId, setNewCategoryParentId] = useState('');
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+
+  // Yoast SEO states
+  const [seoTab, setSeoTab] = useState('seo');
+  const [seoTitleVal, setSeoTitleVal] = useState(post?.route?.seo?.title || '%%title%% %%page%% %%separator%% %%sitename%%');
+  const [seoDescriptionVal, setSeoDescriptionVal] = useState(post?.route?.seo?.description || '');
+  const [seoPreviewMode, setSeoPreviewMode] = useState('mobile');
+  const [isSeoExpanded, setIsSeoExpanded] = useState(true);
+
+  // Metadata states
+  const [excerpt, setExcerpt] = useState(post?.excerpt || '');
+  const [postType, setPostType] = useState(post?.postType || 'NEWS');
+  const [visibility, setVisibility] = useState(post?.visibility || 'PUBLIC');
+  const [isFeatured, setIsFeatured] = useState(post?.isFeatured || false);
+  const [isBreaking, setIsBreaking] = useState(post?.isBreaking || false);
+  const [isSponsored, setIsSponsored] = useState(post?.isSponsored || false);
+  const [scheduledAt, setScheduledAt] = useState(
+    post?.scheduledAt ? new Date(post.scheduledAt).toISOString().substring(0, 16) : ''
+  );
+  
+  // Autosave message
+  const [autoSaveMessage, setAutoSaveMessage] = useState('');
+
+  // Auto-save useEffect (every 2 seconds of inactivity)
+  useEffect(() => {
+    // If no title and no content, don't auto-save to DB yet
+    if (!postId && !postTitle.trim() && !contentHtml.trim()) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+      const payload = {
+        title: postTitle.trim() || 'Publicación sin título',
+        slug: postSlug.trim() || undefined,
+        excerpt: excerpt.trim() || null,
+        contentHtml: contentHtml || null,
+        contentText: contentText || null,
+        postType: postType,
+        visibility: visibility,
+        featuredMediaId: selectedMedia?.id || null,
+        categoryIds: selectedCategoryIds,
+        primaryCategoryId: selectedCategoryIds[0] || null,
+        tagIds: selectedTagIds,
+        newTagNames: newTags,
+        seoTitle: seoTitleVal.trim() || null,
+        seoDescription: seoDescriptionVal.trim() || null,
+        robotsIndex: visibility === 'PUBLIC' ? 'INDEX' : 'NOINDEX',
+        robotsFollow: 'FOLLOW',
+        isFeatured: isFeatured,
+        isBreaking: isBreaking,
+        isSponsored: isSponsored,
+        scheduledAt: scheduledAtVal,
+      };
+
+      try {
+        if (postId) {
+          // PATCH update existing draft/post in DB
+          const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              ...csrfHeaders(),
+            },
+            body: JSON.stringify(payload),
+          });
+          if (response.ok) {
+            const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setAutoSaveMessage(`Autoguardado en base de datos a las ${time}`);
+          }
+        } else {
+          // POST create new post as DRAFT in DB
+          const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              ...csrfHeaders(),
+            },
+            body: JSON.stringify({
+              ...payload,
+              status: 'DRAFT',
+            }),
+          });
+          if (response.ok) {
+            const json = await response.json();
+            const newId = json.data?.post?.id;
+            if (newId) {
+              setPostId(newId);
+              window.history.replaceState(null, '', `/cms/publicaciones/${newId}`);
+              const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              setAutoSaveMessage(`Borrador guardado a las ${time}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Autosave DB sync error:', err);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [
+    postTitle,
+    postSlug,
+    contentHtml,
+    contentText,
+    excerpt,
+    postType,
+    visibility,
+    isFeatured,
+    isBreaking,
+    isSponsored,
+    scheduledAt,
+    selectedCategoryIds,
+    selectedTagIds,
+    selectedMedia,
+    newTags,
+    seoTitleVal,
+    seoDescriptionVal,
+    postId,
+  ]);
+
+  const slugify = (text) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
+  };
+
+  const handleTitleChange = (e) => {
+    const val = e.target.value;
+    setPostTitle(val);
+    if (!isSlugManual) {
+      setPostSlug(slugify(val));
+    }
+  };
+
+  const handleSlugChange = (e) => {
+    setPostSlug(e.target.value);
+    setIsSlugManual(true);
+  };
+
+  // Build category tree
+  const categoryTree = (() => {
+    const map = {};
+    const roots = [];
+    localCategories.forEach((item) => {
+      map[item.id] = { ...item, children: [] };
+    });
+    localCategories.forEach((item) => {
+      if (item.parentId && map[item.parentId]) {
+        map[item.parentId].children.push(map[item.id]);
+      } else {
+        roots.push(map[item.id]);
+      }
+    });
+    return roots;
+  })();
+
+  const renderCategoryNode = (node, depth = 0) => {
+    const isChecked = selectedCategoryIds.includes(node.id);
+    const handleToggle = () => {
+      setSelectedCategoryIds((prev) =>
+        isChecked ? prev.filter((id) => id !== node.id) : [...prev, node.id]
+      );
+    };
+
+    return (
+      <div key={node.id} className="flex flex-col">
+        <label 
+          className="flex items-center gap-2 py-1 text-white select-none hover:text-system-red cursor-pointer"
+          style={{ paddingLeft: `${depth * 16}px` }}
+        >
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={handleToggle}
+            className="h-4 w-4 accent-system-red bg-black border-terminal-gray"
+          />
+          <span className="text-xs">{decodeHtmlEntities(node.name)}</span>
+        </label>
+        {node.children && node.children.length > 0 && (
+          <div className="flex flex-col">
+            {node.children.map((child) => renderCategoryNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    setIsSavingCategory(true);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/categories`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          parentId: newCategoryParentId || null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo añadir la categoría.');
+      }
+
+      const data = await response.json();
+      const createdCategory = data.data?.category || data.category;
+      if (createdCategory) {
+        setLocalCategories((prev) => [...prev, createdCategory]);
+        setSelectedCategoryIds((prev) => [...prev, createdCategory.id]);
+        setNewCategoryName('');
+        setNewCategoryParentId('');
+        setIsAddingCategory(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Error al crear la categoría.');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const resolveSeoPlaceholder = (text) => {
+    if (!text) return '';
+    return text
+      .replace(/%%title%%/g, postTitle || 'Título de la entrada')
+      .replace(/%%page%%/g, 'Página 1')
+      .replace(/%%separator%%/g, '-')
+      .replace(/%%sitename%%/g, 'Hackeando el Sistema');
+  };
+
+  const selectedTagSet = new Set(selectedTagIds);
+  const selectedTags = tags.filter((tag) => selectedTagSet.has(tag.id));
+  const normalizedTagQuery = tagQuery.trim().toLowerCase();
+  const filteredTags = tags
+    .filter((tag) => {
+      if (selectedTagSet.has(tag.id)) return false;
+      if (!normalizedTagQuery) return true;
+      return `${tag.name || ''} ${tag.slug || ''}`.toLowerCase().includes(normalizedTagQuery);
+    })
+    .slice(0, 12);
+
+  const addExistingTag = (tagId) => {
+    setSelectedTagIds((current) => (current.includes(tagId) ? current : [...current, tagId]));
+  };
+
+  const removeExistingTag = (tagId) => {
+    setSelectedTagIds((current) => current.filter((id) => id !== tagId));
+  };
+
+  const addNewTags = () => {
+    const incoming = newTagInput
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (incoming.length === 0) return;
+
+    setNewTags((current) => {
+      const seen = new Set(current.map((tag) => tag.toLowerCase()));
+      const next = [...current];
+
+      for (const tag of incoming) {
+        const key = tag.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          next.push(tag);
+        }
+      }
+
+      return next;
+    });
+    setNewTagInput('');
+  };
+
+  const removeNewTag = (tagName) => {
+    setNewTags((current) => current.filter((tag) => tag !== tagName));
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setStatus('loading');
+    setError('');
+
+    const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+    const contentPayload = {
+      title: postTitle.trim(),
+      slug: postSlug.trim() || undefined,
+      excerpt: excerpt.trim() || null,
+      contentHtml: contentHtml || null,
+      contentText: contentText || null,
+      postType: postType,
+      visibility: visibility,
+      scheduledAt: scheduledAtVal,
+    };
+    const createPayload = {
+      ...contentPayload,
+      featuredMediaId: selectedMedia?.id || null,
+      categoryIds: selectedCategoryIds,
+      primaryCategoryId: selectedCategoryIds[0] || null,
+      tagIds: selectedTagIds,
+      newTagNames: newTags,
+      seoTitle: seoTitleVal.trim() || null,
+      seoDescription: seoDescriptionVal.trim() || null,
+      robotsIndex: visibility === 'PUBLIC' ? 'INDEX' : 'NOINDEX',
+      robotsFollow: 'FOLLOW',
+      isFeatured: isFeatured,
+      isBreaking: isBreaking,
+      isSponsored: isSponsored,
+    };
+    const requestJson = async (url, options) => {
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'Error al guardar la publicacion.');
+      }
+
+      return response.json().catch(() => ({}));
+    };
+
+    try {
+      let finalId = postId;
+
+      if (postId) {
+        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(contentPayload),
+        });
+        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/taxonomy`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            categoryIds: selectedCategoryIds,
+            primaryCategoryId: selectedCategoryIds[0] || null,
+            tagIds: selectedTagIds,
+            newTagNames: newTags,
+          }),
+        });
+        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/seo`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            title: seoTitleVal.trim() || null,
+            description: seoDescriptionVal.trim() || null,
+            robotsIndex: visibility === 'PUBLIC' ? 'INDEX' : 'NOINDEX',
+            robotsFollow: 'FOLLOW',
+          }),
+        });
+        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/featured-media`, {
+          method: 'PATCH',
+          body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
+        });
+      } else {
+        const json = await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts`, {
+          method: 'POST',
+          body: JSON.stringify(createPayload),
+        });
+        finalId = json.data?.post?.id;
+      }
+
+      if (!finalId) {
+        throw new Error('La API no devolvio el ID de la publicacion.');
+      }
+
+      setStatus('success');
+      router.push(`/cms/publicaciones/${finalId}`);
+      router.refresh();
+    } catch (createError) {
+      setStatus('error');
+      setError(createError.message);
+    }
+  };
+
+  const isLive = post?.status === 'PUBLISHED' || post?.status === 'SCHEDULED';
+
+  return (
+    <>
+      <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] w-full max-w-full overflow-hidden">
+        <section className="border border-terminal-gray bg-surface-container-low/30 p-6 md:p-8 w-full max-w-full overflow-hidden">
+          <div className="flex justify-between items-center mb-6">
+            <div className="font-label-caps text-system-red text-[10px] font-bold">CONTENIDO EDITORIAL</div>
+            {isLive && (
+              <span className="bg-system-red text-black font-label-caps text-[8px] px-2 py-0.5 font-bold animate-pulse">
+                EDICIÓN LIVE EN VIVO
+              </span>
+            )}
+          </div>
+
+          {isLive && (
+            <div className="border border-system-red/35 bg-system-red/5 p-3 mb-5 text-[11px] text-white font-mono uppercase">
+              [ALERTA: ESTA PUBLICACIÓN ESTÁ PUBLICADA O PROGRAMADA. LOS CAMBIOS SE APLICARÁN EN VIVO]
+            </div>
+          )}
+
+          <div className="grid gap-5">
+            <div className="border border-terminal-gray bg-black/25 text-white p-6 md:p-8 min-h-[600px] flex flex-col font-sans relative w-full max-w-full overflow-hidden">
+              <div className="flex justify-between items-center border-b border-terminal-gray/20 pb-4 mb-6">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-system-red font-mono tracking-widest uppercase">
+                    Editor de Bloques (WordPress Gutenberg)
+                  </span>
+                  {autoSaveMessage && (
+                    <span className="text-[9px] font-semibold text-emerald-400 mt-1 font-mono">
+                      ✓ {autoSaveMessage}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[9px] font-bold text-on-surface-variant uppercase">
+                    Visual Editor
+                  </span>
+                </div>
+              </div>
+
+              {/* Titulo del Post (Estilo WordPress) */}
+              <input
+                type="text"
+                name="title"
+                required
+                minLength={3}
+                maxLength={255}
+                value={postTitle}
+                onChange={handleTitleChange}
+                placeholder="Escribe un título..."
+                className="w-full font-serif text-3xl md:text-4xl font-bold border-none outline-none bg-transparent placeholder-neutral-600 text-white pb-4 border-b border-terminal-gray/25 mb-6"
+              />
+
+              {/* Gutenberg Editor Component Integration */}
+              <div className="flex-grow">
+                <CmsGutenbergEditor 
+                  initialHtml={contentHtml} 
+                  onChange={(editorData) => {
+                    setContentHtml(editorData.contentHtml);
+                    setContentText(editorData.contentText);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Yoast SEO Panel */}
+            <div className="border border-terminal-gray bg-black/25 p-6">
+              <button
+                type="button"
+                onClick={() => setIsSeoExpanded(!isSeoExpanded)}
+                className="w-full flex items-center justify-between font-label-caps text-system-red text-[11px] font-bold outline-none mb-4"
+              >
+                <span>Yoast SEO</span>
+                <span className="material-symbols-outlined text-sm">
+                  {isSeoExpanded ? 'expand_less' : 'expand_more'}
+                </span>
+              </button>
+
+              {isSeoExpanded && (
+                <div className="space-y-6">
+                  <div className="flex border-b border-terminal-gray">
+                    <button
+                      type="button"
+                      onClick={() => setSeoTab('seo')}
+                      className={`px-4 py-2 text-xs font-semibold ${seoTab === 'seo' ? 'border-b-2 border-system-red text-white' : 'text-on-surface-variant'}`}
+                    >
+                      Ajustes SEO
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSeoTab('readability')}
+                      className={`px-4 py-2 text-xs font-semibold ${seoTab === 'readability' ? 'border-b-2 border-system-red text-white' : 'text-on-surface-variant'}`}
+                    >
+                      Legibilidad
+                    </button>
+                  </div>
+
+                  {seoTab === 'seo' ? (
+                    <div className="space-y-4">
+                      {/* SEO Preview Card */}
+                      <div className="border border-terminal-gray bg-black p-4 text-xs font-sans">
+                        <div className="flex justify-between text-[10px] text-on-surface-variant mb-2">
+                          <span>Vista previa del resultado de búsqueda ({seoPreviewMode})</span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSeoPreviewMode('mobile')}
+                              className={seoPreviewMode === 'mobile' ? 'text-system-red font-bold' : ''}
+                            >
+                              Móvil
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSeoPreviewMode('desktop')}
+                              className={seoPreviewMode === 'desktop' ? 'text-system-red font-bold' : ''}
+                            >
+                              Escritorio
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-1 max-w-[600px] break-words">
+                          <div className="text-[11px] text-on-surface-variant truncate">
+                            hackeandoelsistema.net/{postSlug || 'ejemplo-slug'}/
+                          </div>
+                          <div className="text-lg text-sky-400 font-medium hover:underline cursor-pointer">
+                            {resolveSeoPlaceholder(seoTitleVal)}
+                          </div>
+                          <div className="text-neutral-400 text-[11px] leading-relaxed">
+                            {seoDescriptionVal ? seoDescriptionVal : 'Proporciona una meta descripción editando el bloque correspondiente abajo. De lo contrario, los motores de búsqueda intentarán extraer texto del artículo.'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SEO Title Input */}
+                      <label className="block">
+                        <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Título SEO</span>
+                        <input
+                          type="text"
+                          value={seoTitleVal}
+                          onChange={(e) => setSeoTitleVal(e.target.value)}
+                          placeholder="%%title%% %%page%% %%separator%% %%sitename%%"
+                          className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red"
+                        />
+                      </label>
+
+                      {/* Slug Input */}
+                      <label className="block">
+                        <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Slug</span>
+                        <input
+                          type="text"
+                          value={postSlug}
+                          onChange={handleSlugChange}
+                          placeholder="slug-de-la-publicacion"
+                          className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red font-mono"
+                        />
+                      </label>
+
+                      {/* SEO Description Input */}
+                      <label className="block">
+                        <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Meta Descripción</span>
+                        <textarea
+                          rows={3}
+                          value={seoDescriptionVal}
+                          onChange={(e) => setSeoDescriptionVal(e.target.value)}
+                          placeholder="Escribe la meta descripción aquí..."
+                          className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red resize-y"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-xs text-on-surface-variant">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <span>Longitud del texto: Excelente.</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <span>Uso de voz activa: Correcto.</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                        <span>Enlaces externos: Falta añadir enlaces a tu contenido.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {error ? (
+            <div className="border border-system-red bg-system-red/10 p-4 mt-5 text-sm text-white font-mono">
+              {error}
+            </div>
+          ) : null}
+        </section>
+
+        {/* Sidebar Settings Panel */}
+        <aside className="space-y-6 w-full max-w-full overflow-hidden">
+          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
+            <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
+            >
+              {status === 'loading' ? 'Guardando...' : (postId ? 'Guardar Cambios' : 'Crear borrador')}
+            </button>
+
+            {/* Workflow Actions for existing post */}
+            {post && (
+              <div className="border-t border-terminal-gray/20 pt-4 mt-3">
+                <CmsWorkflowActions post={post} />
+              </div>
+            )}
+          </section>
+
+          {/* Classification Settings Panel */}
+          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
+            <div className="font-label-caps text-system-red text-[10px] font-bold mb-5">CLASIFICACION</div>
+
+            <div className="grid gap-5">
+              <div className="border border-terminal-gray bg-surface-container-low/20 p-4 w-full max-w-full overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
+                  className="w-full flex items-center justify-between font-label-caps text-system-red text-[10px] font-bold outline-none mb-3"
+                >
+                  <span>Categorías</span>
+                  <span className="material-symbols-outlined text-sm">
+                    {isCategoriesExpanded ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+
+                {isCategoriesExpanded && (
+                  <div>
+                    <div className="relative mb-3">
+                      <input
+                        type="text"
+                        placeholder="Buscar categorías..."
+                        value={categorySearchQuery}
+                        onChange={(e) => setCategorySearchQuery(e.target.value)}
+                        className="w-full border border-terminal-gray bg-black pl-8 pr-4 py-2 text-xs text-white outline-none focus:border-system-red"
+                      />
+                      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">
+                        search
+                      </span>
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto border border-terminal-gray bg-black/30 p-3 mb-3 flex flex-col gap-1 w-full max-w-full overflow-x-hidden">
+                      {categorySearchQuery ? (
+                        localCategories.filter((cat) =>
+                          (cat.name || '').toLowerCase().includes(categorySearchQuery.toLowerCase())
+                        ).length > 0 ? (
+                          localCategories
+                            .filter((cat) =>
+                              (cat.name || '').toLowerCase().includes(categorySearchQuery.toLowerCase())
+                            )
+                            .map((cat) => {
+                              const isChecked = selectedCategoryIds.includes(cat.id);
+                              const handleToggle = () => {
+                                setSelectedCategoryIds((prev) =>
+                                  isChecked ? prev.filter((id) => id !== cat.id) : [...prev, cat.id]
+                                );
+                              };
+                              return (
+                                <label key={cat.id} className="flex items-center gap-2 py-1 text-white select-none hover:text-system-red cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={handleToggle}
+                                    className="h-4 w-4 accent-system-red bg-black border-terminal-gray"
+                                  />
+                                  <span className="text-xs">{decodeHtmlEntities(cat.name)}</span>
+                                </label>
+                              );
+                            })
+                        ) : (
+                          <p className="text-xs text-on-surface-variant py-2">No se encontraron resultados.</p>
+                        )
+                      ) : (
+                        categoryTree.length > 0 ? (
+                          categoryTree.map((rootNode) => renderCategoryNode(rootNode))
+                        ) : (
+                          <p className="text-xs text-on-surface-variant py-2">No hay categorías disponibles.</p>
+                        )
+                      )}
+                    </div>
+
+                    {!isAddingCategory ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingCategory(true)}
+                        className="text-xs text-system-red hover:text-white font-semibold underline cursor-pointer"
+                      >
+                        + Añadir nueva categoría
+                      </button>
+                    ) : (
+                      <div className="border border-terminal-gray bg-black/45 p-3 mt-3 space-y-3">
+                        <label className="block">
+                          <span className="block text-[9px] text-on-surface-variant mb-1 font-semibold">Nombre</span>
+                          <input
+                            type="text"
+                            required
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            placeholder="Ej. Deportes"
+                            className="w-full border border-terminal-gray bg-black px-2 py-2 text-xs text-white outline-none focus:border-system-red"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="block text-[9px] text-on-surface-variant mb-1 font-semibold">Categoría padre</span>
+                          <select
+                            value={newCategoryParentId}
+                            onChange={(e) => setNewCategoryParentId(e.target.value)}
+                            className="w-full border border-terminal-gray bg-black px-2 py-2 text-xs text-white outline-none focus:border-system-red font-semibold"
+                          >
+                            <option value="">— Sin padre —</option>
+                            {localCategories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {decodeHtmlEntities(cat.name)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingCategory(false);
+                              setNewCategoryName('');
+                              setNewCategoryParentId('');
+                            }}
+                            className="border border-terminal-gray px-2 py-1 font-label-caps text-[9px] font-bold text-white hover:border-system-red"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleAddCategory}
+                            disabled={isSavingCategory}
+                            className="bg-system-red text-black px-2 py-1 font-label-caps text-[9px] font-bold hover:bg-white disabled:opacity-50"
+                          >
+                            {isSavingCategory ? 'Guardando...' : 'Añadir'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-terminal-gray bg-surface-container-low/20 p-4 w-full max-w-full overflow-hidden">
+                <div className="font-label-caps text-[10px] text-system-red font-bold mb-3">Tags</div>
+
+                <div className="mb-4">
+                  <div className="block">
+                    <span className="block font-label-caps text-[9px] text-on-surface-variant font-bold mb-2">
+                      Crear tags nuevos
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        value={newTagInput}
+                        onChange={(event) => setNewTagInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            addNewTags();
+                          }
+                        }}
+                        maxLength={500}
+                        placeholder="codigo penal, politica, justicia"
+                        className="min-w-0 flex-1 border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+                      />
+                      <button
+                        type="button"
+                        onClick={addNewTags}
+                        className="bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black hover:bg-white transition-colors"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-on-surface-variant">
+                    Separados por coma.
+                  </p>
+                </div>
+
+                {newTags.length > 0 || selectedTags.length > 0 ? (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {newTags.map((tag) => (
+                      <span
+                        key={`new-${tag}`}
+                        className="inline-flex items-center gap-2 border border-system-red bg-system-red/10 px-3 py-2 text-xs font-bold text-white"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeNewTag(tag)}
+                          className="material-symbols-outlined text-[16px] text-system-red hover:text-white"
+                          aria-label={`Quitar tag ${tag}`}
+                        >
+                          close
+                        </button>
+                      </span>
+                    ))}
+                    {selectedTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="inline-flex items-center gap-2 border border-terminal-gray bg-black/40 px-3 py-2 text-xs font-bold text-white"
+                      >
+                        {decodeHtmlEntities(tag.name || tag.slug)}
+                        <button
+                          type="button"
+                          onClick={() => removeExistingTag(tag.id)}
+                          className="material-symbols-outlined text-[16px] text-system-red hover:text-white"
+                          aria-label={`Quitar tag ${tag.name || tag.slug}`}
+                        >
+                          close
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mb-4 border border-dashed border-terminal-gray p-3 text-sm text-on-surface-variant">
+                    Sin tags seleccionados.
+                  </div>
+                )}
+
+                <label className="block">
+                  <span className="block font-label-caps text-[9px] text-on-surface-variant font-bold mb-2">
+                    Buscar tags existentes
+                  </span>
+                  <input
+                    value={tagQuery}
+                    onChange={(event) => setTagQuery(event.target.value)}
+                    placeholder="Buscar tag..."
+                    className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+                  />
+                </label>
+
+                <div className="mt-3 max-h-48 overflow-y-auto border border-terminal-gray bg-black/30 p-2">
+                  {filteredTags.length > 0 ? (
+                    <div className="grid gap-2">
+                      {filteredTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => addExistingTag(tag.id)}
+                          className="flex items-center justify-between gap-3 border border-terminal-gray bg-black px-3 py-2 text-left text-sm text-white hover:border-system-red transition-colors"
+                        >
+                          <span className="truncate">{decodeHtmlEntities(tag.name || tag.slug)}</span>
+                          <span className="material-symbols-outlined text-[16px] text-system-red">add</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 text-sm text-on-surface-variant">
+                      No hay tags existentes con ese filtro.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Breaking/Featured Checkboxes */}
+              <div className="grid gap-3">
+                <label className="flex items-center gap-3 border border-terminal-gray bg-surface-container-low/30 p-3 select-none cursor-pointer">
+                  <input 
+                    name="isBreaking" 
+                    type="checkbox" 
+                    checked={isBreaking}
+                    onChange={(e) => setIsBreaking(e.target.checked)}
+                    className="h-4 w-4 accent-system-red bg-black border-terminal-gray" 
+                  />
+                  <span className="font-label-caps text-[10px] text-white font-bold">Última hora</span>
+                </label>
+                <label className="flex items-center gap-3 border border-terminal-gray bg-surface-container-low/30 p-3 select-none cursor-pointer">
+                  <input 
+                    name="isFeatured" 
+                    type="checkbox" 
+                    checked={isFeatured}
+                    onChange={(e) => setIsFeatured(e.target.checked)}
+                    className="h-4 w-4 accent-system-red bg-black border-terminal-gray" 
+                  />
+                  <span className="font-label-caps text-[10px] text-white font-bold">Destacada</span>
+                </label>
+                <label className="flex items-center gap-3 border border-terminal-gray bg-surface-container-low/30 p-3 select-none cursor-pointer">
+                  <input 
+                    name="isSponsored" 
+                    type="checkbox" 
+                    checked={isSponsored}
+                    onChange={(e) => setIsSponsored(e.target.checked)}
+                    className="h-4 w-4 accent-system-red bg-black border-terminal-gray" 
+                  />
+                  <span className="font-label-caps text-[10px] text-white font-bold">Patrocinada</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          {/* Media & Scheduling Panel */}
+          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
+            <div className="font-label-caps text-system-red text-[10px] font-bold mb-5">MEDIA Y PROGRAMACION</div>
+
+            <div className="grid gap-5">
+              <div>
+                <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Imagen destacada</span>
+                <input type="hidden" name="featuredMediaId" value={selectedMedia?.id || ''} />
+                
+                {selectedMedia ? (
+                  <div className="border border-terminal-gray bg-black/40 p-4">
+                    <img
+                      src={selectedMedia.url}
+                      alt={selectedMedia.altText || selectedMedia.fileName}
+                      className="w-full max-h-[180px] object-contain border border-terminal-gray bg-black mb-3"
+                    />
+                    <div className="text-xs text-on-surface-variant mb-3 truncate" title={selectedMedia.fileName}>
+                      {selectedMedia.fileName}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsMediaModalOpen(true)}
+                        className="flex-grow border border-terminal-gray px-3 py-2 text-[10px] font-bold text-white hover:border-system-red"
+                      >
+                        Reemplazar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMedia(null)}
+                        className="border border-system-red/40 text-system-red px-3 py-2 text-[10px] font-bold hover:border-system-red"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsMediaModalOpen(true)}
+                    className="w-full border border-dashed border-terminal-gray hover:border-system-red p-8 text-center text-xs text-on-surface-variant flex flex-col items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-2xl">add_photo_alternate</span>
+                    <span>Asignar imagen destacada</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Schedule and Visibility Options */}
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Fecha de publicación programada</span>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red font-mono"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Tipo de contenido</span>
+                  <select
+                    value={postType}
+                    onChange={(e) => setPostType(e.target.value)}
+                    className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red"
+                  >
+                    <option value="NEWS">Noticia</option>
+                    <option value="OPINION">Opinión</option>
+                    <option value="SPONSORED">Patrocinado</option>
+                    <option value="EXTERNAL_SUBMISSION">Envío Externo</option>
+                    <option value="PAGE_ARTICLE">Artículo de Página</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Visibilidad</span>
+                  <select
+                    value={visibility}
+                    onChange={(e) => setVisibility(e.target.value)}
+                    className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red"
+                  >
+                    <option value="PUBLIC">Pública</option>
+                    <option value="PRIVATE">Privada</option>
+                    <option value="UNLISTED">No listada</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Extracto (Resumen)</span>
+                  <textarea
+                    rows={3}
+                    value={excerpt}
+                    onChange={(e) => setExcerpt(e.target.value)}
+                    placeholder="Resumen opcional..."
+                    className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red resize-y"
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          {/* Migration details for existing posts */}
+          {post && (post.legacyWordpressId || post.legacyUrl) && (
+            <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
+              <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">DATOS DE MIGRACION</div>
+              <div className="space-y-3 text-xs font-mono text-on-surface-variant">
+                <div>
+                  <span className="text-white block">[WP ID]:</span>
+                  {post.legacyWordpressId}
+                </div>
+                {post.legacyUrl && (
+                  <div className="break-all">
+                    <span className="text-white block">[Legacy URL]:</span>
+                    {post.legacyUrl}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </aside>
+      </form>
+
+      {/* Media Selector Modal */}
+      <CmsMediaSelectorModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        mediaList={media}
+        onSelect={(mediaAsset) => {
+          setSelectedMedia(mediaAsset);
+          setIsMediaModalOpen(false);
+        }}
+      />
+    </>
+  );
+}
+

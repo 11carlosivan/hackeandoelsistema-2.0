@@ -1,5 +1,5 @@
 import Layout from '@/components/main-design/layout';
-import CmsPostCreateForm from '@/components/main-design/cms-post-create-form';
+import CmsPostForm from '@/components/main-design/cms-post-form';
 import CmsSessionActions from '@/components/main-design/cms-session-actions';
 import { SystemPageHeader } from '@/components/main-design/content-primitives';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -49,7 +49,7 @@ export default async function Page() {
           </div>
         </div>
 
-        <CmsPostCreateForm
+        <CmsPostForm
           categories={categoriesResult.categories}
           tags={tagsResult.tags}
           media={mediaResult.media}

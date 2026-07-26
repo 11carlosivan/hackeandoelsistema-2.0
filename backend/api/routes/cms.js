@@ -173,11 +173,15 @@ const pageCreateSchema = z.object({
 const postUpdateSchema = z
   .object({
     title: z.string().trim().min(3).max(255).optional(),
+    slug: z.string().trim().min(3).max(280).optional(),
     excerpt: z.string().trim().max(500).nullable().optional(),
     contentText: z.string().trim().max(50000).nullable().optional(),
     contentHtml: z.string().trim().max(100000).nullable().optional(),
     postType: z.enum(['NEWS', 'OPINION', 'SPONSORED', 'EXTERNAL_SUBMISSION', 'PAGE_ARTICLE']).optional(),
     visibility: z.enum(['PUBLIC', 'PRIVATE', 'UNLISTED']).optional(),
+    isFeatured: z.coerce.boolean().optional(),
+    isBreaking: z.coerce.boolean().optional(),
+    isSponsored: z.coerce.boolean().optional(),
     scheduledAt: z.coerce.date().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -494,7 +498,7 @@ function textToHtml(value) {
   return paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`).join('\n');
 }
 
-async function createUniqueSlug(prisma, value) {
+async function createUniqueSlug(prisma, value, currentPostId = null) {
   const base = slugify(value) || `borrador-${Date.now()}`;
 
   for (let index = 0; index < 50; index += 1) {
@@ -502,10 +506,13 @@ async function createUniqueSlug(prisma, value) {
     const path = `/${slug}/`;
     const [existingPost, existingRoute] = await Promise.all([
       prisma.post.findUnique({ where: { slug }, select: { id: true } }),
-      prisma.route.findUnique({ where: { path }, select: { id: true } }),
+      prisma.route.findUnique({ where: { path }, select: { id: true, entityType: true, entityId: true } }),
     ]);
 
-    if (!existingPost && !existingRoute) {
+    const slugBelongsToCurrentPost = existingPost?.id === currentPostId;
+    const routeBelongsToCurrentPost = existingRoute?.entityType === 'POST' && existingRoute?.entityId === currentPostId;
+
+    if ((!existingPost || slugBelongsToCurrentPost) && (!existingRoute || routeBelongsToCurrentPost)) {
       return slug;
     }
   }
@@ -747,6 +754,10 @@ function normalizeCmsPost(post) {
     status: post.status,
     visibility: post.visibility,
     postType: post.postType,
+    isFeatured: post.isFeatured,
+    isBreaking: post.isBreaking,
+    isSponsored: post.isSponsored,
+    scheduledAt: post.scheduledAt,
     publishedAt: post.publishedAt,
     updatedAt: post.updatedAt,
     viewCount: post.viewCount,
@@ -2930,6 +2941,7 @@ export async function registerCmsRoutes(app) {
       select: {
         id: true,
         status: true,
+        slug: true,
       },
     });
 
@@ -2943,6 +2955,10 @@ export async function registerCmsRoutes(app) {
 
     const data = { ...body.data };
 
+    if (Object.hasOwn(body.data, 'slug')) {
+      data.slug = await createUniqueSlug(app.prisma, body.data.slug, id);
+    }
+
     if (Object.hasOwn(body.data, 'contentText') || Object.hasOwn(body.data, 'contentHtml')) {
       const content = buildEditorialContent({
         contentText: body.data.contentText,
@@ -2951,42 +2967,60 @@ export async function registerCmsRoutes(app) {
       data.contentText = content.contentText;
       data.contentHtml = content.contentHtml;
     }
-    const post = await app.prisma.post.update({
-      where: { id },
-      data,
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
+
+    const post = await app.prisma.$transaction(async (tx) => {
+      const updatedPost = await tx.post.update({
+        where: { id },
+        data,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
           },
-        },
-        categories: {
-          include: {
-            category: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                fullPath: true,
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  fullPath: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    await app.prisma.auditLog.create({
-      data: {
-        actorId: request.auth.user.id,
-        action: 'POST_CONTENT_UPDATED',
-        entityType: 'POST',
-        entityId: id,
-        metadata: {
-          fields: Object.keys(body.data),
+      if (data.slug && data.slug !== existingPost.slug) {
+        await tx.route.updateMany({
+          where: {
+            entityType: 'POST',
+            entityId: id,
+          },
+          data: {
+            path: `/${data.slug}/`,
+            lastmodAt: new Date(),
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: request.auth.user.id,
+          action: 'POST_CONTENT_UPDATED',
+          entityType: 'POST',
+          entityId: id,
+          metadata: {
+            fields: Object.keys(body.data),
+          },
         },
-      },
+      });
+
+      return updatedPost;
     });
 
     return {

@@ -208,6 +208,7 @@ function createPrismaStub(user, options = {}) {
   };
   let assignedCategoryRelations = [];
   let assignedTagRelations = [];
+  const routeUpdateManyCalls = options.routeUpdateManyCalls || [];
 
   const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
@@ -313,7 +314,10 @@ function createPrismaStub(user, options = {}) {
         includeInSitemap: data.includeInSitemap,
         lastmodAt: data.lastmodAt,
       }),
-      updateMany: async () => ({ count: 1 }),
+      updateMany: async (args = {}) => {
+        routeUpdateManyCalls.push(args);
+        return { count: 1 };
+      },
     },
     redirect: {
       count,
@@ -1652,6 +1656,54 @@ describe('cms routes', () => {
       excerpt: 'Updated excerpt',
       status: 'DRAFT',
     });
+  });
+
+  it('updates editable draft slug, editorial flags and route path together', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const routeUpdateManyCalls = [];
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { routeUpdateManyCalls }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Draft updated',
+        slug: 'Mi Slug Nuevo',
+        isBreaking: true,
+        isFeatured: true,
+        isSponsored: false,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post).toMatchObject({
+      title: 'Draft updated',
+      slug: 'mi-slug-nuevo',
+      isBreaking: true,
+      isFeatured: true,
+      isSponsored: false,
+    });
+    expect(routeUpdateManyCalls).toContainEqual(
+      expect.objectContaining({
+        where: {
+          entityType: 'POST',
+          entityId: '22222222-2222-4222-8222-222222222222',
+        },
+        data: expect.objectContaining({
+          path: '/mi-slug-nuevo/',
+        }),
+      }),
+    );
   });
 
   it('sanitizes rich HTML when updating editable draft content', async () => {
