@@ -42,7 +42,10 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
       try {
         const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media?${params.toString()}`, {
           credentials: 'include',
-          headers: csrfHeaders(),
+          headers: {
+            Accept: 'application/json',
+            ...csrfHeaders(),
+          },
         });
 
         if (!response.ok) {
@@ -93,7 +96,7 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
       }
 
       const json = await response.json();
-      const item = json.data || json.media;
+      const item = json.data?.media || json.media || json.data;
 
       if (item) {
         setItems((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);

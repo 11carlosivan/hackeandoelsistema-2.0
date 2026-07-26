@@ -27,6 +27,13 @@ function normalizeSafeUrl(value) {
   }
 }
 
+function normalizeHeadingLevel(value) {
+  const level = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(level)) return 2;
+  return Math.min(4, Math.max(2, level));
+}
+
 // Convert HTML string to Block Objects
 function htmlToBlocks(html) {
   if (!html) return [{ id: 'b-1', type: 'paragraph', content: '' }];
@@ -111,7 +118,7 @@ function blocksToHtml(blocks) {
   return blocks.map(b => {
     switch (b.type) {
       case 'heading':
-        return `<h${b.level || 2}>${b.content}</h${b.level || 2}>`;
+        return `<h${normalizeHeadingLevel(b.level)}>${b.content}</h${normalizeHeadingLevel(b.level)}>`;
       case 'paragraph':
         return `<p>${b.content}</p>`;
       case 'quote':
@@ -408,12 +415,9 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange }) {
                     onChange={(e) => updateBlockData(index, { level: parseInt(e.target.value, 10) })}
                     className="bg-black border border-terminal-gray/40 text-white text-xs px-2 py-1 outline-none font-mono"
                   >
-                    <option value={1}>H1</option>
                     <option value={2}>H2</option>
                     <option value={3}>H3</option>
                     <option value={4}>H4</option>
-                    <option value={5}>H5</option>
-                    <option value={6}>H6</option>
                   </select>
                   <EditableText
                     value={block.content}

@@ -9,6 +9,11 @@ const booleanEnv = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+const optionalUrlEnv = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  return value;
+}, z.string().url().optional());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
@@ -29,6 +34,10 @@ const envSchema = z.object({
   MEDIA_UPLOAD_DIR: z.string().min(1).default('../frontend/public/uploads/cms'),
   MEDIA_PUBLIC_BASE_PATH: z.string().min(1).default('/uploads/cms'),
   MEDIA_MAX_FILE_SIZE_BYTES: z.coerce.number().int().min(1024).max(25 * 1024 * 1024).default(8 * 1024 * 1024),
+  WEATHER_API_URL: optionalUrlEnv,
+  EXCHANGE_RATE_SOURCE_URL: optionalUrlEnv,
+  PUBLIC_STATS_CACHE_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  PUBLIC_STATS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(15000).default(5000),
 });
 
 export function loadEnv(overrides = {}) {

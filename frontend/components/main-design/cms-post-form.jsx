@@ -98,7 +98,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         newTagNames: newTags,
         seoTitle: seoTitleVal.trim() || null,
         seoDescription: seoDescriptionVal.trim() || null,
-        robotsIndex: visibility === 'PUBLIC' ? 'INDEX' : 'NOINDEX',
+        robotsIndex: 'NOINDEX',
         robotsFollow: 'FOLLOW',
         isFeatured: isFeatured,
         isBreaking: isBreaking,
@@ -369,7 +369,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       newTagNames: newTags,
       seoTitle: seoTitleVal.trim() || null,
       seoDescription: seoDescriptionVal.trim() || null,
-      robotsIndex: visibility === 'PUBLIC' ? 'INDEX' : 'NOINDEX',
+      robotsIndex: 'NOINDEX',
       robotsFollow: 'FOLLOW',
       isFeatured: isFeatured,
       isBreaking: isBreaking,
@@ -416,7 +416,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           body: JSON.stringify({
             title: seoTitleVal.trim() || null,
             description: seoDescriptionVal.trim() || null,
-            robotsIndex: visibility === 'PUBLIC' ? 'INDEX' : 'NOINDEX',
+            robotsIndex: 'NOINDEX',
             robotsFollow: 'FOLLOW',
           }),
         });

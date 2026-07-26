@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { publicCacheHeaders } from '../utils/http.js';
+import { createSystemStatsProvider } from '../services/public-system-stats.js';
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -583,6 +584,8 @@ function normalizePublicTag(tag) {
 }
 
 export async function registerPublicRoutes(app) {
+  const systemStatsProvider = createSystemStatsProvider(app.config || {});
+
   app.addHook('preHandler', async (request) => {
     if (request.method === 'GET' && request.url.startsWith('/api/v1/public/')) {
       await publishDueScheduledPosts(app);
@@ -1393,6 +1396,14 @@ export async function registerPublicRoutes(app) {
         recentPosts: recentPosts.map(normalizePublicPost),
       },
     };
+  });
+
+  app.get('/api/v1/public/system-stats', async (_request, reply) => {
+    publicCacheHeaders(reply, Number(app.config?.PUBLIC_STATS_CACHE_SECONDS || 900));
+
+    const data = await systemStatsProvider.get();
+
+    return { data };
   });
 
   app.get('/api/v1/public/sitemap-routes', async (_request, reply) => {
