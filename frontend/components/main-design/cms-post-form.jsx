@@ -515,6 +515,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               <div className="flex-grow">
                 <CmsGutenbergEditor 
                   initialHtml={contentHtml} 
+                  initialMedia={media}
                   onChange={(editorData) => {
                     setContentHtml(editorData.contentHtml);
                     setContentText(editorData.contentText);

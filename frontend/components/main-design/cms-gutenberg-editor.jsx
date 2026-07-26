@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
+import CmsMediaSelectorModal from './cms-media-selector-modal';
 
 // Helper to escape HTML characters for attributes
 function escapeHtml(text) {
@@ -260,10 +261,11 @@ function FormattingToolbar() {
   );
 }
 
-export default function CmsGutenbergEditor({ initialHtml = '', onChange }) {
+export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = [], onChange }) {
   const [blocks, setBlocks] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [activeBlockIndex, setActiveBlockIndex] = useState(null);
+  const [mediaModalBlockIndex, setMediaModalBlockIndex] = useState(null);
 
   // Initialize blocks from HTML on mount
   useEffect(() => {
@@ -336,11 +338,29 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange }) {
     updateParent(newBlocks);
   };
 
+  const selectImageFromMedia = (mediaAsset) => {
+    if (mediaModalBlockIndex === null || !mediaAsset?.url) {
+      setMediaModalBlockIndex(null);
+      return;
+    }
+
+    updateBlockData(mediaModalBlockIndex, {
+      url: mediaAsset.url,
+      caption: mediaAsset.altText || mediaAsset.caption || mediaAsset.fileName || '',
+    });
+    setActiveBlockIndex(mediaModalBlockIndex);
+    setMediaModalBlockIndex(null);
+  };
+
   if (!initialized) {
     return <div className="text-on-surface-variant text-xs font-mono animate-pulse">[CARGANDO EDITOR...]</div>;
   }
 
+  const activeImageBlock = mediaModalBlockIndex === null ? null : blocks[mediaModalBlockIndex];
+  const selectedMediaId = initialMedia.find((item) => item.url === activeImageBlock?.url)?.id || null;
+
   return (
+    <>
     <div className="space-y-4 border border-terminal-gray bg-black/40 p-4 rounded-0">
       <div className="flex items-center justify-between border-b border-terminal-gray pb-3 mb-2">
         <span className="font-label-caps text-[9px] text-system-red font-bold">EDITOR DE BLOQUES (ESTILO WP)</span>
@@ -451,6 +471,17 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange }) {
                       <img src={normalizeSafeUrl(block.url)} alt={block.caption} className="w-full h-full object-cover" />
                     </div>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveBlockIndex(index);
+                      setMediaModalBlockIndex(index);
+                    }}
+                    className="inline-flex items-center gap-2 border border-system-red/60 bg-system-red/10 px-3 py-2 font-label-caps text-[9px] font-bold text-white hover:bg-system-red hover:text-black transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">perm_media</span>
+                    Elegir o subir desde media
+                  </button>
                   <div className="grid gap-2 grid-cols-1 md:grid-cols-2">
                     <label className="block">
                       <span className="block text-[8px] font-mono text-on-surface-variant uppercase mb-1">URL de Imagen</span>
@@ -579,6 +610,14 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange }) {
         </div>
       </div>
     </div>
+    <CmsMediaSelectorModal
+      isOpen={mediaModalBlockIndex !== null}
+      onClose={() => setMediaModalBlockIndex(null)}
+      initialMedia={initialMedia}
+      selectedMediaId={selectedMediaId}
+      onSelect={selectImageFromMedia}
+    />
+    </>
   );
 }
 
