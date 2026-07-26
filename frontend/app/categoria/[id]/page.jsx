@@ -10,6 +10,7 @@ import {
 } from '@/lib/main-design/public-shortcuts';
 
 export const dynamicParams = true;
+export const revalidate = 60;
 
 async function loadCategory(id) {
   return tryLoadCategoryByIdentifier(id, {

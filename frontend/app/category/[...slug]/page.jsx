@@ -9,6 +9,8 @@ import {
 } from '@/lib/main-design/archive-routing';
 import { buildMetadata } from '@/lib/main-design/seo';
 
+export const revalidate = 60;
+
 async function loadCategory(slugParts, page = 1) {
   const slug = slugParts.at(-1);
   const fullPath = slugParts.join('/');

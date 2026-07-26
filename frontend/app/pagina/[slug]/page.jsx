@@ -7,6 +7,8 @@ import { getStaticPageBySlug, publicStaticPages } from '@/lib/main-design/conten
 import { shouldRedirectToCanonical } from '@/lib/main-design/public-shortcuts';
 import { buildMetadata, staticPageMetadata } from '@/lib/main-design/seo';
 
+export const revalidate = 300;
+
 export async function generateMetadata({ params }) {
   const { slug } = await params;
 

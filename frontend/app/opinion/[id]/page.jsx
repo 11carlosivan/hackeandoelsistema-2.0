@@ -11,6 +11,7 @@ import {
 } from '@/lib/main-design/public-shortcuts';
 
 export const dynamicParams = true;
+export const revalidate = 60;
 
 async function loadOpinionArticle(id) {
   return tryLoadArticleByIdentifier(id, {

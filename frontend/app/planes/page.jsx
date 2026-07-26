@@ -6,6 +6,8 @@ import {
   renderPublicRoutePage,
 } from '@/lib/main-design/public-route-rendering';
 
+export const revalidate = 300;
+
 const routeParts = ['planes'];
 const fallbackMetadata = buildMetadata({
   title: 'Planes',
