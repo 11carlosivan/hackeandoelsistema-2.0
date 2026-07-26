@@ -221,7 +221,7 @@ describe('api app', () => {
             expect(where.httpStatus).toBe(200);
             expect(where.includeInSitemap).toBe(true);
             expect(where.canonicalRouteId).toBeNull();
-            expect(where.entityType).toEqual({ notIn: ['CATEGORY', 'TAG'] });
+            expect(where.entityType).toBeUndefined();
             expect(where.OR).toEqual([
               { seoMetadata: { is: null } },
               { seoMetadata: { is: { robotsIndex: 'INDEX' } } },
@@ -235,6 +235,12 @@ describe('api app', () => {
                 lastmodAt: new Date('2026-01-01T00:00:00Z'),
                 changefreq: 'weekly',
                 priority: 0.8,
+              },
+              {
+                path: '/category/nacionales/',
+                lastmodAt: new Date('2026-01-01T00:00:00Z'),
+                changefreq: 'daily',
+                priority: 0.7,
               },
               {
                 path: '/cms/publicaciones/',
@@ -263,6 +269,12 @@ describe('api app', () => {
         lastmodAt: '2026-01-01T00:00:00.000Z',
         changefreq: 'weekly',
         priority: 0.8,
+      },
+      {
+        path: '/category/nacionales/',
+        lastmodAt: '2026-01-01T00:00:00.000Z',
+        changefreq: 'daily',
+        priority: 0.7,
       },
     ]);
   });

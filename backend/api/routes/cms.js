@@ -32,6 +32,31 @@ function isValidRedirectTarget(value) {
   }
 }
 
+function isValidCanonicalUrl(value) {
+  const target = String(value || '').trim();
+  const hasControlCharacter = Array.from(target).some((character) => {
+    const code = character.charCodeAt(0);
+
+    return code <= 31 || code === 127;
+  });
+
+  if (!target || hasControlCharacter || target.startsWith('//')) {
+    return false;
+  }
+
+  if (target.startsWith('/')) {
+    return true;
+  }
+
+  try {
+    const url = new URL(target);
+
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 const postsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -210,7 +235,15 @@ const seoUpdateSchema = z
   .object({
     title: z.string().trim().max(255).nullable().optional(),
     description: z.string().trim().max(320).nullable().optional(),
-    canonicalUrl: z.string().trim().url().max(500).nullable().optional(),
+    canonicalUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(isValidCanonicalUrl, {
+        message: 'Canonical must be a valid http(s) URL or an internal path',
+      })
+      .nullable()
+      .optional(),
     robotsIndex: z.enum(['INDEX', 'NOINDEX']).optional(),
     robotsFollow: z.enum(['FOLLOW', 'NOFOLLOW']).optional(),
   })
@@ -315,6 +348,20 @@ function internalRedirectPath(value) {
   } catch {
     return null;
   }
+}
+
+function normalizeCanonicalUrl(value) {
+  const trimmed = String(value || '').trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('/')) {
+    return `${PUBLIC_SITE_URL}${normalizeRedirectPath(trimmed)}`;
+  }
+
+  return new URL(trimmed).href;
 }
 
 async function getRedirectSourceBlocker(prisma, sourcePath) {
@@ -3711,15 +3758,22 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.notFound('Post route not found');
     }
 
+    const seoData = {
+      ...body.data,
+      ...(Object.hasOwn(body.data, 'canonicalUrl')
+        ? { canonicalUrl: body.data.canonicalUrl ? normalizeCanonicalUrl(body.data.canonicalUrl) : null }
+        : {}),
+    };
+
     const seo = await app.prisma.seoMetadata.upsert({
       where: {
         routeId: route.id,
       },
       create: {
         routeId: route.id,
-        ...body.data,
+        ...seoData,
       },
-      update: body.data,
+      update: seoData,
     });
 
     await app.prisma.auditLog.create({
@@ -3730,7 +3784,7 @@ export async function registerCmsRoutes(app) {
         entityId: id,
         metadata: {
           routeId: route.id,
-          fields: Object.keys(body.data),
+          fields: Object.keys(seoData),
         },
       },
     });

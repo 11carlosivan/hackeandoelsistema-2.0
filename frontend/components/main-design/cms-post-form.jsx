@@ -354,13 +354,6 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   const submit = async (event) => {
     event.preventDefault();
-
-    if (!canEditContent) {
-      setStatus('error');
-      setError('Esta publicacion ya esta publicada o programada. Usa el flujo editorial para archivarla, devolverla a borrador o crear una nueva version.');
-      return;
-    }
-
     setStatus('loading');
     setError('');
 
@@ -413,10 +406,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       let finalId = postId;
 
       if (postId) {
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
-          method: 'PATCH',
-          body: JSON.stringify(contentPayload),
-        });
+        if (canEditContent) {
+          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(contentPayload),
+          });
+        }
         await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/taxonomy`, {
           method: 'PATCH',
           body: JSON.stringify({
@@ -478,7 +473,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
           {isLive && (
             <div className="border border-system-red/35 bg-system-red/5 p-3 mb-5 text-[11px] text-white font-mono uppercase">
-              [ALERTA: ESTA PUBLICACION ESTA PUBLICADA O PROGRAMADA. EL CONTENIDO ESTA BLOQUEADO DESDE ESTE FORMULARIO]
+              [ALERTA: ESTA PUBLICACION ESTA PUBLICADA O PROGRAMADA. EL CONTENIDO ESTA BLOQUEADO; SEO, TAXONOMIA Y MEDIA SI PUEDEN GUARDARSE]
             </div>
           )}
 
@@ -666,10 +661,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
             <button
               type="submit"
-              disabled={status === 'loading' || !canEditContent}
+              disabled={status === 'loading'}
               className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
             >
-              {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Edicion bloqueada' : (postId ? 'Guardar Cambios' : 'Crear borrador'))}
+              {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Guardar SEO y media' : (postId ? 'Guardar Cambios' : 'Crear borrador'))}
             </button>
 
             {/* Workflow Actions for existing post */}

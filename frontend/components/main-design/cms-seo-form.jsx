@@ -41,7 +41,8 @@ export default function CmsSeoForm({ postId, seo, fallbackTitle, fallbackDescrip
       });
 
       if (!response.ok) {
-        throw new Error('No se pudo guardar SEO.');
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'No se pudo guardar SEO.');
       }
 
       setStatus('success');

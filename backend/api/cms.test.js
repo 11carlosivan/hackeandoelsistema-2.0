@@ -2084,4 +2084,30 @@ describe('cms routes', () => {
       robotsFollow: 'FOLLOW',
     });
   });
+
+  it('normalizes internal CMS post canonical paths to the public site URL', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/seo',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        canonicalUrl: '/sample-post',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.seo.canonicalUrl).toBe('https://hackeandoelsistema.net/sample-post/');
+  });
 });

@@ -76,7 +76,8 @@ export default function CmsWorkflowActions({ post }) {
       });
 
       if (!response.ok) {
-        throw new Error('No se pudo cambiar el estado.');
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'No se pudo cambiar el estado.');
       }
 
       setMessage('Estado actualizado.');
