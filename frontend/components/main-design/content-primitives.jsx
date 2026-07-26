@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getAuthorName } from '@/lib/main-design/authors';
+import SafeImage from './safe-image';
 
 export function SystemPageHeader({ eyebrow, title, description, stats = [] }) {
   return (
@@ -47,7 +48,7 @@ export function ArticleListItem({ article }) {
       className="group border border-terminal-gray bg-surface-container-low/25 p-4 md:p-5 grid gap-5 md:grid-cols-[220px_1fr] hover:border-system-red transition-all"
     >
       <div className="relative aspect-video overflow-hidden border border-terminal-gray bg-black">
-        <img
+        <SafeImage
           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           alt={article.title}
           src={article.image}

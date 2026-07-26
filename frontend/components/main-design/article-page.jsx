@@ -3,6 +3,7 @@ import { articles as fallbackArticles, authors as fallbackAuthors, comments as f
 import { getAuthorName } from '@/lib/main-design/authors';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { ArticleListItem } from './content-primitives';
+import SafeImage from './safe-image';
 
 function renderBlock(block, index) {
   if (block.type === 'blockquote') {
@@ -23,7 +24,7 @@ function renderBlock(block, index) {
       <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {block.images.map((image) => (
           <figure key={image.url} className="border border-terminal-gray bg-black overflow-hidden">
-            <img className="w-full aspect-video object-cover" alt={image.caption} src={image.url} />
+            <SafeImage className="w-full aspect-video object-cover" alt={image.caption} src={image.url} />
             <figcaption className="p-3 text-[10px] font-label-caps text-on-surface-variant">
               {image.caption}
             </figcaption>
@@ -71,7 +72,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
     <div className="w-full bg-background text-on-surface">
       <article>
         <section className="relative min-h-[56vh] border border-terminal-gray overflow-hidden flex items-end mb-10">
-          <img className="absolute inset-0 w-full h-full object-cover" alt={article.title} src={article.image} />
+          <SafeImage className="absolute inset-0 w-full h-full object-cover" alt={article.title} src={article.image} />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-black/70 to-black/20" />
           <div className="absolute inset-0 scanline opacity-15 pointer-events-none" />
 
@@ -99,7 +100,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
 
             <div className="flex flex-wrap items-center gap-4 border-t border-terminal-gray/60 mt-7 pt-5 text-[10px] font-label-caps text-on-surface-variant">
               <Link href={article.authorPath || `/perfil/${author.id}`} className="flex items-center gap-3 hover:text-system-red">
-                <img className="w-9 h-9 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
+                <SafeImage className="w-9 h-9 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
               <span>{(article.authorName || getAuthorName(article.authorId)).toUpperCase()}</span>
               </Link>
               <span>/</span>
@@ -172,7 +173,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
             <div className="border border-terminal-gray bg-surface-container-low p-6">
               <h2 className="font-headline-md text-xl text-white uppercase mb-3">Agente</h2>
               <Link href={article.authorPath || `/perfil/${author.id}`} className="flex items-center gap-4 group">
-                <img className="w-14 h-14 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
+                <SafeImage className="w-14 h-14 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
                 <div>
                   <div className="font-bold text-white group-hover:text-system-red">{author.name}</div>
                   <div className="text-[10px] font-label-caps text-on-surface-variant">{author.role}</div>

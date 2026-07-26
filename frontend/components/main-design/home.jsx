@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
+import SafeImage from './safe-image';
 
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
@@ -150,7 +151,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
             className="lg:col-span-6 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
           >
             <div className="absolute inset-0 scanline z-10 pointer-events-none opacity-20"></div>
-            <img 
+            <SafeImage
               className="absolute inset-0 w-full h-full object-cover group-hover:scale-102 transition-transform duration-700" 
               alt={currentHero.title}
               src={currentHero.image}
@@ -226,7 +227,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
               onClick={() => navigateToArticle(art)}
               className="relative flex-grow h-[126px] border border-terminal-gray overflow-hidden group cursor-pointer flex flex-col justify-end p-3"
             >
-              <img 
+              <SafeImage
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                 alt={art.title}
                 src={art.image}
@@ -317,7 +318,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
               >
                 <div>
                   <div className="aspect-video relative overflow-hidden border-b border-terminal-gray">
-                    <img 
+                    <SafeImage
                       className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500" 
                       alt={art.title}
                       src={art.image}
@@ -397,7 +398,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 onClick={() => router.push(`/opinion/${op.id}`)}
                 className="bg-surface-container/20 border border-terminal-gray hover:border-system-red p-4 transition-all flex gap-4 items-center group cursor-pointer"
               >
-                <img 
+                <SafeImage
                   className="w-14 h-14 rounded-full object-cover border-2 border-system-red shrink-0" 
                   alt={author.name}
                   src={author.photo}
