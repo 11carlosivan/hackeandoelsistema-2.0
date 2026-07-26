@@ -455,6 +455,7 @@ describe('api app', () => {
     await app.close();
 
     expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toContain('public, max-age=120');
     expect(response.json().data).toMatchObject({
       type: 'REDIRECT',
       statusCode: 302,
@@ -503,6 +504,7 @@ describe('api app', () => {
     await app.close();
 
     expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['cache-control']).toContain('public, max-age=120');
     expect(response.json().data).toMatchObject({
       type: 'REDIRECT',
       statusCode: 301,

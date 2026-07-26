@@ -125,6 +125,13 @@ export function shouldReturnGoneResponse(route) {
   return route?.status === 'GONE' && route?.httpStatus === 410;
 }
 
+export function publicRouteLookupFetchOptions() {
+  return {
+    headers: { accept: 'application/json' },
+    next: { revalidate: 120 },
+  };
+}
+
 async function authorizeCmsRequest(request) {
   const secret = process.env.AUTH_JWT_SECRET;
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
@@ -162,8 +169,7 @@ async function maybeGoneResponse(request) {
 
   try {
     const routeResponse = await fetch(`${apiBaseUrl}/api/v1/public/route?path=${encodeURIComponent(routePath)}`, {
-      headers: { accept: 'application/json' },
-      cache: 'no-store',
+      ...publicRouteLookupFetchOptions(),
     });
 
     if (!routeResponse.ok) {

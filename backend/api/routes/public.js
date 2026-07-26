@@ -1317,6 +1317,7 @@ export async function registerPublicRoutes(app) {
       const redirect = await findActiveRedirect(app, request, normalizedPath);
 
       if (redirect) {
+        publicCacheHeaders(reply, 120);
         return { data: redirect };
       }
 

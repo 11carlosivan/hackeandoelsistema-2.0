@@ -39,7 +39,7 @@ describe('public system stats provider', () => {
       icon: 'rainy',
       humidity: '67%',
       wind: '12 km/h',
-      feelsLike: '36°C',
+      feelsLike: '36\u00b0C',
       source: 'open-meteo',
     });
   });

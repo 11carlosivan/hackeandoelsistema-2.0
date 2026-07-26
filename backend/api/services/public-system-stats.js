@@ -97,7 +97,7 @@ function normalizeWeatherPayload(payload) {
     icon,
     humidity: humidity === null ? 'N/D' : `${humidity}%`,
     wind: wind === null ? 'N/D' : `${wind} km/h`,
-    feelsLike: feelsLike === null ? 'N/D' : `${feelsLike}°C`,
+    feelsLike: feelsLike === null ? 'N/D' : `${feelsLike}\u00b0C`,
     updatedAt: current.time || new Date().toISOString(),
     source: 'open-meteo',
   };

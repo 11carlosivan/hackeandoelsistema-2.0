@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { replaceRequestCookie, shouldReturnGoneResponse } from '../proxy.js';
+import { publicRouteLookupFetchOptions, replaceRequestCookie, shouldReturnGoneResponse } from '../proxy.js';
 
 describe('CMS proxy session helpers', () => {
   it('replaces the access token cookie while preserving the rest of the request cookies', () => {
@@ -20,5 +20,13 @@ describe('CMS proxy session helpers', () => {
     expect(shouldReturnGoneResponse({ status: 'GONE', httpStatus: 410 })).toBe(true);
     expect(shouldReturnGoneResponse({ status: 'GONE', httpStatus: 404 })).toBe(false);
     expect(shouldReturnGoneResponse({ status: 'ACTIVE', httpStatus: 410 })).toBe(false);
+  });
+
+  it('allows short cache revalidation for public route lookups', () => {
+    expect(publicRouteLookupFetchOptions()).toMatchObject({
+      headers: { accept: 'application/json' },
+      next: { revalidate: 120 },
+    });
+    expect(publicRouteLookupFetchOptions()).not.toHaveProperty('cache', 'no-store');
   });
 });

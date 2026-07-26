@@ -83,7 +83,7 @@ export default function SideNavBar() {
 
           <div className="flex justify-between items-start mb-1">
             <div className="text-[32px] font-bold text-white leading-none">
-              {weather.temp}°C
+              {weather.temp}&deg;C
             </div>
             <span className="material-symbols-outlined text-system-red text-[36px] leading-none group-hover:scale-105 transition-transform duration-300">
               {weather.icon}
