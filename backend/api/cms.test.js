@@ -42,7 +42,7 @@ function createPrismaStub(user, options = {}) {
     contentHtml: '<p>Sample content</p>',
     contentText: 'Sample content',
     status: options.postStatus || 'DRAFT',
-    visibility: 'PUBLIC',
+    visibility: options.visibility || 'PUBLIC',
     postType: 'NEWS',
     publishedAt: null,
     updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -209,6 +209,7 @@ function createPrismaStub(user, options = {}) {
   let assignedCategoryRelations = [];
   let assignedTagRelations = [];
   const routeUpdateManyCalls = options.routeUpdateManyCalls || [];
+  const routeUpsertCalls = options.routeUpsertCalls || [];
 
   const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
@@ -300,12 +301,16 @@ function createPrismaStub(user, options = {}) {
         lastmodAt: null,
         ...data,
       }),
-      upsert: async ({ create, update }) => ({
-        id: 'taxonomy-route-1',
-        lastmodAt: new Date('2026-01-18T00:00:00Z'),
-        ...(create || {}),
-        ...(update || {}),
-      }),
+      upsert: async ({ create, update }) => {
+        routeUpsertCalls.push({ create, update });
+
+        return {
+          id: 'taxonomy-route-1',
+          lastmodAt: new Date('2026-01-18T00:00:00Z'),
+          ...(create || {}),
+          ...(update || {}),
+        };
+      },
       update: async ({ data }) => ({
         id: 'route-1',
         path: data.path || '/sample-post/',
@@ -692,6 +697,61 @@ describe('cms routes', () => {
       slug: 'politica',
       fullPath: '/category/politica/',
     });
+  });
+
+  it('rejects category parent cycles before updating hierarchy paths', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const prisma = createPrismaStub(user);
+    const childId = '66666666-6666-4666-8666-666666666666';
+    const rootId = '77777777-7777-4777-8777-777777777777';
+
+    prisma.category.findUnique = async ({ where }) => {
+      if (where.id === rootId) {
+        return {
+          id: rootId,
+          parentId: null,
+          name: 'Nacionales',
+          slug: 'nacionales',
+          fullPath: '/category/nacionales/',
+          description: null,
+          sortOrder: 1,
+          showInMenu: true,
+          showOnHome: true,
+        };
+      }
+
+      if (where.id === childId) {
+        return {
+          id: childId,
+          parentId: rootId,
+        };
+      }
+
+      return null;
+    };
+
+    const app = await buildApp({
+      env: testEnv,
+      prisma,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/cms/categories/${rootId}`,
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        parentId: childId,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
+    expect(response.json().message).toContain('cycle');
   });
 
   it('requires CSRF headers for cookie-authenticated CMS mutations', async () => {
@@ -1518,9 +1578,10 @@ describe('cms routes', () => {
   it('creates a draft CMS post without exposing it to the sitemap', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
+    const routeUpsertCalls = [];
     const app = await buildApp({
       env: testEnv,
-      prisma: createPrismaStub(user),
+      prisma: createPrismaStub(user, { routeUpsertCalls }),
       logger: false,
     });
 
@@ -1567,6 +1628,26 @@ describe('cms routes', () => {
         },
       },
     });
+    expect(routeUpsertCalls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          create: expect.objectContaining({
+            path: '/tag/codigo-penal/',
+            entityType: 'TAG',
+            status: 'ACTIVE',
+            includeInSitemap: true,
+          }),
+        }),
+        expect.objectContaining({
+          create: expect.objectContaining({
+            path: '/tag/justicia/',
+            entityType: 'TAG',
+            status: 'ACTIVE',
+            includeInSitemap: true,
+          }),
+        }),
+      ]),
+    );
   });
 
   it('sanitizes rich HTML when creating a draft CMS post', async () => {
@@ -1857,6 +1938,41 @@ describe('cms routes', () => {
     });
     expect(response.json().data.seo).toMatchObject({
       robotsIndex: 'INDEX',
+      robotsFollow: 'FOLLOW',
+    });
+  });
+
+  it('publishes a private draft without exposing the route to sitemap indexing', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { visibility: 'PRIVATE' }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'PUBLISH',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.status).toBe('PUBLISHED');
+    expect(response.json().data.route).toMatchObject({
+      status: 'GONE',
+      httpStatus: 404,
+      includeInSitemap: false,
+    });
+    expect(response.json().data.seo).toMatchObject({
+      robotsIndex: 'NOINDEX',
       robotsFollow: 'FOLLOW',
     });
   });

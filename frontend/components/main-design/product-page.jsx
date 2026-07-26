@@ -1,5 +1,6 @@
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { SystemPageHeader } from './content-primitives';
+import SafeImage from './safe-image';
 
 function formatPrice(amount, currency) {
   if (!amount) {
@@ -32,7 +33,7 @@ export default function ProductPage({ product }) {
       <section className="grid gap-8 lg:grid-cols-[420px_1fr]">
         <div className="border border-terminal-gray bg-black p-1">
           <div className="relative aspect-square overflow-hidden">
-            <img className="h-full w-full object-cover grayscale" alt={product.title} src={product.image} />
+            <SafeImage className="h-full w-full object-cover grayscale" alt={product.title} src={product.image} />
             <div className="absolute inset-0 scanline opacity-20 pointer-events-none" />
           </div>
         </div>

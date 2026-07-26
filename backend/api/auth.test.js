@@ -330,6 +330,37 @@ describe('auth routes', () => {
     expect(me.json().data.user.roles).toContain('ADMIN');
   });
 
+  it('accepts bearer auth with case-insensitive scheme casing', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'));
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'admin@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+    const token = login.json().data.accessToken;
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: {
+        authorization: `bearer ${token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(me.statusCode).toBe(200);
+    expect(me.json().data.user.roles).toContain('ADMIN');
+  });
+
   it('rejects cookie-authenticated unsafe requests without a matching CSRF token', async () => {
     const user = createAuthUser(await hashPassword('CorrectHorse123!'));
     const app = await buildApp({

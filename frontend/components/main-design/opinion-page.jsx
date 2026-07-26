@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { authors, opinions } from '@/lib/main-design/mock-data';
 import { EmptyState } from './content-primitives';
+import SafeImage from './safe-image';
 
 export default function OpinionPage({ opinionId }) {
   const opinion = opinions.find((item) => item.id === opinionId);
@@ -38,7 +39,7 @@ export default function OpinionPage({ opinionId }) {
             href={`/perfil/${author.id}`}
             className="mt-10 flex items-center gap-4 border-t border-terminal-gray pt-6 group"
           >
-            <img className="w-12 h-12 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
+            <SafeImage className="w-12 h-12 rounded-full object-cover border border-system-red" alt={author.name} src={author.photo} />
             <div>
               <div className="font-label-caps text-[10px] text-system-red">{opinion.date}</div>
               <div className="font-bold text-white group-hover:text-system-red">{author.name}</div>

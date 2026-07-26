@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { articles, authors, opinions } from '@/lib/main-design/mock-data';
 import { ArticleListItem, EmptyState } from './content-primitives';
+import SafeImage from './safe-image';
 
 export default function ProfilePage({ authorId }) {
   const author = authors.find((item) => item.id === authorId) || authors[0];
@@ -13,7 +14,7 @@ export default function ProfilePage({ authorId }) {
         <div className="lg:col-span-5">
           <div className="border border-terminal-gray bg-surface-container-low p-1">
             <div className="relative aspect-[4/5] overflow-hidden bg-black">
-              <img className="w-full h-full object-cover grayscale brightness-75" alt={author.name} src={author.photo} />
+              <SafeImage className="w-full h-full object-cover grayscale brightness-75" alt={author.name} src={author.photo} />
               <div className="absolute inset-0 scanline opacity-25 pointer-events-none" />
               <div className="absolute inset-0 border border-system-red/25 p-4 flex flex-col justify-between">
                 <div className="font-label-caps text-system-red text-[10px]">

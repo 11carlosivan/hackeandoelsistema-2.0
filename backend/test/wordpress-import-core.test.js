@@ -166,6 +166,25 @@ describe("WordPress core importer", () => {
     });
   });
 
+  it("rejects unsafe Yoast canonical URL schemes during import", () => {
+    const payload = buildYoastSeoPayload({
+      post: {
+        id: "101",
+        type: "post",
+        title: "Canonica sospechosa",
+        slug: "canonica-sospechosa",
+        excerpt: "Resumen",
+      },
+      routePath: "/canonica-sospechosa/",
+      siteUrl: "https://hackeandoelsistema.net",
+      meta: {
+        _yoast_wpseo_canonical: "javascript:alert(1)",
+      },
+    });
+
+    expect(payload.canonicalUrl).toBe("https://hackeandoelsistema.net/canonica-sospechosa/");
+  });
+
   it("detects the configured WordPress front page", () => {
     const state = { wordpress: { options: { page_on_front: "66655" } } };
 

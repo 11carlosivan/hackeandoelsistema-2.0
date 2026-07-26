@@ -460,6 +460,45 @@ async function syncCategoryDescendantPaths(prisma, { categoryId, oldFullPath, ne
   }
 }
 
+async function wouldCreateCategoryCycle(prisma, { categoryId, nextParentId }) {
+  if (!nextParentId) {
+    return false;
+  }
+
+  let currentParentId = nextParentId;
+  const visited = new Set();
+
+  for (let depth = 0; depth < 100 && currentParentId; depth += 1) {
+    if (currentParentId === categoryId || visited.has(currentParentId)) {
+      return true;
+    }
+
+    visited.add(currentParentId);
+
+    const parent = await prisma.category.findUnique({
+      where: { id: currentParentId },
+      select: { parentId: true },
+    });
+
+    if (!parent) {
+      return false;
+    }
+
+    currentParentId = parent.parentId;
+  }
+
+  return Boolean(currentParentId);
+}
+
+async function ensureTagRoute(tx, tag) {
+  return upsertTaxonomyRoute(tx, {
+    entityType: 'TAG',
+    entityId: tag.id,
+    path: buildTagPath(tag.slug),
+    name: tag.name,
+  });
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -1277,6 +1316,11 @@ export async function registerCmsRoutes(app) {
       ? await createUniqueTaxonomySlug(app.prisma, 'category', body.data.slug || body.data.name, params.data.id)
       : existing.slug;
     const nextParentId = Object.hasOwn(body.data, 'parentId') ? body.data.parentId || null : existing.parentId;
+
+    if (await wouldCreateCategoryCycle(app.prisma, { categoryId: params.data.id, nextParentId })) {
+      throw app.httpErrors.badRequest('Category parent would create a hierarchy cycle');
+    }
+
     const nextFullPath = nextSlug !== existing.slug || nextParentId !== existing.parentId
       ? await buildCategoryFullPath(app.prisma, { slug: nextSlug, parentId: nextParentId })
       : existing.fullPath;
@@ -2847,19 +2891,20 @@ export async function registerCmsRoutes(app) {
 
       for (const tagInput of inlineTagInputs) {
         if (!existingInlineTagBySlug.has(tagInput.slug)) {
-          createdInlineTags.push(
-            await tx.tag.create({
-              data: {
-                name: tagInput.name,
-                slug: tagInput.slug,
-              },
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            }),
-          );
+          const tag = await tx.tag.create({
+            data: {
+              name: tagInput.name,
+              slug: tagInput.slug,
+            },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          });
+
+          await ensureTagRoute(tx, tag);
+          createdInlineTags.push(tag);
         }
       }
 
@@ -3198,19 +3243,20 @@ export async function registerCmsRoutes(app) {
 
         for (const tagInput of inlineTagInputs) {
           if (!existingInlineTagBySlug.has(tagInput.slug)) {
-            createdInlineTags.push(
-              await tx.tag.create({
-                data: {
-                  name: tagInput.name,
-                  slug: tagInput.slug,
-                },
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                },
-              }),
-            );
+            const tag = await tx.tag.create({
+              data: {
+                name: tagInput.name,
+                slug: tagInput.slug,
+              },
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            });
+
+            await ensureTagRoute(tx, tag);
+            createdInlineTags.push(tag);
           }
         }
 
@@ -3336,6 +3382,7 @@ export async function registerCmsRoutes(app) {
         select: {
           id: true,
           status: true,
+          visibility: true,
           publishedAt: true,
           scheduledAt: true,
         },
@@ -3352,6 +3399,7 @@ export async function registerCmsRoutes(app) {
       const now = new Date();
       const hasFutureSchedule = existingPost.scheduledAt && existingPost.scheduledAt > now;
       const shouldSchedule = action === 'SCHEDULE' || (action === 'PUBLISH' && hasFutureSchedule);
+      const isPubliclyVisible = existingPost.visibility === 'PUBLIC';
 
       if (action === 'SCHEDULE' && !hasFutureSchedule) {
         throw app.httpErrors.badRequest('A future scheduledAt date is required before scheduling a post');
@@ -3385,15 +3433,15 @@ export async function registerCmsRoutes(app) {
         SUBMIT_REVIEW: {},
         RETURN_TO_DRAFT: {},
         SCHEDULE: {
-          status: 'ACTIVE',
-          httpStatus: 200,
+          status: isPubliclyVisible ? 'ACTIVE' : 'GONE',
+          httpStatus: isPubliclyVisible ? 200 : 404,
           includeInSitemap: false,
           lastmodAt: now,
         },
         PUBLISH: {
-          status: 'ACTIVE',
-          httpStatus: 200,
-          includeInSitemap: !shouldSchedule,
+          status: isPubliclyVisible ? 'ACTIVE' : 'GONE',
+          httpStatus: isPubliclyVisible ? 200 : 404,
+          includeInSitemap: isPubliclyVisible && !shouldSchedule,
           lastmodAt: now,
         },
         ARCHIVE: {
@@ -3411,7 +3459,7 @@ export async function registerCmsRoutes(app) {
           robotsFollow: 'FOLLOW',
         },
         PUBLISH: {
-          robotsIndex: shouldSchedule ? 'NOINDEX' : 'INDEX',
+          robotsIndex: isPubliclyVisible && !shouldSchedule ? 'INDEX' : 'NOINDEX',
           robotsFollow: 'FOLLOW',
         },
         ARCHIVE: {

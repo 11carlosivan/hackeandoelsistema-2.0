@@ -1,4 +1,5 @@
 import { ArticleListItem, EmptyState, PaginationControls, SystemPageHeader } from './content-primitives';
+import SafeImage from './safe-image';
 
 export default function AuthorArchivePage({ author }) {
   const avatarUrl = author.avatar?.url || '/isotipo.png';
@@ -9,7 +10,7 @@ export default function AuthorArchivePage({ author }) {
         <div className="lg:col-span-4">
           <div className="border border-terminal-gray bg-surface-container-low p-1">
             <div className="relative aspect-[4/5] overflow-hidden bg-black">
-              <img
+              <SafeImage
                 className="absolute inset-0 h-full w-full object-cover grayscale brightness-75"
                 alt={author.displayName}
                 src={avatarUrl}

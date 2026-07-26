@@ -17,7 +17,7 @@ async function authPlugin(app) {
     const header = request.headers.authorization || '';
     const [scheme, token] = header.split(' ');
     const cookieToken = getCookieValue(request.headers.cookie, AUTH_COOKIE_NAMES.access);
-    const accessToken = scheme === 'Bearer' && token ? token : cookieToken;
+    const accessToken = scheme?.toLowerCase() === 'bearer' && token ? token : cookieToken;
 
     if (!accessToken) {
       throw app.httpErrors.unauthorized('Missing access token');

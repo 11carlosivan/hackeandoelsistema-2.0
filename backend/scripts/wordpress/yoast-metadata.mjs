@@ -140,7 +140,9 @@ function absoluteUrl(value, siteUrl) {
   }
 
   try {
-    return new URL(cleanValue).toString();
+    const parsed = new URL(cleanValue);
+
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
   } catch {
     const base = optionalText(siteUrl, 500)?.replace(/\/+$/g, "");
 

@@ -121,6 +121,10 @@ async function tryRefreshCmsSession(request, secret) {
   }
 }
 
+export function shouldReturnGoneResponse(route) {
+  return route?.status === 'GONE' && route?.httpStatus === 410;
+}
+
 async function authorizeCmsRequest(request) {
   const secret = process.env.AUTH_JWT_SECRET;
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
@@ -169,7 +173,7 @@ async function maybeGoneResponse(request) {
     const body = await routeResponse.json();
     const route = body?.data;
 
-    if (route?.status !== 'GONE' && route?.httpStatus !== 410) {
+    if (!shouldReturnGoneResponse(route)) {
       return null;
     }
 

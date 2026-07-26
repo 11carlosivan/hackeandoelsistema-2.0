@@ -130,7 +130,7 @@ function blocksToHtml(blocks) {
 
         if (!safeUrl) return '';
 
-        return `<figure><img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(b.caption || '')}" /><figcaption>${b.caption || ''}</figcaption></figure>`;
+        return `<figure><img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(b.caption || '')}" /><figcaption>${escapeHtml(b.caption || '')}</figcaption></figure>`;
       }
       case 'list':
         return `<ul>${b.items.map(item => `<li>${item}</li>`).join('')}</ul>`;

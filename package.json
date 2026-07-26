@@ -37,6 +37,7 @@
     "docker:logs": "docker compose --env-file .env.production -f compose.prod.yaml logs -f",
     "docker:ps": "docker compose --env-file .env.production -f compose.prod.yaml ps",
     "docker:db:push": "docker compose --env-file .env.production -f compose.prod.yaml --profile tools run --rm backend-tools npm exec prisma db push -- --schema=prisma/schema.prisma",
+    "docker:db:foundation": "docker compose --env-file .env.production -f compose.prod.yaml --profile tools run --rm backend-tools npm run db:foundation",
     "docker:seed-admin": "docker compose --env-file .env.production -f compose.prod.yaml exec backend npm run auth:seed-admin"
   }
 }

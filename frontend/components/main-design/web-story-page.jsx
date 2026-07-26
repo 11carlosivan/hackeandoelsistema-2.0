@@ -1,5 +1,6 @@
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { SystemPageHeader } from './content-primitives';
+import SafeImage from './safe-image';
 
 function legacyHtmlFromStory(story) {
   return story.contentJson?.legacyContentHtml || story.contentJson?.html || null;
@@ -25,7 +26,7 @@ export default function WebStoryPage({ story }) {
       <section className="grid gap-8 lg:grid-cols-[360px_1fr]">
         <div className="border border-terminal-gray bg-black p-1">
           <div className="relative aspect-[9/16] overflow-hidden">
-            <img className="h-full w-full object-cover grayscale brightness-75" alt={story.title} src={story.image} />
+            <SafeImage className="h-full w-full object-cover grayscale brightness-75" alt={story.title} src={story.image} />
             <div className="absolute inset-0 scanline opacity-20 pointer-events-none" />
           </div>
         </div>

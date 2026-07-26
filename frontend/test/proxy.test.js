@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { replaceRequestCookie } from '../proxy.js';
+import { replaceRequestCookie, shouldReturnGoneResponse } from '../proxy.js';
 
 describe('CMS proxy session helpers', () => {
   it('replaces the access token cookie while preserving the rest of the request cookies', () => {
@@ -14,5 +14,11 @@ describe('CMS proxy session helpers', () => {
     expect(replaceRequestCookie('hes_refresh_token=refresh', 'hes_access_token', 'new-access')).toBe(
       'hes_refresh_token=refresh; hes_access_token=new-access',
     );
+  });
+
+  it('only returns an explicit 410 gone response for archived gone routes', () => {
+    expect(shouldReturnGoneResponse({ status: 'GONE', httpStatus: 410 })).toBe(true);
+    expect(shouldReturnGoneResponse({ status: 'GONE', httpStatus: 404 })).toBe(false);
+    expect(shouldReturnGoneResponse({ status: 'ACTIVE', httpStatus: 410 })).toBe(false);
   });
 });
