@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 
 // Helper to escape HTML characters for attributes
 function escapeHtml(text) {
@@ -21,7 +22,7 @@ function normalizeSafeUrl(value) {
 
   try {
     const url = new URL(raw);
-    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? url.href : '';
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
   } catch {
     return '';
   }
@@ -115,7 +116,7 @@ function htmlToBlocks(html) {
 
 // Convert Block Objects back to HTML
 function blocksToHtml(blocks) {
-  return blocks.map(b => {
+  const html = blocks.map(b => {
     switch (b.type) {
       case 'heading':
         return `<h${normalizeHeadingLevel(b.level)}>${b.content}</h${normalizeHeadingLevel(b.level)}>`;
@@ -136,6 +137,8 @@ function blocksToHtml(blocks) {
         return '';
     }
   }).join('\n');
+
+  return sanitizeEditorialHtml(html);
 }
 
 // Strip HTML tags for plain text search

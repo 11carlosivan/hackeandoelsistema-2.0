@@ -8,6 +8,8 @@ import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
 import CmsWorkflowActions from './cms-workflow-actions';
 
+const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
+
 function decodeHtmlEntities(str) {
   if (!str) return '';
   return str
@@ -21,6 +23,7 @@ function decodeHtmlEntities(str) {
 export default function CmsPostForm({ categories = [], tags = [], media = [], post = null }) {
   const router = useRouter();
   const [postId, setPostId] = useState(post?.id || null);
+  const canEditContent = !post || EDITABLE_CONTENT_STATUSES.has(post.status);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -76,6 +79,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   // Auto-save useEffect (every 2 seconds of inactivity)
   useEffect(() => {
+    if (!canEditContent) {
+      return;
+    }
+
     // If no title and no content, don't auto-save to DB yet
     if (!postId && !postTitle.trim() && !contentHtml.trim()) {
       return;
@@ -172,6 +179,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     seoTitleVal,
     seoDescriptionVal,
     postId,
+    canEditContent,
   ]);
 
   const slugify = (text) => {
@@ -346,6 +354,13 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   const submit = async (event) => {
     event.preventDefault();
+
+    if (!canEditContent) {
+      setStatus('error');
+      setError('Esta publicacion ya esta publicada o programada. Usa el flujo editorial para archivarla, devolverla a borrador o crear una nueva version.');
+      return;
+    }
+
     setStatus('loading');
     setError('');
 
@@ -436,6 +451,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         throw new Error('La API no devolvio el ID de la publicacion.');
       }
 
+      setNewTags([]);
       setStatus('success');
       router.push(`/cms/publicaciones/${finalId}`);
       router.refresh();
@@ -462,7 +478,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
           {isLive && (
             <div className="border border-system-red/35 bg-system-red/5 p-3 mb-5 text-[11px] text-white font-mono uppercase">
-              [ALERTA: ESTA PUBLICACIÓN ESTÁ PUBLICADA O PROGRAMADA. LOS CAMBIOS SE APLICARÁN EN VIVO]
+              [ALERTA: ESTA PUBLICACION ESTA PUBLICADA O PROGRAMADA. EL CONTENIDO ESTA BLOQUEADO DESDE ESTE FORMULARIO]
             </div>
           )}
 
@@ -650,10 +666,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
             <button
               type="submit"
-              disabled={status === 'loading'}
+              disabled={status === 'loading' || !canEditContent}
               className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
             >
-              {status === 'loading' ? 'Guardando...' : (postId ? 'Guardar Cambios' : 'Crear borrador')}
+              {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Edicion bloqueada' : (postId ? 'Guardar Cambios' : 'Crear borrador'))}
             </button>
 
             {/* Workflow Actions for existing post */}
@@ -1076,7 +1092,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       <CmsMediaSelectorModal
         isOpen={isMediaModalOpen}
         onClose={() => setIsMediaModalOpen(false)}
-        mediaList={media}
+        initialMedia={media}
+        selectedMediaId={selectedMedia?.id || null}
         onSelect={(mediaAsset) => {
           setSelectedMedia(mediaAsset);
           setIsMediaModalOpen(false);

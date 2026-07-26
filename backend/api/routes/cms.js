@@ -447,6 +447,11 @@ const EDITORIAL_HTML_OPTIONS = {
     source: ['src', 'srcset', 'type', 'media', 'sizes'],
   },
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+  allowedSchemesByTag: {
+    img: ['http', 'https'],
+    source: ['http', 'https'],
+    iframe: ['http', 'https'],
+  },
   allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),

@@ -1722,17 +1722,20 @@ describe('cms routes', () => {
         authorization: `Bearer ${access.token}`,
       },
       payload: {
-        contentHtml: '<p onclick="alert(1)">Contenido seguro</p><img src="javascript:alert(1)" onerror="alert(1)">',
+        contentHtml: '<p onclick="alert(1)">Contenido seguro <a href="mailto:redaccion@example.com">correo</a></p><img src="javascript:alert(1)" onerror="alert(1)"><img src="mailto:redaccion@example.com" alt="bad"><img src="/uploads/cms/local.jpg" alt="local">',
       },
     });
 
     await app.close();
 
     expect(response.statusCode, response.body).toBe(200);
-    expect(response.json().data.post.contentHtml).toContain('<p>Contenido seguro</p>');
+    expect(response.json().data.post.contentHtml).toContain('Contenido seguro');
+    expect(response.json().data.post.contentHtml).toContain('mailto:redaccion@example.com');
+    expect(response.json().data.post.contentHtml).toContain('/uploads/cms/local.jpg');
     expect(response.json().data.post.contentHtml).not.toContain('onclick');
     expect(response.json().data.post.contentHtml).not.toContain('onerror');
     expect(response.json().data.post.contentHtml).not.toContain('javascript:');
+    expect(response.json().data.post.contentHtml).not.toContain('<img src="mailto:');
     expect(response.json().data.post.contentText).toContain('Contenido seguro');
   });
 
