@@ -8,7 +8,7 @@ describe('archive page metadata', () => {
     });
 
     expect(metadata.robots.index).toBe(true);
-    expect(metadata.alternates.canonical).toBe('https://hackeandoelsistema.net/archivo?page=2');
+    expect(metadata.alternates.canonical).toBe('https://hackeandoelsistema.net/archivo/?page=2');
   });
 
   it('marks filtered archive searches as noindex', async () => {

@@ -18,8 +18,21 @@ export function absoluteUrl(path = '/') {
   }
 
   const baseUrl = siteConfig.url.replace(/\/$/, '');
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const normalizedPath = normalizeInternalPath(path);
   return `${baseUrl}${normalizedPath}`;
+}
+
+function normalizeInternalPath(path = '/') {
+  const rawPath = String(path || '/');
+  const [pathAndQuery, hash = ''] = rawPath.split('#', 2);
+  const [pathnamePart, query = ''] = pathAndQuery.split('?', 2);
+  const pathname = pathnamePart.startsWith('/') ? pathnamePart : `/${pathnamePart}`;
+  const hasFileExtension = /\.[a-z0-9]+$/i.test(pathname);
+  const normalizedPathname = pathname === '/' || hasFileExtension || pathname.endsWith('/')
+    ? pathname
+    : `${pathname}/`;
+
+  return `${normalizedPathname}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`;
 }
 
 export function toIsoDate(dateValue) {

@@ -5,6 +5,7 @@ import { buildMetadata } from '@/lib/main-design/seo';
 export const metadata = buildMetadata({
   path: '/',
 });
+export const dynamic = 'force-dynamic';
 export const revalidate = 60;
 
 export default async function HomePage() {

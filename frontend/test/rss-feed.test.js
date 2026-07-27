@@ -83,8 +83,8 @@ describe('RSS feed parity', () => {
     expect(urls).toEqual(
       expect.arrayContaining([
         'https://hackeandoelsistema.net/',
-        'https://hackeandoelsistema.net/contacto-seguro',
-        'https://hackeandoelsistema.net/planes',
+        'https://hackeandoelsistema.net/contacto-seguro/',
+        'https://hackeandoelsistema.net/planes/',
       ]),
     );
     expect(urls).not.toEqual(expect.arrayContaining([

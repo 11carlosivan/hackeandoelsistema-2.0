@@ -1,6 +1,7 @@
 import { getHomeFeed } from '@/lib/main-design/api';
 import { buildRssFeed } from '@/lib/main-design/rss';
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
 export async function GET() {

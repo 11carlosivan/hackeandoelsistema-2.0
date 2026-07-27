@@ -26,8 +26,8 @@ describe('PaginationControls', () => {
       />,
     );
 
-    expect(screen.getByText('ANTERIOR')).toHaveAttribute('href', '/archivo?q=codigo+penal');
-    expect(screen.getByText('SIGUIENTE')).toHaveAttribute('href', '/archivo?q=codigo+penal&page=3');
+    expect(screen.getByText('ANTERIOR')).toHaveAttribute('href', '/archivo/?q=codigo+penal');
+    expect(screen.getByText('SIGUIENTE')).toHaveAttribute('href', '/archivo/?q=codigo+penal&page=3');
     expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2');
   });
 

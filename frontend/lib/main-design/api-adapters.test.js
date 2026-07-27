@@ -34,4 +34,19 @@ describe('api-adapters', () => {
       authorPath: '/author/redaccion/',
     });
   });
+
+  it('preserves public engagement counters without inventing values', () => {
+    expect(
+      mapApiPostToArticle({
+        slug: 'post-demo',
+        title: 'Post demo',
+        viewCount: 1234,
+        commentCount: 7,
+      }),
+    ).toMatchObject({
+      views: '1.2K',
+      commentCount: 7,
+      likeCount: 0,
+    });
+  });
 });

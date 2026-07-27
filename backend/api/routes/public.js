@@ -45,7 +45,7 @@ const SITEMAP_EXCLUDED_PATHS = [
   '/register/',
 ];
 const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
-const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
+const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 
 let lastScheduledPublishCheckAt = 0;
 let scheduledPublishInFlight = null;

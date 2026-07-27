@@ -2,6 +2,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
 import CategoryPage from '@/components/main-design/category-page';
 import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
+import { buildPaginatedArchivePath } from '@/lib/main-design/archive-routing';
 import { buildMetadata } from '@/lib/main-design/seo';
 import {
   getCategoryCanonicalPath,
@@ -53,22 +54,26 @@ export default async function Page({ params, searchParams }) {
   const feed = await tryLoadCategoryByIdentifier(id, {
     getBySlug: (slug) => getCategoryFeed(slug, page),
   });
-  let categories = [];
-
-  try {
-    categories = await getPublicCategories();
-  } catch {
-    categories = [];
-  }
 
   if (!feed) {
     notFound();
   }
 
   const canonicalPath = getCategoryCanonicalPath(feed.category);
+  const canonicalTarget = page > 1 && canonicalPath?.startsWith('/')
+    ? buildPaginatedArchivePath(canonicalPath, page)
+    : canonicalPath;
 
-  if (shouldRedirectToCanonical(sourcePath, canonicalPath)) {
-    permanentRedirect(canonicalPath);
+  if (shouldRedirectToCanonical(sourcePath, canonicalTarget)) {
+    permanentRedirect(canonicalTarget);
+  }
+
+  let categories = [];
+
+  try {
+    categories = await getPublicCategories();
+  } catch {
+    categories = [];
   }
 
   return (

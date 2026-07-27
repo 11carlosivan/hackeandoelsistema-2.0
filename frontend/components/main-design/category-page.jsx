@@ -52,7 +52,7 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
           ) : (
             <EmptyState
               title="SIN REGISTROS"
-              description="No hay publicaciones asociadas a esta categoria en la API publica."
+              description="No hay publicaciones asociadas a esta categoria por el momento."
             />
           )}
 
@@ -62,11 +62,18 @@ export default function CategoryPage({ categoryId, category, articles = [], meta
         <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-36">
           <div className="border border-terminal-gray bg-surface-container-low/40 p-6">
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-3">
-              MODULO SEO
+              COBERTURA
             </div>
-            <p className="text-sm text-on-surface-variant leading-relaxed">
-              Esta ruta usa metadata dinamica, canonical y paginacion server-side desde la API publica.
-            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="border border-terminal-gray bg-black/30 p-3">
+                <div className="font-label-caps text-[9px] text-on-surface-variant mb-1">Archivo</div>
+                <div className="font-bold text-white">{meta?.total ?? articles.length}</div>
+              </div>
+              <div className="border border-terminal-gray bg-black/30 p-3">
+                <div className="font-label-caps text-[9px] text-on-surface-variant mb-1">Pagina</div>
+                <div className="font-bold text-white">{meta?.page ?? 1}/{meta?.totalPages ?? 1}</div>
+              </div>
+            </div>
           </div>
 
           <div className="border border-terminal-gray bg-black/20 p-6">

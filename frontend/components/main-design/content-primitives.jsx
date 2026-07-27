@@ -123,8 +123,10 @@ export function PaginationControls({ meta = {}, basePath = '/', query = {}, path
   }
 
   const buildHref = (nextPage) => {
+    const normalizedBasePath = normalizePaginationBasePath(basePath);
+
     if (pathPagination && Object.keys(query).length === 0) {
-      return buildPaginatedPath(basePath, nextPage);
+      return buildPaginatedPath(normalizedBasePath, nextPage);
     }
 
     const params = new URLSearchParams();
@@ -143,7 +145,7 @@ export function PaginationControls({ meta = {}, basePath = '/', query = {}, path
 
     const queryString = params.toString();
 
-    return queryString ? `${basePath}?${queryString}` : basePath;
+    return queryString ? `${normalizedBasePath}?${queryString}` : normalizedBasePath;
   };
 
   const pages = new Set([1, totalPages, page - 1, page, page + 1]);

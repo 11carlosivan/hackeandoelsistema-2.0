@@ -343,7 +343,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   </div>
                 </div>
 
-                {/* Card footer (with heart likes and comments) */}
+                {/* Card footer */}
                 <div className="px-4 pb-4 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
                   <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
                   <div className="flex items-center gap-3">
@@ -356,7 +356,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                       <span className="material-symbols-outlined text-[14px]">
                         {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
                       </span>
-                      <span>{likedArticles[art.id] ? 13 : 12}</span>
+                      <span>{Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0)}</span>
                     </button>
                     <button 
                       onClick={(e) => {
@@ -366,7 +366,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                       className="flex items-center gap-1 hover:text-white transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
-                      <span>3</span>
+                      <span>{Number(art.commentCount || 0)}</span>
                     </button>
                   </div>
                 </div>

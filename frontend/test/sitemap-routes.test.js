@@ -14,6 +14,12 @@ describe('sitemap route filtering', () => {
     expect(absoluteUrl('https://example.com/original-story/')).toBe('https://example.com/original-story/');
   });
 
+  it('normalizes internal HTML canonicals to the configured trailing slash style', () => {
+    expect(absoluteUrl('/planes')).toBe('https://hackeandoelsistema.net/planes/');
+    expect(absoluteUrl('/archivo?page=2')).toBe('https://hackeandoelsistema.net/archivo/?page=2');
+    expect(absoluteUrl('/feed.xml')).toBe('https://hackeandoelsistema.net/feed.xml');
+  });
+
   it('uses imported social metadata overrides', () => {
     const metadata = buildMetadata({
       title: 'Titulo base',
