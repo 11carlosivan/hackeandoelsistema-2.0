@@ -42,7 +42,11 @@ const weatherCodeMap = new Map([
 ]);
 
 function numberOrNull(value) {
-  const parsed = Number(String(value || '').replace(/,/g, '').trim());
+  const rawNumber = String(value || '').match(/[\d.,]+/)?.[0] || '';
+  const normalized = rawNumber.includes(',') && !rawNumber.includes('.')
+    ? rawNumber.replace(',', '.')
+    : rawNumber.replace(/,/g, '');
+  const parsed = Number(normalized);
 
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -55,13 +59,23 @@ function parseBcrdHomeExchangeRate(html) {
   const source = String(html || '');
   const blockMatch = source.match(/Tipo de cambio[\s\S]{0,1800}?<small>\s*Compra\s*<\/small>\s*<h5>\s*([\d.,]+)\s*<\/h5>[\s\S]{0,600}?<small>\s*Venta\s*<\/small>\s*<h5>\s*([\d.,]+)\s*<\/h5>/i);
   const dateMatch = source.match(/Tipo de cambio[\s\S]{0,600}?<span class=['"]text-bolder-gb['"]>\s*([^<]+?)\s*<\/span>/i);
+  const textContent = source
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const buyMatch = textContent.match(/Compra\s*(?:RD\$|DOP|US\$)?\s*([\d.,]+)/i);
+  const sellMatch = textContent.match(/Venta\s*(?:RD\$|DOP|US\$)?\s*([\d.,]+)/i);
+  const fallbackDateMatch = textContent.match(/Tipo de cambio\s+(\d{1,2}\s+de\s+[\p{L}]+\s+\d{4})/iu);
 
-  if (!blockMatch) {
+  if (!blockMatch && (!buyMatch || !sellMatch)) {
     return null;
   }
 
-  const buy = numberOrNull(blockMatch[1]);
-  const sell = numberOrNull(blockMatch[2]);
+  const buy = numberOrNull(blockMatch?.[1] || buyMatch?.[1]);
+  const sell = numberOrNull(blockMatch?.[2] || sellMatch?.[1]);
 
   if (!buy || !sell) {
     return null;
@@ -72,7 +86,7 @@ function parseBcrdHomeExchangeRate(html) {
     buy,
     sell,
     trend: 'flat',
-    date: dateMatch?.[1]?.trim() || null,
+    date: dateMatch?.[1]?.trim() || fallbackDateMatch?.[1]?.trim() || null,
     updatedAt: new Date().toISOString(),
     source: 'bcrd',
   };

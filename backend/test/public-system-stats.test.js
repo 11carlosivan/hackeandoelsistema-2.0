@@ -20,6 +20,23 @@ describe('public system stats provider', () => {
     });
   });
 
+  it('parses compact BCRD exchange rate text with comma decimals', () => {
+    const html = `
+      <section>
+        <h3>Tipo de cambio 26 de Julio 2026</h3>
+        <div>Compra RD$ 58,61</div>
+        <div>Venta RD$ 59,20</div>
+      </section>
+    `;
+
+    expect(parseBcrdHomeExchangeRate(html)).toMatchObject({
+      buy: 58.61,
+      sell: 59.2,
+      date: '26 de Julio 2026',
+      source: 'bcrd',
+    });
+  });
+
   it('normalizes Open-Meteo current weather payload', () => {
     const weather = normalizeWeatherPayload({
       current: {

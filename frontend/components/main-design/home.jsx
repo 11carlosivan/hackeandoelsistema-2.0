@@ -99,6 +99,23 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     }));
   };
 
+  const formatRelativeTime = (value) => {
+    const publishedAt = value ? new Date(value) : null;
+
+    if (!publishedAt || Number.isNaN(publishedAt.getTime())) {
+      return 'FECHA PENDIENTE';
+    }
+
+    const diffMinutes = Math.max(1, Math.floor((Date.now() - publishedAt.getTime()) / 60000));
+
+    if (diffMinutes < 60) return `${diffMinutes} MIN`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} H`;
+
+    return `${Math.floor(diffHours / 24)} D`;
+  };
+
   return (
     <div className="space-y-12">
       
@@ -118,7 +135,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 className="hover:text-system-red transition-colors flex items-center gap-2 text-white font-bold"
               >
                 <span>{art.title.toUpperCase()}</span>
-                <span className="text-system-red font-bold text-[10px]">• HACE {idx % 2 === 0 ? '1H' : '30M'}</span>
+                <span className="text-system-red font-bold text-[10px]">• HACE {formatRelativeTime(art.publishedAt)}</span>
               </Link>
             ))}
           </div>
@@ -221,7 +238,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
 
         {/* Middle Column: Vertical stack of 3 news backdrop cards (Takes 3/12 columns) */}
         <div className="lg:col-span-3 flex flex-col justify-between gap-4 h-[400px] md:h-[450px]">
-          {middleArticles.map((art, index) => (
+          {middleArticles.map((art) => (
             <div 
               key={art.id}
               onClick={() => navigateToArticle(art)}
@@ -242,7 +259,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   {art.title}
                 </h3>
                 <span className="text-[8px] text-on-surface-variant font-mono uppercase mt-1 block">
-                  Hace {(index % 3) + 1} horas
+                  Hace {formatRelativeTime(art.publishedAt)}
                 </span>
               </div>
             </div>
