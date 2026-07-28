@@ -2,43 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #EAEAEA;
-  --on-background: #000000;
-  --surface: #FFFFFF;
-  --on-surface: #000000;
-  --surface-container-lowest: #FFFFFF;
-  --surface-container-low: #F5F5F5;
-  --surface-container: #EAEAEA;
-  --surface-container-high: #DCDCDC;
-  --surface-container-highest: #A0A0A0;
-  --terminal-gray: #DCDCDC;
-  --on-surface-variant: #000000;
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --system-red: #E10600;
-  --tertiary: #0163FF;
-}
-
-.dark {
-  --background: #131313;
-  --on-background: #e2e2e2;
-  --surface: #131313;
-  --on-surface: #e2e2e2;
-  --surface-container-lowest: #0e0e0e;
-  --surface-container-low: #1b1b1b;
-  --surface-container: #1f1f1f;
-  --surface-container-high: #2a2a2a;
-  --surface-container-highest: #353535;
-  --terminal-gray: #212121;
-  --on-surface-variant: #e4bebc;
-  --glass-bg: rgba(19, 19, 19, 0.75);
-  --system-red: #E63946;
-  --tertiary: #c8c6c5;
-}
-
 @layer base {
   body {
-    @apply bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden transition-colors duration-200;
+    @apply bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden;
   }
 }
 
@@ -54,7 +20,7 @@
 }
 
 .cms-rich-editor :where(h2, h3) {
-  color: var(--on-surface);
+  color: #fff;
   text-transform: uppercase;
 }
 
@@ -82,23 +48,23 @@
 /* HUD elements */
 .hud-line-v {
   width: 1px;
-  background: linear-gradient(to bottom, transparent, var(--terminal-gray), transparent);
+  background: linear-gradient(to bottom, transparent, #212121, transparent);
 }
 
 .hud-line-h {
   height: 1px;
-  background: linear-gradient(to right, transparent, var(--terminal-gray), transparent);
+  background: linear-gradient(to right, transparent, #212121, transparent);
 }
 
 .glass-terminal {
   backdrop-filter: blur(20px);
-  background: var(--glass-bg);
+  background: rgba(19, 19, 19, 0.75);
 }
 
 /* Grid overlay pattern */
 .grid-pattern {
-  background-image: linear-gradient(to right, var(--terminal-gray) 1px, transparent 1px),
-                    linear-gradient(to bottom, var(--terminal-gray) 1px, transparent 1px);
+  background-image: linear-gradient(to right, #212121 1px, transparent 1px),
+                    linear-gradient(to bottom, #212121 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -108,10 +74,10 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: #131313;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--terminal-gray);
+  background: #212121;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #E63946;
@@ -217,42 +183,132 @@
   animation-play-state: paused;
 }
 
-/* Custom Light Mode Overrides for Inputs & Form Controls */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="url"],
-input[type="number"],
-input[type="search"],
-input[type="datetime-local"],
-select,
-textarea {
-  background-color: var(--surface) !important;
-  color: var(--on-surface) !important;
-  border-color: var(--terminal-gray) !important;
+/* ==========================================
+   Light Mode Overrides (HTML:not(.dark))
+   ========================================== */
+
+/* Add transition to body for smooth theme toggle */
+body {
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--on-surface-variant) !important;
+html:not(.dark) body {
+  background-color: #EAEAEA !important;
+  color: #000000 !important;
+}
+
+/* Background overrides */
+html:not(.dark) .bg-background {
+  background-color: #EAEAEA !important;
+}
+html:not(.dark) .bg-surface {
+  background-color: #FFFFFF !important;
+}
+html:not(.dark) .bg-surface-container-low {
+  background-color: #F5F5F5 !important;
+}
+html:not(.dark) .bg-surface-container-lowest {
+  background-color: #FFFFFF !important;
+}
+html:not(.dark) .bg-surface-container {
+  background-color: #EAEAEA !important;
+}
+html:not(.dark) .bg-surface-container-high {
+  background-color: #DCDCDC !important;
+}
+html:not(.dark) .bg-terminal-gray {
+  background-color: #DCDCDC !important;
+}
+
+/* Text color overrides */
+html:not(.dark) .text-on-background,
+html:not(.dark) .text-on-surface {
+  color: #000000 !important;
+}
+html:not(.dark) .text-on-surface-variant {
+  color: #000000 !important;
+}
+
+/* Border overrides */
+html:not(.dark) .border-terminal-gray {
+  border-color: #DCDCDC !important;
+}
+html:not(.dark) .border-terminal-gray\/30 {
+  border-color: rgba(220, 220, 220, 0.3) !important;
+}
+html:not(.dark) .border-terminal-gray\/25 {
+  border-color: rgba(220, 220, 220, 0.25) !important;
+}
+
+/* Scrollbar overrides */
+html:not(.dark) ::-webkit-scrollbar-track {
+  background: #EAEAEA !important;
+}
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: #DCDCDC !important;
+}
+
+/* HUD and Terminal grid overrides */
+html:not(.dark) .hud-line-v {
+  background: linear-gradient(to bottom, transparent, #DCDCDC, transparent) !important;
+}
+html:not(.dark) .hud-line-h {
+  background: linear-gradient(to right, transparent, #DCDCDC, transparent) !important;
+}
+html:not(.dark) .grid-pattern {
+  background-image: linear-gradient(to right, #DCDCDC 1px, transparent 1px),
+                    linear-gradient(to bottom, #DCDCDC 1px, transparent 1px) !important;
+}
+html:not(.dark) .glass-terminal {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Brand system colors overrides in light mode */
+html:not(.dark) .text-system-red {
+  color: #E10600 !important;
+}
+html:not(.dark) .border-system-red {
+  border-color: #E10600 !important;
+}
+html:not(.dark) .bg-system-red {
+  background-color: #E10600 !important;
+}
+
+/* Inputs, Textareas and Selects overrides in light mode */
+html:not(.dark) input[type="text"],
+html:not(.dark) input[type="email"],
+html:not(.dark) input[type="password"],
+html:not(.dark) input[type="url"],
+html:not(.dark) input[type="number"],
+html:not(.dark) input[type="search"],
+html:not(.dark) input[type="datetime-local"],
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  border-color: #DCDCDC !important;
+}
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #000000 !important;
   opacity: 0.6;
 }
 
 /* Gutenberg block editor wrapper and rich editor text overrides */
-.cms-rich-editor,
-.editor-styles-wrapper,
-.block-editor-writing-flow {
-  background-color: var(--surface) !important;
-  color: var(--on-surface) !important;
+html:not(.dark) .cms-rich-editor,
+html:not(.dark) .editor-styles-wrapper,
+html:not(.dark) .block-editor-writing-flow {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
 }
 
 /* In light mode, override hardcoded text-white in specific editor elements to be black,
-   but exclude elements overlaying dark images (e.g. hero banner content, category badges, slider controls) */
+   excluding elements overlaying dark images (e.g. hero banner content, category badges, slider controls) */
 html:not(.dark) .text-white:not(.absolute *):not(.bg-black *):not(.bg-black\/85 *):not(.bg-black\/70 *):not(.z-30 *):not(.z-20 *) {
-  color: var(--on-surface) !important;
+  color: #000000 !important;
 }
 html:not(.dark) .text-white-important:not(.absolute *):not(.bg-black *):not(.bg-black\/85 *):not(.bg-black\/70 *):not(.z-30 *):not(.z-20 *) {
-  color: var(--on-surface) !important;
+  color: #000000 !important;
 }
 
 /* Keep text readable on top of dark image overlays in light mode (e.g. hero subtitles and metadata) */
