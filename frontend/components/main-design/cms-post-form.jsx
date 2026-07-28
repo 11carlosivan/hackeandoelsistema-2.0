@@ -464,11 +464,29 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   };
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const requestConfirmation = (message) => {
+    return new Promise((resolve) => {
+      setConfirmModal({
+        isOpen: true,
+        message,
+        onConfirm: (confirmed) => {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          resolve(confirmed);
+        },
+      });
+    });
+  };
 
   const runWorkflowAction = async (action) => {
     const riskyAction = action === 'PUBLISH' || action === 'SCHEDULE' || action === 'ARCHIVE';
     const confirmation = riskyAction
-      ? window.confirm(action === 'PUBLISH'
+      ? await requestConfirmation(action === 'PUBLISH'
         ? 'Esto activará la ruta pública y el sitemap si no hay una fecha futura. ¿Deseas continuar?'
         : action === 'SCHEDULE'
           ? 'Esto dejará la publicación programada fuera del sitemap hasta publicarla. ¿Deseas continuar?'
@@ -1298,6 +1316,38 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           setIsMediaModalOpen(false);
         }}
       />
+
+      {/* Custom Confirm Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="border border-terminal-gray bg-black max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div className="font-label-caps text-system-red text-[10px] font-bold tracking-wider">
+              CONFIRMACIÓN REQUERIDA
+            </div>
+            
+            <p className="text-xs text-white leading-relaxed font-mono">
+              {confirmModal.message}
+            </p>
+            
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => confirmModal.onConfirm(false)}
+                className="border border-terminal-gray px-5 py-2.5 font-label-caps text-[10px] font-bold text-white hover:border-white hover:text-white transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmModal.onConfirm(true)}
+                className="bg-system-red text-black px-5 py-2.5 font-label-caps text-[10px] font-bold hover:bg-white transition-colors cursor-pointer"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
