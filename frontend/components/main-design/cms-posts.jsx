@@ -1,6 +1,12 @@
+'use client';
+
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
+import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
+import { csrfHeaders } from './client-security';
 
 const statusTabs = [
   ['TODOS', ''],
@@ -33,13 +39,84 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 export default function CmsPosts({ posts, meta, filters, error }) {
+  const router = useRouter();
+  const [actionLoading, setActionLoading] = useState('');
+
+  const handleQuickDraft = async (e, postId) => {
+    e.preventDefault();
+    if (!window.confirm('¿Seguro que deseas pasar esta publicación a Borrador? Dejará de estar disponible al público.')) return;
+    
+    setActionLoading(postId);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ action: 'RETURN_TO_DRAFT' }),
+      });
+      if (response.ok) {
+        router.refresh();
+      } else {
+        const err = await response.json().catch(() => null);
+        alert(err?.message || 'Error al cambiar estado.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const handleQuickPublish = async (e, postId) => {
+    e.preventDefault();
+    if (!window.confirm('¿Seguro que deseas publicar esta publicación en vivo?')) return;
+    
+    setActionLoading(postId);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ action: 'PUBLISH' }),
+      });
+      if (response.ok) {
+        router.refresh();
+      } else {
+        const err = await response.json().catch(() => null);
+        alert(err?.message || 'Error al publicar.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
   return (
     <div className="w-full bg-background text-on-surface">
       <SystemPageHeader
         eyebrow="CMS / PUBLICACIONES"
         title="Publicaciones"
-        description="Listado editorial protegido para buscar, revisar estados y preparar acciones de gestion."
+        description="Listado editorial protegido para buscar, revisar estados y preparar acciones de gestión."
         stats={[
           { label: 'TOTAL', value: Number(meta.total || 0).toLocaleString('es-DO'), icon: 'article' },
           { label: 'PAGINA', value: `${meta.page || 1} / ${meta.totalPages || 1}`, icon: 'layers' },
@@ -49,7 +126,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
 
       {error ? (
         <div className="border border-system-red/40 bg-system-red/10 p-4 mb-8 text-sm text-white">
-          No se pudo cargar el listado protegido. Revisa la sesion y la API.
+          No se pudo cargar el listado protegido. Revisa la sesión y la API.
         </div>
       ) : null}
 
@@ -77,7 +154,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
               <input
                 name="q"
                 defaultValue={filters.q || ''}
-                placeholder="Titulo, slug o contenido"
+                placeholder="Título, slug o contenido"
                 className="w-full min-w-[260px] border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
               />
             </label>
@@ -116,39 +193,85 @@ export default function CmsPosts({ posts, meta, filters, error }) {
 
       <section className="border border-terminal-gray bg-black/20">
         <div className="hidden lg:grid grid-cols-[1.5fr_130px_160px_120px_120px] gap-4 border-b border-terminal-gray px-5 py-3 font-label-caps text-[10px] text-system-red font-bold">
-          <span>Titulo</span>
+          <span>Título</span>
           <span>Estado</span>
           <span>Autor</span>
           <span>Actualizado</span>
-          <span className="text-right">Metrica</span>
+          <span className="text-right">Métrica</span>
         </div>
 
-        <div className="divide-y divide-terminal-gray">
+        <div className="divide-y divide-terminal-gray/30">
           {posts.length > 0 ? posts.map((post) => (
-            <Link
+            <div
               key={post.id}
-              href={`/cms/publicaciones/${post.id}`}
-              className="grid gap-3 px-5 py-4 hover:bg-surface-container-low/60 transition-colors lg:grid-cols-[1.5fr_130px_160px_120px_120px] lg:items-center"
+              className="grid gap-3 px-5 py-4 hover:bg-surface-container-low/20 transition-colors lg:grid-cols-[1.5fr_130px_160px_120px_120px] lg:items-center group"
             >
               <div className="min-w-0">
                 <div className="font-label-caps text-[9px] text-system-red font-bold mb-1">
-                  {post.primaryCategory?.name || 'SIN CATEGORIA'} / {post.slug}
+                  {decodeHtmlEntities(post.primaryCategory?.name) || 'SIN CATEGORIA'} / {post.slug}
                 </div>
                 <h2 className="font-headline-md text-xl text-white uppercase leading-tight truncate">
-                  {post.title}
+                  <Link href={`/cms/publicaciones/${post.id}`} className="hover:text-system-red transition-colors">
+                    {post.title}
+                  </Link>
                 </h2>
                 {post.excerpt ? (
                   <p className="text-on-surface-variant text-sm line-clamp-1 mt-1">{post.excerpt}</p>
                 ) : null}
+
+                {/* Acciones Rápidas (Estilo WordPress) */}
+                <div className="flex flex-wrap items-center gap-2 mt-2 text-[9px] font-mono text-on-surface-variant select-none opacity-60 group-hover:opacity-100 transition-opacity">
+                  <Link
+                    href={`/cms/publicaciones/${post.id}`}
+                    className="text-system-red hover:text-white transition-colors"
+                  >
+                    [ EDITAR ]
+                  </Link>
+                  <span>|</span>
+                  {post.route?.path || post.canonicalPath ? (
+                    <>
+                      <Link
+                        href={post.route?.path || post.canonicalPath}
+                        target="_blank"
+                        className="hover:text-white transition-colors"
+                      >
+                        [ VER PÚBLICO ↗ ]
+                      </Link>
+                      <span>|</span>
+                    </>
+                  ) : null}
+                  
+                  {actionLoading === post.id ? (
+                    <span className="text-white animate-pulse">[ PROCESANDO... ]</span>
+                  ) : (
+                    post.status !== 'DRAFT' ? (
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuickDraft(e, post.id)}
+                        className="text-amber-500 hover:text-amber-300 transition-colors"
+                      >
+                        [ PASAR A BORRADOR ]
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuickPublish(e, post.id)}
+                        className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        [ PUBLICAR LIVE ]
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
 
               <div className="font-label-caps text-[10px] text-white font-bold">{post.status}</div>
-              <div className="text-sm text-on-surface-variant">{post.author?.displayName || 'Redaccion'}</div>
+              <div className="text-sm text-on-surface-variant">{post.author?.displayName || 'Redacción'}</div>
               <div className="text-sm text-on-surface-variant">{formatDate(post.updatedAt)}</div>
               <div className="font-label-caps text-[10px] text-on-surface-variant lg:text-right">
                 {Number(post.viewCount || 0).toLocaleString('es-DO')} vistas
               </div>
-            </Link>
+            </div>
           )) : (
             <div className="p-8 text-center text-on-surface-variant">No hay publicaciones para este filtro.</div>
           )}
