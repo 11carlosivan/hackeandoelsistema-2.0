@@ -4,16 +4,16 @@
 
 :root {
   --background: #EAEAEA;
-  --on-background: #0A0A0A;
+  --on-background: #000000;
   --surface: #FFFFFF;
-  --on-surface: #0A0A0A;
+  --on-surface: #000000;
   --surface-container-lowest: #FFFFFF;
   --surface-container-low: #F5F5F5;
   --surface-container: #EAEAEA;
   --surface-container-high: #DCDCDC;
   --surface-container-highest: #A0A0A0;
   --terminal-gray: #DCDCDC;
-  --on-surface-variant: #555555;
+  --on-surface-variant: #000000;
   --glass-bg: rgba(255, 255, 255, 0.85);
   --system-red: #E10600;
   --tertiary: #0163FF;
@@ -215,4 +215,41 @@
 }
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+/* Custom Light Mode Overrides for Inputs & Form Controls */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+input[type="search"],
+input[type="datetime-local"],
+select,
+textarea {
+  background-color: var(--surface) !important;
+  color: var(--on-surface) !important;
+  border-color: var(--terminal-gray) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--on-surface-variant) !important;
+  opacity: 0.6;
+}
+
+/* Gutenberg block editor wrapper and rich editor text overrides */
+.cms-rich-editor,
+.editor-styles-wrapper,
+.block-editor-writing-flow {
+  background-color: var(--surface) !important;
+  color: var(--on-surface) !important;
+}
+
+/* In light mode, override hardcoded text-white in specific editor elements to be black */
+html:not(.dark) .text-white {
+  color: var(--on-surface) !important;
+}
+html:not(.dark) .text-white-important {
+  color: var(--on-surface) !important;
 }
