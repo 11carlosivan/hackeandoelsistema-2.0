@@ -246,10 +246,23 @@ textarea::placeholder {
   color: var(--on-surface) !important;
 }
 
-/* In light mode, override hardcoded text-white in specific editor elements to be black */
-html:not(.dark) .text-white {
+/* In light mode, override hardcoded text-white in specific editor elements to be black,
+   but exclude elements overlaying dark images (e.g. hero banner content, category badges, slider controls) */
+html:not(.dark) .text-white:not(.absolute *):not(.bg-black *):not(.bg-black\/85 *):not(.bg-black\/70 *):not(.z-30 *):not(.z-20 *) {
   color: var(--on-surface) !important;
 }
-html:not(.dark) .text-white-important {
+html:not(.dark) .text-white-important:not(.absolute *):not(.bg-black *):not(.bg-black\/85 *):not(.bg-black\/70 *):not(.z-30 *):not(.z-20 *) {
   color: var(--on-surface) !important;
+}
+
+/* Keep text readable on top of dark image overlays in light mode (e.g. hero subtitles and metadata) */
+html:not(.dark) .relative.group div.relative.z-30 .text-on-surface-variant,
+html:not(.dark) .relative.group div.relative.z-20 .text-on-surface-variant {
+  color: #cbd5e1 !important;
+}
+
+/* Ensure category badges on top of images stay white */
+html:not(.dark) .absolute.bg-black\/85,
+html:not(.dark) .absolute.bg-black\/85 * {
+  color: #ffffff !important;
 }
