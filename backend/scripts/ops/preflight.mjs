@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+// #!/usr/bin/env node
 import 'dotenv/config';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';

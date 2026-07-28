@@ -36,3 +36,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Private deployment notes
+/cpanel_notes_private.md
+
+# Build output and scratch files
+/public/
+/scratch/

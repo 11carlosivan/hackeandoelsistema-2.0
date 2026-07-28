@@ -302,8 +302,9 @@ function internalRedirectPath(value) {
   try {
     const target = new URL(value);
     const site = new URL(PUBLIC_SITE_URL);
+    const prodSite = new URL('https://hackeandoelsistema.net');
 
-    if (target.origin !== site.origin) {
+    if (target.origin !== site.origin && target.origin !== prodSite.origin) {
       return null;
     }
 
