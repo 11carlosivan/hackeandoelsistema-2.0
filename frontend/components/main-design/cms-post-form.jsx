@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
@@ -352,8 +352,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     setNewTags((current) => current.filter((tag) => tag !== tagName));
   };
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const submit = async (event, actionType = 'DRAFT') => {
+    if (event) event.preventDefault();
     setStatus('loading');
     setError('');
 
@@ -440,6 +440,13 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           body: JSON.stringify(createPayload),
         });
         finalId = json.data?.post?.id;
+
+        if (finalId && actionType === 'PUBLISH') {
+          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${finalId}/workflow`, {
+            method: 'PATCH',
+            body: JSON.stringify({ action: 'PUBLISH' }),
+          });
+        }
       }
 
       if (!finalId) {
@@ -460,7 +467,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   return (
     <>
-      <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] w-full max-w-full overflow-hidden">
+      <form onSubmit={(e) => submit(e, 'DRAFT')} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] w-full max-w-full overflow-hidden">
         <section className="border border-terminal-gray bg-surface-container-low/30 p-6 md:p-8 w-full max-w-full overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <div className="font-label-caps text-system-red text-[10px] font-bold">CONTENIDO EDITORIAL</div>
@@ -660,13 +667,34 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         <aside className="space-y-6 w-full max-w-full overflow-hidden">
           <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
-            <button
-              type="submit"
-              disabled={status === 'loading'}
-              className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
-            >
-              {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Guardar SEO y media' : (postId ? 'Guardar Cambios' : 'Crear borrador'))}
-            </button>
+            {!postId ? (
+              <div className="flex flex-col gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={(e) => submit(e, 'DRAFT')}
+                  disabled={status === 'loading'}
+                  className="w-full bg-black border border-terminal-gray text-white py-3 font-label-caps text-[11px] font-bold hover:bg-white hover:text-black transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {status === 'loading' ? 'Guardando...' : 'Guardar como borrador'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => submit(e, 'PUBLISH')}
+                  disabled={status === 'loading'}
+                  className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {status === 'loading' ? 'Publicando...' : 'Publicar'}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
+              >
+                {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Guardar SEO y media' : 'Guardar Cambios')}
+              </button>
+            )}
 
             {/* Workflow Actions for existing post */}
             {post && (

@@ -5,6 +5,7 @@ const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   trailingSlash: true,
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   async headers() {
     return [
       {
