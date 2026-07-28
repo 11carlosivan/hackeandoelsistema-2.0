@@ -463,6 +463,133 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     }
   };
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const runWorkflowAction = async (action) => {
+    const riskyAction = action === 'PUBLISH' || action === 'SCHEDULE' || action === 'ARCHIVE';
+    const confirmation = riskyAction
+      ? window.confirm(action === 'PUBLISH'
+        ? 'Esto activará la ruta pública y el sitemap si no hay una fecha futura. ¿Deseas continuar?'
+        : action === 'SCHEDULE'
+          ? 'Esto dejará la publicación programada fuera del sitemap hasta publicarla. ¿Deseas continuar?'
+          : 'Esto archivará la publicación y la sacará del sitemap. ¿Deseas continuar?')
+      : true;
+
+    if (!confirmation) return;
+
+    setStatus('loading');
+    setError('');
+
+    try {
+      if (canEditContent) {
+        const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+        const contentPayload = {
+          title: postTitle.trim(),
+          slug: postSlug.trim() || undefined,
+          excerpt: excerpt.trim() || null,
+          contentHtml: contentHtml || null,
+          contentText: contentText || null,
+          postType: postType,
+          visibility: visibility,
+          scheduledAt: scheduledAtVal,
+        };
+        const saveResponse = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...csrfHeaders(),
+          },
+          body: JSON.stringify(contentPayload),
+        });
+        if (!saveResponse.ok) {
+          throw new Error('Error al guardar el contenido antes del cambio de estado.');
+        }
+      }
+
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'No se pudo cambiar el estado.');
+      }
+
+      setStatus('success');
+      router.refresh();
+    } catch (err) {
+      setStatus('error');
+      setError(err.message);
+    }
+  };
+
+  const workflowActionsByStatus = {
+    DRAFT: [
+      ['SUBMIT_REVIEW', 'Enviar a revision'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    NEEDS_CHANGES: [
+      ['SUBMIT_REVIEW', 'Enviar a revision'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    REJECTED: [
+      ['SUBMIT_REVIEW', 'Enviar a revision'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    PENDING_REVIEW: [
+      ['RETURN_TO_DRAFT', 'Volver a borrador'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    SCHEDULED: [
+      ['PUBLISH', 'Publicar ahora'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    PUBLISHED: [
+      ['ARCHIVE', 'Archivar'],
+    ],
+  };
+
+  let primaryActionLabel = '';
+  let handlePrimaryAction = () => {};
+  let dropdownOptions = [];
+
+  if (!postId) {
+    primaryActionLabel = 'Publicar';
+    handlePrimaryAction = () => submit(null, 'PUBLISH');
+    dropdownOptions = [
+      {
+        label: 'Guardar como borrador',
+        action: 'DRAFT',
+        handler: () => submit(null, 'DRAFT'),
+      }
+    ];
+  } else {
+    primaryActionLabel = !canEditContent ? 'Guardar SEO y media' : 'Guardar Cambios';
+    handlePrimaryAction = () => submit(null, 'DRAFT');
+
+    const workflowActions = workflowActionsByStatus[post?.status] || [];
+    dropdownOptions = workflowActions.map(([action, label]) => ({
+      label,
+      action,
+      handler: () => runWorkflowAction(action),
+    }));
+  }
+
   const isLive = post?.status === 'PUBLISHED' || post?.status === 'SCHEDULED';
 
   return (
@@ -667,41 +794,50 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         <aside className="space-y-6 w-full max-w-full overflow-hidden">
           <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
-            {!postId ? (
-              <div className="flex flex-col gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={(e) => submit(e, 'DRAFT')}
-                  disabled={status === 'loading'}
-                  className="w-full bg-black border border-terminal-gray text-white py-3 font-label-caps text-[11px] font-bold hover:bg-white hover:text-black transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {status === 'loading' ? 'Guardando...' : 'Guardar como borrador'}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => submit(e, 'PUBLISH')}
-                  disabled={status === 'loading'}
-                  className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {status === 'loading' ? 'Publicando...' : 'Publicar'}
-                </button>
-              </div>
-            ) : (
+            <div className="relative inline-flex flex-row w-full mb-3">
               <button
-                type="submit"
+                type="button"
+                onClick={handlePrimaryAction}
                 disabled={status === 'loading'}
-                className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
+                className="flex-1 bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 border-r border-black/25"
               >
-                {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Guardar SEO y media' : 'Guardar Cambios')}
+                {status === 'loading' ? 'Procesando...' : primaryActionLabel}
               </button>
-            )}
+              
+              {dropdownOptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  disabled={status === 'loading'}
+                  className="bg-system-red text-black px-3 hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-sm select-none font-bold">
+                    {isDropdownOpen ? 'arrow_drop_up' : 'arrow_drop_down'}
+                  </span>
+                </button>
+              )}
 
-            {/* Workflow Actions for existing post */}
-            {post && (
-              <div className="border-t border-terminal-gray/20 pt-4 mt-3">
-                <CmsWorkflowActions post={post} />
-              </div>
-            )}
+              {isDropdownOpen && dropdownOptions.length > 0 && (
+                <div className="absolute right-0 top-full mt-1 w-full bg-black border border-terminal-gray z-50 shadow-lg">
+                  <ul className="py-1">
+                    {dropdownOptions.map((option) => (
+                      <li key={option.action}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDropdownOpen(false);
+                            option.handler();
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-system-red hover:text-black transition-colors font-label-caps font-bold"
+                        >
+                          {option.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Classification Settings Panel */}
