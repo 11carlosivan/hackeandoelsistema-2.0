@@ -26,6 +26,8 @@ dist-ssr
 /*.dump
 /frontend/public/uploads/cms/
 /backend/public/uploads/cms/
+/media-php/media-config.php
+/media-php/public/uploads/
 
 # Editor directories and files
 .vscode/*

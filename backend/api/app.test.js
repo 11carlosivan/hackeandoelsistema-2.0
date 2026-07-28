@@ -515,7 +515,10 @@ describe('api app', () => {
   it('returns public posts by entity id for route based rendering', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     const app = await buildApp({
-      env: testEnv,
+      env: {
+        ...testEnv,
+        LEGACY_MEDIA_BASE_URL: 'https://media.hackeandoelsistema.net',
+      },
       prisma: createPrismaStub({
         post: {
           findMany: async () => [],
@@ -527,7 +530,7 @@ describe('api app', () => {
                   slug: 'sample-post',
                   title: 'Sample Post',
                   excerpt: 'Sample excerpt',
-                  contentHtml: '<p>Sample content</p>',
+                  contentHtml: '<p>Sample content</p><img src="https://hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg">',
                   contentText: 'Sample content',
                   postType: 'NEWS',
                   publishedAt: new Date('2026-01-01T00:00:00Z'),
@@ -540,7 +543,13 @@ describe('api app', () => {
                     username: 'admin',
                     displayName: 'Admin',
                   },
-                  featuredMedia: null,
+                  featuredMedia: {
+                    id: '55555555-5555-4555-8555-555555555555',
+                    url: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg',
+                    altText: 'Sample',
+                    width: 1200,
+                    height: 800,
+                  },
                   categories: [],
                   tags: [],
                   comments: [
@@ -585,6 +594,10 @@ describe('api app', () => {
       slug: 'sample-post',
       title: 'Sample Post',
       canonicalPath: 'https://example.com/original-story/',
+      featuredMedia: {
+        url: 'https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg',
+      },
+      contentHtml: '<p>Sample content</p><img src="https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg">',
       comments: [
         {
           id: 'comment-1',

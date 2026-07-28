@@ -14,6 +14,11 @@ const optionalUrlEnv = z.preprocess((value) => {
   return value;
 }, z.string().url().optional());
 
+const optionalStringEnv = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  return value;
+}, z.string().optional());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
@@ -31,13 +36,47 @@ const envSchema = z.object({
   AUTH_MAX_LOGIN_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   AUTH_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   SECURITY_CSP_REPORT_ONLY: booleanEnv.default(false),
+  MEDIA_STORAGE_DRIVER: z.enum(['local', 'remote_php']).default('local'),
   MEDIA_UPLOAD_DIR: z.string().min(1).default('../frontend/public/uploads/cms'),
   MEDIA_PUBLIC_BASE_PATH: z.string().min(1).default('/uploads/cms'),
   MEDIA_MAX_FILE_SIZE_BYTES: z.coerce.number().int().min(1024).max(25 * 1024 * 1024).default(8 * 1024 * 1024),
+  MEDIA_REMOTE_UPLOAD_URL: optionalUrlEnv,
+  MEDIA_REMOTE_PUBLIC_BASE_URL: optionalUrlEnv,
+  MEDIA_REMOTE_SECRET: optionalStringEnv,
+  MEDIA_REMOTE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(15000),
+  LEGACY_MEDIA_BASE_URL: optionalUrlEnv,
   WEATHER_API_URL: optionalUrlEnv,
   EXCHANGE_RATE_SOURCE_URL: optionalUrlEnv,
   PUBLIC_STATS_CACHE_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   PUBLIC_STATS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(15000).default(5000),
+}).superRefine((env, ctx) => {
+  if (env.MEDIA_STORAGE_DRIVER !== 'remote_php') {
+    return;
+  }
+
+  if (!env.MEDIA_REMOTE_UPLOAD_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['MEDIA_REMOTE_UPLOAD_URL'],
+      message: 'MEDIA_REMOTE_UPLOAD_URL is required when MEDIA_STORAGE_DRIVER=remote_php',
+    });
+  }
+
+  if (!env.MEDIA_REMOTE_PUBLIC_BASE_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['MEDIA_REMOTE_PUBLIC_BASE_URL'],
+      message: 'MEDIA_REMOTE_PUBLIC_BASE_URL is required when MEDIA_STORAGE_DRIVER=remote_php',
+    });
+  }
+
+  if (!env.MEDIA_REMOTE_SECRET || env.MEDIA_REMOTE_SECRET.length < 32) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['MEDIA_REMOTE_SECRET'],
+      message: 'MEDIA_REMOTE_SECRET must be at least 32 characters when MEDIA_STORAGE_DRIVER=remote_php',
+    });
+  }
 });
 
 export function loadEnv(overrides = {}) {

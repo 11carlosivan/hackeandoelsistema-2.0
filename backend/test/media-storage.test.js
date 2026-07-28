@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+import {
+  __mediaStorageTestUtils,
+  storeRemotePhpMediaUpload,
+} from '../api/services/media-storage.js';
+
+const { signRemoteMediaUpload } = __mediaStorageTestUtils;
+
+const PNG_1X1 = Buffer.from(
+  '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082',
+  'hex',
+);
+
+const remoteConfig = {
+  MEDIA_REMOTE_UPLOAD_URL: 'https://media.hackeandoelsistema.net/api/upload.php',
+  MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://media.hackeandoelsistema.net',
+  MEDIA_REMOTE_SECRET: 'remote-secret-with-more-than-32-characters',
+  MEDIA_REMOTE_TIMEOUT_MS: 5000,
+  MEDIA_MAX_FILE_SIZE_BYTES: 1024 * 1024,
+};
+
+describe('remote PHP media storage', () => {
+  it('sends validated media with signed server-to-server headers', async () => {
+    const file = {
+      filename: 'Prueba CMS.png',
+      mimetype: 'image/png',
+      buffer: PNG_1X1,
+    };
+
+    const stored = await storeRemotePhpMediaUpload({
+      config: remoteConfig,
+      file,
+      fetchImpl: async (url, options) => {
+        expect(url).toBe(remoteConfig.MEDIA_REMOTE_UPLOAD_URL);
+        expect(options.method).toBe('POST');
+        expect(options.headers.Authorization).toBe(`Bearer ${remoteConfig.MEDIA_REMOTE_SECRET}`);
+
+        const timestamp = options.headers['X-HES-Media-Timestamp'];
+        const expectedSignature = signRemoteMediaUpload({
+          secret: remoteConfig.MEDIA_REMOTE_SECRET,
+          timestamp,
+          filename: file.filename,
+          mimetype: file.mimetype,
+          buffer: PNG_1X1,
+        });
+
+        expect(options.headers['X-HES-Media-Signature']).toBe(expectedSignature);
+
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              media: {
+                url: 'https://media.hackeandoelsistema.net/uploads/cms/2026/07/prueba-cms.png',
+                path: '/uploads/cms/2026/07/prueba-cms.png',
+                mimeType: 'image/png',
+                fileName: 'prueba-cms.png',
+                fileSize: PNG_1X1.length,
+                width: 1,
+                height: 1,
+              },
+            },
+          }),
+        };
+      },
+    });
+
+    expect(stored).toMatchObject({
+      disk: 'remote_php',
+      url: 'https://media.hackeandoelsistema.net/uploads/cms/2026/07/prueba-cms.png',
+      path: '/uploads/cms/2026/07/prueba-cms.png',
+      mimeType: 'image/png',
+      width: 1,
+      height: 1,
+    });
+  });
+
+  it('rejects remote responses from a different public origin', async () => {
+    await expect(
+      storeRemotePhpMediaUpload({
+        config: remoteConfig,
+        file: {
+          filename: 'Prueba CMS.png',
+          mimetype: 'image/png',
+          buffer: PNG_1X1,
+        },
+        fetchImpl: async () => ({
+          ok: true,
+          json: async () => ({
+            data: {
+              media: {
+                url: 'https://evil.example/uploads/cms/prueba.png',
+                path: '/uploads/cms/prueba.png',
+                mimeType: 'image/png',
+                fileName: 'prueba.png',
+                fileSize: PNG_1X1.length,
+              },
+            },
+          }),
+        }),
+      }),
+    ).rejects.toThrow('Remote media URL origin is not allowed');
+  });
+});

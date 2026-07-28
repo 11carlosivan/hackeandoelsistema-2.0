@@ -296,9 +296,56 @@ function canonicalPathForPost(post, route = null) {
     `/${post.slug}/`;
 }
 
+function rewriteLegacyMediaUrl(config, value) {
+  if (!value || !config?.LEGACY_MEDIA_BASE_URL) {
+    return value;
+  }
+
+  try {
+    const legacyBaseUrl = config.LEGACY_MEDIA_BASE_URL.replace(/\/+$/g, '');
+    const url = String(value).startsWith('/')
+      ? new URL(String(value), legacyBaseUrl)
+      : new URL(String(value));
+
+    if (!url.pathname.startsWith('/wp-content/uploads/')) {
+      return value;
+    }
+
+    return `${legacyBaseUrl}${url.pathname}${url.search}`;
+  } catch {
+    return value;
+  }
+}
+
+function rewriteLegacyMediaHtml(config, value) {
+  if (!value || !config?.LEGACY_MEDIA_BASE_URL) {
+    return value;
+  }
+
+  return String(value).replace(
+    /(https?:\/\/[^"'\s)]+\/wp-content\/uploads\/[^"'\s)]+|\/wp-content\/uploads\/[^"'\s)]+)/g,
+    (url) => rewriteLegacyMediaUrl(config, url),
+  );
+}
+
+function normalizePublicMediaAsset(config, media) {
+  if (!media) {
+    return null;
+  }
+
+  return {
+    id: media.id,
+    url: rewriteLegacyMediaUrl(config, media.url),
+    altText: media.altText,
+    width: media.width,
+    height: media.height,
+  };
+}
+
 function normalizePublicPost(post, options = {}) {
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
   const canonicalPath = canonicalPathForPost(post, options.route);
+  const config = options.config;
 
   return {
     id: post.id,
@@ -328,15 +375,7 @@ function normalizePublicPost(post, options = {}) {
           fullPath: primaryCategory.fullPath,
         }
       : null,
-    featuredMedia: post.featuredMedia
-      ? {
-          id: post.featuredMedia.id,
-          url: post.featuredMedia.url,
-          altText: post.featuredMedia.altText,
-          width: post.featuredMedia.width,
-          height: post.featuredMedia.height,
-        }
-      : null,
+    featuredMedia: normalizePublicMediaAsset(config, post.featuredMedia),
   };
 }
 
@@ -495,7 +534,7 @@ async function searchPublicPostsWithFullText(app, { q, page, limit }) {
   }
 }
 
-function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
+function normalizePublicAuthor(author, posts = [], totalPosts = 0, config = null) {
   return {
     id: author.id,
     username: author.username,
@@ -505,52 +544,38 @@ function normalizePublicAuthor(author, posts = [], totalPosts = 0) {
     canonicalPath: author.legacyAuthorUrl || (author.legacyAuthorSlug ? `/author/${author.legacyAuthorSlug}/` : null),
     bio: author.profile?.bio || null,
     websiteUrl: author.profile?.websiteUrl || null,
-    avatar: author.avatarMedia
-      ? {
-          id: author.avatarMedia.id,
-          url: author.avatarMedia.url,
-          altText: author.avatarMedia.altText,
-          width: author.avatarMedia.width,
-          height: author.avatarMedia.height,
-        }
-      : null,
+    avatar: normalizePublicMediaAsset(config, author.avatarMedia),
     stats: {
       posts: totalPosts,
     },
-    posts: posts.map(normalizePublicPost),
+    posts: posts.map((post) => normalizePublicPost(post, { config })),
   };
 }
 
-function normalizePublicProduct(product) {
+function normalizePublicProduct(product, config = null) {
   return {
     id: product.id,
     slug: product.slug,
     title: product.title,
-    descriptionHtml: product.descriptionHtml,
+    descriptionHtml: rewriteLegacyMediaHtml(config, product.descriptionHtml),
     shortDescription: product.shortDescription,
     priceAmount: product.priceAmount,
     currency: product.currency,
     canonicalPath: product.legacyUrl || `/producto/${product.slug}/`,
-    featuredMedia: product.featuredMedia
-      ? {
-          id: product.featuredMedia.id,
-          url: product.featuredMedia.url,
-          altText: product.featuredMedia.altText,
-          width: product.featuredMedia.width,
-          height: product.featuredMedia.height,
-        }
-      : null,
+    featuredMedia: normalizePublicMediaAsset(config, product.featuredMedia),
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
 }
 
-function normalizePublicWebStory(story) {
+function normalizePublicWebStory(story, config = null) {
   return {
     id: story.id,
     slug: story.slug,
     title: story.title,
-    contentJson: story.contentJson,
+    contentJson: story.contentJson?.legacyContentHtml
+      ? { ...story.contentJson, legacyContentHtml: rewriteLegacyMediaHtml(config, story.contentJson.legacyContentHtml) }
+      : story.contentJson,
     canonicalPath: story.legacyUrl || `/web-stories/${story.slug}/`,
     publishedAt: story.publishedAt,
     updatedAt: story.updatedAt,
@@ -561,15 +586,7 @@ function normalizePublicWebStory(story) {
           displayName: story.author.displayName,
         }
       : null,
-    featuredMedia: story.featuredMedia
-      ? {
-          id: story.featuredMedia.id,
-          url: story.featuredMedia.url,
-          altText: story.featuredMedia.altText,
-          width: story.featuredMedia.width,
-          height: story.featuredMedia.height,
-        }
-      : null,
+    featuredMedia: normalizePublicMediaAsset(config, story.featuredMedia),
   };
 }
 
@@ -689,7 +706,7 @@ export async function registerPublicRoutes(app) {
     return {
       data: {
         category,
-        posts: items.map(normalizePublicPost),
+        posts: items.map((post) => normalizePublicPost(post, { config: app.config })),
       },
       meta: {
         page,
@@ -766,7 +783,7 @@ export async function registerPublicRoutes(app) {
     return {
       data: {
         category,
-        posts: items.map(normalizePublicPost),
+        posts: items.map((post) => normalizePublicPost(post, { config: app.config })),
       },
       meta: {
         page,
@@ -842,7 +859,7 @@ export async function registerPublicRoutes(app) {
     return {
       data: {
         tag: normalizePublicTag(tag),
-        posts: items.map(normalizePublicPost),
+        posts: items.map((post) => normalizePublicPost(post, { config: app.config })),
       },
       meta: {
         page,
@@ -897,7 +914,7 @@ export async function registerPublicRoutes(app) {
     });
 
     return {
-      data: items.map(normalizePublicPost),
+      data: items.map((post) => normalizePublicPost(post, { config: app.config })),
       meta: {
         page,
         limit,
@@ -966,10 +983,10 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: {
-        ...normalizePublicPost(post, { route }),
-        contentHtml: post.contentHtml,
+        ...normalizePublicPost(post, { route, config: app.config }),
+        contentHtml: rewriteLegacyMediaHtml(app.config, post.contentHtml),
         contentJson: post.contentJson,
-        relatedPosts: relatedPosts.map(normalizePublicPost),
+        relatedPosts: relatedPosts.map((relatedPost) => normalizePublicPost(relatedPost, { config: app.config })),
         comments: (post.comments || []).map(normalizePublicComment),
         tags: post.tags.map((item) => ({
           id: item.tag.id,
@@ -1039,10 +1056,10 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: {
-        ...normalizePublicPost(post, { route }),
-        contentHtml: post.contentHtml,
+        ...normalizePublicPost(post, { route, config: app.config }),
+        contentHtml: rewriteLegacyMediaHtml(app.config, post.contentHtml),
         contentJson: post.contentJson,
-        relatedPosts: relatedPosts.map(normalizePublicPost),
+        relatedPosts: relatedPosts.map((relatedPost) => normalizePublicPost(relatedPost, { config: app.config })),
         comments: (post.comments || []).map(normalizePublicComment),
         tags: post.tags.map((item) => ({
           id: item.tag.id,
@@ -1083,7 +1100,7 @@ export async function registerPublicRoutes(app) {
         id: page.id,
         slug: page.slug,
         title: page.title,
-        contentHtml: page.contentHtml,
+        contentHtml: rewriteLegacyMediaHtml(app.config, page.contentHtml),
         contentText: page.contentText,
         publishedAt: page.publishedAt,
         updatedAt: page.updatedAt,
@@ -1129,7 +1146,7 @@ export async function registerPublicRoutes(app) {
         id: page.id,
         slug: page.slug,
         title: page.title,
-        contentHtml: page.contentHtml,
+        contentHtml: rewriteLegacyMediaHtml(app.config, page.contentHtml),
         contentText: page.contentText,
         publishedAt: page.publishedAt,
         updatedAt: page.updatedAt,
@@ -1224,7 +1241,7 @@ export async function registerPublicRoutes(app) {
     publicCacheHeaders(reply, 180);
 
     return {
-      data: normalizePublicAuthor(author, posts, totalPosts),
+      data: normalizePublicAuthor(author, posts, totalPosts, app.config),
       meta: {
         page,
         limit,
@@ -1254,7 +1271,7 @@ export async function registerPublicRoutes(app) {
     publicCacheHeaders(reply, 300);
 
     return {
-      data: normalizePublicProduct(product),
+      data: normalizePublicProduct(product, app.config),
     };
   });
 
@@ -1285,7 +1302,7 @@ export async function registerPublicRoutes(app) {
     publicCacheHeaders(reply, 300);
 
     return {
-      data: normalizePublicWebStory(story),
+      data: normalizePublicWebStory(story, app.config),
     };
   });
 
@@ -1394,7 +1411,7 @@ export async function registerPublicRoutes(app) {
           tags,
         },
         latestImportRun,
-        recentPosts: recentPosts.map(normalizePublicPost),
+        recentPosts: recentPosts.map((post) => normalizePublicPost(post, { config: app.config })),
       },
     };
   });

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -211,6 +211,122 @@ export async function storeLocalMediaUpload({ config, file }) {
   };
 }
 
+function requireRemoteMediaConfig(config) {
+  if (!config.MEDIA_REMOTE_UPLOAD_URL || !config.MEDIA_REMOTE_SECRET || config.MEDIA_REMOTE_SECRET.length < 32) {
+    const error = new Error('Remote media storage is not configured');
+    error.statusCode = 500;
+    throw error;
+  }
+}
+
+function signRemoteMediaUpload({ secret, timestamp, filename, mimetype, buffer }) {
+  const digest = createHash('sha256').update(buffer).digest('hex');
+  const payload = `${timestamp}:${filename}:${mimetype}:${digest}`;
+
+  return createHmac('sha256', secret).update(payload).digest('hex');
+}
+
+function normalizeRemoteResponse(payload) {
+  const media = payload?.data?.media || payload?.media || payload?.data || payload;
+
+  if (!media || typeof media !== 'object') {
+    const error = new Error('Invalid remote media response');
+    error.statusCode = 502;
+    throw error;
+  }
+
+  if (!media.url || !media.path || !media.fileName || !media.mimeType) {
+    const error = new Error('Incomplete remote media response');
+    error.statusCode = 502;
+    throw error;
+  }
+
+  return {
+    disk: 'remote_php',
+    url: String(media.url),
+    path: String(media.path),
+    mimeType: String(media.mimeType),
+    fileName: String(media.fileName),
+    fileSize: Number(media.fileSize || 0),
+    width: media.width === null || media.width === undefined ? null : Number(media.width),
+    height: media.height === null || media.height === undefined ? null : Number(media.height),
+  };
+}
+
+function assertRemotePublicUrl(config, url) {
+  if (!config.MEDIA_REMOTE_PUBLIC_BASE_URL) {
+    return;
+  }
+
+  const publicBase = new URL(config.MEDIA_REMOTE_PUBLIC_BASE_URL);
+  const remoteUrl = new URL(url);
+
+  if (remoteUrl.origin !== publicBase.origin) {
+    const error = new Error('Remote media URL origin is not allowed');
+    error.statusCode = 502;
+    throw error;
+  }
+}
+
+export async function storeRemotePhpMediaUpload({ config, file, fetchImpl = globalThis.fetch }) {
+  requireRemoteMediaConfig(config);
+
+  const buffer = file.buffer ?? (await file.toBuffer());
+  validateMediaBuffer({ config, file, buffer });
+
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const signature = signRemoteMediaUpload({
+    secret: config.MEDIA_REMOTE_SECRET,
+    timestamp,
+    filename: file.filename,
+    mimetype: file.mimetype,
+    buffer,
+  });
+  const form = new FormData();
+  const blob = new Blob([buffer], { type: file.mimetype });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.MEDIA_REMOTE_TIMEOUT_MS || 15000);
+
+  form.set('file', blob, file.filename);
+  form.set('filename', file.filename);
+  form.set('mimetype', file.mimetype);
+
+  try {
+    const response = await fetchImpl(config.MEDIA_REMOTE_UPLOAD_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.MEDIA_REMOTE_SECRET}`,
+        'X-HES-Media-Timestamp': timestamp,
+        'X-HES-Media-Signature': signature,
+      },
+      body: form,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      const error = new Error(`Remote media upload failed: ${response.status}${message ? ` ${message.slice(0, 200)}` : ''}`);
+      error.statusCode = response.status >= 400 && response.status < 500 ? 502 : 503;
+      throw error;
+    }
+
+    const storedMedia = normalizeRemoteResponse(await response.json());
+    assertRemotePublicUrl(config, storedMedia.url);
+
+    return storedMedia;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function storeMediaUpload({ config, file }) {
+  if (config.MEDIA_STORAGE_DRIVER === 'remote_php') {
+    return storeRemotePhpMediaUpload({ config, file });
+  }
+
+  return storeLocalMediaUpload({ config, file });
+}
+
 export async function removeLocalMediaFile(localFilePath) {
   if (!localFilePath) {
     return;
@@ -224,3 +340,7 @@ export async function removeLocalMediaFile(localFilePath) {
     }
   }
 }
+
+export const __mediaStorageTestUtils = {
+  signRemoteMediaUpload,
+};

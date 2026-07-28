@@ -1503,6 +1503,87 @@ describe('cms routes', () => {
     expect(response.json().data.media.url).toMatch(/^\/uploads\/cms-test\/\d{4}\/\d{2}\/prueba-cms-[a-f0-9-]+\.png$/);
   });
 
+  it('uploads CMS media through the remote PHP storage driver', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const originalFetch = globalThis.fetch;
+    const png = Buffer.from(
+      '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082',
+      'hex',
+    );
+
+    globalThis.fetch = async (url, options) => {
+      expect(url).toBe('https://media.hackeandoelsistema.net/api/upload.php');
+      expect(options.headers.Authorization).toBe('Bearer remote-secret-with-more-than-32-characters');
+      expect(options.headers['X-HES-Media-Signature']).toMatch(/^[a-f0-9]{64}$/);
+
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            media: {
+              url: 'https://media.hackeandoelsistema.net/uploads/cms/2026/07/prueba-cms.png',
+              path: '/uploads/cms/2026/07/prueba-cms.png',
+              mimeType: 'image/png',
+              fileName: 'prueba-cms.png',
+              fileSize: png.length,
+              width: 1,
+              height: 1,
+            },
+          },
+        }),
+      };
+    };
+
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        MEDIA_STORAGE_DRIVER: 'remote_php',
+        MEDIA_REMOTE_UPLOAD_URL: 'https://media.hackeandoelsistema.net/api/upload.php',
+        MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://media.hackeandoelsistema.net',
+        MEDIA_REMOTE_SECRET: 'remote-secret-with-more-than-32-characters',
+        MEDIA_REMOTE_TIMEOUT_MS: 5000,
+        MEDIA_MAX_FILE_SIZE_BYTES: 1024 * 1024,
+      },
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+    const form = new FormData();
+
+    form.append('file', png, {
+      filename: 'Prueba CMS.png',
+      contentType: 'image/png',
+      knownLength: png.length,
+    });
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/cms/media',
+        headers: {
+          authorization: `Bearer ${access.token}`,
+          ...form.getHeaders(),
+        },
+        payload: form,
+      });
+
+      expect(response.statusCode, response.body).toBe(201);
+      expect(response.json().data.media).toMatchObject({
+        id: '66666666-6666-4666-8666-666666666666',
+        disk: 'remote_php',
+        type: 'IMAGE',
+        url: 'https://media.hackeandoelsistema.net/uploads/cms/2026/07/prueba-cms.png',
+        path: '/uploads/cms/2026/07/prueba-cms.png',
+        mimeType: 'image/png',
+        width: 1,
+        height: 1,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      await app.close();
+    }
+  });
+
   it('rejects media uploads when the file signature does not match the declared type', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
