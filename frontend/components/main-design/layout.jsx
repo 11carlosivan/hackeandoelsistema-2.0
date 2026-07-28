@@ -1,12 +1,18 @@
 import Header from './header';
 import SideNavBar from './side-nav-bar';
 import Footer from './footer';
+import { getPublicCategories } from '@/lib/main-design/api';
 
-export default function Layout({ children, categories = [] }) {
+export default async function Layout({ children, categories }) {
+  let menuCategories = categories;
+  if (!menuCategories || menuCategories.length === 0) {
+    menuCategories = await getPublicCategories();
+  }
+
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col">
       {/* Fixed top header */}
-      <Header categories={categories} />
+      <Header categories={menuCategories} />
       
       {/* Main container with sidebar and content */}
       <div className="flex flex-1 w-full max-w-full mx-auto pt-[150px] md:pt-[170px] relative">
