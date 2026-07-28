@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { publicCacheHeaders } from '../utils/http.js';
+import { AUTH_COOKIE_NAMES, verifyAccessToken } from '../services/auth.js';
+import { randomToken, sha256Hex } from '../utils/crypto.js';
+import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
 
 const paginationSchema = z.object({
@@ -30,6 +32,21 @@ const slugParamSchema = z.object({
 const idParamSchema = z.object({
   id: z.uuid(),
 });
+const publicCommentSchema = z.object({
+  authorName: z.string().trim().min(2).max(160).optional(),
+  authorEmail: z.string().trim().email().max(255).optional(),
+  body: z.string().trim().min(3).max(2000),
+  parentId: z.uuid().nullable().optional(),
+});
+const publicLikeSchema = z.object({
+  liked: z.boolean().optional(),
+});
+const publicSaveSchema = z.object({
+  saved: z.boolean().optional(),
+});
+const publicShareSchema = z.object({
+  channel: z.enum(['native', 'copy', 'facebook', 'x', 'whatsapp', 'telegram', 'email']).default('native'),
+});
 
 const categorySlugParamSchema = z.object({
   slug: z.string().trim().min(1).max(180),
@@ -46,9 +63,103 @@ const SITEMAP_EXCLUDED_PATHS = [
 ];
 const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
+const PUBLIC_VISITOR_COOKIE = 'hes_public_visitor';
 
 let lastScheduledPublishCheckAt = 0;
 let scheduledPublishInFlight = null;
+
+function getCookieValue(cookieHeader, name) {
+  return String(cookieHeader || '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+}
+
+function publicCookieOptions(app, maxAge) {
+  return [
+    'HttpOnly',
+    'SameSite=Lax',
+    'Path=/',
+    `Max-Age=${maxAge}`,
+    app.config.AUTH_COOKIE_SECURE ? 'Secure' : '',
+  ].filter(Boolean).join('; ');
+}
+
+function ensurePublicVisitor(request, reply) {
+  const existing = getCookieValue(request.headers.cookie, PUBLIC_VISITOR_COOKIE);
+  const existingValid = /^[A-Za-z0-9_-]{24,128}$/.test(existing || '');
+  const visitorId = existingValid ? existing : randomToken(32);
+
+  if (!existingValid) {
+    reply.header('Set-Cookie', `${PUBLIC_VISITOR_COOKIE}=${visitorId}; ${publicCookieOptions(request.server, 365 * 24 * 60 * 60)}`);
+  }
+
+  return visitorId;
+}
+
+async function getOptionalPublicUser(app, request) {
+  const header = request.headers.authorization || '';
+  const [scheme, bearerToken] = header.split(' ');
+  const cookieToken = getCookieValue(request.headers.cookie, AUTH_COOKIE_NAMES.access);
+  const token = scheme?.toLowerCase() === 'bearer' && bearerToken ? bearerToken : cookieToken;
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payload = await verifyAccessToken(app.config, token);
+    const user = await app.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        status: true,
+      },
+    });
+
+    return user?.status === 'ACTIVE' ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+function engagementActorHash({ app, user, visitorId }) {
+  const rawActor = user?.id ? `user:${user.id}` : `visitor:${visitorId}`;
+
+  return sha256Hex(rawActor, app.config.AUTH_JWT_SECRET);
+}
+
+function requestHashMeta(request) {
+  const pepper = request.server.config.AUTH_JWT_SECRET;
+  const forwardedFor = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = request.ip || forwardedFor;
+  const userAgent = request.headers['user-agent'] || '';
+
+  return {
+    ipHash: ip ? sha256Hex(`ip:${ip}`, pepper) : null,
+    userAgentHash: userAgent ? sha256Hex(`ua:${userAgent}`, pepper) : null,
+  };
+}
+
+async function findPublicPostForEngagement(app, postId) {
+  return app.prisma.post.findFirst({
+    where: {
+      id: postId,
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+    },
+    select: {
+      id: true,
+      likeCount: true,
+      saveCount: true,
+      shareCount: true,
+      commentCount: true,
+    },
+  });
+}
 
 async function publishDueScheduledPosts(app) {
   const nowMs = Date.now();
@@ -383,6 +494,9 @@ function normalizePublicPost(post, options = {}) {
     updatedAt: post.updatedAt,
     viewCount: post.viewCount,
     commentCount: post.commentCount,
+    likeCount: post.likeCount || 0,
+    saveCount: post.saveCount || 0,
+    shareCount: post.shareCount || 0,
     canonicalPath,
     author: post.author
       ? {
@@ -1090,6 +1204,326 @@ export async function registerPublicRoutes(app) {
           name: item.tag.name,
           slug: item.tag.slug,
         })),
+      },
+    };
+  });
+
+  app.get('/api/v1/public/posts/id/:id/engagement', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const [post, user] = await Promise.all([
+      findPublicPostForEngagement(app, id),
+      getOptionalPublicUser(app, request),
+    ]);
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    const visitorId = getCookieValue(request.headers.cookie, PUBLIC_VISITOR_COOKIE);
+    const actorHash = visitorId || user ? engagementActorHash({ app, user, visitorId }) : null;
+    const [like, saved] = await Promise.all([
+      actorHash
+        ? app.prisma.postLike.findUnique({
+            where: {
+              postId_actorHash: {
+                postId: id,
+                actorHash,
+              },
+            },
+            select: { id: true },
+          })
+        : null,
+      user
+        ? app.prisma.savedPost.findUnique({
+            where: {
+              postId_userId: {
+                postId: id,
+                userId: user.id,
+              },
+            },
+            select: { id: true },
+          })
+        : null,
+    ]);
+
+    return {
+      data: {
+        postId: id,
+        liked: Boolean(like),
+        saved: Boolean(saved),
+        authenticated: Boolean(user),
+        counts: {
+          likes: post.likeCount,
+          saves: post.saveCount,
+          shares: post.shareCount,
+          comments: post.commentCount,
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/public/posts/id/:id/like', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    const body = publicLikeSchema.safeParse(request.body || {});
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid like payload');
+    }
+
+    noStoreHeaders(reply);
+    const post = await findPublicPostForEngagement(app, id);
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    const user = await getOptionalPublicUser(app, request);
+    const visitorId = ensurePublicVisitor(request, reply);
+    const actorHash = engagementActorHash({ app, user, visitorId });
+    const shouldLike = body.data.liked ?? true;
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const existing = await tx.postLike.findUnique({
+        where: {
+          postId_actorHash: {
+            postId: id,
+            actorHash,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (shouldLike && !existing) {
+        await tx.postLike.create({
+          data: {
+            postId: id,
+            userId: user?.id || null,
+            actorHash,
+          },
+        });
+        const updatedPost = await tx.post.update({
+          where: { id },
+          data: { likeCount: { increment: 1 } },
+          select: { likeCount: true },
+        });
+
+        return { liked: true, likeCount: updatedPost.likeCount };
+      }
+
+      if (!shouldLike && existing) {
+        await tx.postLike.delete({ where: { id: existing.id } });
+        await tx.post.updateMany({
+          where: {
+            id,
+            likeCount: { gt: 0 },
+          },
+          data: { likeCount: { decrement: 1 } },
+        });
+        const updatedPost = await tx.post.findUnique({
+          where: { id },
+          select: { likeCount: true },
+        });
+
+        return { liked: false, likeCount: updatedPost?.likeCount ?? 0 };
+      }
+
+      return { liked: Boolean(existing), likeCount: post.likeCount };
+    });
+
+    return {
+      data: {
+        postId: id,
+        ...result,
+      },
+    };
+  });
+
+  app.post('/api/v1/public/posts/id/:id/save', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    const body = publicSaveSchema.safeParse(request.body || {});
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid save payload');
+    }
+
+    noStoreHeaders(reply);
+    const post = await findPublicPostForEngagement(app, id);
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    const shouldSave = body.data.saved ?? true;
+    const result = await app.prisma.$transaction(async (tx) => {
+      const existing = await tx.savedPost.findUnique({
+        where: {
+          postId_userId: {
+            postId: id,
+            userId: request.auth.user.id,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (shouldSave && !existing) {
+        await tx.savedPost.create({
+          data: {
+            postId: id,
+            userId: request.auth.user.id,
+          },
+        });
+        const updatedPost = await tx.post.update({
+          where: { id },
+          data: { saveCount: { increment: 1 } },
+          select: { saveCount: true },
+        });
+
+        return { saved: true, saveCount: updatedPost.saveCount };
+      }
+
+      if (!shouldSave && existing) {
+        await tx.savedPost.delete({ where: { id: existing.id } });
+        await tx.post.updateMany({
+          where: {
+            id,
+            saveCount: { gt: 0 },
+          },
+          data: { saveCount: { decrement: 1 } },
+        });
+        const updatedPost = await tx.post.findUnique({
+          where: { id },
+          select: { saveCount: true },
+        });
+
+        return { saved: false, saveCount: updatedPost?.saveCount ?? 0 };
+      }
+
+      return { saved: Boolean(existing), saveCount: post.saveCount };
+    });
+
+    return {
+      data: {
+        postId: id,
+        ...result,
+      },
+    };
+  });
+
+  app.post('/api/v1/public/posts/id/:id/share', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    const body = publicShareSchema.safeParse(request.body || {});
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid share payload');
+    }
+
+    noStoreHeaders(reply);
+    const post = await findPublicPostForEngagement(app, id);
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    const user = await getOptionalPublicUser(app, request);
+    const visitorId = ensurePublicVisitor(request, reply);
+    const actorHash = engagementActorHash({ app, user, visitorId });
+    const result = await app.prisma.$transaction(async (tx) => {
+      await tx.postShare.create({
+        data: {
+          postId: id,
+          userId: user?.id || null,
+          actorHash,
+          channel: body.data.channel,
+        },
+      });
+      const updatedPost = await tx.post.update({
+        where: { id },
+        data: { shareCount: { increment: 1 } },
+        select: { shareCount: true },
+      });
+
+      return { shareCount: updatedPost.shareCount };
+    });
+
+    return {
+      data: {
+        postId: id,
+        channel: body.data.channel,
+        ...result,
+      },
+    };
+  });
+
+  app.post('/api/v1/public/posts/id/:id/comments', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    const body = publicCommentSchema.safeParse(request.body || {});
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Invalid comment payload');
+    }
+
+    noStoreHeaders(reply);
+    const post = await findPublicPostForEngagement(app, id);
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    if (body.data.parentId) {
+      const parentComment = await app.prisma.comment.findFirst({
+        where: {
+          id: body.data.parentId,
+          postId: id,
+          status: 'APPROVED',
+        },
+        select: { id: true },
+      });
+
+      if (!parentComment) {
+        throw app.httpErrors.badRequest('Invalid parent comment');
+      }
+    }
+
+    const user = await getOptionalPublicUser(app, request);
+    const { ipHash, userAgentHash } = requestHashMeta(request);
+    const comment = await app.prisma.comment.create({
+      data: {
+        postId: id,
+        userId: user?.id || null,
+        parentId: body.data.parentId || null,
+        authorName: user?.displayName || body.data.authorName || 'Visitante',
+        authorEmail: user?.email || body.data.authorEmail || null,
+        body: body.data.body,
+        status: 'PENDING',
+        ipHash,
+        userAgentHash,
+      },
+      select: {
+        id: true,
+        authorName: true,
+        body: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    reply.code(201);
+
+    return {
+      data: {
+        comment: {
+          id: comment.id,
+          user: comment.authorName || 'Visitante',
+          text: comment.body,
+          status: comment.status,
+          date: comment.createdAt,
+        },
+        moderation: {
+          status: 'PENDING',
+          message: 'Comentario recibido y pendiente de moderacion.',
+        },
       },
     };
   });

@@ -55,6 +55,8 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     views: formatViews(post.viewCount),
     commentCount: Number(post.commentCount ?? 0),
     likeCount: Number(post.likeCount ?? 0),
+    saveCount: Number(post.saveCount ?? 0),
+    shareCount: Number(post.shareCount ?? 0),
     readTime: estimateReadingTime(post.contentText || post.excerpt),
     image: post.featuredMedia?.url || FALLBACK_IMAGE,
     isHero: index === 0,

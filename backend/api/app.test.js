@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
+import { signAccessToken } from './services/auth.js';
 
 function createPrismaStub(overrides = {}) {
   return {
     $queryRaw: async () => [{ '?column?': 1 }],
+    $transaction: async (callback) => callback(createPrismaStub(overrides)),
     $disconnect: async () => undefined,
     category: {
       findMany: async () => [],
@@ -13,6 +15,7 @@ function createPrismaStub(overrides = {}) {
       findMany: async () => [],
       count: async () => 0,
       findFirst: async () => null,
+      findUnique: async () => null,
     },
     route: {
       findUnique: async () => null,
@@ -22,6 +25,24 @@ function createPrismaStub(overrides = {}) {
     },
     user: {
       findFirst: async () => null,
+      findUnique: async () => null,
+    },
+    postLike: {
+      findUnique: async () => null,
+      create: async () => ({}),
+      delete: async () => ({}),
+    },
+    savedPost: {
+      findUnique: async () => null,
+      create: async () => ({}),
+      delete: async () => ({}),
+    },
+    postShare: {
+      create: async () => ({}),
+    },
+    comment: {
+      findFirst: async () => null,
+      create: async () => ({}),
     },
     product: {
       findFirst: async () => null,
@@ -47,6 +68,8 @@ const testEnv = {
   RATE_LIMIT_WINDOW: '1 minute',
   corsOrigins: ['http://127.0.0.1:3000'],
   isProduction: false,
+  AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
+  AUTH_ACCESS_TOKEN_TTL_SECONDS: 900,
 };
 
 describe('api app', () => {
@@ -628,6 +651,350 @@ describe('api app', () => {
           text: 'Comentario aprobado',
         },
       ],
+    });
+  });
+
+  it('toggles anonymous public post likes and stores a visitor cookie', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let createdLike = null;
+    const tx = {
+      postLike: {
+        findUnique: async () => null,
+        create: async ({ data }) => {
+          createdLike = data;
+          return { id: 'like-1' };
+        },
+      },
+      post: {
+        update: async ({ data }) => {
+          expect(data).toEqual({ likeCount: { increment: 1 } });
+          return { likeCount: 8 };
+        },
+      },
+    };
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async (callback) => callback(tx),
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  likeCount: 7,
+                  saveCount: 2,
+                  shareCount: 1,
+                  commentCount: 0,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/like`,
+      payload: { liked: true },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['set-cookie']).toContain('hes_public_visitor=');
+    expect(createdLike).toMatchObject({
+      postId,
+      userId: null,
+    });
+    expect(createdLike.actorHash).toEqual(expect.any(String));
+    expect(response.json().data).toMatchObject({
+      postId,
+      liked: true,
+      likeCount: 8,
+    });
+  });
+
+  it('removes anonymous public post likes without allowing negative counters', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let deletedLikeId = null;
+    let decrementGuard = null;
+    const tx = {
+      postLike: {
+        findUnique: async () => ({ id: 'like-1' }),
+        delete: async ({ where }) => {
+          deletedLikeId = where.id;
+          return { id: where.id };
+        },
+      },
+      post: {
+        updateMany: async ({ where, data }) => {
+          decrementGuard = where;
+          expect(data).toEqual({ likeCount: { decrement: 1 } });
+          return { count: 1 };
+        },
+        findUnique: async () => ({ likeCount: 0 }),
+      },
+    };
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async (callback) => callback(tx),
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  likeCount: 0,
+                  saveCount: 0,
+                  shareCount: 0,
+                  commentCount: 0,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/like`,
+      headers: {
+        cookie: 'hes_public_visitor=visitor-token-for-test-123456',
+      },
+      payload: { liked: false },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(deletedLikeId).toBe('like-1');
+    expect(decrementGuard).toEqual({
+      id: postId,
+      likeCount: { gt: 0 },
+    });
+    expect(response.json().data).toMatchObject({
+      postId,
+      liked: false,
+      likeCount: 0,
+    });
+  });
+
+  it('saves public posts for authenticated users', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    const userId = '11111111-1111-4111-8111-111111111111';
+    let createdSave = null;
+    const tx = {
+      savedPost: {
+        findUnique: async () => null,
+        create: async ({ data }) => {
+          createdSave = data;
+          return { id: 'save-1' };
+        },
+      },
+      post: {
+        update: async ({ data }) => {
+          expect(data).toEqual({ saveCount: { increment: 1 } });
+          return { saveCount: 3 };
+        },
+      },
+    };
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async (callback) => callback(tx),
+        user: {
+          findFirst: async () => null,
+          findUnique: async ({ where }) =>
+            where.id === userId
+              ? {
+                  id: userId,
+                  email: 'admin@example.com',
+                  username: 'admin',
+                  displayName: 'Admin',
+                  status: 'ACTIVE',
+                  roles: [],
+                }
+              : null,
+        },
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  likeCount: 0,
+                  saveCount: 2,
+                  shareCount: 1,
+                  commentCount: 0,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+    const { token } = await signAccessToken({
+      config: app.config,
+      user: {
+        id: userId,
+        email: 'admin@example.com',
+        roles: [],
+      },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/save`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+      payload: { saved: true },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(createdSave).toEqual({
+      postId,
+      userId,
+    });
+    expect(response.json().data).toMatchObject({
+      postId,
+      saved: true,
+      saveCount: 3,
+    });
+  });
+
+  it('records public share events and increments the share count', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let createdShare = null;
+    const tx = {
+      postShare: {
+        create: async ({ data }) => {
+          createdShare = data;
+          return { id: 'share-1' };
+        },
+      },
+      post: {
+        update: async ({ data }) => {
+          expect(data).toEqual({ shareCount: { increment: 1 } });
+          return { shareCount: 6 };
+        },
+      },
+    };
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async (callback) => callback(tx),
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  likeCount: 0,
+                  saveCount: 0,
+                  shareCount: 5,
+                  commentCount: 0,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/share`,
+      payload: { channel: 'whatsapp' },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['set-cookie']).toContain('hes_public_visitor=');
+    expect(createdShare).toMatchObject({
+      postId,
+      userId: null,
+      channel: 'whatsapp',
+    });
+    expect(createdShare.actorHash).toEqual(expect.any(String));
+    expect(response.json().data).toMatchObject({
+      postId,
+      channel: 'whatsapp',
+      shareCount: 6,
+    });
+  });
+
+  it('creates pending public comments without publishing them directly', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let createdComment = null;
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  likeCount: 0,
+                  saveCount: 0,
+                  shareCount: 0,
+                  commentCount: 4,
+                }
+              : null,
+        },
+        comment: {
+          create: async ({ data }) => {
+            createdComment = data;
+            return {
+              id: 'comment-1',
+              authorName: data.authorName,
+              body: data.body,
+              status: data.status,
+              createdAt: new Date('2026-07-07T12:00:00Z'),
+            };
+          },
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/comments`,
+      headers: {
+        'user-agent': 'vitest',
+      },
+      payload: {
+        authorName: 'Visitante',
+        authorEmail: 'visitante@example.com',
+        body: 'Buen analisis para probar moderacion.',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(createdComment).toMatchObject({
+      postId,
+      userId: null,
+      authorName: 'Visitante',
+      authorEmail: 'visitante@example.com',
+      body: 'Buen analisis para probar moderacion.',
+      status: 'PENDING',
+    });
+    expect(createdComment.ipHash).toEqual(expect.any(String));
+    expect(createdComment.userAgentHash).toEqual(expect.any(String));
+    expect(response.json().data.moderation).toMatchObject({
+      status: 'PENDING',
     });
   });
 

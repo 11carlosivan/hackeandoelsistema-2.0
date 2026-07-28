@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
+import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
+import { csrfHeaders } from './client-security';
 import SafeImage from './safe-image';
 
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
@@ -20,6 +22,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   
   // Likes state map for feed items
   const [likedArticles, setLikedArticles] = useState({});
+  const [articleLikeCounts, setArticleLikeCounts] = useState({});
 
   const categories = [
     'TODAS',
@@ -91,12 +94,51 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   // Featured opinions list
   const featuredOpinions = useMockFallback ? opinions.slice(0, 3) : [];
 
-  const toggleLike = (artId, e) => {
+  const toggleLike = async (article, e) => {
     e.stopPropagation();
+    const articleKey = article.id;
+    const postId = article.raw?.id;
+    const nextLiked = !likedArticles[articleKey];
+
     setLikedArticles(prev => ({
       ...prev,
-      [artId]: !prev[artId]
+      [articleKey]: nextLiked
     }));
+
+    if (!postId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getClientApiBaseUrl()}/api/v1/public/posts/id/${encodeURIComponent(postId)}/like`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ liked: nextLiked }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo registrar el like.');
+      }
+
+      setLikedArticles(prev => ({
+        ...prev,
+        [articleKey]: Boolean(payload.data?.liked),
+      }));
+      setArticleLikeCounts(prev => ({
+        ...prev,
+        [articleKey]: Number(payload.data?.likeCount ?? article.likeCount ?? 0),
+      }));
+    } catch {
+      setLikedArticles(prev => ({
+        ...prev,
+        [articleKey]: !nextLiked,
+      }));
+    }
   };
 
   const formatRelativeTime = (value) => {
@@ -365,7 +407,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={(e) => toggleLike(art.id, e)}
+                      onClick={(e) => toggleLike(art, e)}
                       className={`flex items-center gap-1 hover:text-system-red transition-colors ${
                         likedArticles[art.id] ? 'text-system-red font-bold' : ''
                       }`}
@@ -373,7 +415,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                       <span className="material-symbols-outlined text-[14px]">
                         {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
                       </span>
-                      <span>{Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0)}</span>
+                      <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
                     </button>
                     <button 
                       onClick={(e) => {

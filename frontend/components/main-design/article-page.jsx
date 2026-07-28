@@ -3,6 +3,7 @@ import { articles as fallbackArticles, authors as fallbackAuthors, comments as f
 import { getAuthorName } from '@/lib/main-design/authors';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { ArticleListItem } from './content-primitives';
+import ArticleEngagement from './article-engagement';
 import SafeImage from './safe-image';
 
 function renderBlock(block, index) {
@@ -149,7 +150,9 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
               </section>
             )}
 
-            <section className="border border-terminal-gray bg-surface-container-low/20 p-6">
+            <ArticleEngagement article={article} />
+
+            <section id="comentarios-seccion" className="border border-terminal-gray bg-surface-container-low/20 p-6">
               <h2 className="font-headline-md text-2xl text-white uppercase mb-5">Comentarios de la red</h2>
               <div className="space-y-4">
                 {articleComments.length > 0 ? (
