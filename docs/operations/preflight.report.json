@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-14T19:05:50.953Z",
+  "generatedAt": "2026-07-16T22:14:44.287Z",
   "mode": "ops-preflight",
   "summary": {
     "status": "PASS",
@@ -13,10 +13,10 @@
       "status": "PASS",
       "details": {
         "nodeEnv": "development",
-        "webOrigin": "http://localhost:3000",
+        "webOrigin": "https://test.hackeandoelsistema.net",
         "apiHost": "127.0.0.1",
         "apiPort": 4000,
-        "authCookieSecure": false,
+        "authCookieSecure": true,
         "mediaUploadDir": "../frontend/public/uploads/cms",
         "mediaPublicBasePath": "/uploads/cms"
       }
@@ -32,38 +32,37 @@
       "name": "database:core-counts",
       "status": "PASS",
       "details": {
-        "posts": 8350,
+        "posts": 153,
         "pages": 27,
-        "routes": 8719,
-        "sitemapRoutes": 8719,
-        "media": 7892,
-        "categories": 16,
-        "activeUsers": 7,
+        "routes": 524,
+        "sitemapRoutes": 524,
+        "media": 7896,
+        "categories": 18,
+        "activeUsers": 8,
         "latestImportRun": {
-          "id": "f1f8781f-fa59-4c48-8580-0b5f6fb88d87",
+          "id": "b33586ab-f191-4b56-aaf2-4cf45710af8d",
           "source": "wordpress-core",
           "status": "COMPLETED",
-          "startedAt": "2026-07-13T02:15:07.419Z",
-          "finishedAt": "2026-07-13T02:28:34.648Z",
+          "startedAt": "2026-07-13T16:10:58.776Z",
+          "finishedAt": "2026-07-13T16:11:53.506Z",
           "stats": {
-            "tags": 306,
-            "limit": null,
-            "media": 7892,
-            "pages": 27,
-            "posts": 8350,
-            "users": 6,
-            "routes": 8719,
-            "skipped": 19167,
-            "products": 6,
+            "users": 3,
             "categories": 16,
-            "durationMs": 807229,
-            "homeRoutes": 1,
+            "tags": 306,
+            "media": 7892,
+            "posts": 110,
+            "pages": 27,
+            "products": 6,
             "webStories": 4,
-            "seoMetadata": 8397,
-            "authorRoutes": 6,
+            "routes": 476,
+            "homeRoutes": 1,
+            "authorRoutes": 3,
             "staticRoutes": 3,
-            "yoastMetadata": 8330,
-            "importMappings": 16607
+            "seoMetadata": 154,
+            "yoastMetadata": 120,
+            "importMappings": 8364,
+            "skipped": 7895,
+            "durationMs": 54730
           }
         },
         "missing": []
@@ -80,7 +79,7 @@
           "ok": true,
           "service": "hackeando-api",
           "status": "live",
-          "timestamp": "2026-07-14T19:05:47.733Z"
+          "timestamp": "2026-07-16T22:14:44.196Z"
         }
       }
     },
@@ -96,7 +95,7 @@
           "service": "hackeando-api",
           "status": "ready",
           "database": "connected",
-          "timestamp": "2026-07-14T19:05:47.739Z"
+          "timestamp": "2026-07-16T22:14:44.203Z"
         }
       }
     },
@@ -109,18 +108,18 @@
         "statusCode": 200,
         "body": {
           "counts": {
-            "posts": 8350,
+            "posts": 153,
             "pages": 27,
-            "routes": 8719,
-            "categories": 16,
+            "routes": 524,
+            "categories": 18,
             "tags": 306
           },
           "latestImportRun": {
-            "id": "f1f8781f-fa59-4c48-8580-0b5f6fb88d87",
+            "id": "b33586ab-f191-4b56-aaf2-4cf45710af8d",
             "source": "wordpress-core",
             "status": "COMPLETED",
-            "startedAt": "2026-07-13T02:15:07.419Z",
-            "finishedAt": "2026-07-13T02:28:34.648Z"
+            "startedAt": "2026-07-13T16:10:58.776Z",
+            "finishedAt": "2026-07-13T16:11:53.506Z"
           },
           "recentPosts": 8
         }
@@ -137,14 +136,14 @@
           "meta": {
             "page": 1,
             "limit": 1,
-            "total": 8350,
-            "totalPages": 8350
+            "total": 153,
+            "totalPages": 153
           },
           "firstPost": {
-            "id": "92889417-63e6-4c66-a945-5c6377fe2f6a",
-            "slug": "ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal",
-            "title": "Ni Alofoke ni El Piro hicieron cambiar el Código Penal. Y explico por qué",
-            "canonicalPath": "/ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal/"
+            "id": "fe82e95a-bd8e-462d-805f-2b555293220d",
+            "slug": "hackeandoelsistema-net-y-hessocial-com-logran-doble-nominacion",
+            "title": "HackeandoElSistema.net y HesSocial.com logran doble nominación en el Premio Nacional de Periodismo Digital 2025",
+            "canonicalPath": "/hackeandoelsistema-net-y-hessocial-com-logran-doble-nominacion/"
           }
         }
       }
@@ -157,27 +156,27 @@
         "url": "/api/v1/public/sitemap-routes",
         "statusCode": 200,
         "body": {
-          "total": 8714,
+          "total": 519,
           "samples": [
             {
-              "path": "/ni-alofoke-ni-el-piro-hicieron-cambiar-el-codigo-penal/",
-              "lastmodAt": "2026-07-10T18:19:58.000Z"
+              "path": "/category/deportes/baseball/",
+              "lastmodAt": "2026-07-13T03:29:08.472Z"
             },
             {
-              "path": "/5-capitulos-que-muchos-creen-reconocer-en-la-politica-dominicana/",
-              "lastmodAt": "2026-07-09T19:59:02.000Z"
+              "path": "/category/deportes/",
+              "lastmodAt": "2026-07-13T03:28:52.870Z"
             },
             {
-              "path": "/abinader-entendio-que-un-presidente-no-puede-vivir-en-campana/",
-              "lastmodAt": "2026-07-09T19:29:49.000Z"
+              "path": "/",
+              "lastmodAt": "2026-07-02T19:45:58.000Z"
             },
             {
-              "path": "/el-prm-ya-no-soporta-la-libertad-de-expresion-que-lo-llevo-al-gobierno/",
-              "lastmodAt": "2026-07-08T19:06:46.000Z"
+              "path": "/home/",
+              "lastmodAt": "2026-07-02T19:45:58.000Z"
             },
             {
-              "path": "/francisco-javier-y-gonzalo-castillo-una-reunion-que-dice-mas-de-lo-que-parece/",
-              "lastmodAt": "2026-07-08T17:53:21.000Z"
+              "path": "/hackeandoelsistema-net-y-hessocial-com-logran-doble-nominacion/",
+              "lastmodAt": "2025-11-16T01:03:54.000Z"
             }
           ]
         }
@@ -190,7 +189,7 @@
         "loginStatusCode": 200,
         "adminCheckStatusCode": 200,
         "user": {
-          "id": "564ea3b1-19cb-48f4-be64-0434a0f59509",
+          "id": "3496c40d-0fd6-4349-8a12-40cfee7766ac",
           "username": "admin",
           "displayName": "Administrador HES",
           "roles": [

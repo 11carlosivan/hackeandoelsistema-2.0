@@ -284,8 +284,9 @@ function normalizeRoutePath(path) {
 
     if (/^https?:\/\//i.test(rawPath)) {
       const site = new URL(PUBLIC_SITE_URL);
+      const prodSite = new URL('https://hackeandoelsistema.net');
 
-      if (url.origin !== site.origin) {
+      if (url.origin !== site.origin && url.origin !== prodSite.origin) {
         return null;
       }
     }
@@ -338,8 +339,11 @@ function canonicalPathFromUrl(value) {
   try {
     const url = new URL(value);
     const site = new URL(PUBLIC_SITE_URL);
+    const prodSite = new URL('https://hackeandoelsistema.net');
 
-    return url.origin === site.origin ? normalizeRoutePath(url.pathname) : url.href;
+    const isSameSite = url.origin === site.origin || url.origin === prodSite.origin;
+
+    return isSameSite ? normalizeRoutePath(url.pathname) : url.href;
   } catch {
     return value.startsWith('/') ? normalizeRoutePath(value) : null;
   }

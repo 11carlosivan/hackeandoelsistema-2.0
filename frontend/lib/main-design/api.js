@@ -58,8 +58,13 @@ export async function fetchApi(path, options = {}) {
   }
 
   const url = `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? 3000);
+
   const fetchOptions = {
     ...options,
+    signal: controller.signal,
     headers: {
       Accept: 'application/json',
       ...options.headers,
@@ -72,18 +77,22 @@ export async function fetchApi(path, options = {}) {
     fetchOptions.next = options.next ?? { revalidate: 60 };
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-  });
+  try {
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    throw new ApiRequestError(`API request failed ${response.status} for ${path}`, {
-      status: response.status,
-      path,
-    });
+    if (!response.ok) {
+      throw new ApiRequestError(`API request failed ${response.status} for ${path}`, {
+        status: response.status,
+        path,
+      });
+    }
+
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function fetchProtectedApi(path, accessToken, options = {}) {
