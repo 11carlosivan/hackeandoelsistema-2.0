@@ -168,7 +168,10 @@ describe('api app', () => {
 
   it('resolves an active public route', async () => {
     const app = await buildApp({
-      env: testEnv,
+      env: {
+        ...testEnv,
+        LEGACY_MEDIA_BASE_URL: 'https://media.hackeandoelsistema.net',
+      },
       prisma: createPrismaStub({
         route: {
           findUnique: async () => ({
@@ -184,6 +187,14 @@ describe('api app', () => {
               robotsIndex: 'INDEX',
               robotsFollow: 'FOLLOW',
               canonicalUrl: 'https://hackeandoelsistema.net/ignored-by-canonical-route/',
+              ogImageUrl: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/social.jpg',
+              ogImage: {
+                id: 'media-1',
+                url: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/social-card.jpg',
+                altText: 'Social card',
+                width: 1200,
+                height: 630,
+              },
             },
             canonicalRoute: {
               path: '/canonical-sample/',
@@ -207,6 +218,12 @@ describe('api app', () => {
       canonicalPath: '/canonical-sample/',
       entityType: 'POST',
       httpStatus: 200,
+      seo: {
+        ogImageUrl: 'https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/social.jpg',
+        ogImage: {
+          url: 'https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/social-card.jpg',
+        },
+      },
     });
   });
 
@@ -531,6 +548,9 @@ describe('api app', () => {
                   title: 'Sample Post',
                   excerpt: 'Sample excerpt',
                   contentHtml: '<p>Sample content</p><img src="https://hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg">',
+                  contentJson: {
+                    legacyContentHtml: '<figure><img src="/wp-content/uploads/2026/01/body.jpg"></figure>',
+                  },
                   contentText: 'Sample content',
                   postType: 'NEWS',
                   publishedAt: new Date('2026-01-01T00:00:00Z'),
@@ -598,6 +618,9 @@ describe('api app', () => {
         url: 'https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg',
       },
       contentHtml: '<p>Sample content</p><img src="https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg">',
+      contentJson: {
+        legacyContentHtml: '<figure><img src="https://media.hackeandoelsistema.net/wp-content/uploads/2026/01/body.jpg"></figure>',
+      },
       comments: [
         {
           id: 'comment-1',

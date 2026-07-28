@@ -87,7 +87,13 @@ if (!ctype_digit($timestamp) || abs(time() - (int) $timestamp) > (int) $config['
     respond(401, ['error' => 'invalid_timestamp']);
 }
 
-if (!isset($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
+if (
+    !isset($_FILES['file']) ||
+    !is_array($_FILES['file']) ||
+    !isset($_FILES['file']['tmp_name']) ||
+    !is_string($_FILES['file']['tmp_name']) ||
+    !is_uploaded_file($_FILES['file']['tmp_name'])
+) {
     respond(400, ['error' => 'missing_file']);
 }
 

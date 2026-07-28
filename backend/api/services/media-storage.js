@@ -212,7 +212,12 @@ export async function storeLocalMediaUpload({ config, file }) {
 }
 
 function requireRemoteMediaConfig(config) {
-  if (!config.MEDIA_REMOTE_UPLOAD_URL || !config.MEDIA_REMOTE_SECRET || config.MEDIA_REMOTE_SECRET.length < 32) {
+  if (
+    !config.MEDIA_REMOTE_UPLOAD_URL ||
+    !config.MEDIA_REMOTE_PUBLIC_BASE_URL ||
+    !config.MEDIA_REMOTE_SECRET ||
+    config.MEDIA_REMOTE_SECRET.length < 32
+  ) {
     const error = new Error('Remote media storage is not configured');
     error.statusCode = 500;
     throw error;
@@ -235,7 +240,20 @@ function normalizeRemoteResponse(payload) {
     throw error;
   }
 
-  if (!media.url || !media.path || !media.fileName || !media.mimeType) {
+  const fileSize = Number(media.fileSize);
+  const width = media.width === null || media.width === undefined ? null : Number(media.width);
+  const height = media.height === null || media.height === undefined ? null : Number(media.height);
+
+  if (
+    !media.url ||
+    !media.path ||
+    !media.fileName ||
+    !media.mimeType ||
+    !Number.isFinite(fileSize) ||
+    fileSize <= 0 ||
+    (width !== null && (!Number.isFinite(width) || width < 0)) ||
+    (height !== null && (!Number.isFinite(height) || height < 0))
+  ) {
     const error = new Error('Incomplete remote media response');
     error.statusCode = 502;
     throw error;
@@ -247,9 +265,9 @@ function normalizeRemoteResponse(payload) {
     path: String(media.path),
     mimeType: String(media.mimeType),
     fileName: String(media.fileName),
-    fileSize: Number(media.fileSize || 0),
-    width: media.width === null || media.width === undefined ? null : Number(media.width),
-    height: media.height === null || media.height === undefined ? null : Number(media.height),
+    fileSize,
+    width,
+    height,
   };
 }
 
@@ -292,16 +310,28 @@ export async function storeRemotePhpMediaUpload({ config, file, fetchImpl = glob
   form.set('mimetype', file.mimetype);
 
   try {
-    const response = await fetchImpl(config.MEDIA_REMOTE_UPLOAD_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.MEDIA_REMOTE_SECRET}`,
-        'X-HES-Media-Timestamp': timestamp,
-        'X-HES-Media-Signature': signature,
-      },
-      body: form,
-      signal: controller.signal,
-    });
+    let response;
+
+    try {
+      response = await fetchImpl(config.MEDIA_REMOTE_UPLOAD_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.MEDIA_REMOTE_SECRET}`,
+          'X-HES-Media-Timestamp': timestamp,
+          'X-HES-Media-Signature': signature,
+        },
+        body: form,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        const timeoutError = new Error('Remote media upload timed out');
+        timeoutError.statusCode = 503;
+        throw timeoutError;
+      }
+
+      throw error;
+    }
 
     if (!response.ok) {
       const message = await response.text().catch(() => '');

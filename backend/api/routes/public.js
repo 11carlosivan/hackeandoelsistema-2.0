@@ -328,6 +328,20 @@ function rewriteLegacyMediaHtml(config, value) {
   );
 }
 
+function rewriteLegacyMediaContentJson(config, value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const contentJson = { ...value };
+
+  if (typeof contentJson.legacyContentHtml === 'string') {
+    contentJson.legacyContentHtml = rewriteLegacyMediaHtml(config, contentJson.legacyContentHtml);
+  }
+
+  return contentJson;
+}
+
 function normalizePublicMediaAsset(config, media) {
   if (!media) {
     return null;
@@ -339,6 +353,18 @@ function normalizePublicMediaAsset(config, media) {
     altText: media.altText,
     width: media.width,
     height: media.height,
+  };
+}
+
+function normalizePublicSeoMetadata(config, seoMetadata) {
+  if (!seoMetadata) {
+    return seoMetadata;
+  }
+
+  return {
+    ...seoMetadata,
+    ogImageUrl: rewriteLegacyMediaUrl(config, seoMetadata.ogImageUrl),
+    ogImage: seoMetadata.ogImage ? normalizePublicMediaAsset(config, seoMetadata.ogImage) : seoMetadata.ogImage,
   };
 }
 
@@ -573,9 +599,7 @@ function normalizePublicWebStory(story, config = null) {
     id: story.id,
     slug: story.slug,
     title: story.title,
-    contentJson: story.contentJson?.legacyContentHtml
-      ? { ...story.contentJson, legacyContentHtml: rewriteLegacyMediaHtml(config, story.contentJson.legacyContentHtml) }
-      : story.contentJson,
+    contentJson: rewriteLegacyMediaContentJson(config, story.contentJson),
     canonicalPath: story.legacyUrl || `/web-stories/${story.slug}/`,
     publishedAt: story.publishedAt,
     updatedAt: story.updatedAt,
@@ -985,7 +1009,7 @@ export async function registerPublicRoutes(app) {
       data: {
         ...normalizePublicPost(post, { route, config: app.config }),
         contentHtml: rewriteLegacyMediaHtml(app.config, post.contentHtml),
-        contentJson: post.contentJson,
+        contentJson: rewriteLegacyMediaContentJson(app.config, post.contentJson),
         relatedPosts: relatedPosts.map((relatedPost) => normalizePublicPost(relatedPost, { config: app.config })),
         comments: (post.comments || []).map(normalizePublicComment),
         tags: post.tags.map((item) => ({
@@ -1058,7 +1082,7 @@ export async function registerPublicRoutes(app) {
       data: {
         ...normalizePublicPost(post, { route, config: app.config }),
         contentHtml: rewriteLegacyMediaHtml(app.config, post.contentHtml),
-        contentJson: post.contentJson,
+        contentJson: rewriteLegacyMediaContentJson(app.config, post.contentJson),
         relatedPosts: relatedPosts.map((relatedPost) => normalizePublicPost(relatedPost, { config: app.config })),
         comments: (post.comments || []).map(normalizePublicComment),
         tags: post.tags.map((item) => ({
@@ -1353,7 +1377,7 @@ export async function registerPublicRoutes(app) {
         status: route.status,
         httpStatus: route.httpStatus,
         lastmodAt: route.lastmodAt,
-        seo: route.seoMetadata,
+        seo: normalizePublicSeoMetadata(app.config, route.seoMetadata),
       },
     };
   });

@@ -101,4 +101,72 @@ describe('remote PHP media storage', () => {
       }),
     ).rejects.toThrow('Remote media URL origin is not allowed');
   });
+
+  it('requires a public media base URL for remote storage', async () => {
+    await expect(
+      storeRemotePhpMediaUpload({
+        config: {
+          ...remoteConfig,
+          MEDIA_REMOTE_PUBLIC_BASE_URL: '',
+        },
+        file: {
+          filename: 'Prueba CMS.png',
+          mimetype: 'image/png',
+          buffer: PNG_1X1,
+        },
+        fetchImpl: async () => {
+          throw new Error('fetch should not run');
+        },
+      }),
+    ).rejects.toThrow('Remote media storage is not configured');
+  });
+
+  it('rejects incomplete numeric metadata from the remote PHP service', async () => {
+    await expect(
+      storeRemotePhpMediaUpload({
+        config: remoteConfig,
+        file: {
+          filename: 'Prueba CMS.png',
+          mimetype: 'image/png',
+          buffer: PNG_1X1,
+        },
+        fetchImpl: async () => ({
+          ok: true,
+          json: async () => ({
+            media: {
+              url: 'https://media.hackeandoelsistema.net/uploads/cms/prueba.png',
+              path: '/uploads/cms/prueba.png',
+              mimeType: 'image/png',
+              fileName: 'prueba.png',
+              fileSize: 'not-a-number',
+              width: 'wide',
+              height: 1,
+            },
+          }),
+        }),
+      }),
+    ).rejects.toThrow('Incomplete remote media response');
+  });
+
+  it('returns a service error when the remote media upload times out', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+
+    await expect(
+      storeRemotePhpMediaUpload({
+        config: remoteConfig,
+        file: {
+          filename: 'Prueba CMS.png',
+          mimetype: 'image/png',
+          buffer: PNG_1X1,
+        },
+        fetchImpl: async () => {
+          throw abortError;
+        },
+      }),
+    ).rejects.toMatchObject({
+      message: 'Remote media upload timed out',
+      statusCode: 503,
+    });
+  });
 });
