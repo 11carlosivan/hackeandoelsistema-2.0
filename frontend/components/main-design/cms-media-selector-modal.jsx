@@ -320,8 +320,8 @@ export default function CmsMediaSelectorModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-stretch justify-center p-4 md:p-8">
-      <div className="flex flex-col w-full max-w-5xl border border-terminal-gray bg-background text-on-surface shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center" style={{ padding: '2.5vh 2.5vw' }}>
+      <div className="flex flex-col border border-terminal-gray bg-background text-on-surface shadow-2xl" style={{ width: '95vw', height: '95vh' }}>
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between border-b border-terminal-gray px-5 py-3">
