@@ -3,18 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --background: #f4f3ef;
-  --on-background: #131313;
-  --surface: #faf9f6;
-  --on-surface: #131313;
+  --background: #f8fafc;
+  --on-background: #0f172a;
+  --surface: #ffffff;
+  --on-surface: #0f172a;
   --surface-container-lowest: #ffffff;
-  --surface-container-low: #ebeae4;
-  --surface-container: #e1dfd9;
-  --surface-container-high: #d6d4cd;
-  --surface-container-highest: #c8c5be;
-  --terminal-gray: #c8c5be;
-  --on-surface-variant: #6b1d24;
-  --glass-bg: rgba(250, 249, 246, 0.75);
+  --surface-container-low: #f1f5f9;
+  --surface-container: #e2e8f0;
+  --surface-container-high: #cbd5e1;
+  --surface-container-highest: #94a3b8;
+  --terminal-gray: #e2e8f0;
+  --on-surface-variant: #64748b;
+  --glass-bg: rgba(255, 255, 255, 0.85);
 }
 
 .dark {
