@@ -6,8 +6,22 @@ export const metadata = buildMetadata();
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme') || 'dark';
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
         <meta name="application-name" content={siteConfig.name} />
         <meta name="apple-mobile-web-app-title" content={siteConfig.name} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

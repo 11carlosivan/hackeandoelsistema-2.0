@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -43,6 +43,23 @@ function normalizePath(path) {
 
 export default function Header({ categories = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(storedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
   const router = useRouter();
   const pathname = usePathname();
   const navigation = buildNavigation(categories);
@@ -94,6 +111,16 @@ export default function Header({ categories = [] }) {
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-center p-2 border border-terminal-gray bg-black/45 text-on-surface-variant hover:text-system-red hover:border-system-red transition-all active:scale-95 cursor-pointer font-bold"
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              <span className="material-symbols-outlined text-[18px] select-none">
+                {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+              </span>
+            </button>
+
             <button
               className="hidden md:flex items-center gap-2 bg-black border border-system-red text-system-red font-label-caps text-[12px] px-4 py-1.5 hover:bg-system-red hover:text-black transition-all active:scale-95 font-bold"
               onClick={() => router.push('/cms')}

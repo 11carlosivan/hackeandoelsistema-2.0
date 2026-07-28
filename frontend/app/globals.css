@@ -2,9 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --background: #f4f3ef;
+  --on-background: #131313;
+  --surface: #faf9f6;
+  --on-surface: #131313;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #ebeae4;
+  --surface-container: #e1dfd9;
+  --surface-container-high: #d6d4cd;
+  --surface-container-highest: #c8c5be;
+  --terminal-gray: #c8c5be;
+  --on-surface-variant: #6b1d24;
+  --glass-bg: rgba(250, 249, 246, 0.75);
+}
+
+.dark {
+  --background: #131313;
+  --on-background: #e2e2e2;
+  --surface: #131313;
+  --on-surface: #e2e2e2;
+  --surface-container-lowest: #0e0e0e;
+  --surface-container-low: #1b1b1b;
+  --surface-container: #1f1f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353535;
+  --terminal-gray: #212121;
+  --on-surface-variant: #e4bebc;
+  --glass-bg: rgba(19, 19, 19, 0.75);
+}
+
 @layer base {
   body {
-    @apply bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden;
+    @apply bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden transition-colors duration-200;
   }
 }
 
@@ -20,7 +50,7 @@
 }
 
 .cms-rich-editor :where(h2, h3) {
-  color: #fff;
+  color: var(--on-surface);
   text-transform: uppercase;
 }
 
@@ -48,23 +78,23 @@
 /* HUD elements */
 .hud-line-v {
   width: 1px;
-  background: linear-gradient(to bottom, transparent, #212121, transparent);
+  background: linear-gradient(to bottom, transparent, var(--terminal-gray), transparent);
 }
 
 .hud-line-h {
   height: 1px;
-  background: linear-gradient(to right, transparent, #212121, transparent);
+  background: linear-gradient(to right, transparent, var(--terminal-gray), transparent);
 }
 
 .glass-terminal {
   backdrop-filter: blur(20px);
-  background: rgba(19, 19, 19, 0.75);
+  background: var(--glass-bg);
 }
 
 /* Grid overlay pattern */
 .grid-pattern {
-  background-image: linear-gradient(to right, #212121 1px, transparent 1px),
-                    linear-gradient(to bottom, #212121 1px, transparent 1px);
+  background-image: linear-gradient(to right, var(--terminal-gray) 1px, transparent 1px),
+                    linear-gradient(to bottom, var(--terminal-gray) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -74,10 +104,10 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #131313;
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: #212121;
+  background: var(--terminal-gray);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #E63946;
