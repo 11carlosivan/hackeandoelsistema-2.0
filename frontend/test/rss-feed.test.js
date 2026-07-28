@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import nextConfig from '../next.config.js';
 import { buildRssFeed } from '../lib/main-design/rss.js';
 import { getSitemapEntries } from '../lib/main-design/seo.js';
+import { shouldUseEmptyFeedFallback } from '../app/feed.xml/route.js';
 
 describe('RSS feed parity', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('renders escaped RSS items with canonical article links', () => {
     const xml = buildRssFeed({
       updatedAt: '2026-07-12T00:00:00.000Z',
@@ -94,5 +99,12 @@ describe('RSS feed parity', () => {
       expect.stringContaining('/perfil/'),
       expect.stringContaining('/pagina/'),
     ]));
+  });
+
+  it('does not allow an empty RSS fallback during production runtime', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('npm_lifecycle_event', 'start');
+
+    expect(shouldUseEmptyFeedFallback()).toBe(false);
   });
 });

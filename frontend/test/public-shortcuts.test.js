@@ -48,7 +48,9 @@ describe('public shortcuts', () => {
 
   it('tries article id first and then slug without leaking lookup errors', async () => {
     const getById = vi.fn(async () => {
-      throw new Error('not found');
+      const error = new Error('not found');
+      error.status = 404;
+      throw error;
     });
     const getBySlug = vi.fn(async (slug) => ({ slug }));
 
@@ -61,10 +63,38 @@ describe('public shortcuts', () => {
 
   it('returns null for missing author shortcuts', async () => {
     const getById = vi.fn(async () => {
-      throw new Error('not found');
+      const error = new Error('not found');
+      error.status = 404;
+      throw error;
     });
 
     await expect(tryLoadAuthorByIdentifier('missing-author', { getById })).resolves.toBeNull();
+  });
+
+  it('propagates article shortcut outages instead of treating them as missing content', async () => {
+    const getById = vi.fn(async () => {
+      const error = new Error('api unavailable');
+      error.status = 503;
+      throw error;
+    });
+    const getBySlug = vi.fn();
+
+    await expect(tryLoadArticleByIdentifier('sample-post', { getById, getBySlug })).rejects.toMatchObject({
+      status: 503,
+    });
+    expect(getBySlug).not.toHaveBeenCalled();
+  });
+
+  it('propagates category shortcut outages instead of returning null', async () => {
+    const getBySlug = vi.fn(async () => {
+      const error = new Error('api unavailable');
+      error.status = 503;
+      throw error;
+    });
+
+    await expect(tryLoadCategoryByIdentifier('politica', { getBySlug })).rejects.toMatchObject({
+      status: 503,
+    });
   });
 
   it('normalizes category shortcut identifiers before loading', async () => {

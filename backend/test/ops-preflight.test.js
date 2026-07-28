@@ -3,11 +3,11 @@ import { createCheck, summarizeChecks } from '../scripts/ops/preflight.mjs';
 
 describe('ops preflight helpers', () => {
   it('builds checks with details', () => {
-    expect(createCheck('database:connection', 'PASS', { provider: 'postgresql' })).toEqual({
+    expect(createCheck('database:connection', 'PASS', { provider: 'mysql' })).toEqual({
       name: 'database:connection',
       status: 'PASS',
       details: {
-        provider: 'postgresql',
+        provider: 'mysql',
       },
     });
   });

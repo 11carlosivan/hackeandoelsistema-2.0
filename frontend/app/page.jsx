@@ -1,5 +1,5 @@
 import { MainDesignApp } from '@/components/main-design/main-design-app';
-import { getHomeFeed } from '@/lib/main-design/api';
+import { getHomeFeed, shouldUseApiFallback } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export const metadata = buildMetadata({
@@ -13,7 +13,11 @@ export default async function HomePage() {
 
   try {
     feed = await getHomeFeed();
-  } catch {
+  } catch (error) {
+    if (!shouldUseApiFallback()) {
+      throw error;
+    }
+
     feed = {
       source: 'fallback',
       articles: [],

@@ -65,6 +65,10 @@ export function shouldRedirectToCanonical(sourcePath, canonicalPath) {
   return Boolean(normalizedCanonical && normalizedSource && normalizedSource !== normalizedCanonical);
 }
 
+function isNotFoundError(error) {
+  return error?.status === 404;
+}
+
 export async function tryLoadArticleByIdentifier(identifier, loaders) {
   const cleanIdentifier = decodeURIComponent(String(identifier || '').trim());
 
@@ -81,7 +85,11 @@ export async function tryLoadArticleByIdentifier(identifier, loaders) {
       if (article) {
         return article;
       }
-    } catch {
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+
       // Try the next resolver. A missing direct route must not break metadata.
     }
   }
@@ -98,7 +106,11 @@ export async function tryLoadAuthorByIdentifier(identifier, loaders) {
 
   try {
     return await loaders.getById(cleanIdentifier);
-  } catch {
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
+    }
+
     return null;
   }
 }
@@ -123,7 +135,11 @@ export async function tryLoadCategoryByIdentifier(identifier, loaders) {
 
   try {
     return await loaders.getBySlug(slug);
-  } catch {
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
+    }
+
     return null;
   }
 }

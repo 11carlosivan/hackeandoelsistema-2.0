@@ -4,13 +4,19 @@ import { buildRssFeed } from '@/lib/main-design/rss';
 export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
+export function shouldUseEmptyFeedFallback() {
+  return process.env.NODE_ENV !== 'production';
+}
+
 export async function GET() {
   let feed = { articles: [] };
 
   try {
     feed = await getHomeFeed();
-  } catch {
-    feed = { articles: [] };
+  } catch (error) {
+    if (!shouldUseEmptyFeedFallback()) {
+      throw error;
+    }
   }
 
   const body = buildRssFeed({

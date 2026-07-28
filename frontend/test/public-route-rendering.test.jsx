@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { permanentRedirect } from 'next/navigation';
-import { resolvePublicRoute } from '@/lib/main-design/api';
+import { getArticleById, resolvePublicRoute } from '@/lib/main-design/api';
 import {
   appendQueryIfNeeded,
   generatePublicRouteMetadata,
@@ -22,8 +22,11 @@ vi.mock('@/lib/main-design/api', () => ({
   getPublicCategories: vi.fn(),
   getTagFeedById: vi.fn(),
   getWebStoryById: vi.fn(),
+  isApiNotFound: (error) => error?.status === 404,
   resolvePublicRoute: vi.fn(async () => {
-    throw new Error('missing route');
+    const error = new Error('missing route');
+    error.status = 404;
+    throw error;
   }),
 }));
 
@@ -59,5 +62,35 @@ describe('public route rendering', () => {
     await expect(
       renderPublicRoutePage(['author', 'redaccion'], Promise.resolve({ page: '2' })),
     ).rejects.toThrow('redirect:/author/redaccion/page/2/');
+  });
+
+  it('does not convert active route backend failures into noindex metadata', async () => {
+    resolvePublicRoute.mockResolvedValueOnce({
+      type: 'ENTITY',
+      entityType: 'POST',
+      entityId: 'post-1',
+      path: '/post-activo/',
+      canonicalPath: '/post-activo/',
+      status: 'ACTIVE',
+      httpStatus: 200,
+      seo: {},
+    });
+    const apiError = new Error('API unavailable');
+    apiError.status = 503;
+    getArticleById.mockRejectedValueOnce(apiError);
+
+    await expect(generatePublicRouteMetadata(['post-activo'])).rejects.toMatchObject({
+      status: 503,
+    });
+  });
+
+  it('does not convert route resolver outages into missing route metadata', async () => {
+    const apiError = new Error('route API unavailable');
+    apiError.status = 503;
+    resolvePublicRoute.mockRejectedValueOnce(apiError);
+
+    await expect(generatePublicRouteMetadata(['post-activo'])).rejects.toMatchObject({
+      status: 503,
+    });
   });
 });

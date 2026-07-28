@@ -78,7 +78,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      DATABASE_URL: mysql://${MYSQL_USER:?MYSQL_USER is required}:${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}@mysql:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}
     volumes:
       - ./tmp:/workspace/tmp:ro
     command: ["npm", "exec", "prisma", "--", "--version"]
@@ -128,7 +128,7 @@ services:
       backend:
         condition: service_healthy
     environment:
-      APP_DOMAIN: ${APP_DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
       ACME_EMAIL: ${ACME_EMAIL:-}
     ports:
       - "80:80"

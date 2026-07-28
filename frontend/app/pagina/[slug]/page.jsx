@@ -2,7 +2,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
 import StaticContentPage from '@/components/main-design/static-content-page';
 import TerminalPage from '@/components/main-design/terminal-page';
-import { getPageBySlug } from '@/lib/main-design/api';
+import { getPageBySlug, isApiNotFound } from '@/lib/main-design/api';
 import { getStaticPageBySlug, publicStaticPages } from '@/lib/main-design/content';
 import { shouldRedirectToCanonical } from '@/lib/main-design/public-shortcuts';
 import { buildMetadata, staticPageMetadata } from '@/lib/main-design/seo';
@@ -14,7 +14,11 @@ export async function generateMetadata({ params }) {
 
   try {
     return staticPageMetadata(await getPageBySlug(slug));
-  } catch {
+  } catch (error) {
+    if (!isApiNotFound(error)) {
+      throw error;
+    }
+
     const staticPage = process.env.NODE_ENV === 'production' ? null : getStaticPageBySlug(slug);
 
     return staticPage
@@ -44,7 +48,11 @@ export default async function Page({ params }) {
 
   try {
     apiPage = await getPageBySlug(slug);
-  } catch {
+  } catch (error) {
+    if (!isApiNotFound(error)) {
+      throw error;
+    }
+
     apiPage = null;
   }
 

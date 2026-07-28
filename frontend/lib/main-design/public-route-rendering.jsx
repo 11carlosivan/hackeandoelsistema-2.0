@@ -18,6 +18,7 @@ import {
   getPublicCategories,
   getTagFeedById,
   getWebStoryById,
+  isApiNotFound,
   resolvePublicRoute,
 } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
@@ -119,7 +120,11 @@ export function appendQueryIfNeeded(targetUrl, searchParams, preserveQuery) {
 async function loadRoute(pathParts) {
   try {
     return await resolvePublicRoute(buildRoutePath(pathParts));
-  } catch {
+  } catch (error) {
+    if (!isApiNotFound(error)) {
+      throw error;
+    }
+
     return null;
   }
 }
@@ -175,7 +180,11 @@ async function loadEntityOrNotFound(route, options = {}) {
     }
 
     return entity;
-  } catch {
+  } catch (error) {
+    if (!isApiNotFound(error)) {
+      throw error;
+    }
+
     notFound();
   }
 }
@@ -236,7 +245,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Articulo no encontrado', path: routePath, noIndex: true });
     }
   }
@@ -252,7 +265,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Pagina no encontrada', path: routePath, noIndex: true });
     }
   }
@@ -279,7 +296,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Autor no encontrado', path: routePath, noIndex: true });
     }
   }
@@ -296,7 +317,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Producto no encontrado', path: routePath, noIndex: true });
     }
   }
@@ -313,7 +338,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Web Story no encontrada', path: routePath, noIndex: true });
     }
   }
@@ -330,7 +359,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route, { robotsIndex: 'NOINDEX', robotsFollow: 'FOLLOW' }),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Categoria no encontrada', path: routePath, noIndex: true });
     }
   }
@@ -347,7 +380,11 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         ...routeSocialMetadata(route),
         ...routeRobots(route, { robotsIndex: 'NOINDEX', robotsFollow: 'FOLLOW' }),
       });
-    } catch {
+    } catch (error) {
+      if (!isApiNotFound(error)) {
+        throw error;
+      }
+
       return buildMetadata({ title: 'Tag no encontrado', path: routePath, noIndex: true });
     }
   }

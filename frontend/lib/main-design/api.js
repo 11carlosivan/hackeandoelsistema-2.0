@@ -25,6 +25,12 @@ export function isApiNotFound(error) {
   return error?.status === 404;
 }
 
+export function shouldUseApiFallback() {
+  return process.env.NODE_ENV !== 'production' ||
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build';
+}
+
 export function getApiBaseUrl() {
   const configuredUrl = (
     process.env.API_INTERNAL_URL ||
@@ -111,6 +117,10 @@ export async function getHomeFeed() {
       summary: mapApiSummary(summaryResponse.data),
     };
   } catch (error) {
+    if (!shouldUseApiFallback()) {
+      throw error;
+    }
+
     return {
       source: process.env.NODE_ENV === 'production' ? 'fallback' : 'mock',
       articles: process.env.NODE_ENV === 'production' ? [] : mockArticles,

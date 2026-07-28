@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
 import CategoryPage from '@/components/main-design/category-page';
-import { getCategoryFeed, getPublicCategories } from '@/lib/main-design/api';
+import { getCategoryFeed, getPublicCategories, isApiNotFound } from '@/lib/main-design/api';
 import {
   buildPaginatedArchivePath,
   categoryArchiveRedirectPath,
@@ -17,7 +17,11 @@ async function loadCategory(slugParts, page = 1) {
 
   try {
     return await getCategoryFeed(slug, page, { path: fullPath });
-  } catch {
+  } catch (error) {
+    if (!isApiNotFound(error)) {
+      throw error;
+    }
+
     return null;
   }
 }

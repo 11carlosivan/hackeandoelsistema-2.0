@@ -5,11 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 
+export function getSafeLoginNextPath(next) {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
+    return '/cms';
+  }
+
+  return next;
+}
+
 function getNextPath() {
   if (typeof window === 'undefined') return '/cms';
 
-  const next = new URLSearchParams(window.location.search).get('next');
-  return next?.startsWith('/') ? next : '/cms';
+  return getSafeLoginNextPath(new URLSearchParams(window.location.search).get('next'));
 }
 
 export default function LoginForm() {

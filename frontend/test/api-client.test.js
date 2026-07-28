@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchApi, getCmsSummary, isApiNotFound } from '../lib/main-design/api.js';
+import { fetchApi, getCmsSummary, getHomeFeed, isApiNotFound } from '../lib/main-design/api.js';
 
 describe('public API client', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('preserves HTTP status codes for public route handling', async () => {
@@ -36,6 +37,38 @@ describe('public API client', () => {
       source: 'unavailable',
       counts: {},
       recentPosts: [],
+    });
+  });
+
+  it('does not hide home feed API failures during production runtime', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('npm_lifecycle_event', 'start');
+    vi.stubEnv('API_INTERNAL_URL', 'https://api.example.test');
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 503,
+    })));
+
+    await expect(getHomeFeed()).rejects.toMatchObject({
+      name: 'ApiRequestError',
+      status: 503,
+    });
+  });
+
+  it('keeps an empty home feed fallback only during production builds', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('npm_lifecycle_event', 'build');
+    vi.stubEnv('API_INTERNAL_URL', 'https://api.example.test');
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 503,
+    })));
+
+    await expect(getHomeFeed()).resolves.toMatchObject({
+      source: 'fallback',
+      articles: [],
+      categories: [],
+      summary: null,
     });
   });
 });
