@@ -575,19 +575,53 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       {
         label: 'Guardar como borrador',
         action: 'DRAFT',
+        icon: 'draft',
         handler: () => submit(null, 'DRAFT'),
       }
     ];
   } else {
-    primaryActionLabel = !canEditContent ? 'Guardar SEO y media' : 'Guardar Cambios';
-    handlePrimaryAction = () => submit(null, 'DRAFT');
+    const currentStatus = post?.status;
 
-    const workflowActions = workflowActionsByStatus[post?.status] || [];
-    dropdownOptions = workflowActions.map(([action, label]) => ({
-      label,
-      action,
-      handler: () => runWorkflowAction(action),
-    }));
+    if (currentStatus === 'PUBLISHED') {
+      primaryActionLabel = !canEditContent ? 'Guardar SEO y media' : 'Publicar cambios';
+      handlePrimaryAction = () => submit(null, 'DRAFT');
+
+      const workflowActions = workflowActionsByStatus[currentStatus] || [];
+      dropdownOptions = workflowActions.map(([action, label]) => ({
+        label,
+        action,
+        icon: action === 'ARCHIVE' ? 'archive' : 'sync_alt',
+        handler: () => runWorkflowAction(action),
+      }));
+    } else {
+      primaryActionLabel = 'Publicar';
+      handlePrimaryAction = () => runWorkflowAction('PUBLISH');
+
+      dropdownOptions.push({
+        label: !canEditContent ? 'Guardar SEO y media' : 'Guardar borrador',
+        action: 'SAVE_CHANGES',
+        icon: 'save',
+        handler: () => submit(null, 'DRAFT'),
+      });
+
+      const workflowActions = workflowActionsByStatus[currentStatus] || [];
+      workflowActions.forEach(([action, label]) => {
+        if (action !== 'PUBLISH') {
+          let icon = 'sync_alt';
+          if (action === 'SUBMIT_REVIEW') icon = 'rate_review';
+          if (action === 'SCHEDULE') icon = 'calendar_today';
+          if (action === 'ARCHIVE') icon = 'archive';
+          if (action === 'RETURN_TO_DRAFT') icon = 'draft';
+
+          dropdownOptions.push({
+            label,
+            action,
+            icon,
+            handler: () => runWorkflowAction(action),
+          });
+        }
+      });
+    }
   }
 
   const isLive = post?.status === 'PUBLISHED' || post?.status === 'SCHEDULED';
@@ -794,32 +828,34 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         <aside className="space-y-6 w-full max-w-full overflow-hidden">
           <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
-            <div className="relative inline-flex flex-row w-full mb-3">
+            <div className="relative inline-flex flex-row w-full mb-3 shadow-md rounded-sm overflow-visible">
               <button
                 type="button"
                 onClick={handlePrimaryAction}
                 disabled={status === 'loading'}
-                className="flex-1 bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 border-r border-black/25"
+                className="flex-1 bg-system-red text-black py-3 px-4 font-label-caps text-[11px] font-bold hover:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60 rounded-l-sm"
               >
                 {status === 'loading' ? 'Procesando...' : primaryActionLabel}
               </button>
+              
+              <div className="w-[1px] bg-black/20 self-stretch" />
               
               {dropdownOptions.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   disabled={status === 'loading'}
-                  className="bg-system-red text-black px-3 hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center"
+                  className="bg-system-red text-black px-3 hover:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center rounded-r-sm"
                 >
-                  <span className="material-symbols-outlined text-sm select-none font-bold">
-                    {isDropdownOpen ? 'arrow_drop_up' : 'arrow_drop_down'}
+                  <span className="material-symbols-outlined text-base select-none font-bold">
+                    {isDropdownOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
                   </span>
                 </button>
               )}
 
               {isDropdownOpen && dropdownOptions.length > 0 && (
-                <div className="absolute right-0 top-full mt-1 w-full bg-black border border-terminal-gray z-50 shadow-lg">
-                  <ul className="py-1">
+                <div className="absolute right-0 top-full mt-2 w-full bg-black border border-terminal-gray rounded-sm shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <ul className="py-1 divide-y divide-terminal-gray/10">
                     {dropdownOptions.map((option) => (
                       <li key={option.action}>
                         <button
@@ -828,9 +864,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                             setIsDropdownOpen(false);
                             option.handler();
                           }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-white hover:bg-system-red hover:text-black transition-colors font-label-caps font-bold"
+                          className="w-full text-left px-4 py-3 text-xs text-white hover:bg-system-red hover:text-black transition-all font-label-caps font-bold flex items-center gap-2"
                         >
-                          {option.label}
+                          {option.icon && (
+                            <span className="material-symbols-outlined text-sm">{option.icon}</span>
+                          )}
+                          <span>{option.label}</span>
                         </button>
                       </li>
                     ))}
