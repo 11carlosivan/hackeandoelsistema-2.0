@@ -825,8 +825,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         </section>
 
         {/* Sidebar Settings Panel */}
-        <aside className="space-y-6 w-full max-w-full overflow-hidden">
-          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
+        <aside className="space-y-6 w-full max-w-full">
+          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full">
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
             <div className="relative inline-flex flex-row w-full mb-3 shadow-md rounded-sm overflow-visible">
               <button
