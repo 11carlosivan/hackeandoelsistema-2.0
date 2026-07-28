@@ -1,6 +1,18 @@
-import { absoluteUrl } from '@/lib/main-design/seo';
+import { absoluteUrl, siteConfig } from '@/lib/main-design/seo';
 
 export default function robots() {
+  if (!siteConfig.indexingEnabled) {
+    return {
+      rules: [
+        {
+          userAgent: '*',
+          disallow: '/',
+        },
+      ],
+      host: absoluteUrl('/'),
+    };
+  }
+
   return {
     rules: [
       {

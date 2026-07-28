@@ -72,9 +72,11 @@ async function upsertRoleWithPermissions(roleInput) {
 async function main() {
   const email = normalizeEmail(process.env.ADMIN_EMAIL);
   const password = process.env.ADMIN_PASSWORD;
+  const username = String(process.env.ADMIN_USERNAME || 'admin').trim();
+  const displayName = String(process.env.ADMIN_DISPLAY_NAME || 'Administrador HES').trim();
 
-  if (!email || !password || password.length < 12) {
-    throw new Error('ADMIN_EMAIL y ADMIN_PASSWORD de al menos 12 caracteres son obligatorios.');
+  if (!email || !password || password.length < 12 || !username) {
+    throw new Error('ADMIN_EMAIL, ADMIN_USERNAME y ADMIN_PASSWORD de al menos 12 caracteres son obligatorios.');
   }
 
   const roleRecords = new Map();
@@ -88,8 +90,8 @@ async function main() {
     create: {
       email,
       passwordHash: await hashPassword(password),
-      displayName: 'Administrador HES',
-      username: 'admin',
+      displayName,
+      username,
       status: 'ACTIVE',
       emailVerifiedAt: new Date(),
       passwordChangedAt: new Date(),
@@ -97,6 +99,8 @@ async function main() {
     update: {
       email,
       passwordHash: await hashPassword(password),
+      displayName,
+      username,
       status: 'ACTIVE',
       emailVerifiedAt: new Date(),
       passwordChangedAt: new Date(),

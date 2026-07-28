@@ -1,0 +1,135 @@
+name: hackeandoelsistema
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      WEB_ORIGIN: https://${APP_DOMAIN}
+      CORS_ORIGINS: https://${APP_DOMAIN}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-1 minute}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_ACCESS_TOKEN_TTL_SECONDS: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:-900}
+      AUTH_REFRESH_TOKEN_TTL_DAYS: ${AUTH_REFRESH_TOKEN_TTL_DAYS:-30}
+      AUTH_COOKIE_SECURE: "true"
+      AUTH_MAX_LOGIN_ATTEMPTS: ${AUTH_MAX_LOGIN_ATTEMPTS:-5}
+      AUTH_LOCKOUT_MINUTES: ${AUTH_LOCKOUT_MINUTES:-15}
+      SECURITY_CSP_REPORT_ONLY: ${SECURITY_CSP_REPORT_ONLY:-false}
+      MEDIA_UPLOAD_DIR: /media/uploads
+      MEDIA_PUBLIC_BASE_PATH: /uploads/cms
+      MEDIA_MAX_FILE_SIZE_BYTES: ${MEDIA_MAX_FILE_SIZE_BYTES:-8388608}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrador HES}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    volumes:
+      - cms_uploads:/media/uploads
+      - ./tmp:/workspace/tmp:ro
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  backend-tools:
+    profiles: ["tools"]
+    build:
+      context: ./backend
+      target: deps
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+    volumes:
+      - ./tmp:/workspace/tmp:ro
+    command: ["npm", "exec", "prisma", "--", "--version"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_SITE_URL: https://${APP_DOMAIN}
+        NEXT_PUBLIC_API_BASE_URL: https://${APP_DOMAIN}
+        NEXT_PUBLIC_API_URL: https://${APP_DOMAIN}
+        NEXT_PUBLIC_INDEXING_ENABLED: ${NEXT_PUBLIC_INDEXING_ENABLED:-true}
+        API_INTERNAL_URL: http://backend:4000
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_SITE_URL: https://${APP_DOMAIN}
+      NEXT_PUBLIC_API_BASE_URL: https://${APP_DOMAIN}
+      NEXT_PUBLIC_API_URL: https://${APP_DOMAIN}
+      NEXT_PUBLIC_INDEXING_ENABLED: ${NEXT_PUBLIC_INDEXING_ENABLED:-true}
+      API_INTERNAL_URL: http://backend:4000
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
+      GOOGLE_SERVICE_ACCOUNT_KEY_JSON: ${GOOGLE_SERVICE_ACCOUNT_KEY_JSON:-}
+    volumes:
+      - cms_uploads:/app/public/uploads/cms:ro
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  caddy:
+    profiles: ["caddy"]
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  mysql_data:
+  cms_uploads:
+  caddy_data:
+  caddy_config:
