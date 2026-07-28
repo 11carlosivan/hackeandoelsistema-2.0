@@ -204,16 +204,17 @@ export default function CmsPosts({ posts, meta, filters, error }) {
           {posts.length > 0 ? posts.map((post) => (
             <div
               key={post.id}
-              className="grid gap-3 px-5 py-4 hover:bg-surface-container-low/20 transition-colors lg:grid-cols-[1.5fr_130px_160px_120px_120px] lg:items-center group"
+              onClick={() => router.push(`/cms/publicaciones/${post.id}`)}
+              className="grid gap-3 px-5 py-4 hover:bg-surface-container-low/20 transition-colors lg:grid-cols-[1.5fr_130px_160px_120px_120px] lg:items-center group cursor-pointer"
             >
               <div className="min-w-0">
                 <div className="font-label-caps text-[9px] text-system-red font-bold mb-1">
                   {decodeHtmlEntities(post.primaryCategory?.name) || 'SIN CATEGORIA'} / {post.slug}
                 </div>
                 <h2 className="font-headline-md text-xl text-white uppercase leading-tight truncate">
-                  <Link href={`/cms/publicaciones/${post.id}`} className="hover:text-system-red transition-colors">
+                  <span className="group-hover:text-system-red transition-colors">
                     {post.title}
-                  </Link>
+                  </span>
                 </h2>
                 {post.excerpt ? (
                   <p className="text-on-surface-variant text-sm line-clamp-1 mt-1">{post.excerpt}</p>
@@ -223,6 +224,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
                 <div className="flex flex-wrap items-center gap-2 mt-2 text-[9px] font-mono text-on-surface-variant select-none opacity-60 group-hover:opacity-100 transition-opacity">
                   <Link
                     href={`/cms/publicaciones/${post.id}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="text-system-red hover:text-white transition-colors"
                   >
                     [ EDITAR ]
@@ -233,6 +235,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
                       <Link
                         href={post.route?.path || post.canonicalPath}
                         target="_blank"
+                        onClick={(e) => e.stopPropagation()}
                         className="hover:text-white transition-colors"
                       >
                         [ VER PÚBLICO ↗ ]
@@ -247,7 +250,11 @@ export default function CmsPosts({ posts, meta, filters, error }) {
                     post.status !== 'DRAFT' ? (
                       <button
                         type="button"
-                        onClick={(e) => handleQuickDraft(e, post.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleQuickDraft(e, post.id);
+                        }}
                         className="text-amber-500 hover:text-amber-300 transition-colors"
                       >
                         [ PASAR A BORRADOR ]
@@ -255,7 +262,11 @@ export default function CmsPosts({ posts, meta, filters, error }) {
                     ) : (
                       <button
                         type="button"
-                        onClick={(e) => handleQuickPublish(e, post.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleQuickPublish(e, post.id);
+                        }}
                         className="text-emerald-400 hover:text-emerald-300 transition-colors"
                       >
                         [ PUBLICAR LIVE ]
