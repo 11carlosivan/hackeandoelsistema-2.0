@@ -123,7 +123,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
             <div className="border border-terminal-gray bg-surface-container-low/20 p-6 md:p-8 space-y-7">
               {safeContentHtml ? (
                 <div
-                  className="prose prose-invert max-w-none prose-p:text-on-surface-variant prose-p:leading-relaxed prose-a:text-system-red prose-headings:text-white"
+                  className="editorial-content"
                   dangerouslySetInnerHTML={{ __html: safeContentHtml }}
                 />
               ) : (

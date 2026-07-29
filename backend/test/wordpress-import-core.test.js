@@ -9,6 +9,7 @@ import {
   legacyPlaceholderEmail,
   isWordPressFrontPage,
   normalizeTitle,
+  normalizeLegacyEditorialHtml,
   inferMimeType,
   parseAttachmentDimensions,
   parseWordPressDate,
@@ -36,6 +37,20 @@ describe("WordPress core importer", () => {
     expect(sanitized).not.toContain("script");
     expect(sanitized).not.toContain("onclick");
     expect(sanitized).not.toContain("javascript:");
+  });
+
+  it("normalizes malformed legacy editorial HTML before storing it", () => {
+    const normalized = normalizeLegacyEditorialHtml(
+      '<h1 class="wp-block-heading">La discusion publica ha querido reducir todo a redes sociales. La politica no funciona solamente por presion mediatica y necesita contexto institucional.<br><br>Claves del caso<br><br>- Primer punto<br>- Segundo punto</h1>',
+    );
+
+    expect(normalized).toContain("<h2>La discusion publica ha querido reducir todo a redes sociales.</h2>");
+    expect(normalized).toContain(
+      "<p>La politica no funciona solamente por presion mediatica y necesita contexto institucional.</p>",
+    );
+    expect(normalized).toContain("<h2>Claves del caso</h2>");
+    expect(normalized).toContain("<ul><li>Primer punto</li><li>Segundo punto</li></ul>");
+    expect(normalized).not.toContain("<h1");
   });
 
   it("normalizes slugs and titles for database limits", () => {

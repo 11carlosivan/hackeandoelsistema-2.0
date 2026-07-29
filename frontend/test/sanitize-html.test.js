@@ -22,4 +22,16 @@ describe('sanitizeEditorialHtml', () => {
     expect(html).not.toContain('<img src="mailto:');
     expect(html).not.toContain('<script>');
   });
+
+  it('normalizes malformed legacy blocks into readable article markup', () => {
+    const html = sanitizeEditorialHtml(`
+      <h1 class="wp-block-heading">La discusion publica ha querido reducir todo a redes sociales. La politica no funciona solamente por presion mediatica y necesita contexto institucional.<br><br>Claves del caso<br><br>- Primer punto<br>- Segundo punto</h1>
+    `);
+
+    expect(html).toContain('<h2>La discusion publica ha querido reducir todo a redes sociales.</h2>');
+    expect(html).toContain('<p>La politica no funciona solamente por presion mediatica y necesita contexto institucional.</p>');
+    expect(html).toContain('<h2>Claves del caso</h2>');
+    expect(html).toContain('<ul><li>Primer punto</li><li>Segundo punto</li></ul>');
+    expect(html).not.toContain('<h1');
+  });
 });
