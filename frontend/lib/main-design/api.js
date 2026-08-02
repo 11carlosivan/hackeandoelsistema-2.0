@@ -58,8 +58,27 @@ export async function fetchApi(path, options = {}) {
   }
 
   const url = `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  const timeoutMs = options.timeoutMs ?? 5000;
+  const controller = new AbortController();
+  const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  const requestOptions = { ...options };
+  const optionSignal = requestOptions.signal;
+  delete requestOptions.timeoutMs;
+  delete requestOptions.signal;
+
+  if (optionSignal) {
+    if (optionSignal.aborted) {
+      controller.abort();
+    } else {
+      optionSignal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
   const fetchOptions = {
-    ...options,
+    ...requestOptions,
+    signal: controller.signal,
     headers: {
       Accept: 'application/json',
       ...options.headers,
@@ -72,9 +91,24 @@ export async function fetchApi(path, options = {}) {
     fetchOptions.next = options.next ?? { revalidate: 60 };
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-  });
+  let response;
+
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new ApiRequestError(`API request timed out for ${path}`, {
+        status: 504,
+        path,
+      });
+    }
+
+    throw error;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 
   if (!response.ok) {
     throw new ApiRequestError(`API request failed ${response.status} for ${path}`, {

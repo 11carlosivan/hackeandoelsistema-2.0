@@ -28,7 +28,9 @@
     "seo:sitemap:inventory:live": "node scripts/seo/sitemap-inventory.mjs --sitemap https://hackeandoelsistema.net/sitemap.xml",
     "qa:routes:smoke": "node scripts/qa/public-route-smoke.mjs",
     "ops:preflight": "node scripts/ops/preflight.mjs",
-    "auth:seed-admin": "node scripts/auth/seed-admin.mjs"
+    "auth:seed-admin": "node scripts/auth/seed-admin.mjs",
+    "media:migrate-wp-remote": "node scripts/media/migrate-wordpress-media-to-remote.mjs",
+    "media:audit-wp-deps": "node scripts/media/migrate-wordpress-media-to-remote.mjs --audit-only"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

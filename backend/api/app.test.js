@@ -654,6 +654,152 @@ describe('api app', () => {
     });
   });
 
+  it('prioritizes embedded WordPress post links as public related posts with their own media', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    const relatedPosts = [
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        slug: 'relacion-editorial-uno',
+        title: 'Relacion Editorial Uno',
+        excerpt: 'Relacion uno',
+        contentText: 'Relacion uno',
+        postType: 'NEWS',
+        publishedAt: new Date('2026-01-03T00:00:00Z'),
+        updatedAt: new Date('2026-01-03T00:00:00Z'),
+        viewCount: 1,
+        commentCount: 0,
+        likeCount: 0,
+        saveCount: 0,
+        shareCount: 0,
+        legacyUrl: '/relacion-editorial-uno/',
+        author: { id: 'author-1', username: 'admin', displayName: 'Admin' },
+        featuredMedia: {
+          id: 'media-1',
+          url: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/relacion-uno.jpg',
+          altText: 'Relacion uno',
+          width: 1200,
+          height: 800,
+        },
+        categories: [],
+      },
+      {
+        id: '44444444-4444-4444-8444-444444444444',
+        slug: 'relacion-editorial-dos',
+        title: 'Relacion Editorial Dos',
+        excerpt: 'Relacion dos',
+        contentText: 'Relacion dos',
+        postType: 'NEWS',
+        publishedAt: new Date('2026-01-02T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        viewCount: 1,
+        commentCount: 0,
+        likeCount: 0,
+        saveCount: 0,
+        shareCount: 0,
+        legacyUrl: '/relacion-editorial-dos/',
+        author: { id: 'author-1', username: 'admin', displayName: 'Admin' },
+        featuredMedia: {
+          id: 'media-2',
+          url: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/relacion-dos.jpg',
+          altText: 'Relacion dos',
+          width: 1200,
+          height: 800,
+        },
+        categories: [],
+      },
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        slug: 'relacion-editorial-tres',
+        title: 'Relacion Editorial Tres',
+        excerpt: 'Relacion tres',
+        contentText: 'Relacion tres',
+        postType: 'NEWS',
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 1,
+        commentCount: 0,
+        likeCount: 0,
+        saveCount: 0,
+        shareCount: 0,
+        legacyUrl: '/relacion-editorial-tres/',
+        author: { id: 'author-1', username: 'admin', displayName: 'Admin' },
+        featuredMedia: {
+          id: 'media-3',
+          url: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/relacion-tres.jpg',
+          altText: 'Relacion tres',
+          width: 1200,
+          height: 800,
+        },
+        categories: [],
+      },
+    ];
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        post: {
+          findMany: async ({ where }) => {
+            if (where.OR) {
+              return relatedPosts.slice().reverse();
+            }
+
+            return [];
+          },
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.slug === 'post-con-embeds'
+              ? {
+                  id: postId,
+                  slug: 'post-con-embeds',
+                  title: 'Post con embeds',
+                  excerpt: 'Post principal',
+                  contentHtml: `
+                    <figure><div>https://hackeandoelsistema.net/relacion-editorial-uno/</div></figure>
+                    <figure><div>https://hackeandoelsistema.net/relacion-editorial-dos/</div></figure>
+                    <figure><div>https://hackeandoelsistema.net/relacion-editorial-tres/</div></figure>
+                  `,
+                  contentJson: null,
+                  contentText: 'Post principal',
+                  postType: 'NEWS',
+                  publishedAt: new Date('2026-01-04T00:00:00Z'),
+                  updatedAt: new Date('2026-01-04T00:00:00Z'),
+                  viewCount: 12,
+                  commentCount: 0,
+                  likeCount: 0,
+                  saveCount: 0,
+                  shareCount: 0,
+                  legacyUrl: '/post-con-embeds/',
+                  author: { id: 'author-1', username: 'admin', displayName: 'Admin' },
+                  featuredMedia: null,
+                  categories: [],
+                  tags: [],
+                  comments: [],
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/posts/post-con-embeds',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.relatedPosts.map((post) => post.slug)).toEqual([
+      'relacion-editorial-uno',
+      'relacion-editorial-dos',
+      'relacion-editorial-tres',
+    ]);
+    expect(response.json().data.relatedPosts.map((post) => post.featuredMedia.url)).toEqual([
+      'https://hackeandoelsistema.net/wp-content/uploads/2026/01/relacion-uno.jpg',
+      'https://hackeandoelsistema.net/wp-content/uploads/2026/01/relacion-dos.jpg',
+      'https://hackeandoelsistema.net/wp-content/uploads/2026/01/relacion-tres.jpg',
+    ]);
+  });
+
   it('toggles anonymous public post likes and stores a visitor cookie', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     let createdLike = null;

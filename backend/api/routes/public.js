@@ -64,6 +64,19 @@ const SITEMAP_EXCLUDED_PATHS = [
 const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const PUBLIC_VISITOR_COOKIE = 'hes_public_visitor';
+const INTERNAL_POST_LINK_EXCLUDED_SEGMENTS = new Set([
+  'author',
+  'category',
+  'tag',
+  'wp-admin',
+  'wp-content',
+  'wp-json',
+  'feed',
+  'page',
+  'shop',
+  'product',
+  'product-category',
+]);
 
 let lastScheduledPublishCheckAt = 0;
 let scheduledPublishInFlight = null;
@@ -563,16 +576,122 @@ const publicPostAuthorSelect = {
   legacyAuthorUrl: true,
 };
 
+function internalPostLinkCandidatesFromHtml(html, currentPost) {
+  const candidates = [];
+  const seen = new Set();
+  const currentSlugs = new Set([
+    currentPost?.slug,
+    currentPost?.legacySlug,
+    String(currentPost?.legacyUrl || '').replace(/^\/+|\/+$/g, ''),
+  ].filter(Boolean));
+  const siteOrigins = new Set([
+    'https://hackeandoelsistema.net',
+    'https://www.hackeandoelsistema.net',
+    PUBLIC_SITE_URL,
+  ]);
+  const urlPattern = /https?:\/\/(?:www\.)?hackeandoelsistema\.net\/[^"'<>\s)]+/gi;
+
+  for (const match of String(html || '').matchAll(urlPattern)) {
+    let url;
+
+    try {
+      url = new URL(match[0]);
+    } catch {
+      continue;
+    }
+
+    if (!siteOrigins.has(url.origin)) {
+      continue;
+    }
+
+    const segments = url.pathname.split('/').map((segment) => segment.trim()).filter(Boolean);
+
+    if (segments.length !== 1 || INTERNAL_POST_LINK_EXCLUDED_SEGMENTS.has(segments[0])) {
+      continue;
+    }
+
+    const slug = segments[0];
+    const legacyUrl = `/${slug}/`;
+
+    if (currentSlugs.has(slug) || currentSlugs.has(legacyUrl.replace(/^\/+|\/+$/g, ''))) {
+      continue;
+    }
+
+    if (!seen.has(slug)) {
+      seen.add(slug);
+      candidates.push({ slug, legacyUrl });
+    }
+  }
+
+  return candidates;
+}
+
+function sortPostsByEditorialLinks(posts, candidates) {
+  const order = new Map();
+
+  candidates.forEach((candidate, index) => {
+    order.set(candidate.slug, index);
+    order.set(candidate.legacyUrl, index);
+  });
+
+  return [...posts].sort((a, b) => {
+    const aOrder = Math.min(
+      order.get(a.slug) ?? Number.POSITIVE_INFINITY,
+      order.get(a.legacySlug) ?? Number.POSITIVE_INFINITY,
+      order.get(a.legacyUrl) ?? Number.POSITIVE_INFINITY,
+    );
+    const bOrder = Math.min(
+      order.get(b.slug) ?? Number.POSITIVE_INFINITY,
+      order.get(b.legacySlug) ?? Number.POSITIVE_INFINITY,
+      order.get(b.legacyUrl) ?? Number.POSITIVE_INFINITY,
+    );
+
+    return aOrder - bOrder;
+  });
+}
+
 async function findRelatedPosts(app, post, take = 3) {
+  const embeddedCandidates = internalPostLinkCandidatesFromHtml(post.contentHtml, post).slice(0, 12);
+  const embeddedRelatedPosts = embeddedCandidates.length > 0
+    ? sortPostsByEditorialLinks(await app.prisma.post.findMany({
+      where: {
+        id: { not: post.id },
+        status: 'PUBLISHED',
+        visibility: 'PUBLIC',
+        OR: [
+          { slug: { in: embeddedCandidates.map((candidate) => candidate.slug) } },
+          { legacySlug: { in: embeddedCandidates.map((candidate) => candidate.slug) } },
+          { legacyUrl: { in: embeddedCandidates.map((candidate) => candidate.legacyUrl) } },
+        ],
+      },
+      take: embeddedCandidates.length,
+      include: {
+        author: {
+          select: publicPostAuthorSelect,
+        },
+        featuredMedia: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    }), embeddedCandidates).slice(0, take)
+    : [];
+
+  if (embeddedRelatedPosts.length >= take) {
+    return embeddedRelatedPosts;
+  }
+
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
 
   if (!primaryCategory?.id) {
-    return [];
+    return embeddedRelatedPosts;
   }
 
-  return app.prisma.post.findMany({
+  const fallbackPosts = await app.prisma.post.findMany({
     where: {
-      id: { not: post.id },
+      id: { notIn: [post.id, ...embeddedRelatedPosts.map((relatedPost) => relatedPost.id)] },
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
       categories: {
@@ -582,7 +701,7 @@ async function findRelatedPosts(app, post, take = 3) {
       },
     },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-    take,
+    take: take - embeddedRelatedPosts.length,
     include: {
       author: {
         select: publicPostAuthorSelect,
@@ -595,6 +714,8 @@ async function findRelatedPosts(app, post, take = 3) {
       },
     },
   });
+
+  return [...embeddedRelatedPosts, ...fallbackPosts];
 }
 
 const publicPostInclude = {

@@ -3,6 +3,7 @@ import { fetchApi, getCmsSummary, getHomeFeed, isApiNotFound } from '../lib/main
 
 describe('public API client', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -70,5 +71,26 @@ describe('public API client', () => {
       categories: [],
       summary: null,
     });
+  });
+
+  it('fails API requests with a 504 error when the timeout is reached', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('API_INTERNAL_URL', 'https://api.example.test');
+    vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        reject(error);
+      });
+    })));
+
+    const request = expect(fetchApi('/api/v1/public/posts', { timeoutMs: 25 })).rejects.toMatchObject({
+      name: 'ApiRequestError',
+      status: 504,
+      path: '/api/v1/public/posts',
+    });
+
+    await vi.advanceTimersByTimeAsync(25);
+    await request;
   });
 });

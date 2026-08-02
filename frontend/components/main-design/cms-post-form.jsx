@@ -24,6 +24,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const router = useRouter();
   const [postId, setPostId] = useState(post?.id || null);
   const canEditContent = !post || EDITABLE_CONTENT_STATUSES.has(post.status);
+  const currentRobotsIndex = post?.route?.seo?.robotsIndex || (post?.status === 'PUBLISHED' ? 'INDEX' : 'NOINDEX');
+  const currentRobotsFollow = post?.route?.seo?.robotsFollow || 'FOLLOW';
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -426,8 +428,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           body: JSON.stringify({
             title: seoTitleVal.trim() || null,
             description: seoDescriptionVal.trim() || null,
-            robotsIndex: 'NOINDEX',
-            robotsFollow: 'FOLLOW',
+            robotsIndex: currentRobotsIndex,
+            robotsFollow: currentRobotsFollow,
           }),
         });
         await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/featured-media`, {
