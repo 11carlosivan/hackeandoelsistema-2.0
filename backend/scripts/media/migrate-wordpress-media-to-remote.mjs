@@ -79,13 +79,21 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function decodeHtmlUrl(value) {
+  return String(value || '')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#038;/gi, '&')
+    .replace(/&#x26;/gi, '&');
+}
+
 function normalizeSourceUrl(value) {
   if (!value) return null;
 
   try {
-    const url = String(value).startsWith('/')
-      ? new URL(String(value), DEFAULT_SITE_URL)
-      : new URL(String(value));
+    const decodedValue = decodeHtmlUrl(value);
+    const url = decodedValue.startsWith('/')
+      ? new URL(decodedValue, DEFAULT_SITE_URL)
+      : new URL(decodedValue);
 
     if (!url.pathname.startsWith(WP_UPLOAD_MARKER)) {
       return null;
@@ -99,14 +107,31 @@ function normalizeSourceUrl(value) {
   }
 }
 
+function stripWordPressGeneratedSize(pathname) {
+  return pathname
+    .replace(/-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|webp|gif)$)/i, '')
+    .replace(/-scaled(?=\.(?:jpe?g|png|webp|gif)$)/i, '');
+}
+
 function sourceUrlVariants(sourceUrl) {
   const url = new URL(sourceUrl);
+  const originalPathname = stripWordPressGeneratedSize(url.pathname);
+  const withoutQuery = `${url.origin}${url.pathname}`;
+  const originalWithoutQuery = `${url.origin}${originalPathname}`;
 
   return [...new Set([
     sourceUrl,
+    withoutQuery,
+    originalWithoutQuery,
     `${url.pathname}${url.search}`,
+    url.pathname,
+    originalPathname,
     `${DEFAULT_SITE_URL}${url.pathname}${url.search}`,
+    `${DEFAULT_SITE_URL}${url.pathname}`,
+    `${DEFAULT_SITE_URL}${originalPathname}`,
     `https://www.hackeandoelsistema.net${url.pathname}${url.search}`,
+    `https://www.hackeandoelsistema.net${url.pathname}`,
+    `https://www.hackeandoelsistema.net${originalPathname}`,
   ])];
 }
 
@@ -427,31 +452,47 @@ function responseMimeType(response, sourceUrl) {
 }
 
 async function downloadSourceImage(sourceUrl, timeoutMs) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(sourceUrl, {
-      headers: {
-        'User-Agent': 'HackeandoElSistemaMediaMigrator/1.0',
-      },
-      signal: controller.signal,
+  const candidates = sourceUrlVariants(sourceUrl)
+    .filter((candidate) => /^https?:\/\//i.test(candidate))
+    .map((candidate) => {
+      const url = new URL(candidate);
+      url.hash = '';
+      return url.href;
     });
+  const failures = [];
 
-    if (!response.ok) {
-      throw new Error(`Source download failed ${response.status}`);
+  for (const candidate of [...new Set(candidates)]) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(candidate, {
+        headers: {
+          'User-Agent': 'HackeandoElSistemaMediaMigrator/1.0',
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        failures.push(`${candidate} => ${response.status}`);
+        continue;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+
+      return {
+        filename: path.basename(new URL(candidate).pathname),
+        mimetype: responseMimeType(response, candidate),
+        buffer,
+      };
+    } catch (error) {
+      failures.push(`${candidate} => ${error?.name === 'AbortError' ? 'timeout' : error.message}`);
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    return {
-      filename: path.basename(new URL(sourceUrl).pathname),
-      mimetype: responseMimeType(response, sourceUrl),
-      buffer,
-    };
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw new Error(`Source download failed (${failures.slice(0, 3).join('; ')})`);
 }
 
 async function withConcurrency(items, concurrency, worker) {
