@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { csrfHeaders } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
-import CmsWorkflowActions from './cms-workflow-actions';
 
 const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
 
@@ -354,8 +353,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     setNewTags((current) => current.filter((tag) => tag !== tagName));
   };
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const submit = async (event, actionType = 'DRAFT') => {
+    if (event) event.preventDefault();
     setStatus('loading');
     setError('');
 
@@ -442,6 +441,13 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           body: JSON.stringify(createPayload),
         });
         finalId = json.data?.post?.id;
+
+        if (finalId && actionType === 'PUBLISH') {
+          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${finalId}/workflow`, {
+            method: 'PATCH',
+            body: JSON.stringify({ action: 'PUBLISH' }),
+          });
+        }
       }
 
       if (!finalId) {
@@ -458,11 +464,190 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     }
   };
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const requestConfirmation = (message) => {
+    return new Promise((resolve) => {
+      setConfirmModal({
+        isOpen: true,
+        message,
+        onConfirm: (confirmed) => {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          resolve(confirmed);
+        },
+      });
+    });
+  };
+
+  const runWorkflowAction = async (action) => {
+    const riskyAction = action === 'PUBLISH' || action === 'SCHEDULE' || action === 'ARCHIVE';
+    const confirmation = riskyAction
+      ? await requestConfirmation(action === 'PUBLISH'
+        ? 'Esto activará la ruta pública y el sitemap si no hay una fecha futura. ¿Deseas continuar?'
+        : action === 'SCHEDULE'
+          ? 'Esto dejará la publicación programada fuera del sitemap hasta publicarla. ¿Deseas continuar?'
+          : 'Esto archivará la publicación y la sacará del sitemap. ¿Deseas continuar?')
+      : true;
+
+    if (!confirmation) return;
+
+    setStatus('loading');
+    setError('');
+
+    try {
+      if (canEditContent) {
+        const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+        const contentPayload = {
+          title: postTitle.trim(),
+          slug: postSlug.trim() || undefined,
+          excerpt: excerpt.trim() || null,
+          contentHtml: contentHtml || null,
+          contentText: contentText || null,
+          postType: postType,
+          visibility: visibility,
+          scheduledAt: scheduledAtVal,
+        };
+        const saveResponse = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...csrfHeaders(),
+          },
+          body: JSON.stringify(contentPayload),
+        });
+        if (!saveResponse.ok) {
+          throw new Error('Error al guardar el contenido antes del cambio de estado.');
+        }
+      }
+
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'No se pudo cambiar el estado.');
+      }
+
+      setStatus('success');
+      router.refresh();
+    } catch (err) {
+      setStatus('error');
+      setError(err.message);
+    }
+  };
+
+  const workflowActionsByStatus = {
+    DRAFT: [
+      ['SUBMIT_REVIEW', 'Enviar a revision'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    NEEDS_CHANGES: [
+      ['SUBMIT_REVIEW', 'Enviar a revision'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    REJECTED: [
+      ['SUBMIT_REVIEW', 'Enviar a revision'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    PENDING_REVIEW: [
+      ['RETURN_TO_DRAFT', 'Volver a borrador'],
+      ['SCHEDULE', 'Programar'],
+      ['PUBLISH', 'Publicar'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    SCHEDULED: [
+      ['PUBLISH', 'Publicar ahora'],
+      ['ARCHIVE', 'Archivar'],
+    ],
+    PUBLISHED: [
+      ['ARCHIVE', 'Archivar'],
+    ],
+  };
+
+  let primaryActionLabel = '';
+  let handlePrimaryAction = () => {};
+  let dropdownOptions = [];
+
+  if (!postId) {
+    primaryActionLabel = 'Publicar';
+    handlePrimaryAction = () => submit(null, 'PUBLISH');
+    dropdownOptions = [
+      {
+        label: 'Guardar como borrador',
+        action: 'DRAFT',
+        icon: 'draft',
+        handler: () => submit(null, 'DRAFT'),
+      }
+    ];
+  } else {
+    const currentStatus = post?.status;
+
+    if (currentStatus === 'PUBLISHED') {
+      primaryActionLabel = !canEditContent ? 'Guardar SEO y media' : 'Publicar cambios';
+      handlePrimaryAction = () => submit(null, 'DRAFT');
+
+      const workflowActions = workflowActionsByStatus[currentStatus] || [];
+      dropdownOptions = workflowActions.map(([action, label]) => ({
+        label,
+        action,
+        icon: action === 'ARCHIVE' ? 'archive' : 'sync_alt',
+        handler: () => runWorkflowAction(action),
+      }));
+    } else {
+      primaryActionLabel = 'Publicar';
+      handlePrimaryAction = () => runWorkflowAction('PUBLISH');
+
+      dropdownOptions.push({
+        label: !canEditContent ? 'Guardar SEO y media' : 'Guardar borrador',
+        action: 'SAVE_CHANGES',
+        icon: 'save',
+        handler: () => submit(null, 'DRAFT'),
+      });
+
+      const workflowActions = workflowActionsByStatus[currentStatus] || [];
+      workflowActions.forEach(([action, label]) => {
+        if (action !== 'PUBLISH') {
+          let icon = 'sync_alt';
+          if (action === 'SUBMIT_REVIEW') icon = 'rate_review';
+          if (action === 'SCHEDULE') icon = 'calendar_today';
+          if (action === 'ARCHIVE') icon = 'archive';
+          if (action === 'RETURN_TO_DRAFT') icon = 'draft';
+
+          dropdownOptions.push({
+            label,
+            action,
+            icon,
+            handler: () => runWorkflowAction(action),
+          });
+        }
+      });
+    }
+  }
+
   const isLive = post?.status === 'PUBLISHED' || post?.status === 'SCHEDULED';
 
   return (
     <>
-      <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] w-full max-w-full overflow-hidden">
+      <form onSubmit={(e) => submit(e, 'DRAFT')} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] w-full max-w-full overflow-hidden">
         <section className="border border-terminal-gray bg-surface-container-low/30 p-6 md:p-8 w-full max-w-full overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <div className="font-label-caps text-system-red text-[10px] font-bold">CONTENIDO EDITORIAL</div>
@@ -659,23 +844,58 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         </section>
 
         {/* Sidebar Settings Panel */}
-        <aside className="space-y-6 w-full max-w-full overflow-hidden">
-          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
+        <aside className="space-y-6 w-full max-w-full">
+          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full">
             <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">ACCIONES</div>
-            <button
-              type="submit"
-              disabled={status === 'loading'}
-              className="w-full bg-system-red text-black py-3 font-label-caps text-[11px] font-bold hover:bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 mb-3"
-            >
-              {status === 'loading' ? 'Guardando...' : (!canEditContent ? 'Guardar SEO y media' : (postId ? 'Guardar Cambios' : 'Crear borrador'))}
-            </button>
+            <div className="relative inline-flex flex-row w-full mb-3 shadow-md rounded-sm overflow-visible">
+              <button
+                type="button"
+                onClick={handlePrimaryAction}
+                disabled={status === 'loading'}
+                className="flex-1 bg-system-red text-black py-3 px-4 font-label-caps text-[11px] font-bold hover:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60 rounded-l-sm"
+              >
+                {status === 'loading' ? 'Procesando...' : primaryActionLabel}
+              </button>
+              
+              <div className="w-[1px] bg-black/20 self-stretch" />
+              
+              {dropdownOptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  disabled={status === 'loading'}
+                  className="bg-system-red text-black px-3 hover:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center rounded-r-sm"
+                >
+                  <span className="material-symbols-outlined text-base select-none font-bold">
+                    {isDropdownOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+                  </span>
+                </button>
+              )}
 
-            {/* Workflow Actions for existing post */}
-            {post && (
-              <div className="border-t border-terminal-gray/20 pt-4 mt-3">
-                <CmsWorkflowActions post={post} />
-              </div>
-            )}
+              {isDropdownOpen && dropdownOptions.length > 0 && (
+                <div className="absolute right-0 top-full mt-2 w-full bg-black border border-terminal-gray rounded-sm shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <ul className="py-1 divide-y divide-terminal-gray/10">
+                    {dropdownOptions.map((option) => (
+                      <li key={option.action}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDropdownOpen(false);
+                            option.handler();
+                          }}
+                          className="w-full text-left px-4 py-3 text-xs text-white hover:bg-system-red hover:text-black transition-all font-label-caps font-bold flex items-center gap-2"
+                        >
+                          {option.icon && (
+                            <span className="material-symbols-outlined text-sm">{option.icon}</span>
+                          )}
+                          <span>{option.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Classification Settings Panel */}
@@ -1097,6 +1317,38 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           setIsMediaModalOpen(false);
         }}
       />
+
+      {/* Custom Confirm Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="border border-terminal-gray bg-black max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div className="font-label-caps text-system-red text-[10px] font-bold tracking-wider">
+              CONFIRMACIÓN REQUERIDA
+            </div>
+            
+            <p className="text-xs text-white leading-relaxed font-mono">
+              {confirmModal.message}
+            </p>
+            
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => confirmModal.onConfirm(false)}
+                className="border border-terminal-gray px-5 py-2.5 font-label-caps text-[10px] font-bold text-white hover:border-white hover:text-white transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmModal.onConfirm(true)}
+                className="bg-system-red text-black px-5 py-2.5 font-label-caps text-[10px] font-bold hover:bg-white transition-colors cursor-pointer"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

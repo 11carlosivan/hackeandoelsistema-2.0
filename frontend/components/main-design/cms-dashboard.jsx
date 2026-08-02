@@ -1,8 +1,47 @@
+'use client';
+
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
+import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
+import { csrfHeaders } from './client-security';
 
 export default function CmsDashboard({ summary }) {
+  const router = useRouter();
+  const [actionLoading, setActionLoading] = useState('');
+
+  const handleQuickPublish = async (e, postId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm('¿Seguro que deseas publicar esta publicación en vivo?')) return;
+    
+    setActionLoading(postId);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ action: 'PUBLISH' }),
+      });
+      if (response.ok) {
+        router.refresh();
+      } else {
+        const err = await response.json().catch(() => null);
+        alert(err?.message || 'Error al publicar.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
   const counts = summary?.counts || {};
   const editorial = summary?.editorial || {};
   const recentPosts = summary?.recentPosts || [];
@@ -120,10 +159,10 @@ export default function CmsDashboard({ summary }) {
 
           <div className="space-y-3">
             {recentPosts.map((post) => (
-              <Link
+              <div
                 key={post.id}
-                href={post.route || `/${post.slug}/`}
-                className="grid gap-3 md:grid-cols-[1fr_auto] border border-terminal-gray bg-black/20 p-4 hover:border-system-red transition-colors"
+                onClick={() => router.push(`/cms/publicaciones/${post.id}`)}
+                className="grid gap-3 md:grid-cols-[1fr_auto] border border-terminal-gray bg-black/20 p-4 hover:border-system-red transition-colors cursor-pointer group"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap gap-2 font-label-caps text-[9px] text-system-red font-bold mb-2">
@@ -137,14 +176,56 @@ export default function CmsDashboard({ summary }) {
                       </>
                     ) : null}
                   </div>
-                  <h3 className="font-headline-md text-white uppercase leading-tight truncate">{post.title}</h3>
+                  <h3 className="font-headline-md text-white uppercase leading-tight truncate group-hover:text-system-red transition-colors">{post.title}</h3>
                   <p className="text-on-surface-variant text-sm line-clamp-1 mt-1">{post.subtitle}</p>
+
+                  {/* Acciones Rápidas en Dashboard */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2 text-[9px] font-mono text-on-surface-variant select-none opacity-60 group-hover:opacity-100 transition-opacity">
+                    <Link
+                      href={`/cms/publicaciones/${post.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-system-red hover:text-white transition-colors"
+                    >
+                      [ EDITAR ]
+                    </Link>
+                    <span>|</span>
+                    <Link
+                      href={post.route || `/${post.slug}/`}
+                      target="_blank; "
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-white transition-colors"
+                    >
+                      [ VER PÚBLICO ↗ ]
+                    </Link>
+                    {post.raw?.status === 'DRAFT' && (
+                      <>
+                        <span>|</span>
+                        {actionLoading === post.id ? (
+                          <span className="text-white animate-pulse">[ PROCESANDO... ]</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleQuickPublish(e, post.id);
+                            }}
+                            className="text-emerald-400 hover:text-emerald-300 transition-colors font-bold"
+                          >
+                            [ PUBLICAR LIVE ]
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="font-label-caps text-[10px] text-on-surface-variant md:text-right">
-                  <div>{post.authorName || 'Redaccion'}</div>
-                  <div className="text-system-red">{post.readTime}</div>
+                <div className="font-label-caps text-[10px] text-on-surface-variant md:text-right flex flex-col justify-between">
+                  <div>
+                    <div>{post.authorName || 'Redaccion'}</div>
+                    <div className="text-system-red">{post.readTime}</div>
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>

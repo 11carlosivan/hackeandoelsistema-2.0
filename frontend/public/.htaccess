@@ -1,0 +1,21 @@
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Configuración de Phusion Passenger para Frontend Next.js
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Forzar límites estrictos de instancias para no superar los 100 procesos de BanaHosting
+PassengerMinInstances 1
+PassengerMaxInstancesPerApp 2
+PassengerPoolIdleTime 10
+
+# Habilitar Node.js
+PassengerEnabled on
+PassengerAppType node
+PassengerStartupFile .next/standalone/server.js
+
+# Reglas de Apache por defecto de cPanel
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ http://127.0.0.1:%{PORT}/$1 [P,L]
+</IfModule>

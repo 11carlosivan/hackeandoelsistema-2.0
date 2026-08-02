@@ -41,7 +41,6 @@ function formatDate(value) {
 
 function decodeHtmlEntities(str) {
   if (!str) return '';
-
   return str
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -54,20 +53,11 @@ export default function CmsPosts({ posts, meta, filters, error }) {
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState('');
 
-  const runWorkflowAction = async (event, postId, action) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const confirmation = window.confirm(
-      action === 'PUBLISH'
-        ? '¿Seguro que deseas publicar esta publicación?'
-        : '¿Seguro que deseas pasar esta publicación a borrador?',
-    );
-
-    if (!confirmation) return;
-
+  const handleQuickDraft = async (e, postId) => {
+    e.preventDefault();
+    if (!window.confirm('¿Seguro que deseas pasar esta publicación a Borrador? Dejará de estar disponible al público.')) return;
+    
     setActionLoading(postId);
-
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
@@ -76,17 +66,46 @@ export default function CmsPosts({ posts, meta, filters, error }) {
           'Content-Type': 'application/json',
           ...csrfHeaders(),
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action: 'RETURN_TO_DRAFT' }),
       });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || 'No se pudo cambiar el estado.');
+      if (response.ok) {
+        router.refresh();
+      } else {
+        const err = await response.json().catch(() => null);
+        alert(err?.message || 'Error al cambiar estado.');
       }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading('');
+    }
+  };
 
-      router.refresh();
-    } catch (actionError) {
-      window.alert(actionError.message);
+  const handleQuickPublish = async (e, postId) => {
+    e.preventDefault();
+    if (!window.confirm('¿Seguro que deseas publicar esta publicación en vivo?')) return;
+    
+    setActionLoading(postId);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ action: 'PUBLISH' }),
+      });
+      if (response.ok) {
+        router.refresh();
+      } else {
+        const err = await response.json().catch(() => null);
+        alert(err?.message || 'Error al publicar.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
     } finally {
       setActionLoading('');
     }
@@ -107,7 +126,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
 
       {error ? (
         <div className="border border-system-red/40 bg-system-red/10 p-4 mb-8 text-sm text-white">
-          No se pudo cargar el listado protegido. Revisa la sesion y la API.
+          No se pudo cargar el listado protegido. Revisa la sesión y la API.
         </div>
       ) : null}
 
@@ -119,7 +138,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
           >
             <span className="inline-flex items-center gap-2">
               <span className="material-symbols-outlined text-[16px]">add_circle</span>
-              Crear publicación
+              Crear publicacion
             </span>
           </Link>
           <CmsSessionActions />
@@ -181,59 +200,78 @@ export default function CmsPosts({ posts, meta, filters, error }) {
           <span className="text-right">Métrica</span>
         </div>
 
-        <div className="divide-y divide-terminal-gray/40">
+        <div className="divide-y divide-terminal-gray/30">
           {posts.length > 0 ? posts.map((post) => (
             <div
               key={post.id}
               onClick={() => router.push(`/cms/publicaciones/${post.id}`)}
-              className="group grid cursor-pointer gap-3 px-5 py-4 transition-colors hover:bg-surface-container-low/45 lg:grid-cols-[1.5fr_130px_160px_120px_120px] lg:items-center"
+              className="grid gap-3 px-5 py-4 hover:bg-surface-container-low/20 transition-colors lg:grid-cols-[1.5fr_130px_160px_120px_120px] lg:items-center group cursor-pointer"
             >
               <div className="min-w-0">
                 <div className="font-label-caps text-[9px] text-system-red font-bold mb-1">
                   {decodeHtmlEntities(post.primaryCategory?.name) || 'SIN CATEGORIA'} / {post.slug}
                 </div>
                 <h2 className="font-headline-md text-xl text-white uppercase leading-tight truncate">
-                  <span className="transition-colors group-hover:text-system-red">
+                  <span className="group-hover:text-system-red transition-colors">
                     {post.title}
                   </span>
                 </h2>
                 {post.excerpt ? (
                   <p className="text-on-surface-variant text-sm line-clamp-1 mt-1">{post.excerpt}</p>
                 ) : null}
-                <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[9px] text-on-surface-variant opacity-70 transition-opacity group-hover:opacity-100">
+
+                {/* Acciones Rápidas (Estilo WordPress) */}
+                <div className="flex flex-wrap items-center gap-2 mt-2 text-[9px] font-mono text-on-surface-variant select-none opacity-60 group-hover:opacity-100 transition-opacity">
                   <Link
                     href={`/cms/publicaciones/${post.id}`}
-                    onClick={(event) => event.stopPropagation()}
-                    className="text-system-red transition-colors hover:text-white"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-system-red hover:text-white transition-colors"
                   >
                     [ EDITAR ]
                   </Link>
-                  {(post.route?.path || post.canonicalPath) ? (
+                  <span>|</span>
+                  {post.route?.path || post.canonicalPath ? (
                     <>
-                      <span>|</span>
                       <Link
                         href={post.route?.path || post.canonicalPath}
                         target="_blank"
-                        onClick={(event) => event.stopPropagation()}
-                        className="transition-colors hover:text-white"
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:text-white transition-colors"
                       >
-                        [ VER PUBLICO ]
+                        [ VER PÚBLICO ↗ ]
                       </Link>
+                      <span>|</span>
                     </>
                   ) : null}
-                  <span>|</span>
+                  
                   {actionLoading === post.id ? (
-                    <span className="text-white">[ PROCESANDO... ]</span>
-                  ) : post.status === 'DRAFT' || post.status === 'PENDING_REVIEW' || post.status === 'NEEDS_CHANGES' || post.status === 'REJECTED' || post.status === 'SCHEDULED' ? (
-                    <button
-                      type="button"
-                      onClick={(event) => runWorkflowAction(event, post.id, 'PUBLISH')}
-                      className="text-emerald-400 transition-colors hover:text-white"
-                    >
-                      [ PUBLICAR ]
-                    </button>
+                    <span className="text-white animate-pulse">[ PROCESANDO... ]</span>
                   ) : (
-                    <span>[ SIN ACCION RAPIDA ]</span>
+                    post.status !== 'DRAFT' ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleQuickDraft(e, post.id);
+                        }}
+                        className="text-amber-500 hover:text-amber-300 transition-colors"
+                      >
+                        [ PASAR A BORRADOR ]
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleQuickPublish(e, post.id);
+                        }}
+                        className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        [ PUBLICAR LIVE ]
+                      </button>
+                    )
                   )}
                 </div>
               </div>

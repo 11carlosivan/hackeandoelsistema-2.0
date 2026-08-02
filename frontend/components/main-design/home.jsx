@@ -168,13 +168,13 @@ export default function Home({ initialArticles, initialCategories = [], summary 
           <span className="tracking-wider">Últimas Noticias</span>
         </div>
         <div className="relative flex-grow overflow-hidden h-full flex items-center">
-          <div className="animate-marquee whitespace-nowrap flex items-center gap-12 pl-4">
+          <div className="animate-marquee flex flex-row flex-nowrap items-center gap-12 pl-4 w-max">
             {/* Duplicated list to allow seamless loop scrolling */}
             {articles.slice(0, 5).concat(articles.slice(0, 5)).map((art, idx) => (
               <Link 
                 key={`${art.id}-${idx}`} 
                 href={art.route || `/articulo/${art.id}`} 
-                className="hover:text-system-red transition-colors flex items-center gap-2 text-white font-bold"
+                className="hover:text-system-red transition-colors flex items-center gap-2 text-white font-bold whitespace-nowrap shrink-0"
               >
                 <span>{art.title.toUpperCase()}</span>
                 <span className="text-system-red font-bold text-[10px]">• HACE {formatRelativeTime(art.publishedAt)}</span>

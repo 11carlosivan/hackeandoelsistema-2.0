@@ -9,7 +9,7 @@ export default function Layout({ children, categories = [] }) {
       <Header categories={categories} />
       
       {/* Main container with sidebar and content */}
-      <div className="flex flex-1 w-full max-w-full mx-auto pt-[140px] relative">
+      <div className="flex flex-1 w-full max-w-full mx-auto pt-[150px] md:pt-[170px] relative">
         {/* Left widget bar */}
         <SideNavBar />
         
