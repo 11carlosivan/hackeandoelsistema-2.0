@@ -21,6 +21,7 @@ import {
   isApiNotFound,
   resolvePublicRoute,
 } from '@/lib/main-design/api';
+import { legacyRedirects } from '@/lib/main-design/legacy-redirects';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export function buildRoutePath(pathParts = []) {
@@ -31,6 +32,32 @@ export function buildRoutePath(pathParts = []) {
 
 function normalizePathParts(pathParts = []) {
   return pathParts.map((part) => String(part || '').trim()).filter(Boolean);
+}
+
+function normalizeRoutePath(value) {
+  const path = String(value || '/').split('?')[0].split('#')[0] || '/';
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function findLegacyRedirect(pathParts) {
+  const routePath = buildRoutePath(pathParts);
+  const normalizedRoutePath = normalizeRoutePath(routePath);
+  const match = legacyRedirects.find((redirectItem) => normalizeRoutePath(redirectItem.source) === normalizedRoutePath);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    type: 'REDIRECT',
+    path: normalizedRoutePath,
+    targetUrl: match.destination,
+    statusCode: match.permanent === false ? 302 : 301,
+    preserveQuery: match.preserveQuery ?? true,
+    source: 'STATIC_LEGACY',
+  };
 }
 
 function parseLegacyPagination(pathParts = []) {
@@ -125,7 +152,7 @@ async function loadRoute(pathParts) {
       throw error;
     }
 
-    return null;
+    return findLegacyRedirect(pathParts);
   }
 }
 

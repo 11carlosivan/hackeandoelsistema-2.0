@@ -253,6 +253,42 @@ function textToLegacyEditorialHtml(value) {
     .join("\n");
 }
 
+function standaloneUrlAnchor(value) {
+  const text = sanitizedText(value).trim();
+
+  if (!/^https?:\/\/[^\s<>"']+$/i.test(text)) {
+    return null;
+  }
+
+  try {
+    const url = new URL(text);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return `<p><a href="${escapeHtml(url.href)}">${escapeHtml(text)}</a></p>`;
+  } catch {
+    return null;
+  }
+}
+
+function linkifyStandaloneLegacyUrls(value) {
+  return String(value || "")
+    .replace(/<figure\b[^>]*class=(["'])[^"']*\bwp-block-embed\b[^"']*\1[^>]*>[\s\S]*?<div\b[^>]*class=(["'])[^"']*\bwp-block-embed__wrapper\b[^"']*\2[^>]*>([\s\S]*?)<\/div>\s*<\/figure>/gi, (match, _figureQuote, _wrapperQuote, inner) => {
+      return standaloneUrlAnchor(inner) || match;
+    })
+    .replace(/<(p|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, attributes, inner) => {
+      const anchor = standaloneUrlAnchor(inner);
+
+      if (!anchor) {
+        return match;
+      }
+
+      return /^div$/i.test(tag) ? anchor : anchor.replace(/^<p>/, `<p${attributes}>`);
+    });
+}
+
 export function normalizeLegacyEditorialHtml(value) {
   const safeHtml = String(value || "").trim();
 
@@ -266,7 +302,8 @@ export function normalizeLegacyEditorialHtml(value) {
     return sanitizeHtml(textToLegacyEditorialHtml(safeHtml), HTML_SANITIZE_OPTIONS).trim() || null;
   }
 
-  const normalized = safeHtml.replace(/<(p|h[1-6]|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, _attributes, inner) => {
+  const linkifiedHtml = linkifyStandaloneLegacyUrls(safeHtml);
+  const normalized = linkifiedHtml.replace(/<(p|h[1-6]|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, _attributes, inner) => {
     const segments = splitInlineBreaks(inner);
 
     if (segments.length < 2) {

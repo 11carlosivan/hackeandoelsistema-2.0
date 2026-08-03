@@ -34,4 +34,19 @@ describe('sanitizeEditorialHtml', () => {
     expect(html).toContain('<ul><li>Primer punto</li><li>Segundo punto</li></ul>');
     expect(html).not.toContain('<h1');
   });
+
+  it('turns standalone WordPress embed URLs into clickable links', () => {
+    const html = sanitizeEditorialHtml(`
+      <figure class="wp-block-embed is-type-wp-embed is-provider-hackeando-el-sistema">
+        <div class="wp-block-embed__wrapper">
+          https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/
+        </div>
+      </figure>
+    `);
+
+    expect(html).toContain(
+      '<a href="https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/" rel="noopener noreferrer">',
+    );
+    expect(html).not.toContain('wp-block-embed__wrapper');
+  });
 });

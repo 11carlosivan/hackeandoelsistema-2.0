@@ -64,6 +64,19 @@ describe('public route rendering', () => {
     ).rejects.toThrow('redirect:/author/redaccion/page/2/');
   });
 
+  it('redirects known typo legacy article URLs to the canonical slug', async () => {
+    permanentRedirect.mockImplementationOnce((target) => {
+      throw new Error(`redirect:${target}`);
+    });
+
+    await expect(
+      renderPublicRoutePage(
+        ['quien-se-queda-qon-el-dinero-de-la-gasolina-en-republica-dominicana'],
+        Promise.resolve({}),
+      ),
+    ).rejects.toThrow('redirect:/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/');
+  });
+
   it('does not convert active route backend failures into noindex metadata', async () => {
     resolvePublicRoute.mockResolvedValueOnce({
       type: 'ENTITY',

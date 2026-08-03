@@ -53,6 +53,21 @@ describe("WordPress core importer", () => {
     expect(normalized).not.toContain("<h1");
   });
 
+  it("turns standalone WordPress embed URLs into clickable links before storing them", () => {
+    const normalized = normalizeLegacyEditorialHtml(`
+      <figure class="wp-block-embed is-type-wp-embed is-provider-hackeando-el-sistema">
+        <div class="wp-block-embed__wrapper">
+          https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/
+        </div>
+      </figure>
+    `);
+
+    expect(normalized).toContain(
+      '<a href="https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/" rel="noopener noreferrer">',
+    );
+    expect(normalized).not.toContain("wp-block-embed__wrapper");
+  });
+
   it("normalizes slugs and titles for database limits", () => {
     expect(safeSlug("Política RD / Opinión")).toBe("politica-rd-opinion");
     expect(normalizeTitle("", "fallback")).toBe("fallback");
