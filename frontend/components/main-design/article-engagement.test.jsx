@@ -69,7 +69,6 @@ describe('ArticleEngagement', () => {
       if (pathname.endsWith('/comments')) {
         expect(JSON.parse(options.body)).toMatchObject({
           authorName: 'Visitante',
-          authorEmail: 'visitante@example.com',
           body: 'Comentario de prueba',
         });
         return jsonResponse({
@@ -104,14 +103,14 @@ describe('ArticleEngagement', () => {
     fireEvent.click(shareButton);
     await waitFor(() => expect(screen.getByText('Enlace copiado.')).toBeInTheDocument());
 
-    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Visitante' } });
-    fireEvent.change(screen.getByPlaceholderText('Email opcional'), { target: { value: 'visitante@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Escribe un comentario para moderacion'), {
+    fireEvent.change(screen.getByPlaceholderText('Tu Nombre'), { target: { value: 'Visitante' } });
+    fireEvent.change(screen.getByPlaceholderText('Escribe tu comentario...'), {
       target: { value: 'Comentario de prueba' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Enviar comentario' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar Comentario' }));
 
     await waitFor(() => expect(screen.getByText('Comentario recibido y pendiente de moderacion.')).toBeInTheDocument());
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/articulo-de-prueba/');
   });
 });
+

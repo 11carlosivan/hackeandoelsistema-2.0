@@ -1,9 +1,9 @@
 import PublicLayout from '@/components/main-design/public-layout';
-import TerminalPage from '@/components/main-design/terminal-page';
+import RegisterForm from '@/components/user/RegisterForm';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export const metadata = buildMetadata({
-  title: 'Registro',
+  title: 'Registro de Lectores',
   description: 'Registro de miembros de Hackeando el Sistema Network.',
   path: '/register',
   noIndex: true,
@@ -12,7 +12,10 @@ export const metadata = buildMetadata({
 export default function Page() {
   return (
     <PublicLayout>
-      <TerminalPage variant="register" />
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <RegisterForm />
+      </div>
     </PublicLayout>
   );
 }
+

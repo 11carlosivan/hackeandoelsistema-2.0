@@ -3,11 +3,8 @@ import SideNavBar from './side-nav-bar';
 import Footer from './footer';
 import { getPublicCategories } from '@/lib/main-design/api';
 
-export default async function Layout({ children, categories }) {
-  let menuCategories = categories;
-  if (!menuCategories || menuCategories.length === 0) {
-    menuCategories = await getPublicCategories();
-  }
+export default function Layout({ children, categories = [] }) {
+  const menuCategories = categories || [];
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col">

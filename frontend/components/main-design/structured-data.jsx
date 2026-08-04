@@ -13,6 +13,7 @@ function JsonLd({ data }) {
   return (
     <script
       type="application/ld+json"
+      suppressHydrationWarning
       dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
     />
   );

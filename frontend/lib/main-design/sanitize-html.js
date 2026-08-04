@@ -16,6 +16,8 @@ const EDITORIAL_HTML_OPTIONS = {
     'h5',
     'h6',
   ]),
+  disallowedTagsMode: 'discard',
+  nonTextTags: ['script', 'style', 'textarea', 'option'],
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
     '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],

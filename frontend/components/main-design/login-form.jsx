@@ -117,6 +117,19 @@ export default function LoginForm() {
           >
             {status === 'loading' ? 'Validando...' : 'Entrar al CMS'}
           </button>
+
+          <div className="mt-8 pt-6 border-t border-terminal-gray/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs text-on-surface-variant font-medium">¿Aún no tienes una cuenta?</p>
+              <p className="text-[11px] text-on-surface-variant/70">Únete a la comunidad de lectores y colaboradores.</p>
+            </div>
+            <a
+              href="/register"
+              className="inline-flex border border-terminal-gray bg-black/50 text-white font-label-caps text-[11px] font-bold px-4 py-2 hover:border-system-red hover:text-system-red transition-colors"
+            >
+              Registrarse
+            </a>
+          </div>
         </form>
 
         <aside className="lg:col-span-5 border border-terminal-gray bg-black/20 p-6 self-start">

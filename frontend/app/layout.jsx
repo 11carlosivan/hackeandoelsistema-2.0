@@ -1,3 +1,4 @@
+import Script from 'next/script';
 import './globals.css';
 import { SiteStructuredData } from '@/components/main-design/structured-data';
 import { buildMetadata, siteConfig } from '@/lib/main-design/seo';
@@ -8,22 +9,6 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es" className="dark" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const theme = localStorage.getItem('theme') || 'dark';
-                if (theme === 'light') {
-                  document.documentElement.classList.remove('dark');
-                  document.documentElement.classList.add('light');
-                } else {
-                  document.documentElement.classList.add('dark');
-                  document.documentElement.classList.remove('light');
-                }
-              } catch (_) {}
-            `,
-          }}
-        />
         <meta name="application-name" content={siteConfig.name} />
         <meta name="apple-mobile-web-app-title" content={siteConfig.name} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,6 +24,24 @@ export default function RootLayout({ children }) {
         <SiteStructuredData />
       </head>
       <body className="bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden">
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme') || 'dark';
+                if (theme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+                } else {
+                  document.documentElement.classList.add('dark');
+                  document.documentElement.classList.remove('light');
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
         {children}
       </body>
     </html>

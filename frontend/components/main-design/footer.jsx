@@ -18,8 +18,8 @@ export default function Footer() {
         </div>
 
         <nav aria-label="Enlaces legales" className="flex flex-wrap justify-center gap-6">
-          <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/privacy-policy/">
-            Privacidad
+          <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/terminos-y-privacidad">
+            Términos y Privacidad
           </Link>
           <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/contact/">
             Contacto
