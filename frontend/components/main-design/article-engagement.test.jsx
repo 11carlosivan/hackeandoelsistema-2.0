@@ -67,11 +67,7 @@ describe('ArticleEngagement', () => {
       }
 
       if (pathname.endsWith('/comments')) {
-        expect(JSON.parse(options.body)).toMatchObject({
-          authorName: 'Visitante',
-          authorEmail: 'visitante@example.com',
-          body: 'Comentario de prueba',
-        });
+        expect(JSON.parse(options.body)).toEqual({ body: 'Comentario de prueba' });
         return jsonResponse({
           data: {
             moderation: {
@@ -104,8 +100,6 @@ describe('ArticleEngagement', () => {
     fireEvent.click(shareButton);
     await waitFor(() => expect(screen.getByText('Enlace copiado.')).toBeInTheDocument());
 
-    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Visitante' } });
-    fireEvent.change(screen.getByPlaceholderText('Email opcional'), { target: { value: 'visitante@example.com' } });
     fireEvent.change(screen.getByPlaceholderText('Escribe un comentario para moderacion'), {
       target: { value: 'Comentario de prueba' },
     });
@@ -113,5 +107,38 @@ describe('ArticleEngagement', () => {
 
     await waitFor(() => expect(screen.getByText('Comentario recibido y pendiente de moderacion.')).toBeInTheDocument());
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/articulo-de-prueba/');
+  });
+
+  it('prompts visitors to sign in before commenting', async () => {
+    global.fetch = vi.fn((url) => {
+      const pathname = new URL(String(url)).pathname;
+
+      if (pathname.endsWith('/engagement')) {
+        return jsonResponse({
+          data: {
+            liked: false,
+            saved: false,
+            authenticated: false,
+            counts: {
+              likes: 1,
+              saves: 0,
+              shares: 0,
+              comments: 0,
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ message: 'Not found' }, { status: 404 });
+    });
+
+    render(<ArticleEngagement article={article} />);
+
+    await waitFor(() => expect(screen.getByText('Inicia sesion para comentar.')).toBeInTheDocument());
+    expect(screen.queryByPlaceholderText('Escribe un comentario para moderacion')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Iniciar sesion' })).toHaveAttribute(
+      'href',
+      '/iniciar-sesion?next=%2Farticulo-de-prueba%2F',
+    );
   });
 });

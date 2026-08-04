@@ -21,6 +21,9 @@ export default function Footer() {
           <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/privacy-policy/">
             Privacidad
           </Link>
+          <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/terms-of-service/">
+            Terminos
+          </Link>
           <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/contact/">
             Contacto
           </Link>

@@ -41,6 +41,7 @@ export default function ArticleEngagement({ article }) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [engagementLoaded, setEngagementLoaded] = useState(false);
   const [counts, setCounts] = useState({
     likes: safeCount(article?.likeCount),
     saves: safeCount(article?.saveCount),
@@ -55,6 +56,7 @@ export default function ArticleEngagement({ article }) {
     if (!postId) return;
 
     let cancelled = false;
+    setEngagementLoaded(false);
 
     requestJson(`/api/v1/public/posts/id/${encodeURIComponent(postId)}/engagement`)
       .then((payload) => {
@@ -70,9 +72,13 @@ export default function ArticleEngagement({ article }) {
           shares: safeCount(payload.data?.counts?.shares),
           comments: safeCount(payload.data?.counts?.comments),
         }));
+        setEngagementLoaded(true);
       })
       .catch(() => {
         // Counts rendered from the article payload remain available.
+        if (!cancelled) {
+          setEngagementLoaded(true);
+        }
       });
 
     return () => {
@@ -155,8 +161,6 @@ export default function ArticleEngagement({ article }) {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const payload = {
-      authorName: String(formData.get('authorName') || '').trim() || undefined,
-      authorEmail: String(formData.get('authorEmail') || '').trim() || undefined,
       body: String(formData.get('body') || '').trim(),
     };
 
@@ -171,7 +175,7 @@ export default function ArticleEngagement({ article }) {
       form.reset();
       setCommentStatus(response.data?.moderation?.message || 'Comentario pendiente de moderacion.');
     } catch (error) {
-      setCommentStatus(error.message);
+      setCommentStatus(error.status === 401 ? 'Inicia sesion para comentar.' : error.message);
     } finally {
       setSubmittingComment(false);
     }
@@ -219,42 +223,43 @@ export default function ArticleEngagement({ article }) {
 
       {status ? <p className="mt-3 text-xs text-on-surface-variant">{status}</p> : null}
 
-      <form onSubmit={submitComment} className="mt-6 grid gap-3">
-        <div className="grid gap-3 md:grid-cols-2">
-          <input
-            name="authorName"
-            maxLength={160}
-            placeholder="Nombre"
-            className="border border-terminal-gray bg-black px-4 py-3 text-sm text-white outline-none focus:border-system-red"
-          />
-          <input
-            name="authorEmail"
-            type="email"
-            maxLength={255}
-            placeholder="Email opcional"
-            className="border border-terminal-gray bg-black px-4 py-3 text-sm text-white outline-none focus:border-system-red"
-          />
+      {!engagementLoaded ? (
+        <div className="mt-6 border border-terminal-gray bg-black/30 p-4">
+          <p className="text-sm text-on-surface-variant">Cargando comentarios...</p>
         </div>
-        <textarea
-          name="body"
-          required
-          minLength={3}
-          maxLength={2000}
-          rows={4}
-          placeholder="Escribe un comentario para moderacion"
-          className="resize-y border border-terminal-gray bg-black px-4 py-3 text-sm text-white outline-none focus:border-system-red"
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            disabled={submittingComment}
-            className="bg-system-red px-5 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white disabled:opacity-60"
+      ) : authenticated ? (
+        <form onSubmit={submitComment} className="mt-6 grid gap-3">
+          <textarea
+            name="body"
+            required
+            minLength={3}
+            maxLength={2000}
+            rows={4}
+            placeholder="Escribe un comentario para moderacion"
+            className="resize-y border border-terminal-gray bg-black px-4 py-3 text-sm text-white outline-none focus:border-system-red"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={submittingComment}
+              className="bg-system-red px-5 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white disabled:opacity-60"
+            >
+              {submittingComment ? 'Enviando...' : 'Enviar comentario'}
+            </button>
+            {commentStatus ? <span className="text-xs text-on-surface-variant">{commentStatus}</span> : null}
+          </div>
+        </form>
+      ) : (
+        <div className="mt-6 border border-terminal-gray bg-black/30 p-4">
+          <p className="text-sm text-on-surface-variant">Inicia sesion para comentar.</p>
+          <a
+            href={`/iniciar-sesion?next=${encodeURIComponent(article?.route || '/')}`}
+            className="mt-3 inline-flex bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white"
           >
-            {submittingComment ? 'Enviando...' : 'Enviar comentario'}
-          </button>
-          {commentStatus ? <span className="text-xs text-on-surface-variant">{commentStatus}</span> : null}
+            Iniciar sesion
+          </a>
         </div>
-      </form>
+      )}
     </section>
   );
 }

@@ -33,8 +33,6 @@ const idParamSchema = z.object({
   id: z.uuid(),
 });
 const publicCommentSchema = z.object({
-  authorName: z.string().trim().min(2).max(160).optional(),
-  authorEmail: z.string().trim().email().max(255).optional(),
   body: z.string().trim().min(3).max(2000),
   parentId: z.uuid().nullable().optional(),
 });
@@ -1581,7 +1579,7 @@ export async function registerPublicRoutes(app) {
     };
   });
 
-  app.post('/api/v1/public/posts/id/:id/comments', async (request, reply) => {
+  app.post('/api/v1/public/posts/id/:id/comments', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     const body = publicCommentSchema.safeParse(request.body || {});
 
@@ -1611,15 +1609,14 @@ export async function registerPublicRoutes(app) {
       }
     }
 
-    const user = await getOptionalPublicUser(app, request);
     const { ipHash, userAgentHash } = requestHashMeta(request);
     const comment = await app.prisma.comment.create({
       data: {
         postId: id,
-        userId: user?.id || null,
+        userId: request.auth.user.id,
         parentId: body.data.parentId || null,
-        authorName: user?.displayName || body.data.authorName || 'Visitante',
-        authorEmail: user?.email || body.data.authorEmail || null,
+        authorName: request.auth.user.displayName,
+        authorEmail: request.auth.user.email,
         body: body.data.body,
         status: 'PENDING',
         ipHash,

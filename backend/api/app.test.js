@@ -58,6 +58,31 @@ function createPrismaStub(overrides = {}) {
   };
 }
 
+function createMemberUser(overrides = {}) {
+  return {
+    id: '11111111-1111-4111-8111-111111111111',
+    email: 'lector@example.com',
+    displayName: 'Lector HES',
+    username: 'lector',
+    status: 'ACTIVE',
+    roles: [
+      {
+        role: {
+          name: 'MEMBER',
+          permissions: [
+            {
+              permission: {
+                permissionKey: 'account:read',
+              },
+            },
+          ],
+        },
+      },
+    ],
+    ...overrides,
+  };
+}
+
 const testEnv = {
   NODE_ENV: 'test',
   API_HOST: '127.0.0.1',
@@ -1077,12 +1102,54 @@ describe('api app', () => {
     });
   });
 
-  it('creates pending public comments without publishing them directly', async () => {
+  it('requires an active account to create public comments', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  likeCount: 0,
+                  saveCount: 0,
+                  shareCount: 0,
+                  commentCount: 4,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/comments`,
+      payload: {
+        body: 'Buen analisis para probar moderacion.',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('creates pending account comments without publishing them directly', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    const user = createMemberUser();
+    const access = await signAccessToken({ config: testEnv, user });
     let createdComment = null;
     const app = await buildApp({
       env: testEnv,
       prisma: createPrismaStub({
+        user: {
+          findFirst: async () => null,
+          findUnique: async ({ where }) => (where.id === user.id ? user : null),
+        },
         post: {
           findMany: async () => [],
           count: async () => 0,
@@ -1117,11 +1184,10 @@ describe('api app', () => {
       method: 'POST',
       url: `/api/v1/public/posts/id/${postId}/comments`,
       headers: {
+        authorization: `Bearer ${access.token}`,
         'user-agent': 'vitest',
       },
       payload: {
-        authorName: 'Visitante',
-        authorEmail: 'visitante@example.com',
         body: 'Buen analisis para probar moderacion.',
       },
     });
@@ -1131,9 +1197,9 @@ describe('api app', () => {
     expect(response.statusCode, response.body).toBe(201);
     expect(createdComment).toMatchObject({
       postId,
-      userId: null,
-      authorName: 'Visitante',
-      authorEmail: 'visitante@example.com',
+      userId: user.id,
+      authorName: 'Lector HES',
+      authorEmail: 'lector@example.com',
       body: 'Buen analisis para probar moderacion.',
       status: 'PENDING',
     });
