@@ -37,14 +37,6 @@ export default function Footer() {
 
         <div className="flex gap-4">
           <Link
-            aria-label="Sitemap XML"
-            className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all"
-            href="/sitemap.xml"
-            title="Sitemap XML"
-          >
-            <span className="material-symbols-outlined text-[20px]">account_tree</span>
-          </Link>
-          <Link
             aria-label="Mapa de red"
             className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all"
             href="/archivo"
