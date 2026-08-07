@@ -63,7 +63,12 @@ export function buildMetadata({
   twitterDescription,
   twitterCard,
 } = {}) {
-  const pageTitle = title ? `${title} | ${siteConfig.name}` : siteConfig.title;
+  const normalizedTitle = String(title || '').trim();
+  const titleAlreadyHasSite = new RegExp(`(?:\\||-)\\s*${siteConfig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+    .test(normalizedTitle);
+  const pageTitle = normalizedTitle
+    ? (titleAlreadyHasSite ? normalizedTitle : `${normalizedTitle} | ${siteConfig.name}`)
+    : siteConfig.title;
   const canonical = absoluteUrl(path);
   const imageUrl = image?.startsWith('http') ? image : absoluteUrl(image || siteConfig.defaultImage);
   const validPublishedTime = toIsoDate(publishedTime);
