@@ -98,6 +98,67 @@ const testEnv = {
 };
 
 describe('api app', () => {
+  it('accepts auth preflight from configured alternate origins', async () => {
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        corsOrigins: [
+          'https://hackeandoelsistema.net',
+          'https://www.hackeandoelsistema.net',
+          'https://test.hackeandoelsistema.net',
+        ],
+      },
+      prisma: createPrismaStub(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'OPTIONS',
+      url: '/api/v1/auth/register',
+      headers: {
+        origin: 'https://www.hackeandoelsistema.net',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe('https://www.hackeandoelsistema.net');
+  });
+
+  it('does not rate-limit internal frontend-to-backend requests', async () => {
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        RATE_LIMIT_MAX: 1,
+      },
+      prisma: createPrismaStub(),
+      logger: false,
+    });
+
+    const first = await app.inject({
+      method: 'GET',
+      url: '/health/live',
+      headers: {
+        host: 'backend:4000',
+      },
+    });
+    const second = await app.inject({
+      method: 'GET',
+      url: '/health/live',
+      headers: {
+        host: 'backend:4000',
+      },
+    });
+
+    await app.close();
+
+    expect(first.statusCode, first.body).toBe(200);
+    expect(second.statusCode, second.body).toBe(200);
+  });
+
   it('returns live health status', async () => {
     const app = await buildApp({
       env: testEnv,

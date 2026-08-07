@@ -15,6 +15,21 @@ describe('api env config', () => {
     expect(env.AUTH_COOKIE_SECURE).toBe(false);
   });
 
+  it('allows the canonical web origin and its www variant by default', () => {
+    const env = loadEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'mysql://hackeando:hackeando@localhost:3306/test',
+      AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
+      WEB_ORIGIN: 'https://hackeandoelsistema.net',
+      CORS_ORIGINS: '',
+    });
+
+    expect(env.corsOrigins).toEqual([
+      'https://hackeandoelsistema.net',
+      'https://www.hackeandoelsistema.net',
+    ]);
+  });
+
   it('requires remote PHP media credentials when that driver is enabled', () => {
     expect(() =>
       loadEnv({

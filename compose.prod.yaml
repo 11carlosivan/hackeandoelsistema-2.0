@@ -30,7 +30,7 @@ services:
       API_PORT: 4000
       DATABASE_URL: mysql://${MYSQL_USER:?MYSQL_USER is required}:${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}@mysql:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}
       WEB_ORIGIN: https://${APP_DOMAIN:?APP_DOMAIN is required}
-      CORS_ORIGINS: https://${APP_DOMAIN:?APP_DOMAIN is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
       RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-1 minute}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET is required}

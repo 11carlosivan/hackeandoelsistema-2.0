@@ -142,8 +142,8 @@ export function buildMetadata({
       images: [imageUrl],
     },
     icons: {
-      icon: '/favicon.svg',
-      shortcut: '/favicon.svg',
+      icon: '/favicon.png',
+      shortcut: '/favicon.ico',
       apple: '/isotipo.png',
     },
   };

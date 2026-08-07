@@ -19,6 +19,25 @@ const optionalStringEnv = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
+function defaultCorsOrigins(webOrigin) {
+  const origins = new Set([webOrigin]);
+
+  try {
+    const url = new URL(webOrigin);
+    if (url.hostname.startsWith('www.')) {
+      url.hostname = url.hostname.replace(/^www\./, '');
+      origins.add(url.origin);
+    } else {
+      url.hostname = `www.${url.hostname}`;
+      origins.add(url.origin);
+    }
+  } catch {
+    // The schema validates WEB_ORIGIN before this helper runs.
+  }
+
+  return [...origins];
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
@@ -104,7 +123,7 @@ export function loadEnv(overrides = {}) {
 
   const corsOrigins = parsed.data.CORS_ORIGINS
     ? parsed.data.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
-    : [parsed.data.WEB_ORIGIN];
+    : defaultCorsOrigins(parsed.data.WEB_ORIGIN);
 
   return {
     ...parsed.data,
