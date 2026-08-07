@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 const ACCESS_COOKIE = 'hes_access_token';
 const REFRESH_COOKIE = 'hes_refresh_token';
-const CMS_ROLES = new Set(['ADMIN', 'EDITOR', 'AUTHOR']);
+const CMS_ROLES = new Set(['ADMIN', 'EDITOR']);
 const PUBLIC_ROUTE_SKIP_PREFIXES = ['/api/', '/_next/', '/cms/'];
 
 function redirectToLogin(request) {

@@ -83,7 +83,7 @@ export async function registerSecurityPlugins(app, env) {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net', 'https://image.hackeandoelsistema.net'],
         connectSrc: ["'self'", ...env.corsOrigins],
         formAction: ["'self'"],
         upgradeInsecureRequests: env.isProduction ? [] : null,
