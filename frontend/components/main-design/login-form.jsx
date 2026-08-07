@@ -45,6 +45,20 @@ export default function LoginForm() {
         throw new Error('Credenciales invalidas o cuenta bloqueada temporalmente.');
       }
 
+      const result = await response.json().catch(() => ({}));
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hes_authenticated', 'true');
+        localStorage.setItem(
+          'hes_user_profile',
+          JSON.stringify({
+            nombre: result.user?.displayName || result.user?.nombre || email.split('@')[0],
+            correo: email,
+            isAdmin: result.user?.roles?.some(r => ['admin', 'editor'].includes(r.toLowerCase())) || false,
+          })
+        );
+      }
+
       setStatus('success');
       router.push(getNextPath());
       router.refresh();

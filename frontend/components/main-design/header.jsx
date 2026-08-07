@@ -45,9 +45,20 @@ export default function Header({ categories = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState('dark');
 
+  const [currentUser, setCurrentUser] = useState(null);
+
   useEffect(() => {
     const storedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(storedTheme);
+
+    // Leer usuario autenticado localmente o mediante sesion
+    try {
+      const isAuth = localStorage.getItem('hes_authenticated') === 'true';
+      const storedProfile = localStorage.getItem('hes_user_profile');
+      if (isAuth && storedProfile) {
+        setCurrentUser(JSON.parse(storedProfile));
+      }
+    } catch (_) {}
   }, []);
 
   const toggleTheme = () => {
@@ -64,6 +75,36 @@ export default function Header({ categories = [] }) {
   const pathname = usePathname();
   const navigation = buildNavigation(categories);
   const activePath = normalizePath(pathname);
+
+  const handleAuthClick = () => {
+    if (currentUser) {
+      if (currentUser.isAdmin) {
+        router.push('/cms');
+      } else {
+        const slug = encodeURIComponent((currentUser.nombre || 'usuario').toLowerCase().replace(/\s+/g, '-'));
+        router.push(`/perfil/${slug}`);
+      }
+    } else {
+      router.push('/cms');
+    }
+  };
+
+  const handleLogout = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('hes_authenticated');
+      localStorage.removeItem('hes_user_profile');
+    }
+    try {
+      await fetch(`${getApiBaseUrl()}/api/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => null);
+    } catch (_) {}
+
+    setCurrentUser(null);
+    router.push('/');
+    router.refresh();
+  };
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -110,7 +151,7 @@ export default function Header({ categories = [] }) {
             </form>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={toggleTheme}
               className="flex items-center justify-center p-2 border border-terminal-gray bg-black/45 text-on-surface-variant hover:text-system-red hover:border-system-red transition-all active:scale-95 cursor-pointer font-bold"
@@ -122,12 +163,25 @@ export default function Header({ categories = [] }) {
             </button>
 
             <button
-              className="hidden md:flex items-center gap-2 bg-black border border-system-red text-system-red font-label-caps text-[12px] px-4 py-1.5 hover:bg-system-red hover:text-black transition-all active:scale-95 font-bold"
-              onClick={() => router.push('/cms')}
+              className="hidden md:flex items-center gap-2 bg-black border border-system-red text-system-red font-label-caps text-[12px] px-4 py-1.5 hover:bg-system-red hover:text-black transition-all active:scale-95 font-bold uppercase truncate max-w-[200px]"
+              onClick={handleAuthClick}
             >
-              <span className="material-symbols-outlined text-[18px]">terminal</span>
-              ACCESO
+              <span className="material-symbols-outlined text-[18px]">
+                {currentUser ? 'account_circle' : 'terminal'}
+              </span>
+              {currentUser ? currentUser.nombre : 'ACCESO'}
             </button>
+
+            {currentUser && (
+              <button
+                onClick={handleLogout}
+                className="hidden md:flex items-center gap-1.5 border border-terminal-gray bg-black/50 text-on-surface-variant font-label-caps text-[11px] px-3 py-1.5 hover:border-system-red hover:text-system-red transition-all active:scale-95 font-bold uppercase"
+                title="Cerrar sesión"
+              >
+                <span className="material-symbols-outlined text-[16px]">logout</span>
+                DESCONECTAR
+              </button>
+            )}
           </div>
         </div>
 

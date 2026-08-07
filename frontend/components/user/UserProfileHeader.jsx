@@ -22,6 +22,7 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
             fotoPerfil: parsed.fotoPerfil || prev?.fotoPerfil || '/isotipo.png',
             fotoPortada: parsed.fotoPortada || prev?.fotoPortada || '/logo.png',
             isVerified: parsed.isVerified !== undefined ? parsed.isVerified : prev?.isVerified,
+            isAdmin: parsed.isAdmin !== undefined ? parsed.isAdmin : prev?.isAdmin,
             direccion: {
               pais: parsed.pais || prev?.direccion?.pais,
               ciudad: parsed.ciudad || prev?.direccion?.ciudad,
@@ -91,6 +92,15 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
 
           {/* Botones de Acciones */}
           <div className="flex flex-wrap items-center gap-3">
+            {profile?.isAdmin && (
+              <Link
+                href="/cms"
+                className="bg-black border border-system-red text-system-red font-label-caps text-[11px] font-bold px-4 py-2.5 hover:bg-system-red hover:text-black transition-colors inline-flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[16px]">dashboard</span>
+                Ir al Dashboard
+              </Link>
+            )}
             {isOwnProfile && (
               <Link
                 href="/perfil/editar"

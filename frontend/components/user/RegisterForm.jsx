@@ -87,30 +87,34 @@ export default function RegisterForm() {
   };
 
   if (registered) {
+    const profileSlug = encodeURIComponent((formData.nombre || 'usuario').toLowerCase().replace(/\s+/g, '-'));
+    const profileUrl = `/perfil/${profileSlug}`;
+
+    // Redirigir automáticamente después de mostrar el mensaje de bienvenida
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.location.href = profileUrl;
+      }, 3500);
+    }
+
     return (
-      <div className="border border-emerald-500 bg-surface-container-low/40 p-8 text-center space-y-4">
+      <div className="border border-emerald-500 bg-surface-container-low/40 p-8 text-center space-y-4 animate-fade-in">
         <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500 mx-auto flex items-center justify-center">
           <span className="material-symbols-outlined text-3xl">check_circle</span>
         </div>
         <div className="flex items-center justify-center gap-2">
-          <h2 className="font-headline-md text-2xl text-white uppercase">¡Registro Exitoso!</h2>
+          <h2 className="font-headline-md text-2xl text-white uppercase">¡Gracias por registrarte!</h2>
           {isVerified && <VerifiedBadge size="lg" />}
         </div>
         <p className="text-on-surface-variant text-sm max-w-md mx-auto">
-          Tu cuenta ha sido creada exitosamente. {isVerified ? 'Has completado los datos para obtener la Insignia Verde de Perfil Verificado.' : 'Puedes completar tus datos opcionales más adelante en tu perfil para obtener la Verificación Verde.'}
+          ¡Bienvenido/a a la comunidad, <strong className="text-white">{formData.nombre}</strong>! Tu cuenta ha sido creada exitosamente. Te estamos redirigiendo a tu perfil...
         </p>
         <div className="pt-4 flex justify-center gap-4">
           <Link
-            href={`/perfil/${encodeURIComponent(formData.nombre.toLowerCase().replace(/\s+/g, '-') || 'usuario')}`}
+            href={profileUrl}
             className="bg-system-red text-black font-label-caps text-xs font-bold px-6 py-3 hover:bg-white transition-colors"
           >
-            Ver Mi Perfil
-          </Link>
-          <Link
-            href="/iniciar-sesion"
-            className="border border-terminal-gray text-white font-label-caps text-xs font-bold px-6 py-3 hover:border-system-red transition-colors"
-          >
-            Iniciar Sesión
+            Ir a Mi Perfil Ahora
           </Link>
         </div>
       </div>
