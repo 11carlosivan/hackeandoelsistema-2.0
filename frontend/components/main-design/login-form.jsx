@@ -1,6 +1,7 @@
 'use client';
 
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
@@ -117,6 +118,18 @@ export default function LoginForm() {
           >
             {status === 'loading' ? 'Validando...' : 'Entrar al CMS'}
           </button>
+
+          <div className="mt-8 flex flex-col gap-3 border-t border-terminal-gray pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-on-surface-variant">
+              Necesitas una cuenta de lector?
+            </p>
+            <Link
+              href="/register"
+              className="inline-flex border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red hover:text-system-red"
+            >
+              Crear cuenta
+            </Link>
+          </div>
         </form>
 
         <aside className="lg:col-span-5 border border-terminal-gray bg-black/20 p-6 self-start">
