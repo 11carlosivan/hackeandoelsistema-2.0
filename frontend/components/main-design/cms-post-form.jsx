@@ -8,6 +8,59 @@ import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
 
 const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
+const SITE_NAME = 'Hackeando el Sistema';
+const LEGACY_MIGRATED_DESCRIPTION = 'Contenido migrado desde el archivo editorial de Hackeando el Sistema.';
+const DEFAULT_SEO_TEMPLATE = '%%title%% %%page%% %%separator%% %%sitename%%';
+
+function hasSeoTemplateTokens(value) {
+  return /%%[a-z_]+%%/i.test(String(value || ''));
+}
+
+function cleanSeoText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function resolveSeoTemplate(value, title) {
+  const fallbackTitle = cleanSeoText(title) || 'Titulo de la entrada';
+
+  return cleanSeoText(value)
+    .replace(/%%title%%/gi, fallbackTitle)
+    .replace(/%%page%%/gi, '')
+    .replace(/%%sep%%|%%separator%%/gi, '-')
+    .replace(/%%sitename%%/gi, SITE_NAME)
+    .replace(/\s*-\s*-\s*/g, ' - ')
+    .replace(/\s+\|\s+\|\s+/g, ' | ')
+    .replace(/^\s*[-|]\s*|\s*[-|]\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function initialSeoTitle(post) {
+  const rawTitle = cleanSeoText(post?.route?.seo?.title);
+
+  if (!rawTitle || rawTitle === DEFAULT_SEO_TEMPLATE) {
+    return cleanSeoText(post?.title);
+  }
+
+  return hasSeoTemplateTokens(rawTitle) ? resolveSeoTemplate(rawTitle, post?.title) : rawTitle;
+}
+
+function initialSeoDescription(post) {
+  const rawDescription = cleanSeoText(post?.route?.seo?.description);
+
+  if (!rawDescription || rawDescription === LEGACY_MIGRATED_DESCRIPTION) {
+    return '';
+  }
+
+  return rawDescription;
+}
+
+function fallbackSeoDescription({ seoDescription, excerpt, contentText }) {
+  return cleanSeoText(seoDescription) ||
+    cleanSeoText(excerpt) ||
+    cleanSeoText(contentText).slice(0, 155) ||
+    'Escribe una meta descripcion clara para mejorar el resultado en buscadores.';
+}
 
 function decodeHtmlEntities(str) {
   if (!str) return '';
@@ -59,8 +112,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   // Yoast SEO states
   const [seoTab, setSeoTab] = useState('seo');
-  const [seoTitleVal, setSeoTitleVal] = useState(post?.route?.seo?.title || '%%title%% %%page%% %%separator%% %%sitename%%');
-  const [seoDescriptionVal, setSeoDescriptionVal] = useState(post?.route?.seo?.description || '');
+  const [seoTitleVal, setSeoTitleVal] = useState(initialSeoTitle(post));
+  const [seoDescriptionVal, setSeoDescriptionVal] = useState(initialSeoDescription(post));
   const [seoPreviewMode, setSeoPreviewMode] = useState('mobile');
   const [isSeoExpanded, setIsSeoExpanded] = useState(true);
 
@@ -296,13 +349,23 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     }
   };
 
-  const resolveSeoPlaceholder = (text) => {
+  const _resolveSeoPlaceholder = (text) => {
     if (!text) return '';
     return text
       .replace(/%%title%%/g, postTitle || 'Título de la entrada')
       .replace(/%%page%%/g, 'Página 1')
       .replace(/%%separator%%/g, '-')
       .replace(/%%sitename%%/g, 'Hackeando el Sistema');
+  };
+
+  const resolveCleanSeoPreviewTitle = (text) => {
+    const value = cleanSeoText(text);
+
+    if (!value) {
+      return cleanSeoText(postTitle) || 'Titulo de la entrada';
+    }
+
+    return hasSeoTemplateTokens(value) ? resolveSeoTemplate(value, postTitle) : value;
   };
 
   const selectedTagSet = new Set(selectedTagIds);
@@ -771,10 +834,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                             hackeandoelsistema.net/{postSlug || 'ejemplo-slug'}/
                           </div>
                           <div className="text-lg text-sky-400 font-medium hover:underline cursor-pointer">
-                            {resolveSeoPlaceholder(seoTitleVal)}
+                            {resolveCleanSeoPreviewTitle(seoTitleVal)}
                           </div>
                           <div className="text-neutral-400 text-[11px] leading-relaxed">
-                            {seoDescriptionVal ? seoDescriptionVal : 'Proporciona una meta descripción editando el bloque correspondiente abajo. De lo contrario, los motores de búsqueda intentarán extraer texto del artículo.'}
+                            {fallbackSeoDescription({ seoDescription: seoDescriptionVal, excerpt, contentText })}
                           </div>
                         </div>
                       </div>
@@ -786,7 +849,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                           type="text"
                           value={seoTitleVal}
                           onChange={(e) => setSeoTitleVal(e.target.value)}
-                          placeholder="%%title%% %%page%% %%separator%% %%sitename%%"
+                          placeholder="Titulo claro para Google"
                           className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red"
                         />
                       </label>

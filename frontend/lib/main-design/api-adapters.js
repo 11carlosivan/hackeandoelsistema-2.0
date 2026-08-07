@@ -43,7 +43,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     slug: post.slug,
     route: canonicalPath,
     title: post.title,
-    subtitle: post.excerpt || excerptFromText(post.contentText) || 'Contenido migrado desde el archivo editorial de Hackeando el Sistema.',
+    subtitle: post.excerpt || excerptFromText(post.contentText) || 'Lee la cobertura completa en Hackeando el Sistema.',
     category,
     categoryPath,
     tag: post.postType || 'NEWS',
