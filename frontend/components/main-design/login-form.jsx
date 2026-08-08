@@ -7,14 +7,14 @@ import { SystemPageHeader } from './content-primitives';
 
 export function getSafeLoginNextPath(next) {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
-    return '/cms';
+    return '/perfil';
   }
 
   return next;
 }
 
 function getNextPath() {
-  if (typeof window === 'undefined') return '/cms';
+  if (typeof window === 'undefined') return '/perfil';
 
   return getSafeLoginNextPath(new URLSearchParams(window.location.search).get('next'));
 }

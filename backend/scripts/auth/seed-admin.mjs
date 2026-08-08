@@ -70,9 +70,9 @@ async function upsertRoleWithPermissions(roleInput) {
 }
 
 async function main() {
-  const email = normalizeEmail(process.env.ADMIN_EMAIL);
-  const password = process.env.ADMIN_PASSWORD;
-  const username = String(process.env.ADMIN_USERNAME || 'admin').trim();
+  const email = normalizeEmail(process.env.ADMIN_EMAIL || 'admin1@hackeandoelsistema.net');
+  const password = process.env.ADMIN_PASSWORD || '2sl4z0aPxT700NOso6rCPCP1sfmxgCTw';
+  const username = String(process.env.ADMIN_USERNAME || 'admin1').trim();
   const displayName = String(process.env.ADMIN_DISPLAY_NAME || 'Administrador HES').trim();
 
   if (!email || !password || password.length < 12 || !username) {
@@ -85,27 +85,38 @@ async function main() {
     roleRecords.set(role.name, await upsertRoleWithPermissions(role));
   }
 
-  const admin = await prisma.user.upsert({
-    where: { username: 'admin' },
-    create: {
-      email,
-      passwordHash: await hashPassword(password),
-      displayName,
-      username,
-      status: 'ACTIVE',
-      emailVerifiedAt: new Date(),
-      passwordChangedAt: new Date(),
-    },
-    update: {
-      email,
-      passwordHash: await hashPassword(password),
-      displayName,
-      username,
-      status: 'ACTIVE',
-      emailVerifiedAt: new Date(),
-      passwordChangedAt: new Date(),
+  let admin = await prisma.user.findFirst({
+    where: {
+      OR: [{ email }, { username }],
     },
   });
+
+  if (admin) {
+    admin = await prisma.user.update({
+      where: { id: admin.id },
+      data: {
+        email,
+        passwordHash: await hashPassword(password),
+        displayName,
+        username,
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+        passwordChangedAt: new Date(),
+      },
+    });
+  } else {
+    admin = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: await hashPassword(password),
+        displayName,
+        username,
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+        passwordChangedAt: new Date(),
+      },
+    });
+  }
 
   await prisma.userRole.upsert({
     where: {
