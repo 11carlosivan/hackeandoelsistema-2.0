@@ -1331,8 +1331,6 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                   </button>
                 )}
 
-                </div>
-
                 <label className="block">
                   <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Tipo de contenido</span>
                   <select
