@@ -439,6 +439,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           method: 'PATCH',
           body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
         });
+        if (actionType === 'PUBLISH') {
+          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+            method: 'PATCH',
+            body: JSON.stringify({ action: 'PUBLISH' }),
+          });
+        }
       } else {
         const json = await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts`, {
           method: 'POST',
@@ -620,7 +626,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       }));
     } else {
       primaryActionLabel = 'Publicar';
-      handlePrimaryAction = () => runWorkflowAction('PUBLISH');
+      handlePrimaryAction = () => submit(null, 'PUBLISH');
 
       dropdownOptions.push({
         label: !canEditContent ? 'Guardar SEO y media' : 'Guardar borrador',
