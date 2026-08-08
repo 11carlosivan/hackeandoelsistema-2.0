@@ -8,7 +8,7 @@ import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
 import CmsWorkflowActions from './cms-workflow-actions';
 
-const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
+const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED', 'PENDING_REVIEW', 'SCHEDULED']);
 
 function decodeHtmlEntities(str) {
   if (!str) return '';
@@ -614,8 +614,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     const currentStatus = post?.status;
 
     if (currentStatus === 'PUBLISHED') {
-      primaryActionLabel = !canEditContent ? 'Guardar SEO y media' : 'Publicar cambios';
-      handlePrimaryAction = () => submit(null, 'DRAFT');
+      primaryActionLabel = 'Publicar cambios';
+      handlePrimaryAction = () => submit(null, 'PUBLISH');
 
       const workflowActions = workflowActionsByStatus[currentStatus] || [];
       dropdownOptions = workflowActions.map(([action, label]) => ({

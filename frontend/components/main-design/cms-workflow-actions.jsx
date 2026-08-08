@@ -39,7 +39,7 @@ const actionsByStatus = {
   ],
 };
 
-export default function CmsWorkflowActions({ post }) {
+export default function CmsWorkflowActions({ post, accessToken = null }) {
   const router = useRouter();
   const [loadingAction, setLoadingAction] = useState('');
   const [message, setMessage] = useState('');
@@ -70,6 +70,7 @@ export default function CmsWorkflowActions({ post }) {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action }),
