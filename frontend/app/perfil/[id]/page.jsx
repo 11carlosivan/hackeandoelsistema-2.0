@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
-import AuthorArchivePage from '@/components/main-design/author-archive-page';
+import UserProfileHeader from '@/components/user/UserProfileHeader';
+import UserProfileTabs from '@/components/user/UserProfileTabs';
 import { getAuthorArchiveById } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 import {
@@ -57,7 +58,10 @@ export default async function Page({ params }) {
 
   return (
     <PublicLayout>
-      <AuthorArchivePage author={author} />
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <UserProfileHeader author={author} />
+        <UserProfileTabs author={author} />
+      </div>
     </PublicLayout>
   );
 }
