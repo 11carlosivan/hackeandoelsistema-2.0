@@ -1,4 +1,3 @@
-import Script from 'next/script';
 import './globals.css';
 import { SiteStructuredData } from '@/components/main-design/structured-data';
 import { buildMetadata, siteConfig } from '@/lib/main-design/seo';
@@ -24,11 +23,8 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/isotipo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/isotipo.png" />
         <SiteStructuredData />
-      </head>
-      <body className="bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden">
-        <Script
+        <script
           id="theme-script"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               try {
@@ -44,6 +40,8 @@ export default function RootLayout({ children }) {
             `,
           }}
         />
+      </head>
+      <body className="bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden">
         {children}
       </body>
     </html>
