@@ -52,7 +52,6 @@ export default async function Page() {
         <CmsAutoPostPanel
           initialSettings={settings}
           categories={categoriesResult.categories || []}
-          accessToken={accessToken}
         />
       </div>
     </Layout>

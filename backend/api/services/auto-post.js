@@ -57,6 +57,7 @@ function publicConfig(config) {
     sources: config.sources || '',
     aiProvider: config.aiProvider || 'gemini',
     apiKeyConfigured: Boolean(config.apiKeyEncrypted),
+    apiKeyStatus: config.apiKeyEncrypted ? 'configured' : 'missing',
     postStatus: config.postStatus || 'DRAFT',
     categoryIds: Array.isArray(config.categoryIds) ? config.categoryIds : [],
     processedCount: Array.isArray(config.processedHashes) ? config.processedHashes.length : 0,
@@ -76,9 +77,12 @@ export async function getAutoPostConfig(app, { includeSecret = false } = {}) {
     return publicConfig(config);
   }
 
+  const apiKey = decryptSecret(app, config.apiKeyEncrypted);
+
   return {
     ...config,
-    apiKey: decryptSecret(app, config.apiKeyEncrypted),
+    apiKey,
+    apiKeyDecryptFailed: Boolean(config.apiKeyEncrypted && !apiKey),
   };
 }
 
@@ -87,10 +91,14 @@ export async function saveAutoPostConfig(app, input) {
   const next = {
     ...DEFAULT_CONFIG,
     ...current,
-    sources: input.sources,
+    sources: String(input.sources || '')
+      .split(/\r?\n/)
+      .map((source) => source.trim())
+      .filter(Boolean)
+      .join('\n'),
     aiProvider: input.aiProvider,
     postStatus: input.postStatus,
-    categoryIds: input.categoryIds,
+    categoryIds: [...new Set(input.categoryIds || [])],
   };
 
   if (input.clearApiKey) {
@@ -426,6 +434,13 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
 
   if (!sources.length) {
     return { success: false, message: 'No hay fuentes RSS configuradas.' };
+  }
+
+  if (config.apiKeyDecryptFailed) {
+    return {
+      success: false,
+      message: 'La clave API guardada no se pudo descifrar. Guardala nuevamente desde la configuracion.',
+    };
   }
 
   if (!apiKey) {

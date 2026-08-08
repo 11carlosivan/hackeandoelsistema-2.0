@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders, getCookieValue } from './client-security';
+import { csrfHeaders } from './client-security';
 
-export default function CmsAutoPostPanel({ initialSettings = {}, categories = [], accessToken = null }) {
+export default function CmsAutoPostPanel({ initialSettings = {}, categories = [] }) {
+  const [settings, setSettings] = useState(initialSettings);
   const [sources, setSources] = useState(initialSettings.sources || '');
   const [aiProvider, setAiProvider] = useState(initialSettings.aiProvider || 'gemini');
   const [apiKey, setApiKey] = useState('');
@@ -18,9 +19,33 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
   const [message, setMessage] = useState('');
   const [runResults, setRunResults] = useState(null);
 
-  const authHeaders = () => {
-    const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
-    return activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+  const requestJson = async (path, body, { retry = true } = {}) => {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...csrfHeaders(),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 401 && retry) {
+      const refreshResponse = await fetch(`${getApiBaseUrl()}/api/v1/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (refreshResponse.ok) {
+        return requestJson(path, body, { retry: false });
+      }
+    }
+
+    return response;
   };
 
   const toggleCategory = (categoryId) => {
@@ -37,32 +62,35 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     setMessage('');
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/auto-post/settings`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-          ...csrfHeaders(),
-        },
-        body: JSON.stringify({
+      const response = await requestJson(
+        '/api/v1/cms/auto-post/settings',
+        {
           sources,
           aiProvider,
           apiKey,
           clearApiKey,
           postStatus,
           categoryIds: selectedCategoryIds,
-        }),
-      });
+        },
+      );
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(payload?.message || 'No se pudo guardar la configuracion.');
       }
 
+      const savedSettings = payload?.data?.settings || {};
+      setSettings(savedSettings);
+      setSources(savedSettings.sources || sources);
+      setAiProvider(savedSettings.aiProvider || aiProvider);
+      setPostStatus(savedSettings.postStatus || postStatus);
+      setSelectedCategoryIds(savedSettings.categoryIds || selectedCategoryIds);
       setApiKey('');
       setClearApiKey(false);
-      setMessage('Configuracion guardada.');
+      setMessage(savedSettings.apiKeyConfigured
+        ? 'Configuracion guardada. La clave API quedo protegida y configurada.'
+        : 'Configuracion guardada. Falta configurar una clave API para procesar.'
+      );
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -76,16 +104,7 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     setMessage('');
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/auto-post/run`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-          ...csrfHeaders(),
-        },
-        body: JSON.stringify({ limit: runLimit }),
-      });
+      const response = await requestJson('/api/v1/cms/auto-post/run', { limit: runLimit });
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -223,18 +242,24 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
 
             <label className="block space-y-1.5">
               <span className="block font-mono text-[10px] font-bold uppercase text-on-surface-variant">
-                API key {initialSettings.apiKeyConfigured ? '(ya configurada)' : ''}
+                API key {settings.apiKeyConfigured ? '(ya configurada)' : ''}
               </span>
+              {settings.apiKeyConfigured ? (
+                <div className="border border-data-green/40 bg-data-green/10 px-3 py-2 font-mono text-[11px] font-bold text-data-green">
+                  Clave guardada de forma cifrada. Por seguridad no se vuelve a mostrar.
+                </div>
+              ) : null}
               <input
                 type="password"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
-                placeholder={initialSettings.apiKeyConfigured ? 'Dejar vacio para conservar la actual' : 'Pega la API key'}
+                placeholder={settings.apiKeyConfigured ? 'Dejar vacio para conservar la actual' : 'Pega la API key'}
+                autoComplete="new-password"
                 className="w-full border border-terminal-gray bg-black px-3 py-2.5 font-mono text-xs text-white outline-none focus:border-system-red"
               />
             </label>
 
-            {initialSettings.apiKeyConfigured ? (
+            {settings.apiKeyConfigured ? (
               <label className="flex items-center gap-2 font-mono text-xs text-on-surface-variant">
                 <input
                   type="checkbox"
