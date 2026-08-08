@@ -144,6 +144,35 @@ function requestHashMeta(request) {
   };
 }
 
+async function recordPostView(app, request, postId) {
+  if (!postId || typeof app.prisma?.postView?.create !== 'function') return;
+
+  try {
+    const user = await getOptionalPublicUser(app, request);
+    const { ipHash, userAgentHash } = requestHashMeta(request);
+    const referrer = String(request.headers.referer || request.headers.referrer || '').slice(0, 768) || null;
+
+    await Promise.all([
+      app.prisma.postView.create({
+        data: {
+          postId,
+          userId: user?.id || null,
+          ipHash,
+          userAgentHash,
+          referrer,
+          viewedAt: new Date(),
+        },
+      }),
+      app.prisma.post.update({
+        where: { id: postId },
+        data: { viewCount: { increment: 1 } },
+      }),
+    ]);
+  } catch (error) {
+    app.log.warn({ error, postId }, 'Failed to record post view');
+  }
+}
+
 async function findPublicPostForEngagement(app, postId) {
   return app.prisma.post.findFirst({
     where: {
@@ -1123,6 +1152,8 @@ export async function registerPublicRoutes(app) {
       findPublicEntityRoute(app, 'POST', post.id),
     ]);
 
+    recordPostView(app, request, post.id);
+
     return {
       data: {
         ...normalizePublicPost(post, { route, config: app.config }),
@@ -1195,6 +1226,8 @@ export async function registerPublicRoutes(app) {
       findRelatedPosts(app, post),
       findPublicEntityRoute(app, 'POST', post.id),
     ]);
+
+    recordPostView(app, request, post.id);
 
     return {
       data: {

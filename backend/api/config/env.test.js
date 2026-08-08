@@ -22,6 +22,9 @@ describe('api env config', () => {
         DATABASE_URL: 'mysql://hackeando:hackeando@localhost:3306/test',
         AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
         MEDIA_STORAGE_DRIVER: 'remote_php',
+        MEDIA_REMOTE_UPLOAD_URL: '',
+        MEDIA_REMOTE_PUBLIC_BASE_URL: '',
+        MEDIA_REMOTE_SECRET: '',
       }),
     ).toThrow(/MEDIA_REMOTE_UPLOAD_URL/);
   });

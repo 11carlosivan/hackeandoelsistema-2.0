@@ -2304,7 +2304,8 @@ describe('cms routes', () => {
 
     await app.close();
 
+    const expectedSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
     expect(response.statusCode, response.body).toBe(200);
-    expect(response.json().data.seo.canonicalUrl).toBe('https://hackeandoelsistema.net/sample-post/');
+    expect(response.json().data.seo.canonicalUrl).toBe(`${expectedSiteUrl}/sample-post/`);
   });
 });

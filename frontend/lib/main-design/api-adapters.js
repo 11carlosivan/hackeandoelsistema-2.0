@@ -157,6 +157,7 @@ export function mapApiSummary(summary) {
     securityEvents: summary.securityEvents || [],
     latestImportRun: summary.latestImportRun,
     recentPosts: (summary.recentPosts || []).map(mapApiPostToArticle),
+    rankingsData: summary.rankingsData || null,
   };
 }
 

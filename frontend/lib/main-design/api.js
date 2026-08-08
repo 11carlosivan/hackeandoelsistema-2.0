@@ -301,6 +301,27 @@ export async function getCmsSummary(accessToken) {
   }
 }
 
+export async function getCmsPostRankings(accessToken, { period = 'week', limit = 10 } = {}) {
+  try {
+    if (!accessToken) {
+      throw new Error('Missing CMS access token');
+    }
+
+    const response = await fetchProtectedApi(
+      `/api/v1/cms/analytics/rankings?period=${encodeURIComponent(period)}&limit=${encodeURIComponent(limit)}`,
+      accessToken
+    );
+
+    return response.data;
+  } catch (error) {
+    return {
+      period,
+      rankings: [],
+      error: error.message,
+    };
+  }
+}
+
 export async function getCmsPosts(accessToken, filters = {}) {
   const params = new URLSearchParams();
 
