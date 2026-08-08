@@ -2,6 +2,8 @@ import sanitizeHtml from 'sanitize-html';
 
 const EDITORIAL_HTML_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    'div',
+    'span',
     'img',
     'figure',
     'figcaption',
@@ -16,6 +18,8 @@ const EDITORIAL_HTML_OPTIONS = {
     'h5',
     'h6',
   ]),
+  disallowedTagsMode: 'discard',
+  nonTextTags: ['script', 'style', 'textarea', 'option'],
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
     '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],
@@ -30,9 +34,30 @@ const EDITORIAL_HTML_OPTIONS = {
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
-  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
-    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
+    a: (tagName, attribs) => {
+      const href = attribs.href || '';
+      let isInternal = href.startsWith('/') || href.startsWith('#');
+
+      if (!isInternal) {
+        try {
+          const url = new URL(href);
+          isInternal = ['hackeandoelsistema.net', 'www.hackeandoelsistema.net'].includes(url.hostname.toLowerCase());
+        } catch {
+          isInternal = false;
+        }
+      }
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: attribs.rel || 'noopener noreferrer',
+          ...(isInternal ? {} : { target: attribs.target || '_blank' }),
+        },
+      };
+    },
   },
 };
 
@@ -197,7 +222,7 @@ export function normalizeEditorialHtml(value) {
     return '';
   }
 
-  const hasEditorialTags = /<(?:p|h[1-6]|ul|ol|li|blockquote|figure|img|iframe)\b/i.test(safeHtml);
+  const hasEditorialTags = /<(?:p|h[1-6]|ul|ol|li|blockquote|figure|img|iframe|div)\b/i.test(safeHtml);
 
   if (!hasEditorialTags) {
     return sanitizeHtml(textToEditorialHtml(safeHtml), EDITORIAL_HTML_OPTIONS).trim();

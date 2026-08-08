@@ -115,6 +115,12 @@ export default function CmsDashboard({ summary }) {
             Analiticas
           </Link>
           <Link
+            href="/cms/auto-post"
+            className="border border-system-red/60 bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:bg-system-red hover:text-black transition-colors"
+          >
+            Auto-Post IA
+          </Link>
+          <Link
             href="/cms/categorias"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >

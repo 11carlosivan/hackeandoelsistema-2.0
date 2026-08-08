@@ -4,6 +4,7 @@ import { getAuthorName } from '@/lib/main-design/authors';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { ArticleListItem } from './content-primitives';
 import ArticleEngagement from './article-engagement';
+import ArticleAudioPlayer from './article-audio-player';
 import SafeImage from './safe-image';
 
 function renderBlock(block, index) {
@@ -121,6 +122,12 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
             <div className="border border-terminal-gray bg-surface-container-low/20 p-6 md:p-8 space-y-7">
+              <ArticleAudioPlayer
+                title={article.title}
+                contentText={article.contentText}
+                contentHtml={article.contentHtml}
+              />
+
               {safeContentHtml ? (
                 <div
                   className="editorial-content"

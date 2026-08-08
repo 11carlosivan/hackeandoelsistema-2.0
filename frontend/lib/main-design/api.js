@@ -641,6 +641,35 @@ export async function getCmsRedirects(accessToken, filters = {}) {
   }
 }
 
+export async function getCmsAutoPostSettings(accessToken) {
+  try {
+    if (!accessToken) {
+      throw new Error('Missing CMS access token');
+    }
+
+    const response = await fetchProtectedApi('/api/v1/cms/auto-post/settings', accessToken);
+
+    return response.data?.settings || {
+      sources: '',
+      aiProvider: 'gemini',
+      apiKeyConfigured: false,
+      postStatus: 'DRAFT',
+      categoryIds: [],
+      processedCount: 0,
+    };
+  } catch (error) {
+    return {
+      sources: '',
+      aiProvider: 'gemini',
+      apiKeyConfigured: false,
+      postStatus: 'DRAFT',
+      categoryIds: [],
+      processedCount: 0,
+      error: error.message,
+    };
+  }
+}
+
 export async function getSitemapRoutes() {
   const response = await fetchApi('/api/v1/public/sitemap-routes', { next: { revalidate: 300 } });
 
