@@ -136,7 +136,45 @@ describe('ArticleEngagement', () => {
 
     await waitFor(() => expect(screen.getByText('Inicia sesion para comentar.')).toBeInTheDocument());
     expect(screen.queryByPlaceholderText('Escribe un comentario para moderacion')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Iniciar sesion' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Iniciar sesion' })[0]).toHaveAttribute(
+      'href',
+      '/iniciar-sesion?next=%2Farticulo-de-prueba%2F',
+    );
+  });
+
+  it('opens the auth modal before private reader actions', async () => {
+    global.fetch = vi.fn((url) => {
+      const pathname = new URL(String(url)).pathname;
+
+      if (pathname.endsWith('/engagement')) {
+        return jsonResponse({
+          data: {
+            liked: false,
+            saved: false,
+            authenticated: false,
+            counts: {
+              likes: 1,
+              saves: 0,
+              shares: 0,
+              comments: 0,
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ message: 'Not found' }, { status: 404 });
+    });
+
+    render(<ArticleEngagement article={article} />);
+
+    await waitFor(() => expect(screen.getByText('Inicia sesion para comentar.')).toBeInTheDocument());
+
+    const [likeButton] = screen.getAllByRole('button');
+    fireEvent.click(likeButton);
+
+    await waitFor(() => expect(screen.getByText('CUENTA REQUERIDA')).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Crear cuenta' })).toHaveAttribute('href', '/register');
+    expect(screen.getAllByRole('link', { name: 'Iniciar sesion' })[0]).toHaveAttribute(
       'href',
       '/iniciar-sesion?next=%2Farticulo-de-prueba%2F',
     );

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
+import AuthModal from '@/components/user/AuthModal';
 import { csrfHeaders } from './client-security';
 
 function safeCount(value) {
@@ -42,6 +43,8 @@ export default function ArticleEngagement({ article }) {
   const [saved, setSaved] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [engagementLoaded, setEngagementLoaded] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authAction, setAuthAction] = useState('interactuar');
   const [counts, setCounts] = useState({
     likes: safeCount(article?.likeCount),
     saves: safeCount(article?.saveCount),
@@ -86,8 +89,24 @@ export default function ArticleEngagement({ article }) {
     };
   }, [postId]);
 
+  const requireAuth = (actionName) => {
+    if (!engagementLoaded) {
+      setStatus('Validando sesion...');
+      return false;
+    }
+
+    if (!authenticated) {
+      setAuthAction(actionName);
+      setShowAuthModal(true);
+      return false;
+    }
+
+    return true;
+  };
+
   const toggleLike = async () => {
     if (!postId) return;
+    if (!requireAuth('dar me gusta')) return;
 
     const nextLiked = !liked;
     setLiked(nextLiked);
@@ -101,6 +120,15 @@ export default function ArticleEngagement({ article }) {
       setLiked(Boolean(payload.data?.liked));
       setCounts((current) => ({ ...current, likes: safeCount(payload.data?.likeCount ?? current.likes) }));
     } catch (error) {
+      if (error.status === 401) {
+        setLiked(!nextLiked);
+        setCounts((current) => ({ ...current, likes: Math.max(0, current.likes + (nextLiked ? -1 : 1)) }));
+        setAuthenticated(false);
+        setAuthAction('dar me gusta');
+        setShowAuthModal(true);
+        return;
+      }
+
       setLiked(!nextLiked);
       setCounts((current) => ({ ...current, likes: Math.max(0, current.likes + (nextLiked ? -1 : 1)) }));
       setStatus(error.message);
@@ -109,6 +137,7 @@ export default function ArticleEngagement({ article }) {
 
   const toggleSave = async () => {
     if (!postId) return;
+    if (!requireAuth('guardar articulos')) return;
 
     const nextSaved = !saved;
 
@@ -122,7 +151,13 @@ export default function ArticleEngagement({ article }) {
       setCounts((current) => ({ ...current, saves: safeCount(payload.data?.saveCount ?? current.saves) }));
       setStatus(nextSaved ? 'Guardado en tu cuenta.' : 'Quitado de guardados.');
     } catch (error) {
-      setStatus(error.status === 401 ? 'Inicia sesion para guardar articulos.' : error.message);
+      if (error.status === 401) {
+        setAuthenticated(false);
+        setAuthAction('guardar articulos');
+        setShowAuthModal(true);
+      } else {
+        setStatus(error.message);
+      }
     }
   };
 
@@ -157,6 +192,7 @@ export default function ArticleEngagement({ article }) {
   const submitComment = async (event) => {
     event.preventDefault();
     if (!postId || submittingComment) return;
+    if (!requireAuth('comentar')) return;
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -187,6 +223,13 @@ export default function ArticleEngagement({ article }) {
 
   return (
     <section className="border border-terminal-gray bg-surface-container-low/20 p-5 md:p-6">
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        actionName={authAction}
+        nextPath={article?.route || '/'}
+      />
+
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
