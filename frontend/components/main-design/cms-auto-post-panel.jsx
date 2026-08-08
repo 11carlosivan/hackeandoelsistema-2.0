@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
+import { csrfHeaders, getCookieValue } from './client-security';
 import Link from 'next/link';
 
 export default function CmsAutoPostPanel({ initialSettings = {}, categories = [], accessToken = null }) {
@@ -18,7 +18,10 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
   const [runLimit, setRunLimit] = useState(2);
   const [runResults, setRunResults] = useState(null);
 
-  const authHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+  const getFreshAuthHeaders = () => {
+    const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
+    return activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+  };
 
   const toggleCategory = (catId) => {
     setSelectedCategoryIds((prev) =>
@@ -37,7 +40,7 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...authHeaders,
+          ...getFreshAuthHeaders(),
           ...csrfHeaders(),
         },
         body: JSON.stringify({
@@ -82,7 +85,7 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...authHeaders,
+          ...getFreshAuthHeaders(),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ limit: runLimit }),

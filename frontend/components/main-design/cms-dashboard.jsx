@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
+import { csrfHeaders, getCookieValue } from './client-security';
 
 export default function CmsDashboard({ summary, accessToken = null }) {
   const router = useRouter();
@@ -19,25 +19,27 @@ export default function CmsDashboard({ summary, accessToken = null }) {
     
     setActionLoading(postId);
     try {
+      const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
       const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'PUBLISH' }),
       });
       if (response.ok) {
+        router.push('/cms/publicaciones?status=PUBLISHED');
         router.refresh();
       } else {
         const err = await response.json().catch(() => null);
         alert(err?.message || 'Error al publicar.');
       }
     } catch (err) {
-      console.error(err);
-      alert('Error de conexión.');
+      console.error('Error publicando dashboard:', err);
+      alert(`Error de conexión: ${err.message || err}`);
     } finally {
       setActionLoading('');
     }

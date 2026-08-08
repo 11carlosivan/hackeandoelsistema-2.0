@@ -1,4 +1,8 @@
 export function getClientApiBaseUrl() {
+  if (typeof window !== 'undefined') {
+    return 'http://localhost:4000';
+  }
+
   const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
 
   if (configuredUrl) {
@@ -9,9 +13,9 @@ export function getClientApiBaseUrl() {
     return '';
   }
 
-  if (window.location.port === '3000') {
-    return `${window.location.protocol}//${window.location.hostname}:4000`;
-  }
-
   return window.location.origin;
+}
+
+export function getApiBaseUrl() {
+  return getClientApiBaseUrl();
 }

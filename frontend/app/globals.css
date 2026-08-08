@@ -222,11 +222,20 @@ html:not(.dark) .bg-terminal-gray {
 
 /* Text color overrides */
 html:not(.dark) .text-on-background,
-html:not(.dark) .text-on-surface {
+html:not(.dark) .text-on-surface,
+html:not(.dark) p,
+html:not(.dark) span:not(.bg-system-red *):not(.bg-black *),
+html:not(.dark) h1,
+html:not(.dark) h2,
+html:not(.dark) h3,
+html:not(.dark) h4,
+html:not(.dark) h5,
+html:not(.dark) h6,
+html:not(.dark) a:not(.bg-system-red *):not(.bg-black *) {
   color: #000000 !important;
 }
 html:not(.dark) .text-on-surface-variant {
-  color: #000000 !important;
+  color: #111111 !important;
 }
 
 /* Border overrides */

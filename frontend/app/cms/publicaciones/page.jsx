@@ -34,6 +34,7 @@ export default async function Page({ searchParams }) {
           page: result.meta.page || filters.page,
         }}
         error={result.error}
+        accessToken={accessToken}
       />
     </Layout>
   );

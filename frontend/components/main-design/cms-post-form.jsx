@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { csrfHeaders } from './client-security';
+import { csrfHeaders, getCookieValue } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
 import CmsWorkflowActions from './cms-workflow-actions';
@@ -29,7 +29,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(post?.featuredMedia || null);
 
-  const authHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+  const getFreshAuthHeaders = () => {
+    const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
+    return activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+  };
   
   // Tags states
   const [tagQuery, setTagQuery] = useState('');
@@ -123,7 +126,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              ...authHeaders,
+              ...getFreshAuthHeaders(),
               ...csrfHeaders(),
             },
             body: JSON.stringify(payload),
@@ -139,7 +142,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              ...authHeaders,
+              ...getFreshAuthHeaders(),
               ...csrfHeaders(),
             },
             body: JSON.stringify({
@@ -159,7 +162,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           }
         }
       } catch (err) {
-        console.error('Autosave DB sync error:', err);
+        if (err.name !== 'AbortError') {
+          // Ignorar silenciosamente cancelaciones de red por navegacion/desmonte
+        }
       }
     }, 2000);
 
@@ -392,7 +397,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...authHeaders,
+          ...getFreshAuthHeaders(),
           ...csrfHeaders(),
           ...(options.headers || {}),
         },
@@ -466,7 +471,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
       setNewTags([]);
       setStatus('success');
-      router.push(`/cms/publicaciones/${finalId}`);
+      if (actionType === 'PUBLISH') {
+        router.push('/cms/publicaciones?status=PUBLISHED');
+      } else {
+        router.push(`/cms/publicaciones/${finalId}`);
+      }
       router.refresh();
     } catch (createError) {
       setStatus('error');
@@ -527,7 +536,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            ...authHeaders,
+            ...getFreshAuthHeaders(),
             ...csrfHeaders(),
           },
           body: JSON.stringify(contentPayload),
@@ -542,7 +551,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...authHeaders,
+          ...getFreshAuthHeaders(),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action }),
@@ -554,6 +563,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       }
 
       setStatus('success');
+      if (action === 'PUBLISH') {
+        router.push('/cms/publicaciones?status=PUBLISHED');
+      }
       router.refresh();
     } catch (err) {
       setStatus('error');
@@ -599,6 +611,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   let handlePrimaryAction = () => {};
   let dropdownOptions = [];
 
+  let isPublished = post?.status === 'PUBLISHED';
+
   if (!postId) {
     primaryActionLabel = 'Publicar';
     handlePrimaryAction = () => submit(null, 'PUBLISH');
@@ -614,19 +628,25 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     const currentStatus = post?.status;
 
     if (currentStatus === 'PUBLISHED') {
-      primaryActionLabel = 'Publicar cambios';
-      handlePrimaryAction = () => submit(null, 'PUBLISH');
-
-      const workflowActions = workflowActionsByStatus[currentStatus] || [];
-      dropdownOptions = workflowActions.map(([action, label]) => ({
-        label,
-        action,
-        icon: action === 'ARCHIVE' ? 'archive' : 'sync_alt',
-        handler: () => runWorkflowAction(action),
-      }));
+      primaryActionLabel = 'Publicado';
+      handlePrimaryAction = () => {};
+      dropdownOptions = [
+        {
+          label: 'Pasar a borrador',
+          action: 'RETURN_TO_DRAFT',
+          icon: 'draft',
+          handler: () => runWorkflowAction('RETURN_TO_DRAFT'),
+        },
+        {
+          label: 'Archivar',
+          action: 'ARCHIVE',
+          icon: 'archive',
+          handler: () => runWorkflowAction('ARCHIVE'),
+        },
+      ];
     } else {
       primaryActionLabel = 'Publicar';
-      handlePrimaryAction = () => submit(null, 'PUBLISH');
+      handlePrimaryAction = () => runWorkflowAction('PUBLISH');
 
       dropdownOptions.push({
         label: !canEditContent ? 'Guardar SEO y media' : 'Guardar borrador',
@@ -864,10 +884,14 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               <button
                 type="button"
                 onClick={handlePrimaryAction}
-                disabled={status === 'loading'}
-                className="flex-1 bg-system-red text-black py-3 px-4 font-label-caps text-[11px] font-bold hover:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60 rounded-l-sm"
+                disabled={status === 'loading' || isPublished}
+                className={`flex-1 py-3 px-4 font-label-caps text-[11px] font-bold transition-all rounded-l-sm ${
+                  isPublished
+                    ? 'bg-neutral-800 text-neutral-400 border border-neutral-700 cursor-not-allowed'
+                    : 'bg-system-red text-black hover:bg-white disabled:cursor-not-allowed disabled:opacity-60'
+                }`}
               >
-                {status === 'loading' ? 'Procesando...' : primaryActionLabel}
+                {status === 'loading' ? 'Procesando...' : isPublished ? '✓ Publicado' : primaryActionLabel}
               </button>
               
               <div className="w-[1px] bg-black/20 self-stretch" />
@@ -877,7 +901,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                   type="button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   disabled={status === 'loading'}
-                  className="bg-system-red text-black px-3 hover:bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center rounded-r-sm"
+                  className={`${
+                    isPublished ? 'bg-neutral-800 text-white hover:bg-neutral-700' : 'bg-system-red text-black hover:bg-white'
+                  } px-3 transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center rounded-r-sm`}
                 >
                   <span className="material-symbols-outlined text-base select-none font-bold">
                     {isDropdownOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
@@ -1405,6 +1431,19 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           setIsMediaModalOpen(false);
         }}
       />
+
+      {/* Loading Overlay */}
+      {status === 'loading' && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[99999] flex flex-col items-center justify-center p-6 text-center">
+          <div className="h-12 w-12 border-4 border-system-red border-t-transparent rounded-full animate-spin mb-4" />
+          <div className="font-label-caps text-system-red text-sm font-bold tracking-widest uppercase mb-2 animate-pulse">
+            Publicando artículo...
+          </div>
+          <p className="text-xs text-on-surface-variant font-mono max-w-sm">
+            Guardando cambios y activando la ruta pública en el servidor. Por favor espera unos segundos.
+          </p>
+        </div>
+      )}
 
       {/* Custom Confirm Modal */}
       {confirmModal.isOpen && (

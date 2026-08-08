@@ -48,30 +48,38 @@ export default function LoginForm() {
 
       const result = await response.json().catch(() => ({}));
       
+      const userData = result.data?.user || result.user || {};
+      const accessToken = result.data?.accessToken || result.accessToken;
+      const refreshToken = result.data?.refreshToken || result.refreshToken;
+      
       if (typeof window !== 'undefined') {
-        const userRoles = result.user?.roles || [];
+        const userRoles = userData.roles || [];
         const isUserAdmin = userRoles.some(r => ['admin', 'editor'].includes(String(r).toLowerCase())) || email.startsWith('admin');
 
         localStorage.setItem('hes_authenticated', 'true');
         localStorage.setItem(
           'hes_user_profile',
           JSON.stringify({
-            nombre: result.user?.displayName || result.user?.nombre || email.split('@')[0],
+            nombre: userData.displayName || userData.nombre || email.split('@')[0],
             correo: email,
             isAdmin: isUserAdmin,
           })
         );
 
-        if (result.accessToken) {
-          document.cookie = `hes_access_token=${result.accessToken}; path=/; max-age=900; SameSite=Lax`;
+        if (accessToken) {
+          document.cookie = `hes_access_token=${accessToken}; path=/; max-age=900; SameSite=Lax; SameSite=Strict`;
+          document.cookie = `hes_access_token=${accessToken}; path=/; max-age=900`;
         }
-        if (result.refreshToken) {
-          document.cookie = `hes_refresh_token=${result.refreshToken}; path=/; max-age=2592000; SameSite=Lax`;
+        if (refreshToken) {
+          document.cookie = `hes_refresh_token=${refreshToken}; path=/; max-age=2592000`;
         }
       }
 
       setStatus('success');
-      router.push(getNextPath());
+      const userSlug = encodeURIComponent((result.user?.displayName || result.user?.nombre || email.split('@')[0]).toLowerCase().replace(/\s+/g, '-'));
+      const targetPath = getNextPath();
+      const finalPath = targetPath === '/perfil' ? `/perfil/${userSlug}` : targetPath;
+      router.push(finalPath);
       router.refresh();
     } catch (loginError) {
       setStatus('error');
@@ -100,11 +108,12 @@ export default function LoginForm() {
             SESION CMS
           </div>
 
-          <label className="block mb-5" suppressHydrationWarning>
-            <span className="block font-label-caps text-[10px] font-bold text-on-surface-variant mb-2">
+          <div className="block mb-5" suppressHydrationWarning>
+            <label htmlFor="login-email" className="block font-label-caps text-[10px] font-bold text-on-surface-variant mb-2">
               Email
-            </span>
+            </label>
             <input
+              id="login-email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               type="email"
@@ -113,13 +122,14 @@ export default function LoginForm() {
               suppressHydrationWarning
               className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
             />
-          </label>
+          </div>
 
-          <label className="block mb-6" suppressHydrationWarning>
-            <span className="block font-label-caps text-[10px] font-bold text-on-surface-variant mb-2">
+          <div className="block mb-6" suppressHydrationWarning>
+            <label htmlFor="login-password" className="block font-label-caps text-[10px] font-bold text-on-surface-variant mb-2">
               Password
-            </span>
+            </label>
             <input
+              id="login-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               type="password"
@@ -129,7 +139,7 @@ export default function LoginForm() {
               suppressHydrationWarning
               className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
             />
-          </label>
+          </div>
 
           {error ? (
             <p className="mb-5 border border-system-red/40 bg-system-red/10 px-4 py-3 text-sm text-white">

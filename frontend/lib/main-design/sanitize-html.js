@@ -34,9 +34,19 @@ const EDITORIAL_HTML_OPTIONS = {
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
-  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'youtu.be', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
-    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
+    a: (tagName, attribs) => {
+      const isInternal = attribs.href && (attribs.href.startsWith('/') || attribs.href.startsWith('#'));
+      return {
+        tagName: 'a',
+        attribs: {
+          ...attribs,
+          target: attribs.target || '_blank',
+          rel: isInternal ? attribs.rel || '' : 'noopener noreferrer',
+        },
+      };
+    },
   },
 };
 

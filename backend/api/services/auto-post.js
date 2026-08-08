@@ -383,7 +383,8 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
             fileName: `${aiResult.title.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}.jpg`,
             mimeType: 'image/jpeg',
             url: imageUrl,
-            storagePath: imageUrl,
+            path: imageUrl,
+            disk: 'external',
             altText: aiResult.title,
             caption: aiResult.title,
           },
@@ -422,13 +423,15 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
           authorId: adminUser?.id || undefined,
           featuredMediaId: mediaId,
           publishedAt: postStatus === 'PUBLISHED' ? new Date() : null,
-          routes: {
-            create: {
-              path: `/${slug}/`,
-              entityType: 'POST',
-              status: 'ACTIVE',
-            },
-          },
+        },
+      });
+
+      await prisma.route.create({
+        data: {
+          path: `/${slug}/`,
+          entityType: 'POST',
+          entityId: post.id,
+          status: 'ACTIVE',
         },
       });
 

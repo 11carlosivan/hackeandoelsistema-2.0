@@ -80,7 +80,7 @@ export default async function Page({ params }) {
     apellido: '',
     correo: `${decodedId}@hackeandoelsistema.com`,
     fotoPerfil: '/isotipo.png',
-    fotoPortada: '/hes developer.png',
+    fotoPortada: '/logo.png',
     isVerified: true,
     bio: 'Lector verificado y colaborador activo de Hackeando el Sistema Network.',
     stats: { posts: 0, reposts: 2, commentsMade: 6, commentsReceived: 4 },

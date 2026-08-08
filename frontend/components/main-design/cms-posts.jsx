@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
+import { csrfHeaders, getCookieValue } from './client-security';
 
 const statusTabs = [
   ['TODOS', ''],
@@ -49,9 +49,13 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
-export default function CmsPosts({ posts, meta, filters, error }) {
+export default function CmsPosts({ posts, meta, filters, error, accessToken = null }) {
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState('');
+
+  const getActiveToken = () => {
+    return accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
+  };
 
   const handleQuickDraft = async (e, postId) => {
     e.preventDefault();
@@ -59,11 +63,13 @@ export default function CmsPosts({ posts, meta, filters, error }) {
     
     setActionLoading(postId);
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+      const activeToken = getActiveToken();
+      const response = await fetch(`/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'RETURN_TO_DRAFT' }),
@@ -75,8 +81,8 @@ export default function CmsPosts({ posts, meta, filters, error }) {
         alert(err?.message || 'Error al cambiar estado.');
       }
     } catch (err) {
-      console.error(err);
-      alert('Error de conexión.');
+      console.error('Error cambiando estado:', err);
+      alert(`Error de conexión: ${err.message || err}`);
     } finally {
       setActionLoading('');
     }
@@ -88,24 +94,27 @@ export default function CmsPosts({ posts, meta, filters, error }) {
     
     setActionLoading(postId);
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+      const activeToken = getActiveToken();
+      const response = await fetch(`/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'PUBLISH' }),
       });
       if (response.ok) {
+        router.push('/cms/publicaciones?status=PUBLISHED');
         router.refresh();
       } else {
         const err = await response.json().catch(() => null);
         alert(err?.message || 'Error al publicar.');
       }
     } catch (err) {
-      console.error(err);
-      alert('Error de conexión.');
+      console.error('Error publicando:', err);
+      alert(`Error de conexión: ${err.message || err}`);
     } finally {
       setActionLoading('');
     }

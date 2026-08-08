@@ -113,6 +113,15 @@ const nextConfig = {
       ...legacyRedirects,
     ];
   },
+  async rewrites() {
+    const backendUrl = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${backendUrl.replace(/\/+$/g, '')}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

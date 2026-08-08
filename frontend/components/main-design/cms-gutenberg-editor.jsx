@@ -103,10 +103,18 @@ function htmlToBlocks(html) {
             type: 'quote',
             content: p ? p.innerHTML : node.innerHTML
           });
-        } else if (tagName === 'figure' || tagName === 'img') {
+        } else if (tagName === 'figure' || tagName === 'img' || tagName === 'iframe') {
+          const iframe = tagName === 'iframe' ? node : node.querySelector('iframe');
           const img = tagName === 'img' ? node : node.querySelector('img');
           const figcaption = node.querySelector('figcaption');
-          if (img) {
+
+          if (iframe) {
+            blocks.push({
+              id: `b-${idCounter++}-${Date.now()}`,
+              type: 'youtube',
+              url: iframe.getAttribute('src') || '',
+            });
+          } else if (img) {
             blocks.push({
               id: `b-${idCounter++}-${Date.now()}`,
               type: 'image',
@@ -176,6 +184,18 @@ function blocksToHtml(blocks) {
             <a href="${escapeHtml(safeUrl || '#')}" class="related-title text-sm font-bold text-system-red hover:underline">${escapeHtml(b.title || 'Ver artículo relacionado')}</a>
           </div>
         </div>`;
+      }
+      case 'video':
+      case 'youtube': {
+        const safeUrl = normalizeSafeUrl(b.url);
+        if (!safeUrl) return '';
+        let embedUrl = safeUrl;
+        if (safeUrl.includes('youtube.com/watch?v=')) {
+          embedUrl = safeUrl.replace('watch?v=', 'embed/');
+        } else if (safeUrl.includes('youtu.be/')) {
+          embedUrl = safeUrl.replace('youtu.be/', 'youtube.com/embed/');
+        }
+        return `<div class="wp-block-embed-youtube my-6 aspect-video w-full overflow-hidden border border-terminal-gray bg-black"><iframe src="${escapeHtml(embedUrl)}" class="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
       }
       default:
         return '';
@@ -638,6 +658,40 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
                   )}
                 </div>
               )}
+
+              {(block.type === 'youtube' || block.type === 'video') && (
+                <div className="border border-terminal-gray/40 bg-black/40 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-system-red text-base">smart_display</span>
+                    <span className="font-label-caps text-xs text-white font-bold">Video de YouTube</span>
+                  </div>
+                  <label className="block">
+                    <span className="block text-[8px] font-mono text-on-surface-variant uppercase mb-1">URL o Enlace de YouTube</span>
+                    <input
+                      type="text"
+                      value={block.url || ''}
+                      onChange={(e) => updateBlockData(index, { url: e.target.value })}
+                      placeholder="Ej. https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                      className="w-full bg-black border border-terminal-gray/40 text-xs px-2 py-1.5 text-white outline-none focus:border-system-red"
+                    />
+                  </label>
+                  {normalizeSafeUrl(block.url) ? (
+                    <div className="aspect-video w-full max-h-48 overflow-hidden border border-terminal-gray bg-black">
+                      <iframe
+                        src={
+                          block.url.includes('youtube.com/watch?v=')
+                            ? block.url.replace('watch?v=', 'embed/')
+                            : block.url.includes('youtu.be/')
+                            ? block.url.replace('youtu.be/', 'youtube.com/embed/')
+                            : block.url
+                        }
+                        className="w-full h-full border-0 pointer-events-none"
+                        title="YouTube Preview"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             {/* Block Insertion Button Trigger (Hover target below each block) */}
@@ -649,6 +703,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
                 <button type="button" onClick={() => addBlock(index, 'heading')} className="hover:text-white px-1">Título</button>
                 <button type="button" onClick={() => addBlock(index, 'quote')} className="hover:text-white px-1">Cita</button>
                 <button type="button" onClick={() => addBlock(index, 'image')} className="hover:text-white px-1">Imagen</button>
+                <button type="button" onClick={() => addBlock(index, 'youtube')} className="hover:text-white px-1 text-system-red font-bold">Video YouTube</button>
                 <button type="button" onClick={() => addBlock(index, 'list')} className="hover:text-white px-1">Lista</button>
                 <button type="button" onClick={() => addBlock(index, 'related')} className="hover:text-white px-1 text-system-red font-bold">+ Post Relacionado</button>
               </div>
@@ -689,6 +744,13 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
             className="border border-terminal-gray/40 hover:border-system-red hover:text-white px-3 py-1.5 transition-all"
           >
             + Imagen
+          </button>
+          <button
+            type="button"
+            onClick={() => addBlock(blocks.length - 1, 'youtube')}
+            className="border border-system-red/60 text-system-red font-bold hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
+          >
+            + Video YouTube
           </button>
           <button
             type="button"
