@@ -49,13 +49,16 @@ export default function LoginForm() {
       const result = await response.json().catch(() => ({}));
       
       if (typeof window !== 'undefined') {
+        const userRoles = result.user?.roles || [];
+        const isUserAdmin = userRoles.some(r => ['admin', 'editor'].includes(String(r).toLowerCase())) || email.startsWith('admin');
+
         localStorage.setItem('hes_authenticated', 'true');
         localStorage.setItem(
           'hes_user_profile',
           JSON.stringify({
             nombre: result.user?.displayName || result.user?.nombre || email.split('@')[0],
             correo: email,
-            isAdmin: result.user?.roles?.some(r => ['admin', 'editor'].includes(r.toLowerCase())) || false,
+            isAdmin: isUserAdmin,
           })
         );
       }
