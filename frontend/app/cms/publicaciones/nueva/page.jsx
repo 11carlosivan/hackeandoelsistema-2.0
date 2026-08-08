@@ -53,6 +53,7 @@ export default async function Page() {
           categories={categoriesResult.categories}
           tags={tagsResult.tags}
           media={mediaResult.media}
+          accessToken={accessToken}
         />
       </div>
     </Layout>

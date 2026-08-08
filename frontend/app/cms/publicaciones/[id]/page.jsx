@@ -86,6 +86,7 @@ export default async function Page({ params }) {
           tags={tagsResult.tags}
           media={mediaResult.media}
           post={result.post}
+          accessToken={accessToken}
         />
       </div>
     </Layout>

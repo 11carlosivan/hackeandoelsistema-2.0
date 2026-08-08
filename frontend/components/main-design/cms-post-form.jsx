@@ -20,7 +20,7 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
-export default function CmsPostForm({ categories = [], tags = [], media = [], post = null }) {
+export default function CmsPostForm({ categories = [], tags = [], media = [], post = null, accessToken = null }) {
   const router = useRouter();
   const [postId, setPostId] = useState(post?.id || null);
   const canEditContent = !post || EDITABLE_CONTENT_STATUSES.has(post.status);
@@ -28,6 +28,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [error, setError] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(post?.featuredMedia || null);
+
+  const authHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
   
   // Tags states
   const [tagQuery, setTagQuery] = useState('');
@@ -121,6 +123,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
+              ...authHeaders,
               ...csrfHeaders(),
             },
             body: JSON.stringify(payload),
@@ -136,6 +139,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
+              ...authHeaders,
               ...csrfHeaders(),
             },
             body: JSON.stringify({
@@ -388,6 +392,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...csrfHeaders(),
           ...(options.headers || {}),
         },
@@ -516,6 +521,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
+            ...authHeaders,
             ...csrfHeaders(),
           },
           body: JSON.stringify(contentPayload),
@@ -530,6 +536,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action }),
