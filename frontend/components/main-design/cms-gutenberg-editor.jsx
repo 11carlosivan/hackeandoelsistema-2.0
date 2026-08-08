@@ -169,11 +169,11 @@ function blocksToHtml(blocks) {
         const safeImg = normalizeSafeUrl(b.image);
         if (!safeUrl && !b.title) return '';
 
-        return `<div className="wp-block-hes-related my-4 border border-terminal-gray/40 bg-black/40 p-3 flex items-center gap-3">
-          ${safeImg ? `<img src="${escapeHtml(safeImg)}" alt="${escapeHtml(b.title || '')}" className="w-16 h-12 object-cover border border-terminal-gray" />` : ''}
+        return `<div class="wp-block-hes-related my-4 border border-terminal-gray/40 bg-black/40 p-3 flex items-center gap-3">
+          ${safeImg ? `<img src="${escapeHtml(safeImg)}" alt="${escapeHtml(b.title || '')}" class="w-16 h-12 object-cover border border-terminal-gray" />` : ''}
           <div>
-            ${b.category ? `<span className="related-category text-[9px] font-mono text-system-red font-bold uppercase block">${escapeHtml(b.category)}</span>` : ''}
-            <a href="${escapeHtml(safeUrl || '#')}" className="related-title text-sm font-bold text-system-red hover:underline">${escapeHtml(b.title || 'Ver artículo relacionado')}</a>
+            ${b.category ? `<span class="related-category text-[9px] font-mono text-system-red font-bold uppercase block">${escapeHtml(b.category)}</span>` : ''}
+            <a href="${escapeHtml(safeUrl || '#')}" class="related-title text-sm font-bold text-system-red hover:underline">${escapeHtml(b.title || 'Ver artículo relacionado')}</a>
           </div>
         </div>`;
       }

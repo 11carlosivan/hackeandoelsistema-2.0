@@ -2,6 +2,8 @@ import sanitizeHtml from 'sanitize-html';
 
 const EDITORIAL_HTML_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    'div',
+    'span',
     'img',
     'figure',
     'figcaption',
