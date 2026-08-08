@@ -100,6 +100,7 @@ export default function LoginForm() {
               type="email"
               autoComplete="email"
               required
+              suppressHydrationWarning
               className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
             />
           </label>
@@ -115,6 +116,7 @@ export default function LoginForm() {
               autoComplete="current-password"
               required
               minLength={8}
+              suppressHydrationWarning
               className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
             />
           </label>
