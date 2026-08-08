@@ -178,6 +178,7 @@ export function mapApiSummary(summary) {
     editorial: summary.editorial,
     securityEvents: summary.securityEvents || [],
     latestImportRun: summary.latestImportRun,
+    rankingsData: summary.rankingsData || null,
     recentPosts: (summary.recentPosts || []).map(mapApiPostToArticle),
   };
 }

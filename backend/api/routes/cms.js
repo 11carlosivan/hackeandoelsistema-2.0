@@ -100,6 +100,10 @@ const redirectsQuerySchema = z.object({
   q: z.string().trim().min(1).max(160).optional(),
   isActive: z.coerce.boolean().optional(),
 });
+const rankingQuerySchema = z.object({
+  period: z.enum(['day', 'week', 'month', 'year']).default('week'),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
 const postParamsSchema = z.object({
   id: z.uuid(),
 });
@@ -1015,6 +1019,148 @@ function normalizePostDetail(post, route, importMapping) {
   };
 }
 
+async function getPostRankingsData(app, period = 'week', limit = 10) {
+  const now = new Date();
+  const periodDurations = {
+    day: 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    month: 30 * 24 * 60 * 60 * 1000,
+    year: 365 * 24 * 60 * 60 * 1000,
+  };
+  const durationMs = periodDurations[period] || periodDurations.week;
+  const currentPeriodStart = new Date(now.getTime() - durationMs);
+  const previousPeriodStart = new Date(now.getTime() - 2 * durationMs);
+
+  let currentViewsByPost = [];
+  let previousViewsByPost = [];
+
+  try {
+    [currentViewsByPost, previousViewsByPost] = await Promise.all([
+      app.prisma.postView.groupBy({
+        by: ['postId'],
+        where: {
+          viewedAt: { gte: currentPeriodStart, lte: now },
+          post: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+        },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: limit * 2,
+      }),
+      app.prisma.postView.groupBy({
+        by: ['postId'],
+        where: {
+          viewedAt: { gte: previousPeriodStart, lt: currentPeriodStart },
+          post: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+        },
+        _count: { id: true },
+      }),
+    ]);
+  } catch (error) {
+    app.log.warn({ err: error }, 'cms ranking view aggregation failed, falling back to post counters');
+  }
+
+  const previousViews = new Map(previousViewsByPost.map((item) => [item.postId, item._count.id]));
+  const currentViews = new Map(currentViewsByPost.map((item) => [item.postId, item._count.id]));
+  let targetPostIds = Array.from(currentViews.keys());
+
+  if (targetPostIds.length < limit) {
+    const fallbackPosts = await app.prisma.post.findMany({
+      where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+      orderBy: [{ viewCount: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+      select: { id: true },
+    });
+
+    for (const post of fallbackPosts) {
+      if (!targetPostIds.includes(post.id)) {
+        targetPostIds.push(post.id);
+      }
+    }
+  }
+
+  targetPostIds = targetPostIds.slice(0, limit);
+
+  if (targetPostIds.length === 0) {
+    return {
+      period,
+      periodStart: currentPeriodStart,
+      previousPeriodStart,
+      rankings: [],
+    };
+  }
+
+  const posts = await app.prisma.post.findMany({
+    where: {
+      id: { in: targetPostIds },
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+    },
+    include: {
+      author: {
+        select: { id: true, username: true, displayName: true },
+      },
+      categories: {
+        include: {
+          category: {
+            select: { id: true, name: true, slug: true, fullPath: true },
+          },
+        },
+      },
+      comments: {
+        select: { id: true, status: true },
+      },
+    },
+  });
+  const postsById = new Map(posts.map((post) => [post.id, post]));
+
+  const rankings = targetPostIds
+    .map((postId, index) => {
+      const post = postsById.get(postId);
+
+      if (!post) {
+        return null;
+      }
+
+      const currentPeriodViews = currentViews.get(postId) || post.viewCount || 0;
+      const previousPeriodViews = previousViews.get(postId) || 0;
+      const percentageChange = previousPeriodViews > 0
+        ? Math.round(((currentPeriodViews - previousPeriodViews) / previousPeriodViews) * 1000) / 10
+        : currentPeriodViews > 0
+          ? 100
+          : 0;
+      const approvedComments = post.comments?.filter((comment) => comment.status === 'APPROVED').length || 0;
+      const pendingComments = post.comments?.filter((comment) => comment.status === 'PENDING').length || 0;
+
+      return {
+        rank: index + 1,
+        post: normalizeCmsPost(post),
+        metrics: {
+          currentPeriodViews,
+          previousPeriodViews,
+          viewsDifference: currentPeriodViews - previousPeriodViews,
+          percentageChange,
+          totalViewsAllTime: post.viewCount || 0,
+          likes: post.likeCount || 0,
+          saves: post.saveCount || 0,
+          shares: post.shareCount || 0,
+        },
+        commentsStats: {
+          total: post.comments?.length || post.commentCount || 0,
+          approved: approvedComments,
+          pending: pendingComments,
+        },
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    period,
+    periodStart: currentPeriodStart,
+    previousPeriodStart,
+    rankings,
+  };
+}
+
 export async function registerCmsRoutes(app) {
   app.get('/api/v1/cms/summary', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
     noStoreHeaders(reply);
@@ -1112,6 +1258,7 @@ export async function registerCmsRoutes(app) {
         },
       }),
     ]);
+    const defaultRankings = await getPostRankingsData(app, 'week', 10);
 
     return {
       data: {
@@ -1137,7 +1284,22 @@ export async function registerCmsRoutes(app) {
         latestImportRun,
         recentPosts: recentPosts.map(normalizeCmsPost),
         securityEvents,
+        rankingsData: defaultRankings,
       },
+    };
+  });
+
+  app.get('/api/v1/cms/analytics/rankings', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    const parsed = rankingQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid ranking query');
+    }
+
+    noStoreHeaders(reply);
+
+    return {
+      data: await getPostRankingsData(app, parsed.data.period, parsed.data.limit),
     };
   });
 
