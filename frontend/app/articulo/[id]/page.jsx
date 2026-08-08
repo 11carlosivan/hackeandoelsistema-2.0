@@ -10,8 +10,9 @@ import {
   tryLoadArticleByIdentifier,
 } from '@/lib/main-design/public-shortcuts';
 
+export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
-export const revalidate = 60;
+export const revalidate = 0;
 
 async function loadArticle(id) {
   return tryLoadArticleByIdentifier(id, {
