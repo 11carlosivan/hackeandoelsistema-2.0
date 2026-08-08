@@ -1,17 +1,16 @@
-'use client';
+import React from 'react';
 
 export default function VerifiedBadge({ size = 'md', className = '' }) {
   const sizeClasses = {
-    sm: 'h-4 w-4 text-[10px]',
-    md: 'h-5 w-5 text-[12px]',
-    lg: 'h-6 w-6 text-[14px]',
+    sm: 'w-4 h-4 text-[10px]',
+    md: 'w-5 h-5 text-[12px]',
+    lg: 'w-6 h-6 text-[14px]',
   };
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center bg-data-green font-bold text-black shadow-[0_0_16px_rgba(0,255,106,0.18)] ${sizeClasses[size] || sizeClasses.md} ${className}`}
-      title="Perfil verificado"
-      aria-label="Perfil verificado"
+      className={`inline-flex items-center justify-center rounded-full bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20 shrink-0 ${sizeClasses[size] || sizeClasses.md} ${className}`}
+      title="Perfil Verificado - Datos completos"
     >
       <span className="material-symbols-outlined text-[inherit] font-black">check</span>
     </span>
