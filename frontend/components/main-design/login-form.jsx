@@ -42,7 +42,8 @@ export default function LoginForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Credenciales invalidas o cuenta bloqueada temporalmente.');
+        const errorJson = await response.json().catch(() => null);
+        throw new Error(errorJson?.message || 'Credenciales invalidas o cuenta bloqueada temporalmente.');
       }
 
       const result = await response.json().catch(() => ({}));
