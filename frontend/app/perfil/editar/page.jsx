@@ -21,7 +21,7 @@ export default function Page() {
     sectorBarrio: 'Piantini',
     calle: 'Av. Winston Churchill #102',
     fotoPerfil: '/isotipo.png',
-    fotoPortada: '/hes developer.png',
+    fotoPortada: '/logo.png',
   };
 
   return (

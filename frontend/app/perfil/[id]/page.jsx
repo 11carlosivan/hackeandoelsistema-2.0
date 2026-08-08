@@ -59,7 +59,7 @@ export default async function Page({ params }) {
     apellido: '',
     correo: author.email || 'lector@hackeandoelsistema.com',
     fotoPerfil: author.avatar?.url || author.photo || '/isotipo.png',
-    fotoPortada: author.coverUrl || '/hes developer.png',
+    fotoPortada: author.coverUrl || '/logo.png',
     isVerified: true,
     bio: author.bio || 'Lector verificado y colaborador activo de Hackeando el Sistema Network.',
     stats: {
