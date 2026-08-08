@@ -1245,16 +1245,93 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               </div>
 
               {/* Schedule and Visibility Options */}
-              <div className="space-y-4">
+              <div className="space-y-4 border border-terminal-gray/60 bg-surface-container-low/40 p-4">
+                <div className="flex items-center justify-between border-b border-terminal-gray/30 pb-2">
+                  <span className="font-label-caps text-[10px] text-system-red font-bold flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px]">schedule</span>
+                    PROGRAMACIÓN DE PUBLICACIÓN
+                  </span>
+                  {scheduledAt && (
+                    <span className="text-[9px] font-mono text-system-red bg-system-red/10 border border-system-red/30 px-2 py-0.5 font-bold uppercase">
+                      FECHA ASIGNADA
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-on-surface-variant font-mono leading-relaxed">
+                  Establece una fecha y hora futura para programar la salida automática de esta publicación.
+                </p>
+
                 <label className="block">
-                  <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Fecha de publicación programada</span>
+                  <span className="block text-[9px] font-mono text-white font-bold uppercase mb-1.5">Fecha y hora programada</span>
                   <input
                     type="datetime-local"
                     value={scheduledAt}
                     onChange={(e) => setScheduledAt(e.target.value)}
-                    className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red font-mono"
+                    className="w-full bg-black border border-terminal-gray text-xs px-3 py-2.5 text-white outline-none focus:border-system-red font-mono"
                   />
                 </label>
+
+                {/* Quick Presets */}
+                <div className="space-y-1.5">
+                  <span className="block text-[8px] font-mono text-on-surface-variant uppercase">Accesos rápidos de horario:</span>
+                  <div className="flex flex-wrap gap-1.5 text-[9px] font-mono">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const date = new Date(Date.now() + 60 * 60 * 1000);
+                        setScheduledAt(date.toISOString().substring(0, 16));
+                      }}
+                      className="border border-terminal-gray/50 bg-black/60 px-2 py-1 text-white hover:border-system-red hover:text-system-red transition-colors"
+                    >
+                      + 1 Hora
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const date = new Date(Date.now() + 3 * 60 * 60 * 1000);
+                        setScheduledAt(date.toISOString().substring(0, 16));
+                      }}
+                      className="border border-terminal-gray/50 bg-black/60 px-2 py-1 text-white hover:border-system-red hover:text-system-red transition-colors"
+                    >
+                      + 3 Horas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                        tomorrow.setHours(9, 0, 0, 0);
+                        setScheduledAt(tomorrow.toISOString().substring(0, 16));
+                      }}
+                      className="border border-terminal-gray/50 bg-black/60 px-2 py-1 text-white hover:border-system-red hover:text-system-red transition-colors"
+                    >
+                      Mañana 9:00 AM
+                    </button>
+                    {scheduledAt && (
+                      <button
+                        type="button"
+                        onClick={() => setScheduledAt('')}
+                        className="border border-system-red/40 bg-system-red/10 px-2 py-1 text-system-red hover:bg-system-red hover:text-black font-bold transition-colors ml-auto"
+                      >
+                        Limpiar Fecha
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Instant Schedule Action Button */}
+                {scheduledAt && (
+                  <button
+                    type="button"
+                    onClick={() => runWorkflowAction('SCHEDULE')}
+                    className="w-full border border-system-red bg-system-red/15 hover:bg-system-red hover:text-black py-2.5 text-[10px] font-label-caps font-bold text-white transition-colors flex items-center justify-center gap-2 mt-2"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">calendar_month</span>
+                    CONFIRMAR Y PROGRAMAR SALIDA
+                  </button>
+                )}
+
+                </div>
 
                 <label className="block">
                   <span className="block text-[10px] font-mono text-on-surface-variant uppercase mb-1">Tipo de contenido</span>
