@@ -109,6 +109,24 @@ export default function Header({ categories = [] }) {
     router.push('/iniciar-sesion');
   };
 
+  const handleLogout = async () => {
+    setIsMobileMenuOpen(false);
+
+    try {
+      await fetch(`${getClientApiBaseUrl()}/api/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+    } catch {
+      // The UI should still clear the visible session state if the network drops.
+    }
+
+    setCurrentUser(null);
+    router.push('/');
+    router.refresh();
+  };
+
   const handleSearchSubmit = (event) => {
     event.preventDefault();
     if (searchQuery.trim()) {
@@ -156,7 +174,7 @@ export default function Header({ categories = [] }) {
             </form>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-3">
             <button
               type="button"
               onClick={() => setIsSearchOpen((value) => !value)}
@@ -187,6 +205,18 @@ export default function Header({ categories = [] }) {
               <span className="material-symbols-outlined text-[18px]">{currentUser ? 'account_circle' : 'terminal'}</span>
               <span className="truncate">{currentUser?.displayName || currentUser?.username || 'ACCESO'}</span>
             </button>
+
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="hidden md:flex items-center gap-1.5 border border-terminal-gray bg-black/50 px-3 py-1.5 font-label-caps text-[11px] font-bold text-on-surface-variant transition-all hover:border-system-red hover:text-system-red active:scale-95"
+                title="Cerrar sesion"
+              >
+                <span className="material-symbols-outlined text-[16px]">logout</span>
+                DESCONECTAR
+              </button>
+            ) : null}
 
             <button
               type="button"
@@ -254,16 +284,29 @@ export default function Header({ categories = [] }) {
               </button>
             </form>
 
-            <button
-              type="button"
-              className="flex w-full items-center justify-center gap-2 bg-system-red py-2.5 font-label-caps text-xs font-bold text-black"
-              onClick={handleAccessClick}
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {currentUser ? 'account_circle' : 'terminal'}
-              </span>
-              {currentUser?.displayName || currentUser?.username || 'INICIAR SESION'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex flex-1 items-center justify-center gap-2 bg-system-red py-2.5 font-label-caps text-xs font-bold text-black"
+                onClick={handleAccessClick}
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {currentUser ? 'account_circle' : 'terminal'}
+                </span>
+                {currentUser?.displayName || currentUser?.username || 'INICIAR SESION'}
+              </button>
+
+              {currentUser ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="border border-terminal-gray bg-black px-3 py-2 font-label-caps text-xs font-bold text-system-red hover:border-system-red"
+                  title="Cerrar sesion"
+                >
+                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                </button>
+              ) : null}
+            </div>
 
             <div className="border-t border-terminal-gray/40 pt-4">
               <div className="mb-3 font-label-caps text-[9px] font-bold tracking-widest text-system-red">

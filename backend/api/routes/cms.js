@@ -85,7 +85,7 @@ const commentsQuerySchema = z.object({
 });
 const mediaQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(60).default(24),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
   q: z.string().trim().min(1).max(120).optional(),
   type: z.enum(['IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'OTHER']).optional(),
 });

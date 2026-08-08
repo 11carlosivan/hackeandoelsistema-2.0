@@ -1385,7 +1385,7 @@ describe('cms routes', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/v1/cms/media?type=IMAGE&q=sample&page=1&limit=12',
+      url: '/api/v1/cms/media?type=IMAGE&q=sample&page=1&limit=72',
       headers: {
         authorization: `Bearer ${access.token}`,
       },
@@ -1404,7 +1404,7 @@ describe('cms routes', () => {
     });
     expect(response.json().meta).toMatchObject({
       page: 1,
-      limit: 12,
+      limit: 72,
       total: 1,
       filters: {
         q: 'sample',
