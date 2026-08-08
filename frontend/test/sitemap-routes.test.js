@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isSitemapPathAllowed, shouldUseStaticSitemapFallback } from '../app/sitemap.js';
-import { absoluteUrl, buildMetadata } from '../lib/main-design/seo.js';
+import { absoluteUrl, buildMetadata, socialPreviewImageUrl } from '../lib/main-design/seo.js';
 
 describe('sitemap route filtering', () => {
   it('excludes private app routes by prefix', () => {
@@ -36,6 +36,32 @@ describe('sitemap route filtering', () => {
     expect(metadata.twitter.title).toBe('Titulo Twitter de Yoast');
     expect(metadata.twitter.description).toBe('Descripcion Twitter de Yoast');
     expect(metadata.twitter.card).toBe('summary');
+  });
+
+  it('proxies remote article images through the social preview optimizer', () => {
+    const sourceImage = 'https://image.hackeandoelsistema.net/uploads/2026/08/cover.png';
+    const metadata = buildMetadata({
+      title: 'Articulo con portada',
+      path: '/articulo-con-portada/',
+      image: sourceImage,
+      type: 'article',
+      modifiedTime: '2026-08-07T19:22:25.722Z',
+    });
+
+    expect(socialPreviewImageUrl(sourceImage, '2026-08-07')).toContain('/api/social-image/?src=');
+    expect(metadata.openGraph.images[0]).toMatchObject({
+      secureUrl: expect.stringContaining('/api/social-image/?src='),
+      type: 'image/jpeg',
+      width: 1200,
+      height: 630,
+    });
+    expect(metadata.twitter.images[0]).toContain('/api/social-image/?src=');
+  });
+
+  it('keeps local fallback images direct instead of proxying them', () => {
+    expect(socialPreviewImageUrl('https://hackeandoelsistema.net/isotipo.png')).toBe(
+      'https://hackeandoelsistema.net/isotipo.png',
+    );
   });
 
   it('does not advertise RSS alternates from noindex pages', () => {
