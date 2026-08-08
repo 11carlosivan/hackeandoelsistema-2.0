@@ -21,6 +21,8 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"
         />
+        <link rel="icon" href="/isotipo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/isotipo.png" />
         <SiteStructuredData />
       </head>
       <body className="bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden">
