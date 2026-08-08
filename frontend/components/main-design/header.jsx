@@ -78,14 +78,10 @@ export default function Header({ categories = [] }) {
 
   const handleAuthClick = () => {
     if (currentUser) {
-      if (currentUser.isAdmin) {
-        router.push('/cms');
-      } else {
-        const slug = encodeURIComponent((currentUser.nombre || 'usuario').toLowerCase().replace(/\s+/g, '-'));
-        router.push(`/perfil/${slug}`);
-      }
+      const slug = encodeURIComponent((currentUser.nombre || 'admin1').toLowerCase().replace(/\s+/g, '-'));
+      router.push(`/perfil/${slug}`);
     } else {
-      router.push('/cms');
+      router.push('/iniciar-sesion');
     }
   };
 
