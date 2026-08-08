@@ -142,7 +142,7 @@ export async function getHomeFeed() {
 
 export async function getArticleBySlug(slug) {
   const response = await fetchApi(`/api/v1/public/posts/${encodeURIComponent(slug)}`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
 
   return mapApiPostToArticle(response.data, 0, { includeContent: true });
@@ -150,7 +150,7 @@ export async function getArticleBySlug(slug) {
 
 export async function getArticleById(id) {
   const response = await fetchApi(`/api/v1/public/posts/id/${encodeURIComponent(id)}`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
 
   return mapApiPostToArticle(response.data, 0, { includeContent: true });

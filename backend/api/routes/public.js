@@ -1146,7 +1146,7 @@ export async function registerPublicRoutes(app) {
       throw app.httpErrors.notFound('Post not found');
     }
 
-    publicCacheHeaders(reply, 180);
+    noStoreHeaders(reply);
     const [relatedPosts, route] = await Promise.all([
       findRelatedPosts(app, post),
       findPublicEntityRoute(app, 'POST', post.id),
@@ -1221,7 +1221,7 @@ export async function registerPublicRoutes(app) {
       throw app.httpErrors.notFound('Post not found');
     }
 
-    publicCacheHeaders(reply, 180);
+    noStoreHeaders(reply);
     const [relatedPosts, route] = await Promise.all([
       findRelatedPosts(app, post),
       findPublicEntityRoute(app, 'POST', post.id),
