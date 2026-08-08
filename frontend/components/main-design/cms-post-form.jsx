@@ -702,6 +702,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                 <CmsGutenbergEditor 
                   initialHtml={contentHtml} 
                   initialMedia={media}
+                  categories={categories}
                   onChange={(editorData) => {
                     setContentHtml(editorData.contentHtml);
                     setContentText(editorData.contentText);

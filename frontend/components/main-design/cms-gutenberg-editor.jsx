@@ -1,8 +1,10 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
+import CmsRelatedPostModal from './cms-related-post-modal';
+import SafeImage from './safe-image';
 
 // Helper to escape HTML characters for attributes
 function escapeHtml(text) {
@@ -53,7 +55,22 @@ function htmlToBlocks(html) {
     doc.body.childNodes.forEach((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const tagName = node.tagName.toLowerCase();
-        if (/^h[1-6]$/.test(tagName)) {
+
+        if (node.classList?.contains('wp-block-hes-related') || node.getAttribute('data-type') === 'related') {
+          const link = node.querySelector('a');
+          const img = node.querySelector('img');
+          const title = node.querySelector('.related-title')?.textContent || link?.textContent || '';
+          const category = node.querySelector('.related-category')?.textContent || '';
+          
+          blocks.push({
+            id: `b-${idCounter++}-${Date.now()}`,
+            type: 'related',
+            title,
+            url: link?.getAttribute('href') || '',
+            image: img?.getAttribute('src') || '',
+            category,
+          });
+        } else if (/^h[1-6]$/.test(tagName)) {
           blocks.push({
             id: `b-${idCounter++}-${Date.now()}`,
             type: 'heading',
@@ -61,11 +78,24 @@ function htmlToBlocks(html) {
             level: parseInt(tagName.substring(1), 10) || 2
           });
         } else if (tagName === 'p') {
-          blocks.push({
-            id: `b-${idCounter++}-${Date.now()}`,
-            type: 'paragraph',
-            content: node.innerHTML
-          });
+          const isRelatedLink = node.querySelector('a')?.classList.contains('related-post-link') || node.classList.contains('wp-block-hes-related');
+          if (isRelatedLink) {
+            const link = node.querySelector('a');
+            const img = node.querySelector('img');
+            blocks.push({
+              id: `b-${idCounter++}-${Date.now()}`,
+              type: 'related',
+              title: link ? link.textContent : node.textContent,
+              url: link ? link.getAttribute('href') : '',
+              image: img ? img.getAttribute('src') : '',
+            });
+          } else {
+            blocks.push({
+              id: `b-${idCounter++}-${Date.now()}`,
+              type: 'paragraph',
+              content: node.innerHTML
+            });
+          }
         } else if (tagName === 'blockquote') {
           const p = node.querySelector('p');
           blocks.push({
@@ -134,6 +164,19 @@ function blocksToHtml(blocks) {
       }
       case 'list':
         return `<ul>${b.items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+      case 'related': {
+        const safeUrl = normalizeSafeUrl(b.url);
+        const safeImg = normalizeSafeUrl(b.image);
+        if (!safeUrl && !b.title) return '';
+
+        return `<div className="wp-block-hes-related my-4 border border-terminal-gray/40 bg-black/40 p-3 flex items-center gap-3">
+          ${safeImg ? `<img src="${escapeHtml(safeImg)}" alt="${escapeHtml(b.title || '')}" className="w-16 h-12 object-cover border border-terminal-gray" />` : ''}
+          <div>
+            ${b.category ? `<span className="related-category text-[9px] font-mono text-system-red font-bold uppercase block">${escapeHtml(b.category)}</span>` : ''}
+            <a href="${escapeHtml(safeUrl || '#')}" className="related-title text-sm font-bold text-system-red hover:underline">${escapeHtml(b.title || 'Ver artículo relacionado')}</a>
+          </div>
+        </div>`;
+      }
       default:
         return '';
     }
@@ -261,13 +304,14 @@ function FormattingToolbar() {
   );
 }
 
-export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = [], onChange }) {
+export default function CmsGutenbergEditor({ initialHtml = '', onChange, initialMedia = [], categories = [] }) {
   const [blocks, setBlocks] = useState([]);
   const [initialized, setInitialized] = useState(false);
-  const [activeBlockIndex, setActiveBlockIndex] = useState(null);
+  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [mediaModalBlockIndex, setMediaModalBlockIndex] = useState(null);
+  const [relatedModalIndex, setRelatedModalIndex] = useState(null);
 
-  // Initialize blocks from HTML on mount
+  // Parse HTML string to Block Objects on initial load
   useEffect(() => {
     if (!initialized) {
       setBlocks(htmlToBlocks(initialHtml));
@@ -275,81 +319,83 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
     }
   }, [initialHtml, initialized]);
 
-  // Notify parent on block changes
-  const updateParent = (newBlocks) => {
-    setBlocks(newBlocks);
+  // Emit HTML changes to parent component
+  const emitChange = (newBlocks) => {
     if (onChange) {
-      onChange({
-        contentHtml: blocksToHtml(newBlocks),
-        contentText: blocksToText(newBlocks)
-      });
+      const contentHtml = blocksToHtml(newBlocks);
+      const contentText = blocksToText(newBlocks);
+      onChange({ contentHtml, contentText });
     }
   };
 
-  const addBlock = (index, type) => {
-    const defaultBlockMap = {
-      paragraph: { type: 'paragraph', content: '' },
-      heading: { type: 'heading', content: '', level: 2 },
-      quote: { type: 'quote', content: '' },
-      image: { type: 'image', url: '', caption: '' },
-      list: { type: 'list', items: [''] }
-    };
-    
-    const newBlock = {
-      id: `b-added-${Date.now()}`,
-      ...defaultBlockMap[type]
-    };
+  const updateBlockData = (index, newData) => {
+    const updated = [...blocks];
+    updated[index] = { ...updated[index], ...newData };
+    setBlocks(updated);
+    emitChange(updated);
+  };
 
-    const newBlocks = [...blocks];
-    newBlocks.splice(index + 1, 0, newBlock);
-    updateParent(newBlocks);
-    setActiveBlockIndex(index + 1);
+  const addBlock = (afterIndex, type = 'paragraph') => {
+    const newBlock = {
+      id: `b-${Date.now()}`,
+      type,
+      content: '',
+      ...(type === 'heading' ? { level: 2 } : {}),
+      ...(type === 'image' ? { url: '', caption: '' } : {}),
+      ...(type === 'list' ? { items: [''] } : {}),
+      ...(type === 'related' ? { title: '', url: '', image: '', category: '' } : {}),
+    };
+    const updated = [...blocks];
+    updated.splice(afterIndex + 1, 0, newBlock);
+    setBlocks(updated);
+    setActiveBlockIndex(afterIndex + 1);
+    emitChange(updated);
+
+    if (type === 'related') {
+      setRelatedModalIndex(afterIndex + 1);
+    }
   };
 
   const deleteBlock = (index) => {
-    if (blocks.length <= 1) {
-      updateParent([{ id: `b-reset-${Date.now()}`, type: 'paragraph', content: '' }]);
-      setActiveBlockIndex(0);
-      return;
-    }
-    const newBlocks = blocks.filter((_, i) => i !== index);
-    updateParent(newBlocks);
+    if (blocks.length <= 1) return;
+    const updated = blocks.filter((_, i) => i !== index);
+    setBlocks(updated);
     setActiveBlockIndex(Math.max(0, index - 1));
+    emitChange(updated);
   };
 
   const moveBlock = (index, direction) => {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= blocks.length) return;
-    
-    const newBlocks = [...blocks];
-    const temp = newBlocks[index];
-    newBlocks[index] = newBlocks[targetIndex];
-    newBlocks[targetIndex] = temp;
-    updateParent(newBlocks);
+    const updated = [...blocks];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+    setBlocks(updated);
     setActiveBlockIndex(targetIndex);
+    emitChange(updated);
   };
 
-  const updateBlockData = (index, fields) => {
-    const newBlocks = [...blocks];
-    newBlocks[index] = {
-      ...newBlocks[index],
-      ...fields
-    };
-    updateParent(newBlocks);
-  };
-
-  const selectImageFromMedia = (mediaAsset) => {
-    if (mediaModalBlockIndex === null || !mediaAsset?.url) {
-      setMediaModalBlockIndex(null);
-      return;
-    }
-
+  const selectImageFromMedia = (mediaItem) => {
+    if (mediaModalBlockIndex === null) return;
     updateBlockData(mediaModalBlockIndex, {
-      url: mediaAsset.url,
-      caption: mediaAsset.altText || mediaAsset.caption || mediaAsset.fileName || '',
+      url: mediaItem.url,
+      caption: mediaItem.alt || mediaItem.title || '',
     });
     setActiveBlockIndex(mediaModalBlockIndex);
     setMediaModalBlockIndex(null);
+  };
+
+  const selectRelatedPost = (post) => {
+    if (relatedModalIndex === null) return;
+    updateBlockData(relatedModalIndex, {
+      title: post.title,
+      url: post.canonicalPath || `/${post.slug}/`,
+      image: post.featuredMedia?.url || '/isotipo.png',
+      category: post.primaryCategory?.name || 'NOTICIA',
+    });
+    setActiveBlockIndex(relatedModalIndex);
+    setRelatedModalIndex(null);
   };
 
   if (!initialized) {
@@ -403,6 +449,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
                 <option value="quote">Cita</option>
                 <option value="image">Imagen</option>
                 <option value="list">Lista</option>
+                <option value="related">Post Relacionado</option>
               </select>
               <button 
                 type="button"
@@ -549,6 +596,48 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
                   </button>
                 </div>
               )}
+
+              {block.type === 'related' && (
+                <div className="border border-terminal-gray/40 bg-black/40 p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-terminal-gray/30 pb-2">
+                    <span className="text-[9px] font-mono text-system-red font-bold uppercase flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px]">link</span>
+                      Publicación Relacionada
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBlockIndex(index);
+                        setRelatedModalIndex(index);
+                      }}
+                      className="border border-system-red/60 bg-system-red/10 px-3 py-1 font-label-caps text-[9px] font-bold text-white hover:bg-system-red hover:text-black transition-colors"
+                    >
+                      Buscar / Cambiar Post
+                    </button>
+                  </div>
+
+                  {block.title || block.url ? (
+                    <div className="flex items-center gap-3 bg-black border border-terminal-gray/30 p-2.5">
+                      {block.image && (
+                        <div className="w-16 h-12 shrink-0 border border-terminal-gray overflow-hidden">
+                          <img src={block.image} alt={block.title} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        {block.category && (
+                          <span className="text-[8px] font-mono text-system-red font-bold uppercase block">{block.category}</span>
+                        )}
+                        <h4 className="font-headline-md text-xs text-white uppercase truncate font-bold">{block.title || 'Sin título'}</h4>
+                        <span className="text-[9px] font-mono text-on-surface-variant truncate block">{block.url}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-xs font-mono text-on-surface-variant border border-dashed border-terminal-gray/40">
+                      Ningún post seleccionado. Haz clic en "Buscar / Cambiar Post" para seleccionar una noticia.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Block Insertion Button Trigger (Hover target below each block) */}
@@ -561,6 +650,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
                 <button type="button" onClick={() => addBlock(index, 'quote')} className="hover:text-white px-1">Cita</button>
                 <button type="button" onClick={() => addBlock(index, 'image')} className="hover:text-white px-1">Imagen</button>
                 <button type="button" onClick={() => addBlock(index, 'list')} className="hover:text-white px-1">Lista</button>
+                <button type="button" onClick={() => addBlock(index, 'related')} className="hover:text-white px-1 text-system-red font-bold">+ Post Relacionado</button>
               </div>
             </div>
 
@@ -570,7 +660,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
 
       {/* Button to add first block at the bottom of the list */}
       <div className="flex justify-center pt-4 border-t border-terminal-gray/20">
-        <div className="flex gap-2 text-[9px] font-mono text-on-surface-variant">
+        <div className="flex flex-wrap gap-2 text-[9px] font-mono text-on-surface-variant">
           <span className="self-center font-bold text-system-red">[AÑADIR AL FINAL]</span>
           <button
             type="button"
@@ -607,6 +697,13 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
           >
             + Lista
           </button>
+          <button
+            type="button"
+            onClick={() => addBlock(blocks.length - 1, 'related')}
+            className="border border-system-red/60 text-system-red font-bold hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
+          >
+            + Post Relacionado
+          </button>
         </div>
       </div>
     </div>
@@ -617,7 +714,12 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
       selectedMediaId={selectedMediaId}
       onSelect={selectImageFromMedia}
     />
+    <CmsRelatedPostModal
+      isOpen={relatedModalIndex !== null}
+      onClose={() => setRelatedModalIndex(null)}
+      categories={categories}
+      onSelect={selectRelatedPost}
+    />
     </>
   );
 }
-
