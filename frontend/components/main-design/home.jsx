@@ -300,9 +300,11 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 <h3 className="text-white font-bold text-[11px] leading-tight line-clamp-2 uppercase group-hover:text-system-red transition-colors">
                   {art.title}
                 </h3>
-                <span className="text-[8px] text-on-surface-variant font-mono uppercase mt-1 block">
-                  Hace {formatRelativeTime(art.publishedAt)}
-                </span>
+                <div className="flex items-center gap-2 text-[8px] text-on-surface-variant font-mono uppercase mt-1">
+                  <span>Hace {formatRelativeTime(art.publishedAt)}</span>
+                  <span>•</span>
+                  <span className="text-system-red font-bold">{art.views} visitas</span>
+                </div>
               </div>
             </div>
           ))}
