@@ -1167,3 +1167,11 @@ model ApiKey {
   @@index([expiresAt, revokedAt])
   @@map("api_keys")
 }
+
+model SystemSetting {
+  key       String   @id @db.VarChar(120)
+  value     String   @db.LongText
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(6)
+
+  @@map("system_settings")
+}

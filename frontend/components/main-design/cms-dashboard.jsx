@@ -144,6 +144,13 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Media
           </Link>
           <Link
+            href="/cms/auto-post"
+            className="border border-system-red/60 bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:bg-system-red hover:text-black transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px] text-system-red group-hover:text-black">smart_toy</span>
+            Auto-Post IA
+          </Link>
+          <Link
             href="/cms/analiticas"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >
