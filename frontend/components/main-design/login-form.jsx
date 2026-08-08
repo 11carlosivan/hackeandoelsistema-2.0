@@ -61,6 +61,13 @@ export default function LoginForm() {
             isAdmin: isUserAdmin,
           })
         );
+
+        if (result.accessToken) {
+          document.cookie = `hes_access_token=${result.accessToken}; path=/; max-age=900; SameSite=Lax`;
+        }
+        if (result.refreshToken) {
+          document.cookie = `hes_refresh_token=${result.refreshToken}; path=/; max-age=2592000; SameSite=Lax`;
+        }
       }
 
       setStatus('success');
