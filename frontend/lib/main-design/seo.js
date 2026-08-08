@@ -61,7 +61,7 @@ export function socialPreviewImageUrl(imageUrl, versionSeed) {
       params.set('v', String(versionSeed).replace(/[^a-z0-9-_.:]/gi, '').slice(0, 80));
     }
 
-    return absoluteUrl(`/api/social-image/?${params.toString()}`);
+    return absoluteUrl(`/social-image/?${params.toString()}`);
   } catch {
     return imageUrl;
   }

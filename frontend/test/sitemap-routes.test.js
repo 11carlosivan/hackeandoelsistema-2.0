@@ -48,14 +48,14 @@ describe('sitemap route filtering', () => {
       modifiedTime: '2026-08-07T19:22:25.722Z',
     });
 
-    expect(socialPreviewImageUrl(sourceImage, '2026-08-07')).toContain('/api/social-image/?src=');
+    expect(socialPreviewImageUrl(sourceImage, '2026-08-07')).toContain('/social-image/?src=');
     expect(metadata.openGraph.images[0]).toMatchObject({
-      secureUrl: expect.stringContaining('/api/social-image/?src='),
+      secureUrl: expect.stringContaining('/social-image/?src='),
       type: 'image/jpeg',
       width: 1200,
       height: 630,
     });
-    expect(metadata.twitter.images[0]).toContain('/api/social-image/?src=');
+    expect(metadata.twitter.images[0]).toContain('/social-image/?src=');
   });
 
   it('keeps local fallback images direct instead of proxying them', () => {
