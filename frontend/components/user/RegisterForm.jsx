@@ -5,15 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 
-function getSafeNextPath() {
-  if (typeof window === 'undefined') return '/';
-
-  const next = new URLSearchParams(window.location.search).get('next');
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
-    return '/';
-  }
-
-  return next;
+function profilePathForUser(user) {
+  return user?.id ? `/perfil/${encodeURIComponent(user.id)}/` : '/';
 }
 
 export default function RegisterForm() {
@@ -56,7 +49,7 @@ export default function RegisterForm() {
       }
 
       setStatus('success');
-      router.push(getSafeNextPath());
+      router.push(profilePathForUser(payload?.data?.user));
       router.refresh();
     } catch (registerError) {
       setStatus('error');

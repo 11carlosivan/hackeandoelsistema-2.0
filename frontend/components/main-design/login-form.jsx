@@ -6,18 +6,43 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 
-export function getSafeLoginNextPath(next) {
+const CMS_ROLES = new Set(['ADMIN', 'EDITOR']);
+
+export function getSafeLoginNextPath(next, fallback = '/cms') {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
-    return '/cms';
+    return fallback;
   }
 
   return next;
 }
 
 function getNextPath() {
-  if (typeof window === 'undefined') return '/cms';
+  if (typeof window === 'undefined') return null;
 
-  return getSafeLoginNextPath(new URLSearchParams(window.location.search).get('next'));
+  return getSafeLoginNextPath(new URLSearchParams(window.location.search).get('next'), null);
+}
+
+export function userHasCmsAccess(user) {
+  return Array.isArray(user?.roles) && user.roles.some((role) => CMS_ROLES.has(role));
+}
+
+export function profilePathForUser(user) {
+  return user?.id ? `/perfil/${encodeURIComponent(user.id)}/` : '/';
+}
+
+export function loginRedirectPath(user, nextPath = null) {
+  const hasCmsAccess = userHasCmsAccess(user);
+  const fallback = hasCmsAccess ? '/cms' : profilePathForUser(user);
+
+  if (!nextPath) {
+    return fallback;
+  }
+
+  if (nextPath === '/cms' || nextPath.startsWith('/cms/')) {
+    return hasCmsAccess ? nextPath : fallback;
+  }
+
+  return nextPath;
 }
 
 export default function LoginForm() {
@@ -41,13 +66,14 @@ export default function LoginForm() {
         },
         body: JSON.stringify({ email, password }),
       });
+      const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error('Credenciales invalidas o cuenta bloqueada temporalmente.');
+        throw new Error(payload?.message || 'Credenciales invalidas o cuenta bloqueada temporalmente.');
       }
 
       setStatus('success');
-      router.push(getNextPath());
+      router.push(loginRedirectPath(payload?.data?.user, getNextPath()));
       router.refresh();
     } catch (loginError) {
       setStatus('error');

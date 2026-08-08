@@ -40,6 +40,7 @@ describe('RegisterForm', () => {
       return jsonResponse({
         data: {
           user: {
+            id: 'reader-1',
             email: 'lector@example.com',
           },
         },
@@ -54,7 +55,7 @@ describe('RegisterForm', () => {
     fireEvent.change(screen.getByLabelText('Confirmar clave'), { target: { value: 'CorrectHorse123!' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/perfil/reader-1/'));
     expect(refresh).toHaveBeenCalled();
   });
 
