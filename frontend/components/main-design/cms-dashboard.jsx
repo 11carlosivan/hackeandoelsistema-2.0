@@ -8,7 +8,7 @@ import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { csrfHeaders } from './client-security';
 
-export default function CmsDashboard({ summary }) {
+export default function CmsDashboard({ summary, accessToken = null }) {
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState('');
 
@@ -24,6 +24,7 @@ export default function CmsDashboard({ summary }) {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'PUBLISH' }),
@@ -62,6 +63,7 @@ export default function CmsDashboard({ summary }) {
         credentials: 'include',
         headers: {
           Accept: 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           ...csrfHeaders(),
         },
       });

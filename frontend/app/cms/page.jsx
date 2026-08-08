@@ -18,7 +18,7 @@ export default async function Page() {
 
   return (
     <Layout>
-      <CmsDashboard summary={summary} />
+      <CmsDashboard summary={summary} accessToken={accessToken} />
     </Layout>
   );
 }
