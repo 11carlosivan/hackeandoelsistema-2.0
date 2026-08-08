@@ -416,10 +416,32 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     setNewTags((current) => current.filter((tag) => tag !== tagName));
   };
 
+  const requiresSocialCover = (actionType) => {
+    return visibility === 'PUBLIC' &&
+      !selectedMedia?.id &&
+      (actionType === 'PUBLISH' || actionType === 'SCHEDULE' || post?.status === 'PUBLISHED');
+  };
+
+  const ensureSocialCover = (actionType) => {
+    if (!requiresSocialCover(actionType)) {
+      return true;
+    }
+
+    setStatus('error');
+    setError('Selecciona una imagen destacada antes de publicar. Esa portada se usa al compartir el enlace en WhatsApp y redes sociales.');
+
+    return false;
+  };
+
   const submit = async (event, actionType = 'DRAFT') => {
     if (event) event.preventDefault();
-    setStatus('loading');
     setError('');
+
+    if (!ensureSocialCover(actionType)) {
+      return;
+    }
+
+    setStatus('loading');
 
     const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
     const contentPayload = {
@@ -548,6 +570,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   };
 
   const runWorkflowAction = async (action) => {
+    setError('');
+
+    if (!ensureSocialCover(action)) {
+      return;
+    }
+
     const riskyAction = action === 'PUBLISH' || action === 'SCHEDULE' || action === 'ARCHIVE';
     const confirmation = riskyAction
       ? await requestConfirmation(action === 'PUBLISH'
@@ -1292,6 +1320,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                     <span>Asignar imagen destacada</span>
                   </button>
                 )}
+                {!selectedMedia ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
+                    Requerida para publicar y para que WhatsApp muestre la portada correcta al compartir el enlace.
+                  </p>
+                ) : null}
               </div>
 
               {/* Schedule and Visibility Options */}

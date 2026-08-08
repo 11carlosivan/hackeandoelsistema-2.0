@@ -1,5 +1,27 @@
 const FALLBACK_IMAGE = '/isotipo.png';
 
+function decodeAttributeEntities(value) {
+  return String(value || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+export function firstImageFromHtml(html) {
+  const source = String(html || '');
+  const quotedMatch = source.match(/<img\b[^>]*\bsrc=(["'])(.*?)\1/i);
+  const unquotedMatch = quotedMatch ? null : source.match(/<img\b[^>]*\bsrc=([^\s>]+)/i);
+  const rawUrl = quotedMatch?.[2] || unquotedMatch?.[1];
+  const imageUrl = decodeAttributeEntities(rawUrl);
+
+  if (!imageUrl || /^(?:data|blob|javascript):/i.test(imageUrl)) {
+    return null;
+  }
+
+  return /^(?:https?:\/\/|\/)/i.test(imageUrl) ? imageUrl : null;
+}
+
 function normalizePublicPath(value) {
   if (!value) {
     return null;
@@ -58,7 +80,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     saveCount: Number(post.saveCount ?? 0),
     shareCount: Number(post.shareCount ?? 0),
     readTime: estimateReadingTime(post.contentText || post.excerpt),
-    image: post.featuredMedia?.url || FALLBACK_IMAGE,
+    image: post.featuredMedia?.url || firstImageFromHtml(post.contentHtml) || FALLBACK_IMAGE,
     isHero: index === 0,
     isFeatured: index > 0 && index < 4,
     related: (post.relatedPosts || []).map((relatedPost, relatedIndex) =>

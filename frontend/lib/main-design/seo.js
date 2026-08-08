@@ -35,6 +35,16 @@ function normalizeInternalPath(path = '/') {
   return `${normalizedPathname}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`;
 }
 
+function imageMimeType(imageUrl) {
+  const pathname = String(imageUrl || '').split('?', 1)[0].toLowerCase();
+
+  if (pathname.endsWith('.png')) return 'image/png';
+  if (pathname.endsWith('.webp')) return 'image/webp';
+  if (pathname.endsWith('.gif')) return 'image/gif';
+
+  return 'image/jpeg';
+}
+
 export function toIsoDate(dateValue) {
   if (!dateValue || !/\d{4}/.test(dateValue)) return undefined;
 
@@ -71,6 +81,7 @@ export function buildMetadata({
     : siteConfig.title;
   const canonical = absoluteUrl(path);
   const imageUrl = image?.startsWith('http') ? image : absoluteUrl(image || siteConfig.defaultImage);
+  const imageType = imageMimeType(imageUrl);
   const validPublishedTime = toIsoDate(publishedTime);
   const validModifiedTime = toIsoDate(modifiedTime);
   const shouldIndex = siteConfig.indexingEnabled && (robotsIndex ? robotsIndex === 'INDEX' : !noIndex);
@@ -129,9 +140,11 @@ export function buildMetadata({
       images: [
         {
           url: imageUrl,
+          secureUrl: imageUrl,
           width: 1200,
           height: 630,
           alt: title || siteConfig.name,
+          type: imageType,
         },
       ],
       publishedTime: validPublishedTime,

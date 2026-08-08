@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapApiCategory, mapApiPostToArticle } from './api-adapters';
+import { firstImageFromHtml, mapApiCategory, mapApiPostToArticle } from './api-adapters';
 
 describe('api-adapters', () => {
   it('normalizes legacy category paths to WordPress category URLs', () => {
@@ -48,5 +48,33 @@ describe('api-adapters', () => {
       commentCount: 7,
       likeCount: 0,
     });
+  });
+
+  it('uses the featured media as the primary social image', () => {
+    expect(
+      mapApiPostToArticle({
+        slug: 'post-demo',
+        title: 'Post demo',
+        contentHtml: '<p><img src="https://cdn.example.com/inline.jpg"></p>',
+        featuredMedia: { url: 'https://cdn.example.com/cover.jpg' },
+      }),
+    ).toMatchObject({
+      image: 'https://cdn.example.com/cover.jpg',
+    });
+  });
+
+  it('falls back to the first safe content image for legacy imported posts', () => {
+    expect(
+      mapApiPostToArticle({
+        slug: 'post-demo',
+        title: 'Post demo',
+        contentHtml: '<p><img alt="Demo" src="https://cdn.example.com/legacy.jpg?x=1&amp;y=2"></p>',
+      }),
+    ).toMatchObject({
+      image: 'https://cdn.example.com/legacy.jpg?x=1&y=2',
+    });
+
+    expect(firstImageFromHtml('<img src="/uploads/post.jpg">')).toBe('/uploads/post.jpg');
+    expect(firstImageFromHtml('<img src="data:image/png;base64,abc">')).toBeNull();
   });
 });
