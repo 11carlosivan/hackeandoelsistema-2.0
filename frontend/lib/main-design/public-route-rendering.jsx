@@ -317,6 +317,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         authors: article.authorName ? [article.authorName] : undefined,
         tags: [article.category, article.tag].filter(Boolean),
         ...routeSocialMetadata(route),
+        twitterCard: 'summary_large_image',
         ...routeRobots(route),
       });
     } catch (error) {
