@@ -1,0 +1,23 @@
+==================================================================
+CREDENCIALES DE ACCESO Y CONFIGURACIÓN LOCAL
+==================================================================
+
+1. ACCESO AL CMS / PANEL DE ADMINISTRADOR:
+------------------------------------------------------------------
+* Email:      admin1@hackeandoelsistema.net
+* Contraseña: 2sl4z0aPxT700NOso6rCPCP1sfmxgCTw
+* Enlace:     http://localhost:3000/iniciar-sesion
+
+
+2. SERVIDORES LOCALES ACTIVOS:
+------------------------------------------------------------------
+* Frontend (Next.js): http://localhost:3000
+* Backend (Fastify):  http://localhost:4000
+* Base de Datos:      localhost:3306 (MySQL)
+
+
+3. TOKEN DE SUBIDA PARA EL COLABORADOR (SUBIR.PHP):
+------------------------------------------------------------------
+* Token:      hes_upload_sec_9a82f7c03d1e4b85a67c9d92b0e14a5d
+* URL API:    https://image.hackeandoelsistema.net/subir.php
+* Campo File: image
