@@ -108,12 +108,11 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
               <span>{article.date}</span>
               <span>/</span>
               <span>{article.readTime || 'LECTURA'}</span>
-              {article.views && (
-                <>
-                  <span>/</span>
-                  <span>{article.views} VISTAS</span>
-                </>
-              )}
+              <span>/</span>
+              <span className="text-system-red font-bold inline-flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px]">visibility</span>
+                {article.views || '0'} VISTAS
+              </span>
             </div>
           </div>
         </section>
