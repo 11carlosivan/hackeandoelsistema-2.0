@@ -492,7 +492,7 @@ export default function CmsDashboard({ summary, accessToken = null }) {
               </div>
               <div>
                 <dt className="font-label-caps text-[9px] text-on-surface-variant">Finalizado</dt>
-                <dd className="text-white">{importRun?.finishedAt ? new Date(importRun.finishedAt).toLocaleString('es-DO') : 'Pendiente'}</dd>
+                <dd className="text-white" suppressHydrationWarning>{importRun?.finishedAt ? new Date(importRun.finishedAt).toLocaleString('es-DO') : 'Pendiente'}</dd>
               </div>
             </dl>
           </div>
@@ -504,7 +504,7 @@ export default function CmsDashboard({ summary, accessToken = null }) {
                 <div key={event.id} className="border border-terminal-gray bg-surface-container-low/30 p-3">
                   <div className="font-label-caps text-[9px] text-system-red font-bold">{event.eventType}</div>
                   <div className="text-white text-sm font-bold">{event.user?.displayName || event.user?.email || 'Sistema'}</div>
-                  <div className="text-on-surface-variant text-xs">
+                  <div className="text-on-surface-variant text-xs" suppressHydrationWarning>
                     {event.createdAt ? new Date(event.createdAt).toLocaleString('es-DO') : 'Sin fecha'}
                   </div>
                 </div>
