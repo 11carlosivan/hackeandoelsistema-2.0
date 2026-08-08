@@ -90,7 +90,7 @@ export default function LoginForm() {
             SESION CMS
           </div>
 
-          <label className="block mb-5">
+          <label className="block mb-5" suppressHydrationWarning>
             <span className="block font-label-caps text-[10px] font-bold text-on-surface-variant mb-2">
               Email
             </span>
@@ -105,7 +105,7 @@ export default function LoginForm() {
             />
           </label>
 
-          <label className="block mb-6">
+          <label className="block mb-6" suppressHydrationWarning>
             <span className="block font-label-caps text-[10px] font-bold text-on-surface-variant mb-2">
               Password
             </span>
