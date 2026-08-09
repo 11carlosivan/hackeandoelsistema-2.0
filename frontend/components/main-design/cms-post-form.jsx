@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { csrfHeaders } from './client-security';
+import { csrfHeaders, fetchJsonWithCsrfRetry } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
 
@@ -168,44 +168,29 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       };
 
       try {
+        const apiBaseUrl = getApiBaseUrl();
+
         if (postId) {
-          // PATCH update existing draft/post in DB
-          const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
             method: 'PATCH',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              ...csrfHeaders(),
-            },
             body: JSON.stringify(payload),
           });
-          if (response.ok) {
-            const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            setAutoSaveMessage(`Autoguardado en base de datos a las ${time}`);
-          }
+          const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          setAutoSaveMessage(`Autoguardado en base de datos a las ${time}`);
         } else {
-          // POST create new post as DRAFT in DB
-          const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts`, {
+          const json = await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts`, {
             method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              ...csrfHeaders(),
-            },
             body: JSON.stringify({
               ...payload,
               status: 'DRAFT',
             }),
           });
-          if (response.ok) {
-            const json = await response.json();
-            const newId = json.data?.post?.id;
-            if (newId) {
-              setPostId(newId);
-              window.history.replaceState(null, '', `/cms/publicaciones/${newId}`);
-              const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setAutoSaveMessage(`Borrador guardado a las ${time}`);
-            }
+          const newId = json.data?.post?.id;
+          if (newId) {
+            setPostId(newId);
+            window.history.replaceState(null, '', `/cms/publicaciones/${newId}`);
+            const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setAutoSaveMessage(`Borrador guardado a las ${time}`);
           }
         }
       } catch (err) {
@@ -472,36 +457,20 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       isBreaking: isBreaking,
       isSponsored: isSponsored,
     };
-    const requestJson = async (url, options) => {
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...csrfHeaders(),
-          ...(options.headers || {}),
-        },
-        ...options,
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || 'Error al guardar la publicacion.');
-      }
-
-      return response.json().catch(() => ({}));
-    };
+    const apiBaseUrl = getApiBaseUrl();
+    const requestJson = async (url, options) => fetchJsonWithCsrfRetry(apiBaseUrl, url, options);
 
     try {
       let finalId = postId;
 
       if (postId) {
         if (canEditContent) {
-          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
             method: 'PATCH',
             body: JSON.stringify(contentPayload),
           });
         }
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/taxonomy`, {
+        await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/taxonomy`, {
           method: 'PATCH',
           body: JSON.stringify({
             categoryIds: selectedCategoryIds,
@@ -510,7 +479,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             newTagNames: newTags,
           }),
         });
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/seo`, {
+        await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/seo`, {
           method: 'PATCH',
           body: JSON.stringify({
             title: seoTitleVal.trim() || null,
@@ -519,19 +488,19 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             robotsFollow: currentRobotsFollow,
           }),
         });
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/featured-media`, {
+        await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
           method: 'PATCH',
           body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
         });
       } else {
-        const json = await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts`, {
+        const json = await requestJson(`${apiBaseUrl}/api/v1/cms/posts`, {
           method: 'POST',
           body: JSON.stringify(createPayload),
         });
         finalId = json.data?.post?.id;
 
         if (finalId && actionType === 'PUBLISH') {
-          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${finalId}/workflow`, {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${finalId}/workflow`, {
             method: 'PATCH',
             body: JSON.stringify({ action: 'PUBLISH' }),
           });
@@ -594,6 +563,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     setError('');
 
     try {
+      const apiBaseUrl = getApiBaseUrl();
+
       if (canEditContent) {
         const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
         const contentPayload = {
@@ -606,34 +577,16 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           visibility: visibility,
           scheduledAt: scheduledAtVal,
         };
-        const saveResponse = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+        await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
           method: 'PATCH',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            ...csrfHeaders(),
-          },
           body: JSON.stringify(contentPayload),
         });
-        if (!saveResponse.ok) {
-          throw new Error('Error al guardar el contenido antes del cambio de estado.');
-        }
       }
 
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+      await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...csrfHeaders(),
-        },
         body: JSON.stringify({ action }),
       });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || 'No se pudo cambiar el estado.');
-      }
 
       setStatus('success');
       router.refresh();
