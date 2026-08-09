@@ -22,7 +22,8 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
             fotoPerfil: parsed.fotoPerfil || prev?.fotoPerfil || '/isotipo.png',
             fotoPortada: parsed.fotoPortada || prev?.fotoPortada || '/logo.png',
             isVerified: parsed.isVerified !== undefined ? parsed.isVerified : prev?.isVerified,
-            isAdmin: parsed.isAdmin !== undefined ? parsed.isAdmin : prev?.isAdmin,
+            isAdmin: Boolean(prev?.isAdmin || parsed.isAdmin),
+            roles: Array.isArray(parsed.roles) && parsed.roles.length > 0 ? parsed.roles : prev?.roles,
             direccion: {
               pais: parsed.pais || prev?.direccion?.pais,
               ciudad: parsed.ciudad || prev?.direccion?.ciudad,
@@ -50,6 +51,8 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
 
   const fullName = `${nombre} ${apellido}`.trim();
   const locationString = [direccion.sectorBarrio, direccion.ciudad, direccion.pais].filter(Boolean).join(', ');
+  const canAccessCms = Boolean(profile?.isAdmin)
+    || (Array.isArray(profile?.roles) && profile.roles.some((role) => ['ADMIN', 'EDITOR'].includes(String(role).toUpperCase())));
 
   return (
     <div className="w-full bg-background border border-terminal-gray mb-8">
@@ -92,7 +95,7 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
 
           {/* Botones de Acciones */}
           <div className="flex flex-wrap items-center gap-3">
-            {profile?.isAdmin && (
+            {canAccessCms && (
               <Link
                 href="/cms"
                 className="bg-black border border-system-red text-system-red font-label-caps text-[11px] font-bold px-4 py-2.5 hover:bg-system-red hover:text-black transition-colors inline-flex items-center gap-2"

@@ -52,21 +52,28 @@ export default async function Page({ params }) {
 
   const decodedId = decodeURIComponent(id || '');
   const formattedName = decodedId.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  const normalizedId = decodedId.toLowerCase().trim();
+  const authorRoles = Array.isArray(author?.roles) ? author.roles : [];
+  const isCmsProfile = ['admin', 'administrador-hes', 'administrador hes', 'administrator-hes'].includes(normalizedId)
+    || authorRoles.some((role) => ['ADMIN', 'EDITOR'].includes(String(role).toUpperCase()))
+    || ['administrador hes', 'administrator hes'].includes(String(author?.displayName || author?.name || '').toLowerCase().trim());
 
   // Si no se encuentra autor en el mock/api legacy, creamos un objeto lector por defecto
   const user = author ? {
-    nombre: author.displayName || author.name,
+    nombre: isCmsProfile ? 'Administrador HES' : (author.displayName || author.name),
     apellido: '',
     correo: author.email || 'lector@hackeandoelsistema.com',
     fotoPerfil: author.avatar?.url || author.photo || '/isotipo.png',
     fotoPortada: author.coverUrl || '/logo.png',
     isVerified: true,
+    isAdmin: isCmsProfile,
+    roles: authorRoles,
     bio: author.bio || 'Lector verificado y colaborador activo de Hackeando el Sistema Network.',
     stats: {
-      posts: author.stats?.posts || 3,
-      reposts: 5,
-      commentsMade: 14,
-      commentsReceived: 8,
+      posts: author.stats?.posts || (isCmsProfile ? 2 : 3),
+      reposts: isCmsProfile ? 2 : 5,
+      commentsMade: isCmsProfile ? 6 : 14,
+      commentsReceived: isCmsProfile ? 4 : 8,
     },
     direccion: {
       pais: 'República Dominicana',
@@ -82,6 +89,8 @@ export default async function Page({ params }) {
     fotoPerfil: '/isotipo.png',
     fotoPortada: '/logo.png',
     isVerified: true,
+    isAdmin: isCmsProfile,
+    roles: isCmsProfile ? ['ADMIN'] : ['MEMBER'],
     bio: 'Lector verificado y colaborador activo de Hackeando el Sistema Network.',
     stats: { posts: 0, reposts: 2, commentsMade: 6, commentsReceived: 4 },
   };
