@@ -73,6 +73,47 @@ describe('public API client', () => {
     });
   });
 
+  it('requests enough posts for the home archive preview', async () => {
+    vi.stubEnv('API_INTERNAL_URL', 'https://api.example.test');
+    const fetchSpy = vi.fn(async (url) => {
+      const requestUrl = String(url);
+
+      if (requestUrl.includes('/api/v1/public/posts')) {
+        return {
+          ok: true,
+          json: async () => ({ data: [], meta: { page: 1, limit: 24, total: 0, totalPages: 1 } }),
+        };
+      }
+
+      if (requestUrl.includes('/api/v1/public/categories')) {
+        return {
+          ok: true,
+          json: async () => ({ data: [] }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            counts: { posts: 0, routes: 0, categories: 0, tags: 0 },
+            latestImportRun: null,
+            recentPosts: [],
+          },
+        }),
+      };
+    });
+
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await getHomeFeed();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/public/posts?limit=24',
+      expect.objectContaining({ next: { revalidate: 60 } }),
+    );
+  });
+
   it('fails API requests with a 504 error when the timeout is reached', async () => {
     vi.useFakeTimers();
     vi.stubEnv('API_INTERNAL_URL', 'https://api.example.test');

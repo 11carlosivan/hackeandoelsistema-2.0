@@ -11,6 +11,8 @@ import SafeImage from './safe-image';
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
   const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
+  const totalPosts = Number(summary?.counts?.posts || articles.length || 0);
+  const archiveTotalPages = Math.max(1, Math.ceil(totalPosts / 24));
   
   // Hero articles (slider on the left)
   const heroArticles = articles.filter(a => a.isHero || a.isFeatured);
@@ -87,7 +89,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     if (activeFilter !== 'TODAS') {
       list = articles.filter(a => a.category === activeFilter);
     }
-    return list.slice(0, 4);
+    return list.slice(0, 8);
   };
   const filteredArticles = getFilteredArticles();
 
@@ -170,7 +172,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         <div className="relative flex-grow overflow-hidden h-full flex items-center">
           <div className="animate-marquee flex flex-row flex-nowrap items-center gap-12 pl-4 w-max">
             {/* Duplicated list to allow seamless loop scrolling */}
-            {articles.slice(0, 5).concat(articles.slice(0, 5)).map((art, idx) => (
+            {articles.slice(0, 8).concat(articles.slice(0, 8)).map((art, idx) => (
               <Link 
                 key={`${art.id}-${idx}`} 
                 href={art.route || `/articulo/${art.id}`} 
@@ -345,11 +347,16 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-terminal-gray pb-4">
           <div className="flex items-center gap-3 shrink-0">
             <span className="w-2.5 h-2.5 bg-system-red animate-pulse"></span>
-            <h2 className="font-headline-md text-headline-md text-white uppercase font-bold">LO ÚLTIMO</h2>
+            <div>
+              <h2 className="font-headline-md text-headline-md text-white uppercase font-bold">LO ÚLTIMO</h2>
+              <p className="font-mono text-[10px] text-on-surface-variant uppercase">
+                {totalPosts.toLocaleString('es-DO')} publicaciones en archivo
+              </p>
+            </div>
           </div>
           
           {/* Category Tabs */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {visibleCategories.map((cat) => (
               <button 
                 key={cat}
@@ -363,6 +370,12 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 {cat}
               </button>
             ))}
+            <Link
+              href="/archivo"
+              className="border border-system-red px-3 py-1 font-label-caps text-[9px] font-bold tracking-wider text-system-red transition-colors hover:bg-system-red hover:text-black"
+            >
+              VER ARCHIVO
+            </Link>
           </div>
         </div>
 
@@ -436,6 +449,30 @@ export default function Home({ initialArticles, initialCategories = [], summary 
               [ALERTA: SIN INFORMES REGISTRADOS BAJO ESTA CLASIFICACIÓN]
             </div>
           )}
+        </div>
+        <div className="border border-terminal-gray bg-surface-container-low/25 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="font-label-caps text-[10px] text-system-red font-bold uppercase">Archivo completo</div>
+            <p className="text-[12px] text-on-surface-variant">
+              Navega las {totalPosts.toLocaleString('es-DO')} publicaciones en {archiveTotalPages.toLocaleString('es-DO')} paginas.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/archivo"
+              className="border border-terminal-gray px-4 py-2 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red hover:text-system-red"
+            >
+              IR AL ARCHIVO
+            </Link>
+            {archiveTotalPages > 1 && (
+              <Link
+                href="/archivo?page=2"
+                className="border border-system-red bg-system-red px-4 py-2 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-transparent hover:text-system-red"
+              >
+                MAS ANTIGUAS
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 
