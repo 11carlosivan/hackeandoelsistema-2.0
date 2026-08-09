@@ -6,7 +6,7 @@ import RssParser from 'rss-parser';
 
 const SETTINGS_KEY = 'auto_post_config';
 const MAX_RESPONSE_BYTES = 2_000_000;
-const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.6-flash';
 const DEFAULT_CONFIG = {
   sources: '',
   aiProvider: 'gemini',
