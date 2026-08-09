@@ -6,6 +6,7 @@ import RssParser from 'rss-parser';
 
 const SETTINGS_KEY = 'auto_post_config';
 const MAX_RESPONSE_BYTES = 2_000_000;
+const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-2.5-flash';
 const DEFAULT_CONFIG = {
   sources: '',
   aiProvider: 'gemini',
@@ -108,6 +109,7 @@ export async function saveAutoPostConfig(app, input) {
   }
 
   delete next.apiKey;
+  delete next.apiKeyDecryptFailed;
 
   await app.prisma.siteSetting.upsert({
     where: { settingKey: SETTINGS_KEY },
@@ -328,7 +330,7 @@ Formato:
 }
 
 async function callGemini(apiKey, prompt) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -340,7 +342,10 @@ async function callGemini(apiKey, prompt) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    throw new Error(error?.error?.message || `Gemini HTTP ${response.status}`);
+    if (response.status === 429) {
+      throw new Error('Gemini rechazo la solicitud por cuota o facturacion. Revisa el limite/billing de la API key en Google AI Studio.');
+    }
+    throw new Error(error?.error?.message || `Gemini ${GEMINI_MODEL} HTTP ${response.status}`);
   }
 
   const json = await response.json();
@@ -552,6 +557,7 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
     processedHashes: [...new Set(nextProcessedHashes)].slice(-2000),
   };
   delete updatedConfig.apiKey;
+  delete updatedConfig.apiKeyDecryptFailed;
 
   await app.prisma.siteSetting.upsert({
     where: { settingKey: SETTINGS_KEY },

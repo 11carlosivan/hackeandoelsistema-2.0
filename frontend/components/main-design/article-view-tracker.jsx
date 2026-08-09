@@ -14,7 +14,11 @@ export default function ArticleViewTracker({ postId }) {
     fetch(`${getClientApiBaseUrl()}/api/v1/public/posts/id/${encodeURIComponent(postId)}/view`, {
       method: 'POST',
       credentials: 'include',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
       keepalive: true,
     }).catch(() => {
       // View tracking must never block article reading.
