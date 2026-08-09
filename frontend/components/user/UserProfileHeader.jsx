@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import VerifiedBadge from './VerifiedBadge';
+import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 
 export default function UserProfileHeader({ user: initialUser, isOwnProfile = false }) {
   const [profile, setProfile] = useState(initialUser);
+  const [sessionUser, setSessionUser] = useState(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -37,6 +39,30 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
     }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`${getClientApiBaseUrl()}/api/v1/auth/me`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!cancelled) {
+          setSessionUser(payload?.data?.user || null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSessionUser(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const {
     nombre = 'Lector Hackeando',
     apellido = '',
@@ -51,8 +77,9 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
 
   const fullName = `${nombre} ${apellido}`.trim();
   const locationString = [direccion.sectorBarrio, direccion.ciudad, direccion.pais].filter(Boolean).join(', ');
-  const canAccessCms = Boolean(profile?.isAdmin)
-    || (Array.isArray(profile?.roles) && profile.roles.some((role) => ['ADMIN', 'EDITOR'].includes(String(role).toUpperCase())));
+  const hasCmsRole = (user) => Array.isArray(user?.roles)
+    && user.roles.some((role) => ['ADMIN', 'EDITOR'].includes(String(role).toUpperCase()));
+  const canAccessCms = Boolean(profile?.isAdmin) || hasCmsRole(profile) || hasCmsRole(sessionUser);
 
   return (
     <div className="w-full bg-background border border-terminal-gray mb-8">
