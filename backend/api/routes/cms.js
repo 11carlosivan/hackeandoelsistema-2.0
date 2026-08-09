@@ -257,7 +257,7 @@ const seoUpdateSchema = z
 const featuredMediaSchema = z.object({
   mediaId: z.uuid().nullable(),
 });
-const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
+const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
 const workflowTransitions = {
   SUBMIT_REVIEW: new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']),
   RETURN_TO_DRAFT: new Set(['PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED']),

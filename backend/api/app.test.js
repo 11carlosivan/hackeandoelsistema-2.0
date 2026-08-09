@@ -1163,6 +1163,69 @@ describe('api app', () => {
     });
   });
 
+  it('records public post views and increments the view count', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let createdView = null;
+    const tx = {
+      postView: {
+        create: async ({ data }) => {
+          createdView = data;
+          return { id: 'view-1' };
+        },
+      },
+      post: {
+        update: async ({ data }) => {
+          expect(data).toEqual({ viewCount: { increment: 1 } });
+          return { viewCount: 13 };
+        },
+      },
+    };
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async (callback) => callback(tx),
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  viewCount: 12,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/view`,
+      headers: {
+        'user-agent': 'vitest',
+        referer: 'https://hackeandoelsistema.net/sample-post/',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['set-cookie']).toContain('hes_public_visitor=');
+    expect(createdView).toMatchObject({
+      postId,
+      userId: null,
+      referrer: 'https://hackeandoelsistema.net/sample-post/',
+    });
+    expect(createdView.ipHash).toEqual(expect.any(String));
+    expect(createdView.userAgentHash).toEqual(expect.any(String));
+    expect(createdView.viewedAt).toBeInstanceOf(Date);
+    expect(response.json().data).toMatchObject({
+      postId,
+      viewCount: 13,
+    });
+  });
+
   it('requires an active account to create public comments', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     const app = await buildApp({

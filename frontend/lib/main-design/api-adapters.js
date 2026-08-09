@@ -62,6 +62,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
 
   return {
     id: post.slug,
+    postId: post.id,
     slug: post.slug,
     route: canonicalPath,
     title: post.title,

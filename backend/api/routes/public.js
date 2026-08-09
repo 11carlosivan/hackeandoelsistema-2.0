@@ -1387,6 +1387,57 @@ export async function registerPublicRoutes(app) {
     };
   });
 
+  app.post('/api/v1/public/posts/id/:id/view', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const post = await app.prisma.post.findFirst({
+      where: {
+        id,
+        status: 'PUBLISHED',
+        visibility: 'PUBLIC',
+      },
+      select: {
+        id: true,
+        viewCount: true,
+      },
+    });
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    const user = await getOptionalPublicUser(app, request);
+    const visitorId = ensurePublicVisitor(request, reply);
+    const { ipHash, userAgentHash } = requestHashMeta(request);
+
+    const updatedPost = await app.prisma.$transaction(async (tx) => {
+      await tx.postView.create({
+        data: {
+          postId: id,
+          userId: user?.id || null,
+          ipHash,
+          userAgentHash,
+          referrer: String(request.headers.referer || request.headers.referrer || '').slice(0, 768) || null,
+          viewedAt: new Date(),
+        },
+      });
+
+      return tx.post.update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+        select: { viewCount: true },
+      });
+    });
+
+    return {
+      data: {
+        postId: id,
+        viewCount: updatedPost.viewCount,
+      },
+    };
+  });
+
   app.post('/api/v1/public/posts/id/:id/like', async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     const body = publicLikeSchema.safeParse(request.body || {});

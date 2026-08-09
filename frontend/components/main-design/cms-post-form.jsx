@@ -7,7 +7,7 @@ import { csrfHeaders } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsGutenbergEditor from './cms-gutenberg-editor';
 
-const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
+const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
 const SITE_NAME = 'Hackeando el Sistema';
 const LEGACY_MIGRATED_DESCRIPTION = 'Contenido migrado desde el archivo editorial de Hackeando el Sistema.';
 const DEFAULT_SEO_TEMPLATE = '%%title%% %%page%% %%separator%% %%sitename%%';
@@ -453,6 +453,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       postType: postType,
       visibility: visibility,
       scheduledAt: scheduledAtVal,
+      isFeatured: isFeatured,
+      isBreaking: isBreaking,
+      isSponsored: isSponsored,
     };
     const createPayload = {
       ...contentPayload,

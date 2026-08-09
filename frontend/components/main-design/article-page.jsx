@@ -5,6 +5,7 @@ import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { ArticleListItem } from './content-primitives';
 import ArticleEngagement from './article-engagement';
 import ArticleAudioPlayer from './article-audio-player';
+import ArticleViewTracker from './article-view-tracker';
 import SafeImage from './safe-image';
 
 function renderBlock(block, index) {
@@ -69,9 +70,11 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
   const articleComments = comments.length > 0 ? comments : article.comments || [];
   const relatedArticles = related.length > 0 ? related : article.related || [];
   const safeContentHtml = article.contentHtml ? sanitizeEditorialHtml(article.contentHtml) : null;
+  const trackedPostId = article.postId || article.raw?.id;
 
   return (
     <div className="w-full bg-background text-on-surface">
+      <ArticleViewTracker postId={trackedPostId} />
       <article>
         <section className="relative min-h-[56vh] border border-terminal-gray overflow-hidden flex items-end mb-10">
           <SafeImage className="absolute inset-0 w-full h-full object-cover" alt={article.title} src={article.image} />

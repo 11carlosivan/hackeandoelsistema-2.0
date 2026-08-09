@@ -1937,7 +1937,7 @@ describe('cms routes', () => {
     expect(response.json().data.post.tags).toHaveLength(2);
   });
 
-  it('rejects content edits for published posts', async () => {
+  it('allows managers to edit published posts', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
     const app = await buildApp({
@@ -1959,7 +1959,8 @@ describe('cms routes', () => {
 
     await app.close();
 
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.title).toBe('Published updated');
   });
 
   it('submits a draft post to editorial review', async () => {
