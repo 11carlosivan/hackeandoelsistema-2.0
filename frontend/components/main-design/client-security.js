@@ -52,12 +52,11 @@ async function readJsonSafe(response) {
   return response.json().catch(() => null);
 }
 
-export async function fetchJsonWithCsrfRetry(apiBaseUrl, url, options = {}) {
+export async function fetchWithCsrfRetry(apiBaseUrl, url, options = {}) {
   const request = async () => fetch(url, {
     ...options,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
       ...csrfHeaders(),
       ...mergeHeaders(options.headers),
     },
@@ -72,6 +71,18 @@ export async function fetchJsonWithCsrfRetry(apiBaseUrl, url, options = {}) {
       response = await request();
     }
   }
+
+  return response;
+}
+
+export async function fetchJsonWithCsrfRetry(apiBaseUrl, url, options = {}) {
+  const response = await fetchWithCsrfRetry(apiBaseUrl, url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...mergeHeaders(options.headers),
+    },
+  });
 
   if (!response.ok) {
     const payload = await readJsonSafe(response);

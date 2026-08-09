@@ -61,9 +61,67 @@ const EDITORIAL_HTML_OPTIONS = {
         },
       };
     },
+    iframe: (tagName, attribs) => {
+      const youtubeSrc = normalizeYoutubeEmbedUrl(attribs.src);
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          src: youtubeSrc || attribs.src,
+          title: attribs.title || 'Video',
+          loading: attribs.loading || 'lazy',
+          allow: attribs.allow || 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+          allowfullscreen: attribs.allowfullscreen || '',
+        },
+      };
+    },
     video: sanitizeHtml.simpleTransform('video', { controls: '', preload: 'metadata', playsinline: '' }, true),
   },
 };
+
+function normalizeYoutubeEmbedUrl(value) {
+  const raw = String(value || '').trim();
+
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (hostname === 'youtu.be') {
+      const id = url.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+
+    if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+      if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      const id = url.searchParams.get('v');
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
+function youtubeEmbedHtml(url) {
+  const embedUrl = normalizeYoutubeEmbedUrl(url);
+
+  if (!embedUrl) return null;
+
+  return `<div class="wp-block-embed-youtube"><iframe src="${escapeHtml(embedUrl)}" title="Video de YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+}
 
 function escapeHtml(value) {
   return String(value || '')
@@ -103,6 +161,12 @@ function standaloneUrlAnchor(value) {
 
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return null;
+    }
+
+    const youtubeEmbed = youtubeEmbedHtml(url.href);
+
+    if (youtubeEmbed) {
+      return youtubeEmbed;
     }
 
     return `<p><a href="${escapeHtml(url.href)}">${escapeHtml(text)}</a></p>`;

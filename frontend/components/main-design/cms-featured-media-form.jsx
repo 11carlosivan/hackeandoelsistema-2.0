@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { csrfHeaders } from './client-security';
+import { fetchJsonWithCsrfRetry } from './client-security';
 
 export default function CmsFeaturedMediaForm({ post }) {
   const router = useRouter();
@@ -13,20 +13,11 @@ export default function CmsFeaturedMediaForm({ post }) {
     setStatus('Guardando...');
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${post.id}/featured-media`, {
+      const apiBaseUrl = getApiBaseUrl();
+      await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${post.id}/featured-media`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...csrfHeaders(),
-        },
         body: JSON.stringify({ mediaId }),
       });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || 'No se pudo actualizar la imagen destacada.');
-      }
 
       setStatus('Guardado');
       router.refresh();

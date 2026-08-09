@@ -15,7 +15,7 @@ describe('sanitizeEditorialHtml', () => {
     expect(html).toContain('<h2>Titulo</h2>');
     expect(html).toContain('rel="noopener noreferrer"');
     expect(html).toContain('mailto:redaccion@example.com');
-    expect(html).toContain('https://www.youtube.com/embed/demo');
+    expect(html).toContain('https://www.youtube-nocookie.com/embed/demo');
     expect(html).toContain('/uploads/cms/local.jpg');
     expect(html).not.toContain('onclick');
     expect(html).not.toContain('javascript:');
@@ -47,6 +47,21 @@ describe('sanitizeEditorialHtml', () => {
     expect(html).toContain(
       '<a href="https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/" rel="noopener noreferrer">',
     );
+    expect(html).not.toContain('wp-block-embed__wrapper');
+  });
+
+  it('turns standalone YouTube URLs into safe embeds', () => {
+    const html = sanitizeEditorialHtml(`
+      <figure class="wp-block-embed is-type-video is-provider-youtube">
+        <div class="wp-block-embed__wrapper">
+          https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        </div>
+      </figure>
+    `);
+
+    expect(html).toContain('class="wp-block-embed-youtube"');
+    expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    expect(html).toContain('allowfullscreen');
     expect(html).not.toContain('wp-block-embed__wrapper');
   });
 });

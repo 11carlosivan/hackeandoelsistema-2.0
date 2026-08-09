@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { csrfHeaders } from './client-security';
+import { fetchWithCsrfRetry } from './client-security';
 
 export default function CmsMediaUploadForm() {
   const router = useRouter();
@@ -17,12 +17,9 @@ export default function CmsMediaUploadForm() {
     const formData = new FormData(form);
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/media`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          ...csrfHeaders(),
-        },
         body: formData,
       });
 

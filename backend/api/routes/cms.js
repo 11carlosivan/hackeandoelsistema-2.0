@@ -513,8 +513,77 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function htmlToPlainText(value) {
+  return sanitizeHtml(String(value || ''), {
+    allowedTags: [],
+    allowedAttributes: {},
+    textFilter: (textValue) => textValue.replace(/\s+/g, ' '),
+  }).trim();
+}
+
+function normalizeYoutubeEmbedUrl(value) {
+  const raw = String(value || '').trim();
+
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (hostname === 'youtu.be') {
+      const id = url.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+
+    if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+      if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      const id = url.searchParams.get('v');
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
+function youtubeEmbedHtml(value) {
+  const embedUrl = normalizeYoutubeEmbedUrl(value);
+
+  if (!embedUrl) return null;
+
+  return `<div class="wp-block-embed-youtube"><iframe src="${escapeHtml(embedUrl)}" title="Video de YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+}
+
+function normalizeStandaloneYoutubeEmbeds(value) {
+  return String(value || '')
+    .replace(/<figure\b[^>]*class=(["'])[^"']*\bwp-block-embed\b[^"']*\1[^>]*>[\s\S]*?<div\b[^>]*class=(["'])[^"']*\bwp-block-embed__wrapper\b[^"']*\2[^>]*>([\s\S]*?)<\/div>\s*<\/figure>/gi, (match, _figureQuote, _wrapperQuote, inner) => {
+      const embed = youtubeEmbedHtml(htmlToPlainText(inner));
+      return embed || match;
+    })
+    .replace(/<(p|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, _tag, _attributes, inner) => {
+      const text = htmlToPlainText(inner);
+
+      if (!/^https?:\/\/[^\s<>"']+$/i.test(text)) {
+        return match;
+      }
+
+      return youtubeEmbedHtml(text) || match;
+    });
+}
+
 const EDITORIAL_HTML_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    'div',
     'img',
     'figure',
     'figcaption',
@@ -546,9 +615,24 @@ const EDITORIAL_HTML_OPTIONS = {
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
-  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'youtube-nocookie.com', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
+    iframe: (tagName, attribs) => {
+      const youtubeSrc = normalizeYoutubeEmbedUrl(attribs.src);
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          src: youtubeSrc || attribs.src,
+          title: attribs.title || 'Video',
+          loading: attribs.loading || 'lazy',
+          allow: attribs.allow || 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+          allowfullscreen: attribs.allowfullscreen || '',
+        },
+      };
+    },
     video: sanitizeHtml.simpleTransform('video', { controls: '', preload: 'metadata', playsinline: '' }, true),
   },
 };
@@ -558,20 +642,11 @@ function sanitizeEditorialHtml(value) {
     return null;
   }
 
-  return sanitizeHtml(value, EDITORIAL_HTML_OPTIONS).trim() || null;
+  return sanitizeHtml(normalizeStandaloneYoutubeEmbeds(value), EDITORIAL_HTML_OPTIONS).trim() || null;
 }
 
 function htmlToText(value) {
-  if (!value) {
-    return null;
-  }
-
-  const text = sanitizeHtml(String(value), {
-    allowedTags: [],
-    allowedAttributes: {},
-    textFilter: (textValue) => textValue.replace(/\s+/g, ' '),
-  }).trim();
-
+  const text = htmlToPlainText(value);
   return text || null;
 }
 

@@ -1794,6 +1794,36 @@ describe('cms routes', () => {
     expect(response.json().data.post.contentHtml).not.toContain('onerror');
   });
 
+  it('keeps safe YouTube embeds when creating a draft CMS post', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Borrador con YouTube',
+        contentHtml: '<figure class="wp-block-embed is-type-video is-provider-youtube"><div class="wp-block-embed__wrapper">https://www.youtube.com/watch?v=dQw4w9WgXcQ</div></figure>',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.post.contentHtml).toContain('class="wp-block-embed-youtube"');
+    expect(response.json().data.post.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    expect(response.json().data.post.contentHtml).toContain('allowfullscreen');
+    expect(response.json().data.post.contentHtml).not.toContain('wp-block-embed__wrapper');
+  });
+
   it('deduplicates draft slugs against existing posts and routes', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

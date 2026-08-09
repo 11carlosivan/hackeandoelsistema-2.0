@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { csrfHeaders } from './client-security';
+import { fetchJsonWithCsrfRetry } from './client-security';
 
 export default function CmsMediaMetadataForm({ media }) {
   const router = useRouter();
@@ -21,19 +21,11 @@ export default function CmsMediaMetadataForm({ media }) {
     };
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media/${media.id}`, {
+      const apiBaseUrl = getApiBaseUrl();
+      await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/media/${media.id}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...csrfHeaders(),
-        },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error('No se pudo guardar la metadata.');
-      }
 
       setStatus('Guardado');
       router.refresh();

@@ -443,12 +443,90 @@ function rewriteLegacyMediaUrl(config, value) {
   }
 }
 
+function escapeHtmlAttribute(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function stripHtml(value) {
+  return String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeYoutubeEmbedUrl(value) {
+  const raw = String(value || '').trim();
+
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (hostname === 'youtu.be') {
+      const id = url.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+
+    if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+      if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      const id = url.searchParams.get('v');
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
+function youtubeEmbedHtml(value) {
+  const embedUrl = normalizeYoutubeEmbedUrl(value);
+
+  if (!embedUrl) return null;
+
+  return `<div class="wp-block-embed-youtube"><iframe src="${escapeHtmlAttribute(embedUrl)}" title="Video de YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+}
+
+function normalizeStandaloneYoutubeEmbeds(value) {
+  return String(value || '')
+    .replace(/<figure\b[^>]*class=(["'])[^"']*\bwp-block-embed\b[^"']*\1[^>]*>[\s\S]*?<div\b[^>]*class=(["'])[^"']*\bwp-block-embed__wrapper\b[^"']*\2[^>]*>([\s\S]*?)<\/div>\s*<\/figure>/gi, (match, _figureQuote, _wrapperQuote, inner) => {
+      return youtubeEmbedHtml(stripHtml(inner)) || match;
+    })
+    .replace(/<(p|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, _tag, _attributes, inner) => {
+      const text = stripHtml(inner);
+
+      if (!/^https?:\/\/[^\s<>"']+$/i.test(text)) {
+        return match;
+      }
+
+      return youtubeEmbedHtml(text) || match;
+    });
+}
+
 function rewriteLegacyMediaHtml(config, value) {
-  if (!value || !config?.LEGACY_MEDIA_BASE_URL) {
+  if (!value) {
     return value;
   }
 
-  return String(value).replace(
+  const normalizedEmbeds = normalizeStandaloneYoutubeEmbeds(value);
+
+  if (!config?.LEGACY_MEDIA_BASE_URL) {
+    return normalizedEmbeds;
+  }
+
+  return normalizedEmbeds.replace(
     /(https?:\/\/[^"'\s)]+\/wp-content\/uploads\/[^"'\s)]+|\/wp-content\/uploads\/[^"'\s)]+)/g,
     (url) => rewriteLegacyMediaUrl(config, url),
   );

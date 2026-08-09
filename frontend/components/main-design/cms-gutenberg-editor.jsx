@@ -43,8 +43,13 @@ function normalizeYoutubeEmbedUrl(value) {
       return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
     }
 
-    if (url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com' || url.hostname === 'www.youtube-nocookie.com') {
+    if (url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com' || url.hostname === 'm.youtube.com' || url.hostname === 'www.youtube-nocookie.com' || url.hostname === 'youtube-nocookie.com') {
       if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
         const id = url.pathname.split('/').filter(Boolean)[1];
         return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
       }
