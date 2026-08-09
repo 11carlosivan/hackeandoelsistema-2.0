@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
+import { fetchJsonWithCsrfRetry } from './client-security';
 
 export default function CmsAutoPostPanel({ initialSettings = {}, categories = [] }) {
   const [settings, setSettings] = useState(initialSettings);
@@ -19,33 +19,13 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
   const [message, setMessage] = useState('');
   const [runResults, setRunResults] = useState(null);
 
-  const requestJson = async (path, body, { retry = true } = {}) => {
-    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+  const requestJson = async (path, body) => {
+    const apiBaseUrl = getApiBaseUrl();
+
+    return fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}${path}`, {
       method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...csrfHeaders(),
-      },
       body: JSON.stringify(body),
     });
-
-    if (response.status === 401 && retry) {
-      const refreshResponse = await fetch(`${getApiBaseUrl()}/api/v1/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (refreshResponse.ok) {
-        return requestJson(path, body, { retry: false });
-      }
-    }
-
-    return response;
   };
 
   const toggleCategory = (categoryId) => {
@@ -62,7 +42,7 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     setMessage('');
 
     try {
-      const response = await requestJson(
+      const payload = await requestJson(
         '/api/v1/cms/auto-post/settings',
         {
           sources,
@@ -73,11 +53,6 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
           categoryIds: selectedCategoryIds,
         },
       );
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.message || 'No se pudo guardar la configuracion.');
-      }
 
       const savedSettings = payload?.data?.settings || {};
       setSettings(savedSettings);
@@ -104,12 +79,7 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     setMessage('');
 
     try {
-      const response = await requestJson('/api/v1/cms/auto-post/run', { limit: runLimit });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.message || 'No se pudo ejecutar Auto-Post.');
-      }
+      const payload = await requestJson('/api/v1/cms/auto-post/run', { limit: runLimit });
 
       setRunResults(payload.data);
     } catch (error) {

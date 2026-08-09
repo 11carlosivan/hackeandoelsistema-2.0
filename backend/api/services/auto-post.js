@@ -95,6 +95,7 @@ export async function saveAutoPostConfig(app, input) {
     sources: String(input.sources || '')
       .split(/\r?\n/)
       .map((source) => source.trim())
+      .filter((source) => source && !source.startsWith('#'))
       .filter(Boolean)
       .join('\n'),
     aiProvider: input.aiProvider,

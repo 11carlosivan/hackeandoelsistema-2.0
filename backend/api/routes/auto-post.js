@@ -6,13 +6,53 @@ import {
 } from '../services/auto-post.js';
 import { noStoreHeaders } from '../utils/http.js';
 
+function normalizeOptionalString(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).trim();
+}
+
+function normalizeEnum(value, fallback) {
+  const normalized = normalizeOptionalString(value);
+  return normalized ? normalized.toUpperCase() : fallback;
+}
+
+function normalizeCategoryIds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (item && typeof item === 'object') {
+        return item.id;
+      }
+
+      return item;
+    })
+    .map(normalizeOptionalString)
+    .filter(Boolean);
+}
+
+function validationDetails(error) {
+  return error.issues.map((issue) => ({
+    path: issue.path.join('.') || 'payload',
+    message: issue.message,
+  }));
+}
+
 const autoPostSettingsSchema = z.object({
-  sources: z.string().max(8000).optional().default(''),
-  aiProvider: z.enum(['gemini', 'openai']).default('gemini'),
-  apiKey: z.string().max(500).optional().default(''),
-  clearApiKey: z.boolean().optional().default(false),
-  postStatus: z.enum(['DRAFT', 'PUBLISHED']).default('DRAFT'),
-  categoryIds: z.array(z.string().min(1).max(80)).max(20).optional().default([]),
+  sources: z.preprocess(normalizeOptionalString, z.string().max(20000)).default(''),
+  aiProvider: z.preprocess((value) => normalizeOptionalString(value) || 'gemini', z.enum(['gemini', 'openai'])),
+  apiKey: z.preprocess(normalizeOptionalString, z.string().max(4096)).default(''),
+  clearApiKey: z.coerce.boolean().optional().default(false),
+  postStatus: z.preprocess((value) => normalizeEnum(value, 'DRAFT'), z.enum(['DRAFT', 'PUBLISHED'])),
+  categoryIds: z.preprocess(
+    normalizeCategoryIds,
+    z.array(z.string().min(1).max(80)).max(100),
+  ).default([]),
 });
 
 const runSchema = z.object({
@@ -36,7 +76,12 @@ export async function registerAutoPostRoutes(app) {
     const parsed = autoPostSettingsSchema.safeParse(request.body);
 
     if (!parsed.success) {
-      throw app.httpErrors.badRequest('Configuracion de Auto-Post invalida.');
+      reply.code(400);
+      return {
+        error: 'Bad Request',
+        message: 'Configuracion de Auto-Post invalida.',
+        details: validationDetails(parsed.error),
+      };
     }
 
     const settings = await saveAutoPostConfig(app, parsed.data);

@@ -75,7 +75,14 @@ export async function fetchJsonWithCsrfRetry(apiBaseUrl, url, options = {}) {
 
   if (!response.ok) {
     const payload = await readJsonSafe(response);
-    throw new Error(payload?.message || payload?.error || 'Error al procesar la solicitud.');
+    const details = Array.isArray(payload?.details)
+      ? payload.details
+          .map((detail) => `${detail.path || 'payload'}: ${detail.message}`)
+          .join(' | ')
+      : '';
+    const message = payload?.message || payload?.error || 'Error al procesar la solicitud.';
+
+    throw new Error(details ? `${message} ${details}` : message);
   }
 
   return readJsonSafe(response) || {};
