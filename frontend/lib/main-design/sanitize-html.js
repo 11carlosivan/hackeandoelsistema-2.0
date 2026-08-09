@@ -8,6 +8,7 @@ const EDITORIAL_HTML_OPTIONS = {
     'figure',
     'figcaption',
     'iframe',
+    'video',
     'picture',
     'source',
     'blockquote',
@@ -25,12 +26,14 @@ const EDITORIAL_HTML_OPTIONS = {
     '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+    video: ['src', 'poster', 'width', 'height', 'controls', 'preload', 'playsinline', 'muted', 'loop'],
     iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'frameborder', 'loading', 'title'],
     source: ['src', 'srcset', 'type', 'media', 'sizes'],
   },
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
   allowedSchemesByTag: {
     img: ['http', 'https'],
+    video: ['http', 'https'],
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
@@ -58,6 +61,7 @@ const EDITORIAL_HTML_OPTIONS = {
         },
       };
     },
+    video: sanitizeHtml.simpleTransform('video', { controls: '', preload: 'metadata', playsinline: '' }, true),
   },
 };
 
@@ -222,7 +226,7 @@ export function normalizeEditorialHtml(value) {
     return '';
   }
 
-  const hasEditorialTags = /<(?:p|h[1-6]|ul|ol|li|blockquote|figure|img|iframe|div)\b/i.test(safeHtml);
+  const hasEditorialTags = /<(?:p|h[1-6]|ul|ol|li|blockquote|figure|img|iframe|video|div)\b/i.test(safeHtml);
 
   if (!hasEditorialTags) {
     return sanitizeHtml(textToEditorialHtml(safeHtml), EDITORIAL_HTML_OPTIONS).trim();

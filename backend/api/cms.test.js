@@ -1762,6 +1762,38 @@ describe('cms routes', () => {
     expect(response.json().data.post.contentText).toContain('Titulo');
   });
 
+  it('keeps safe video embeds with poster images when creating a draft CMS post', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Borrador con video',
+        contentHtml: '<figure class="wp-block-video"><video src="https://image.hackeandoelsistema.net/uploads/video.mp4" poster="https://image.hackeandoelsistema.net/uploads/poster.jpg" autoplay onerror="alert(1)"></video><figcaption>Video principal</figcaption></figure>',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.post.contentHtml).toContain('<video');
+    expect(response.json().data.post.contentHtml).toContain('poster="https://image.hackeandoelsistema.net/uploads/poster.jpg"');
+    expect(response.json().data.post.contentHtml).toContain('controls');
+    expect(response.json().data.post.contentHtml).toContain('preload="metadata"');
+    expect(response.json().data.post.contentHtml).not.toContain('autoplay');
+    expect(response.json().data.post.contentHtml).not.toContain('onerror');
+  });
+
   it('deduplicates draft slugs against existing posts and routes', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

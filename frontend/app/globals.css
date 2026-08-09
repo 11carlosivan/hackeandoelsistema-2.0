@@ -132,7 +132,7 @@
   color: #E63946;
 }
 
-.editorial-content :where(figure, img, iframe) {
+.editorial-content :where(figure, img, iframe, video) {
   max-width: 100%;
 }
 
@@ -162,6 +162,16 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   border: 1px solid #212121;
+}
+
+.editorial-content video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 1px solid #212121;
+  background: #050505;
+  object-fit: contain;
 }
 
 .editorial-content .wp-block-embed-youtube {

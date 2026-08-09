@@ -114,8 +114,9 @@ function htmlToBlocks(html) {
             type: 'quote',
             content: p ? p.innerHTML : node.innerHTML
           });
-        } else if (tagName === 'figure' || tagName === 'img' || tagName === 'iframe') {
+        } else if (tagName === 'figure' || tagName === 'img' || tagName === 'iframe' || tagName === 'video') {
           const iframe = tagName === 'iframe' ? node : node.querySelector('iframe');
+          const video = tagName === 'video' ? node : node.querySelector('video');
           const img = tagName === 'img' ? node : node.querySelector('img');
           const figcaption = node.querySelector('figcaption');
           if (iframe) {
@@ -123,6 +124,14 @@ function htmlToBlocks(html) {
               id: `b-${idCounter++}-${Date.now()}`,
               type: 'youtube',
               url: iframe.getAttribute('src') || '',
+            });
+          } else if (video) {
+            blocks.push({
+              id: `b-${idCounter++}-${Date.now()}`,
+              type: 'video',
+              url: video.getAttribute('src') || video.querySelector('source')?.getAttribute('src') || '',
+              poster: video.getAttribute('poster') || '',
+              caption: figcaption ? figcaption.innerHTML : '',
             });
           } else if (img) {
             blocks.push({
@@ -180,6 +189,14 @@ function blocksToHtml(blocks) {
 
         return `<figure><img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(b.caption || '')}" /><figcaption>${escapeHtml(b.caption || '')}</figcaption></figure>`;
       }
+      case 'video': {
+        const safeUrl = normalizeSafeUrl(b.url);
+        const safePoster = normalizeSafeUrl(b.poster);
+
+        if (!safeUrl) return '';
+
+        return `<figure class="wp-block-video"><video src="${escapeHtml(safeUrl)}"${safePoster ? ` poster="${escapeHtml(safePoster)}"` : ''} controls preload="metadata" playsinline></video>${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ''}</figure>`;
+      }
       case 'list':
         return `<ul>${b.items.map(item => `<li>${item}</li>`).join('')}</ul>`;
       case 'youtube': {
@@ -228,6 +245,9 @@ function blocksToText(blocks) {
     }
     if (b.type === 'youtube') {
       return stripHtml(b.url || '');
+    }
+    if (b.type === 'video') {
+      return stripHtml(`${b.caption || ''} ${b.url || ''}`);
     }
     return stripHtml(b.content || b.caption || '');
   }).join('\n\n');
@@ -363,6 +383,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
       heading: { type: 'heading', content: '', level: 2 },
       quote: { type: 'quote', content: '' },
       image: { type: 'image', url: '', caption: '' },
+      video: { type: 'video', url: '', poster: '', caption: '' },
       list: { type: 'list', items: [''] },
       youtube: { type: 'youtube', url: '' },
       related: { type: 'related', title: '', url: '', image: '', category: '' }
@@ -495,6 +516,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
                 <option value="heading">Título</option>
                 <option value="quote">Cita</option>
                 <option value="image">Imagen</option>
+                <option value="video">Video archivo</option>
                 <option value="list">Lista</option>
                 <option value="youtube">YouTube</option>
                 <option value="related">Relacionado</option>
@@ -599,6 +621,59 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
                       />
                     </label>
                   </div>
+                </div>
+              )}
+
+              {block.type === 'video' && (
+                <div className="space-y-3 border border-terminal-gray/40 bg-black/40 p-4">
+                  <div className="flex items-center gap-2 font-label-caps text-xs font-bold text-white">
+                    <span className="material-symbols-outlined text-base text-system-red">movie</span>
+                    Video archivo
+                  </div>
+                  {normalizeSafeUrl(block.url) ? (
+                    <div className="aspect-video max-h-56 w-full overflow-hidden border border-terminal-gray bg-black">
+                      <video
+                        src={normalizeSafeUrl(block.url)}
+                        poster={normalizeSafeUrl(block.poster) || undefined}
+                        className="h-full w-full object-contain"
+                        controls
+                        preload="metadata"
+                        playsInline
+                      />
+                    </div>
+                  ) : null}
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">URL del video</span>
+                      <input
+                        type="text"
+                        value={block.url || ''}
+                        onChange={(event) => updateBlockData(index, { url: event.target.value })}
+                        placeholder="https://.../video.mp4"
+                        className="w-full border border-terminal-gray/40 bg-black px-2 py-1.5 text-xs text-white outline-none focus:border-system-red"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">Portada / poster</span>
+                      <input
+                        type="text"
+                        value={block.poster || ''}
+                        onChange={(event) => updateBlockData(index, { poster: event.target.value })}
+                        placeholder="https://.../portada.jpg"
+                        className="w-full border border-terminal-gray/40 bg-black px-2 py-1.5 text-xs text-white outline-none focus:border-system-red"
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">Pie / descripcion</span>
+                    <EditableText
+                      value={block.caption || ''}
+                      onChange={(val) => updateBlockData(index, { caption: val })}
+                      onFocus={() => setActiveBlockIndex(index)}
+                      placeholder="Descripcion del video..."
+                      className="min-h-[1.5em] w-full border border-terminal-gray/40 bg-black px-2 py-1 text-xs text-white outline-none focus:border-system-red"
+                    />
+                  </label>
                 </div>
               )}
 
@@ -721,6 +796,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
                 <button type="button" onClick={() => addBlock(index, 'heading')} className="hover:text-white px-1">Título</button>
                 <button type="button" onClick={() => addBlock(index, 'quote')} className="hover:text-white px-1">Cita</button>
                 <button type="button" onClick={() => addBlock(index, 'image')} className="hover:text-white px-1">Imagen</button>
+                <button type="button" onClick={() => addBlock(index, 'video')} className="hover:text-white px-1">Video</button>
                 <button type="button" onClick={() => addBlock(index, 'list')} className="hover:text-white px-1">Lista</button>
                 <button type="button" onClick={() => addBlock(index, 'youtube')} className="hover:text-white px-1 text-system-red">YouTube</button>
                 <button type="button" onClick={() => addBlock(index, 'related')} className="hover:text-white px-1 text-system-red">Relacionado</button>
@@ -762,6 +838,13 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
             className="border border-terminal-gray/40 hover:border-system-red hover:text-white px-3 py-1.5 transition-all"
           >
             + Imagen
+          </button>
+          <button
+            type="button"
+            onClick={() => addBlock(blocks.length - 1, 'video')}
+            className="border border-terminal-gray/40 hover:border-system-red hover:text-white px-3 py-1.5 transition-all"
+          >
+            + Video
           </button>
           <button
             type="button"

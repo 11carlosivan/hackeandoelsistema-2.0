@@ -519,6 +519,7 @@ const EDITORIAL_HTML_OPTIONS = {
     'figure',
     'figcaption',
     'iframe',
+    'video',
     'picture',
     'source',
     'blockquote',
@@ -534,18 +535,21 @@ const EDITORIAL_HTML_OPTIONS = {
     '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+    video: ['src', 'poster', 'width', 'height', 'controls', 'preload', 'playsinline', 'muted', 'loop'],
     iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'frameborder', 'loading', 'title'],
     source: ['src', 'srcset', 'type', 'media', 'sizes'],
   },
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
   allowedSchemesByTag: {
     img: ['http', 'https'],
+    video: ['http', 'https'],
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
   allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
+    video: sanitizeHtml.simpleTransform('video', { controls: '', preload: 'metadata', playsinline: '' }, true),
   },
 };
 
