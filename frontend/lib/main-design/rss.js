@@ -26,7 +26,7 @@ export function buildRssFeed({ articles = [], updatedAt = new Date() } = {}) {
     .filter((article) => article?.title && (article.route || article.slug || article.id))
     .map((article) => {
       const link = absoluteUrl(article.route || `/${article.slug || article.id}/`);
-      const guid = article.raw?.legacyGuid || link;
+      const guid = article.raw?.guid || link;
       const description = article.subtitle || article.raw?.excerpt || siteConfig.description;
 
       return `    <item>

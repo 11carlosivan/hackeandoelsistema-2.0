@@ -19,7 +19,7 @@ export default function AuthorArchivePage({ author }) {
               <div className="absolute inset-0 border border-system-red/25 p-4 flex flex-col justify-between">
                 <div className="font-label-caps text-system-red text-[10px]">ARCHIVO_ACTIVO</div>
                 <div className="font-label-caps text-on-surface-variant text-[9px]">
-                  {author.legacyAuthorSlug || author.username || author.id}
+                  {author.username || author.id}
                 </div>
               </div>
             </div>

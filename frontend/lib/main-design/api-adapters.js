@@ -48,6 +48,24 @@ function normalizeCategoryPath(category) {
   return category?.slug ? `/category/${category.slug}/` : null;
 }
 
+function publicRawPost(post) {
+  return {
+    id: post.id,
+    canonicalPath: post.canonicalPath,
+    updatedAt: post.updatedAt,
+    excerpt: post.excerpt,
+    status: post.status,
+    guid: post.legacyGuid || post.id,
+  };
+}
+
+function publicRawAuthor(author) {
+  return {
+    id: author.id,
+    canonicalPath: author.canonicalPath,
+  };
+}
+
 export function mapApiPostToArticle(post, index = 0, options = {}) {
   const category = post.primaryCategory?.name?.toUpperCase() || 'ULTIMA HORA';
   const categoryPath = normalizeCategoryPath(post.primaryCategory);
@@ -95,7 +113,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     })),
     contentHtml: options.includeContent ? post.contentHtml : undefined,
     content: options.includeContent ? htmlToBlocks(post.contentHtml || post.contentText || '') : undefined,
-    raw: post,
+    raw: publicRawPost(post),
   };
 }
 
@@ -126,15 +144,13 @@ export function mapApiAuthorArchive(author) {
     id: author.id,
     username: author.username,
     displayName: author.displayName,
-    legacyAuthorSlug: author.legacyAuthorSlug,
-    legacyAuthorUrl: author.legacyAuthorUrl,
     canonicalPath: author.canonicalPath,
     bio: author.bio,
     websiteUrl: author.websiteUrl,
     avatar: author.avatar,
     stats: author.stats || { posts: 0 },
     posts: (author.posts || []).map(mapApiPostToArticle),
-    raw: author,
+    raw: publicRawAuthor(author),
   };
 }
 
