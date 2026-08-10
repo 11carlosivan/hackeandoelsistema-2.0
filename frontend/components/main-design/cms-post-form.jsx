@@ -617,8 +617,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     try {
       const apiBaseUrl = getApiBaseUrl();
 
+      const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+
       if (canEditContent) {
-        const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
         const contentPayload = {
           title: postTitle.trim(),
           slug: postSlug.trim() || undefined,
@@ -632,6 +633,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
           method: 'PATCH',
           body: JSON.stringify(contentPayload),
+        });
+      } else if (action === 'SCHEDULE' || action === 'PUBLISH') {
+        await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ scheduledAt: scheduledAtVal }),
         });
       }
 
