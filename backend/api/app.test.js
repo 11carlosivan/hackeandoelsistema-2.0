@@ -279,7 +279,7 @@ describe('api app', () => {
     const app = await buildApp({
       env: {
         ...testEnv,
-        LEGACY_MEDIA_BASE_URL: 'https://media.hackeandoelsistema.net',
+        LEGACY_MEDIA_BASE_URL: 'https://media.hackeandoelsistema.net/wp-content/uploads',
       },
       prisma: createPrismaStub({
         route: {

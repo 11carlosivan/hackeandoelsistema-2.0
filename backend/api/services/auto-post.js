@@ -1,11 +1,20 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
+import path from 'node:path';
 import * as cheerio from 'cheerio';
 import RssParser from 'rss-parser';
+import { storeMediaUpload } from './media-storage.js';
 
 const SETTINGS_KEY = 'auto_post_config';
 const MAX_RESPONSE_BYTES = 2_000_000;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const IMAGE_MIME_EXTENSIONS = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+  ['image/gif', 'gif'],
+]);
 const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.6-flash';
 const DEFAULT_CONFIG = {
   sources: '',
@@ -202,6 +211,115 @@ async function fetchExternalText(rawUrl, { timeoutMs = 15000 } = {}) {
   }
 
   return Buffer.concat(chunks).toString('utf8');
+}
+
+function mimeFromContentType(value) {
+  return String(value || '').split(';')[0].trim().toLowerCase();
+}
+
+function safeImageFileName(imageUrl, slug, mimeType) {
+  const extension = IMAGE_MIME_EXTENSIONS.get(mimeType) || 'jpg';
+  let stem = slug || 'auto-post';
+
+  try {
+    const parsed = new URL(imageUrl);
+    const baseName = path.basename(parsed.pathname, path.extname(parsed.pathname));
+    if (baseName) {
+      stem = baseName;
+    }
+  } catch {
+    // Keep the generated slug fallback.
+  }
+
+  const cleanStem = String(stem)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'auto-post';
+
+  return `${cleanStem}.${extension}`;
+}
+
+async function downloadExternalImage(rawUrl, { timeoutMs = 15000 } = {}) {
+  const url = await assertPublicHttpUrl(rawUrl);
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.1',
+      'User-Agent': 'HackeandoElSistemaBot/1.0 (+https://hackeandoelsistema.net/)',
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} al leer imagen.`);
+  }
+
+  const mimeType = mimeFromContentType(response.headers.get('content-type'));
+  if (!IMAGE_MIME_EXTENSIONS.has(mimeType)) {
+    throw new Error('La imagen externa no tiene un formato permitido.');
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > MAX_IMAGE_BYTES) {
+      throw new Error('Imagen externa vacia o demasiado grande.');
+    }
+    return { buffer, mimeType, finalUrl: response.url || url };
+  }
+
+  const chunks = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_IMAGE_BYTES) {
+      throw new Error('Imagen externa demasiado grande.');
+    }
+    chunks.push(value);
+  }
+
+  const buffer = Buffer.concat(chunks);
+  if (!buffer.length) {
+    throw new Error('Imagen externa vacia.');
+  }
+
+  return { buffer, mimeType, finalUrl: response.url || url };
+}
+
+async function createAutoPostMedia(app, { imageUrl, slug, title }) {
+  if (!imageUrl) {
+    return null;
+  }
+
+  try {
+    const image = await downloadExternalImage(imageUrl);
+    const storedMedia = await storeMediaUpload({
+      config: app.config,
+      file: {
+        buffer: image.buffer,
+        filename: safeImageFileName(image.finalUrl, slug, image.mimeType),
+        mimetype: image.mimeType,
+      },
+    });
+
+    return app.prisma.mediaAsset.create({
+      data: {
+        ...storedMedia,
+        uploadedById: null,
+        originalUrl: imageUrl,
+        altText: title,
+        caption: title,
+      },
+    });
+  } catch (error) {
+    app.log.warn({ error, imageUrl }, 'Auto-post image could not be imported into media storage');
+    return null;
+  }
 }
 
 function stripTags(html) {
@@ -490,21 +608,10 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
         category.name.toLowerCase() === String(generated.category || '').toLowerCase()
       ) || categories[0];
       const imageUrl = await extractImage(article.url, article.rawContent);
+      const media = await createAutoPostMedia(app, { imageUrl, slug, title: generated.title });
       const status = config.postStatus === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
 
       const post = await app.prisma.$transaction(async (tx) => {
-        const media = imageUrl ? await tx.mediaAsset.create({
-          data: {
-            disk: 'external',
-            url: imageUrl,
-            path: imageUrl,
-            originalUrl: imageUrl,
-            mimeType: 'image/jpeg',
-            fileName: `${slug}.jpg`,
-            altText: generated.title,
-            caption: generated.title,
-          },
-        }) : null;
         const createdPost = await tx.post.create({
           data: {
             authorId,

@@ -63,6 +63,7 @@ const SITEMAP_EXCLUDED_PATHS = [
 const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const PUBLIC_VISITOR_COOKIE = 'hes_public_visitor';
+const WP_UPLOADS_PREFIX = '/wp-content/uploads/';
 const INTERNAL_POST_LINK_EXCLUDED_SEGMENTS = new Set([
   'author',
   'category',
@@ -499,16 +500,22 @@ function rewriteLegacyMediaUrl(config, value) {
   }
 
   try {
-    const legacyBaseUrl = config.LEGACY_MEDIA_BASE_URL.replace(/\/+$/g, '');
+    const legacyBase = new URL(config.LEGACY_MEDIA_BASE_URL.replace(/\/+$/g, ''));
     const url = String(value).startsWith('/')
-      ? new URL(String(value), legacyBaseUrl)
+      ? new URL(String(value), legacyBase.origin)
       : new URL(String(value));
 
-    if (!url.pathname.startsWith('/wp-content/uploads/')) {
+    if (!url.pathname.startsWith(WP_UPLOADS_PREFIX)) {
       return value;
     }
 
-    return `${legacyBaseUrl}${url.pathname}${url.search}`;
+    const basePath = legacyBase.pathname.replace(/\/+$/g, '');
+    const legacyUploadBasePath = basePath.endsWith('/wp-content/uploads')
+      ? basePath
+      : `${basePath}${WP_UPLOADS_PREFIX.slice(0, -1)}`.replace(/\/{2,}/g, '/');
+    const uploadPath = url.pathname.slice(WP_UPLOADS_PREFIX.length).replace(/^\/+/g, '');
+
+    return `${legacyBase.origin}${legacyUploadBasePath}/${uploadPath}${url.search}`;
   } catch {
     return value;
   }
@@ -1557,7 +1564,7 @@ export async function registerPublicRoutes(app) {
     }
 
     const user = await getOptionalPublicUser(app, request);
-    const visitorId = ensurePublicVisitor(request, reply);
+    ensurePublicVisitor(request, reply);
     const { ipHash, userAgentHash } = requestHashMeta(request);
 
     const updatedPost = await app.prisma.$transaction(async (tx) => {
