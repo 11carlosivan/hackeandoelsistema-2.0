@@ -30,6 +30,12 @@ function normalizeSafeUrl(value) {
   }
 }
 
+function normalizeSafeMediaUrl(value) {
+  const safeUrl = normalizeSafeUrl(value);
+
+  return safeUrl.includes('/wp-content/uploads/') ? '' : safeUrl;
+}
+
 function normalizeYoutubeEmbedUrl(value) {
   const safeUrl = normalizeSafeUrl(value);
 
@@ -188,7 +194,7 @@ function blocksToHtml(blocks) {
       case 'quote':
         return `<blockquote><p>${b.content}</p></blockquote>`;
       case 'image': {
-        const safeUrl = normalizeSafeUrl(b.url);
+        const safeUrl = normalizeSafeMediaUrl(b.url);
 
         if (!safeUrl) return '';
 
@@ -196,7 +202,7 @@ function blocksToHtml(blocks) {
       }
       case 'video': {
         const safeUrl = normalizeSafeUrl(b.url);
-        const safePoster = normalizeSafeUrl(b.poster);
+        const safePoster = normalizeSafeMediaUrl(b.poster);
 
         if (!safeUrl) return '';
 
@@ -213,7 +219,7 @@ function blocksToHtml(blocks) {
       }
       case 'related': {
         const safeUrl = normalizeSafeUrl(b.url);
-        const safeImage = normalizeSafeUrl(b.image);
+        const safeImage = normalizeSafeMediaUrl(b.image);
         const title = b.title || 'Ver articulo relacionado';
 
         if (!safeUrl) return '';

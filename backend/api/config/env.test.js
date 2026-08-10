@@ -63,17 +63,14 @@ describe('api env config', () => {
       AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
       MEDIA_STORAGE_DRIVER: 'remote_php',
       MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://image.hackeandoelsistema.net',
-      MEDIA_REMOTE_AUTH_MODE: 'bearer',
-      MEDIA_REMOTE_FILE_FIELD: 'image',
-      MEDIA_REMOTE_RESPONSE_MODE: 'simple_url',
       BANAHOC_API_URL: 'https://image.hackeandoelsistema.net/subir.php',
       BANAHOC_UPLOAD_TOKEN: 'hes_upload_sec_test_token_with_more_than_32_chars',
     });
 
     expect(env.MEDIA_REMOTE_UPLOAD_URL).toBe('https://image.hackeandoelsistema.net/subir.php');
     expect(env.MEDIA_REMOTE_SECRET).toBe('hes_upload_sec_test_token_with_more_than_32_chars');
-    expect(env.MEDIA_REMOTE_AUTH_MODE).toBe('bearer');
-    expect(env.MEDIA_REMOTE_FILE_FIELD).toBe('image');
+    expect(env.MEDIA_REMOTE_AUTH_MODE).toBe('signed');
+    expect(env.MEDIA_REMOTE_FILE_FIELD).toBe('file');
     expect(env.MEDIA_REMOTE_RESPONSE_MODE).toBe('simple_url');
   });
 });

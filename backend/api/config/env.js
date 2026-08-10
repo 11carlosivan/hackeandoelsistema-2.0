@@ -107,11 +107,13 @@ export function loadEnv(overrides = {}) {
   const rawEnv = { ...process.env, ...overrides };
   const mediaRemoteUploadUrl = rawEnv.MEDIA_REMOTE_UPLOAD_URL || rawEnv.BANAHOC_API_URL;
   const mediaRemoteSecret = rawEnv.MEDIA_REMOTE_SECRET || rawEnv.BANAHOC_UPLOAD_TOKEN;
+  const usingBanahostAlias = Boolean(rawEnv.BANAHOC_API_URL || rawEnv.BANAHOC_UPLOAD_TOKEN);
   const parsed = envSchema.safeParse({
     ...rawEnv,
     API_PORT: rawEnv.API_PORT ?? rawEnv.PORT,
     MEDIA_REMOTE_UPLOAD_URL: mediaRemoteUploadUrl,
     MEDIA_REMOTE_SECRET: mediaRemoteSecret,
+    MEDIA_REMOTE_RESPONSE_MODE: rawEnv.MEDIA_REMOTE_RESPONSE_MODE || (usingBanahostAlias ? 'simple_url' : undefined),
   });
 
   if (!parsed.success) {

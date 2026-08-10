@@ -19,6 +19,10 @@ export function firstImageFromHtml(html) {
     return null;
   }
 
+  if (imageUrl.includes('/wp-content/uploads/')) {
+    return null;
+  }
+
   return /^(?:https?:\/\/|\/)/i.test(imageUrl) ? imageUrl : null;
 }
 

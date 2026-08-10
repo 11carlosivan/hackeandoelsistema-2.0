@@ -34,7 +34,7 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
               calle: parsed.calle || prev?.direccion?.calle,
             },
           }));
-        } catch (_) {}
+        } catch {}
       }
     }
   }, []);
@@ -66,7 +66,6 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
   const {
     nombre = 'Lector Hackeando',
     apellido = '',
-    correo = '',
     fotoPerfil = '/isotipo.png',
     fotoPortada = '/logo.png',
     isVerified = true,

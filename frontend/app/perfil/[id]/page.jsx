@@ -1,4 +1,3 @@
-import { notFound, permanentRedirect } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
 import UserProfileHeader from '@/components/user/UserProfileHeader';
 import UserProfileTabs from '@/components/user/UserProfileTabs';
@@ -6,7 +5,6 @@ import { getAuthorArchiveById } from '@/lib/main-design/api';
 import { buildMetadata } from '@/lib/main-design/seo';
 import {
   getAuthorCanonicalPath,
-  shouldRedirectToCanonical,
   tryLoadAuthorByIdentifier,
 } from '@/lib/main-design/public-shortcuts';
 
@@ -18,7 +16,7 @@ async function loadAuthor(id) {
     return await tryLoadAuthorByIdentifier(id, {
       getById: getAuthorArchiveById,
     });
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -47,7 +45,6 @@ export function generateStaticParams() {
 
 export default async function Page({ params }) {
   const { id } = await params;
-  const sourcePath = `/perfil/${id}/`;
   const author = await loadAuthor(id);
 
   const decodedId = decodeURIComponent(id || '');
