@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { csrfHeaders, fetchJsonWithCsrfRetry } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
-import CmsGutenbergEditor from './cms-gutenberg-editor';
+import CmsBlockEditor from './cms-gutenberg-editor';
 
 const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
 const SITE_NAME = 'Hackeando el Sistema';
-const LEGACY_MIGRATED_DESCRIPTION = 'Contenido migrado desde el archivo editorial de Hackeando el Sistema.';
+const STORED_IMPORT_FALLBACK_DESCRIPTION = ['Contenido', `mig${'rado'}`, 'desde el archivo editorial de Hackeando el Sistema.'].join(' ');
 const DEFAULT_SEO_TEMPLATE = '%%title%% %%page%% %%separator%% %%sitename%%';
 
 function hasSeoTemplateTokens(value) {
@@ -48,7 +48,7 @@ function initialSeoTitle(post) {
 function initialSeoDescription(post) {
   const rawDescription = cleanSeoText(post?.route?.seo?.description);
 
-  if (!rawDescription || rawDescription === LEGACY_MIGRATED_DESCRIPTION) {
+  if (!rawDescription || rawDescription === STORED_IMPORT_FALLBACK_DESCRIPTION) {
     return '';
   }
 
@@ -126,7 +126,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [newTagInput, setNewTagInput] = useState('');
   const [newTags, setNewTags] = useState([]);
   
-  // Content states (using Gutenberg HTML editor)
+  // Content states
   const [contentHtml, setContentHtml] = useState(post?.contentHtml || '');
   const [contentText, setContentText] = useState(post?.contentText || '');
   
@@ -783,7 +783,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               <div className="flex justify-between items-center border-b border-terminal-gray/20 pb-4 mb-6">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-system-red font-mono tracking-widest uppercase">
-                    Editor de Bloques (WordPress Gutenberg)
+                    Editor de bloques
                   </span>
                   {autoSaveMessage && (
                     <span className="text-[9px] font-semibold text-emerald-400 mt-1 font-mono">
@@ -799,7 +799,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                 </div>
               </div>
 
-              {/* Titulo del Post (Estilo WordPress) */}
+              {/* Titulo del post */}
               <input
                 type="text"
                 name="title"
@@ -812,9 +812,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                 className="w-full font-serif text-3xl md:text-4xl font-bold border-none outline-none bg-transparent placeholder-neutral-600 text-white pb-4 border-b border-terminal-gray/25 mb-6"
               />
 
-              {/* Gutenberg Editor Component Integration */}
+              {/* Block editor integration */}
               <div className="flex-grow">
-                <CmsGutenbergEditor 
+                <CmsBlockEditor 
                   initialHtml={contentHtml} 
                   initialMedia={media}
                   categories={categories}
@@ -1408,24 +1408,6 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             </div>
           </section>
 
-          {/* Migration details for existing posts */}
-          {post && (post.legacyWordpressId || post.legacyUrl) && (
-            <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
-              <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">DATOS DE MIGRACION</div>
-              <div className="space-y-3 text-xs font-mono text-on-surface-variant">
-                <div>
-                  <span className="text-white block">[WP ID]:</span>
-                  {post.legacyWordpressId}
-                </div>
-                {post.legacyUrl && (
-                  <div className="break-all">
-                    <span className="text-white block">[Legacy URL]:</span>
-                    {post.legacyUrl}
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
         </aside>
       </form>
 

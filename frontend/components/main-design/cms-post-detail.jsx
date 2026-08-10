@@ -55,7 +55,7 @@ export default function CmsPostDetail({ post, error, categories = [], tags = [] 
       <SystemPageHeader
         eyebrow="CMS / DETALLE"
         title={post.title}
-        description={post.excerpt || 'Publicacion migrada lista para revision editorial y SEO.'}
+        description={post.excerpt || 'Publicacion lista para revision editorial y SEO.'}
         stats={[
           { label: 'ESTADO', value: post.status, icon: 'fact_check' },
           { label: 'TIPO', value: post.postType, icon: 'article' },
@@ -183,15 +183,6 @@ export default function CmsPostDetail({ post, error, categories = [], tags = [] 
             <CmsPostTaxonomyForm post={post} categories={categories} tags={tags} />
           </div>
 
-          <div className="border border-terminal-gray bg-surface-container-low/30 p-6">
-            <h2 className="font-headline-md text-xl text-white uppercase mb-4">Migracion</h2>
-            <div className="space-y-3">
-              <Field label="WP ID" value={post.legacyWordpressId} />
-              <Field label="Legacy URL" value={post.legacyUrl || post.importMapping?.legacyUrl} />
-              <Field label="Nuevo URL" value={post.importMapping?.newUrl || publicPath} />
-              <Field label="Checksum" value={post.importMapping?.checksum} />
-            </div>
-          </div>
         </aside>
       </section>
     </div>

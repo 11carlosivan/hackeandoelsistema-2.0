@@ -9,7 +9,7 @@ export default function StaticContentPage({ page }) {
       <SystemPageHeader
         eyebrow="PAGINA"
         title={page.title}
-        description="Contenido migrado desde WordPress y servido desde el nuevo backend."
+        description="Contenido editorial publicado en Hackeando el Sistema."
         stats={[
           { label: 'CANONICAL', value: page.canonicalPath || `/${page.slug}/`, icon: 'travel_explore' },
           { label: 'ESTADO', value: 'Indexable', icon: 'verified' },
@@ -24,7 +24,7 @@ export default function StaticContentPage({ page }) {
           />
         ) : (
           <p className="text-on-surface-variant leading-relaxed">
-            {page.contentText || 'Esta pagina fue migrada y no contiene cuerpo editorial disponible.'}
+            {page.contentText || 'Esta pagina no contiene cuerpo editorial disponible.'}
           </p>
         )}
       </article>

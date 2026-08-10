@@ -30,7 +30,7 @@ export default function CmsRedirects({ redirects, meta, filters, error }) {
       <SystemPageHeader
         eyebrow="CMS / REDIRECTS"
         title="Redirects SEO"
-        description="Control de redirecciones 301/302 para proteger URLs indexadas, rutas legacy y cambios editoriales."
+        description="Control de redirecciones 301/302 para proteger URLs indexadas y cambios editoriales."
         stats={[
           { label: 'TOTAL', value: Number(meta.total || 0).toLocaleString('es-DO'), icon: 'alt_route' },
           { label: 'PAGINA', value: `${meta.page || 1} / ${meta.totalPages || 1}`, icon: 'layers' },

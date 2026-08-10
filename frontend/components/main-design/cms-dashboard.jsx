@@ -489,18 +489,14 @@ export default function CmsDashboard({ summary, accessToken = null }) {
           </div>
 
           <div className="border border-terminal-gray bg-surface-container-low/30 p-6">
-            <div className="font-label-caps text-system-red text-[10px] font-bold mb-3">ULTIMO IMPORT</div>
+            <div className="font-label-caps text-system-red text-[10px] font-bold mb-3">SINCRONIZACION</div>
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="font-label-caps text-[9px] text-on-surface-variant">Estado</dt>
                 <dd className="text-white font-bold">{importRun?.status || 'Sin datos'}</dd>
               </div>
               <div>
-                <dt className="font-label-caps text-[9px] text-on-surface-variant">Fuente</dt>
-                <dd className="text-white">{importRun?.source || 'wordpress-core'}</dd>
-              </div>
-              <div>
-                <dt className="font-label-caps text-[9px] text-on-surface-variant">Finalizado</dt>
+                <dt className="font-label-caps text-[9px] text-on-surface-variant">Ultima ejecucion</dt>
                 <dd className="text-white" suppressHydrationWarning>{importRun?.finishedAt ? new Date(importRun.finishedAt).toLocaleString('es-DO') : 'Pendiente'}</dd>
               </div>
             </dl>

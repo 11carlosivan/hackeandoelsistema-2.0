@@ -4,7 +4,7 @@ export default function ArchivePage({ articles = [], meta = {}, query = '', erro
   const title = query ? 'Resultados' : 'Archivo';
   const description = query
     ? `Publicaciones que coinciden con "${query}".`
-    : 'Archivo completo de publicaciones migradas desde WordPress y listas para operacion editorial.';
+    : 'Archivo completo de publicaciones de Hackeando el Sistema, listo para consulta y operacion editorial.';
 
   return (
     <div className="w-full bg-background text-on-surface">

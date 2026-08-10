@@ -111,12 +111,6 @@ export default function CmsComments({ comments, meta, filters, error }) {
                   <span>{comment.status}</span>
                   <span>/</span>
                   <span>{formatDate(comment.createdAt)}</span>
-                  {comment.legacyWordpressId ? (
-                    <>
-                      <span>/</span>
-                      <span>WP {comment.legacyWordpressId}</span>
-                    </>
-                  ) : null}
                 </div>
                 <p className="text-white leading-relaxed">{comment.body}</p>
                 <div className="text-on-surface-variant text-sm mt-3">

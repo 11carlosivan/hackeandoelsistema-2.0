@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import PublicLayout from '@/components/main-design/public-layout';
-import CategoryPage from '@/components/main-design/category-page';
+import CategoryArchivePage from '@/components/main-design/category-page';
 import { getCategoryFeed, getPublicCategories, isApiNotFound } from '@/lib/main-design/api';
 import {
   buildPaginatedArchivePath,
@@ -48,7 +48,7 @@ export async function generateMetadata({ params }) {
   });
 }
 
-export default async function WordPressCategoryPage({ params, searchParams }) {
+export default async function CategoryRoutePage({ params, searchParams }) {
   const { slug } = await params;
   const query = await searchParams;
   const parsed = parseCategoryArchivePath(slug, query?.page);
@@ -74,7 +74,7 @@ export default async function WordPressCategoryPage({ params, searchParams }) {
 
   return (
     <PublicLayout>
-      <CategoryPage
+      <CategoryArchivePage
         categoryId={feed.category.slug}
         category={feed.category}
         articles={feed.articles}

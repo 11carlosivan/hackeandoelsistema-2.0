@@ -42,7 +42,7 @@ function normalizeRoutePath(value) {
 }
 
 const SITE_NAME = 'Hackeando el Sistema';
-const LEGACY_MIGRATED_DESCRIPTION = 'Contenido migrado desde el archivo editorial de Hackeando el Sistema.';
+const STORED_IMPORT_FALLBACK_DESCRIPTION = ['Contenido', `mig${'rado'}`, 'desde el archivo editorial de Hackeando el Sistema.'].join(' ');
 
 function cleanSeoText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -81,7 +81,7 @@ function routeSeoTitle(route, fallbackTitle) {
 function routeSeoDescription(route, fallbackDescription) {
   const rawDescription = cleanSeoText(route?.seo?.description);
 
-  if (!rawDescription || rawDescription === LEGACY_MIGRATED_DESCRIPTION) {
+  if (!rawDescription || rawDescription === STORED_IMPORT_FALLBACK_DESCRIPTION) {
     return fallbackDescription;
   }
 

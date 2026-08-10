@@ -172,7 +172,7 @@ function htmlToBlocks(html) {
 
     return blocks.length > 0 ? blocks : [{ id: 'b-1', type: 'paragraph', content: '' }];
   } catch (err) {
-    console.error("HTML parsing error in Gutenberg editor:", err);
+    console.error("HTML parsing error in block editor:", err);
     return [{ id: 'b-1', type: 'paragraph', content: html }];
   }
 }
@@ -356,7 +356,7 @@ function FormattingToolbar() {
   );
 }
 
-export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = [], categories = [], onChange }) {
+export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], categories = [], onChange }) {
   const [blocks, setBlocks] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [activeBlockIndex, setActiveBlockIndex] = useState(null);
@@ -482,7 +482,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', initialMedia = []
     <>
     <div className="space-y-4 border border-terminal-gray bg-black/40 p-4 rounded-0">
       <div className="flex items-center justify-between border-b border-terminal-gray pb-3 mb-2">
-        <span className="font-label-caps text-[9px] text-system-red font-bold">EDITOR DE BLOQUES (ESTILO WP)</span>
+        <span className="font-label-caps text-[9px] text-system-red font-bold">EDITOR DE BLOQUES</span>
         <span className="text-[9px] font-mono text-on-surface-variant uppercase">{blocks.length} Bloques</span>
       </div>
 

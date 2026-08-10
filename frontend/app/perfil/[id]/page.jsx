@@ -58,7 +58,7 @@ export default async function Page({ params }) {
     || authorRoles.some((role) => ['ADMIN', 'EDITOR'].includes(String(role).toUpperCase()))
     || ['administrador hes', 'administrator hes'].includes(String(author?.displayName || author?.name || '').toLowerCase().trim());
 
-  // Si no se encuentra autor en el mock/api legacy, creamos un objeto lector por defecto
+  // Si no se encuentra autor en la API, creamos un objeto lector por defecto.
   const user = author ? {
     nombre: isCmsProfile ? 'Administrador HES' : (author.displayName || author.name),
     apellido: '',

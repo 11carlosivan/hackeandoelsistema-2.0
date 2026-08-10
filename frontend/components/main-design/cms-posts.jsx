@@ -220,7 +220,7 @@ export default function CmsPosts({ posts, meta, filters, error }) {
                   <p className="text-on-surface-variant text-sm line-clamp-1 mt-1">{post.excerpt}</p>
                 ) : null}
 
-                {/* Acciones Rápidas (Estilo WordPress) */}
+                {/* Acciones rapidas */}
                 <div className="flex flex-wrap items-center gap-2 mt-2 text-[9px] font-mono text-on-surface-variant select-none opacity-60 group-hover:opacity-100 transition-opacity">
                   <Link
                     href={`/cms/publicaciones/${post.id}`}

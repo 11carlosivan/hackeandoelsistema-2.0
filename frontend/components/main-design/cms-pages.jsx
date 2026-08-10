@@ -37,7 +37,7 @@ export default function CmsPages({ pages, meta, filters, error }) {
       <SystemPageHeader
         eyebrow="CMS / PAGINAS"
         title="Paginas"
-        description="Gestion protegida de paginas estaticas, rutas legacy y contenido editorial no noticioso."
+        description="Gestion protegida de paginas estaticas, rutas publicas y contenido editorial no noticioso."
         stats={[
           { label: 'TOTAL', value: Number(meta.total || 0).toLocaleString('es-DO'), icon: 'article' },
           { label: 'PAGINA', value: `${meta.page || 1} / ${meta.totalPages || 1}`, icon: 'layers' },
@@ -68,7 +68,7 @@ export default function CmsPages({ pages, meta, filters, error }) {
               <input
                 name="q"
                 defaultValue={filters.q || ''}
-                placeholder="Titulo, slug, contenido o legacy URL"
+                placeholder="Titulo, slug, contenido o URL"
                 className="w-full min-w-[260px] border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
               />
             </label>
@@ -118,18 +118,12 @@ export default function CmsPages({ pages, meta, filters, error }) {
                   <span>{page.status}</span>
                   <span>/</span>
                   <span>{page.slug}</span>
-                  {page.legacyWordpressId ? (
-                    <>
-                      <span>/</span>
-                      <span>WP {page.legacyWordpressId}</span>
-                    </>
-                  ) : null}
                 </div>
                 <h2 className="font-headline-md text-2xl text-white uppercase leading-tight group-hover:text-system-red transition-colors">
                   {page.title}
                 </h2>
                 <p className="mt-2 text-sm text-on-surface-variant line-clamp-2">
-                  {page.contentText || page.legacyUrl || 'Sin contenido textual.'}
+                  {page.contentText || 'Sin contenido textual.'}
                 </p>
               </div>
               <div className="text-right text-xs text-on-surface-variant">

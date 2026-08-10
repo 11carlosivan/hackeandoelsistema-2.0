@@ -70,7 +70,7 @@ export default function CmsMediaDetail({ media, error }) {
         stats={[
           { label: 'TIPO', value: media.type, icon: 'perm_media' },
           { label: 'USO POSTS', value: Number(media.usage?.featuredPosts || 0).toLocaleString('es-DO'), icon: 'article' },
-          { label: 'WP ID', value: media.legacyWordpressId || 'Nuevo', icon: 'move_down' },
+          { label: 'ALT', value: media.altText ? 'Completo' : 'Pendiente', icon: 'subtitles' },
         ]}
       />
 

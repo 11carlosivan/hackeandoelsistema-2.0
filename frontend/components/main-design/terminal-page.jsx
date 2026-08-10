@@ -96,12 +96,12 @@ export default function TerminalPage({ variant, slug }) {
   const copy = pageCopy[variant] || {
     eyebrow: 'PAGINA',
     title: slug || 'Archivo',
-    description: 'Pagina estatica preparada para migrar contenido desde WordPress.',
+    description: 'Pagina estatica preparada para continuidad editorial y SEO.',
     action: 'Inicio',
     href: '/',
     stats: [
       { label: 'SEO', value: 'Indexable', icon: 'travel_explore' },
-      { label: 'MIGRACION', value: 'WordPress', icon: 'move_down' },
+      { label: 'ESTADO', value: 'Activa', icon: 'verified' },
     ],
   };
 
