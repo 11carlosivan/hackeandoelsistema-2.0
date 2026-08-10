@@ -523,6 +523,31 @@ function rewriteLegacyMediaUrl(config, value) {
   }
 }
 
+function isBrokenSameSiteWordpressMedia(config, value) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = String(value).startsWith('/')
+      ? new URL(String(value), config?.WEB_ORIGIN || PUBLIC_SITE_URL)
+      : new URL(String(value));
+    const siteUrl = new URL(config?.WEB_ORIGIN || PUBLIC_SITE_URL);
+    const urlHost = url.hostname.replace(/^www\./i, '').toLowerCase();
+    const siteHost = siteUrl.hostname.replace(/^www\./i, '').toLowerCase();
+
+    return urlHost === siteHost && url.pathname.startsWith(WP_UPLOADS_PREFIX);
+  } catch {
+    return false;
+  }
+}
+
+function publicMediaUrl(config, value) {
+  const rewrittenUrl = rewriteLegacyMediaUrl(config, value);
+
+  return isBrokenSameSiteWordpressMedia(config, rewrittenUrl) ? null : rewrittenUrl;
+}
+
 function escapeHtmlAttribute(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -609,7 +634,16 @@ function rewriteLegacyMediaHtml(config, value) {
   return normalizedEmbeds.replace(
     /(https?:\/\/[^"'\s)]+\/wp-content\/uploads\/[^"'\s)]+|\/wp-content\/uploads\/[^"'\s)]+)/g,
     (url) => rewriteLegacyMediaUrl(config, url),
-  );
+  ).replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, (figure) => {
+    const src = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i.exec(figure);
+    const imageUrl = src?.[1] || src?.[2] || src?.[3];
+
+    return isBrokenSameSiteWordpressMedia(config, imageUrl) ? '' : figure;
+  }).replace(/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>/gi, (image, doubleQuoted, singleQuoted, unquoted) => {
+    const imageUrl = doubleQuoted || singleQuoted || unquoted;
+
+    return isBrokenSameSiteWordpressMedia(config, imageUrl) ? '' : image;
+  });
 }
 
 function rewriteLegacyMediaContentJson(config, value) {
@@ -631,9 +665,14 @@ function normalizePublicMediaAsset(config, media) {
     return null;
   }
 
+  const url = publicMediaUrl(config, media.url);
+  if (!url) {
+    return null;
+  }
+
   return {
     id: media.id,
-    url: rewriteLegacyMediaUrl(config, media.url),
+    url,
     altText: media.altText,
     width: media.width,
     height: media.height,
@@ -647,7 +686,7 @@ function normalizePublicSeoMetadata(config, seoMetadata) {
 
   return {
     ...seoMetadata,
-    ogImageUrl: rewriteLegacyMediaUrl(config, seoMetadata.ogImageUrl),
+    ogImageUrl: publicMediaUrl(config, seoMetadata.ogImageUrl),
     ogImage: seoMetadata.ogImage ? normalizePublicMediaAsset(config, seoMetadata.ogImage) : seoMetadata.ogImage,
   };
 }

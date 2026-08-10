@@ -740,6 +740,75 @@ describe('api app', () => {
     });
   });
 
+  it('does not expose same-site WordPress upload media when the legacy base points to the public domain', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        WEB_ORIGIN: 'https://hackeandoelsistema.net',
+        LEGACY_MEDIA_BASE_URL: 'https://hackeandoelsistema.net/wp-content/uploads',
+      },
+      prisma: createPrismaStub({
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  slug: 'sample-post',
+                  title: 'Sample Post',
+                  excerpt: 'Sample excerpt',
+                  contentHtml: '<p>Sample content</p><figure><img src="https://hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg"></figure>',
+                  contentJson: {
+                    legacyContentHtml: '<figure><img src="/wp-content/uploads/2026/01/body.jpg"></figure>',
+                  },
+                  contentText: 'Sample content',
+                  postType: 'NEWS',
+                  publishedAt: new Date('2026-01-01T00:00:00Z'),
+                  updatedAt: new Date('2026-01-02T00:00:00Z'),
+                  viewCount: 12,
+                  commentCount: 0,
+                  legacyUrl: '/sample-post/',
+                  author: {
+                    id: '11111111-1111-4111-8111-111111111111',
+                    username: 'admin',
+                    displayName: 'Admin',
+                  },
+                  featuredMedia: {
+                    id: '55555555-5555-4555-8555-555555555555',
+                    url: 'https://hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg',
+                    altText: 'Sample',
+                    width: 1200,
+                    height: 800,
+                  },
+                  categories: [],
+                  tags: [],
+                  comments: [],
+                }
+              : null,
+        },
+        route: {
+          findUnique: async () => null,
+          findFirst: async () => ({ path: '/sample-post/', canonicalRoute: null, seoMetadata: null }),
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/public/posts/id/${postId}`,
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.featuredMedia).toBeNull();
+    expect(response.json().data.contentHtml).not.toContain('/wp-content/uploads/');
+    expect(response.json().data.contentJson.legacyContentHtml).not.toContain('/wp-content/uploads/');
+  });
+
   it('prioritizes embedded WordPress post links as public related posts with their own media', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     const relatedPosts = [
