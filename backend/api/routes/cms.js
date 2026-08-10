@@ -3715,15 +3715,19 @@ export async function registerCmsRoutes(app) {
         },
       };
 
+      const workflowFeaturedMediaId = (action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible
+        ? await ensureFeaturedMediaFromPostContent(app.prisma, existingPost, {
+            siteUrl: app.config.WEB_ORIGIN,
+            config: app.config,
+            log: app.log,
+          })
+        : existingPost.featuredMediaId;
+
+      if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !workflowFeaturedMediaId) {
+        throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
+      }
+
       const result = await app.prisma.$transaction(async (tx) => {
-        const workflowFeaturedMediaId = (action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible
-          ? await ensureFeaturedMediaFromPostContent(tx, existingPost, { siteUrl: app.config.WEB_ORIGIN })
-          : existingPost.featuredMediaId;
-
-        if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !workflowFeaturedMediaId) {
-          throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
-        }
-
         const post = await tx.post.update({
           where: { id },
           data: {

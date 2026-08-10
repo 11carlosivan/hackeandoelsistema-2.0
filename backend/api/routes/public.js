@@ -217,6 +217,8 @@ async function publishDueScheduledPosts(app) {
       try {
         const fallbackMediaId = await ensureFeaturedMediaFromPostContent(app.prisma, post, {
           siteUrl: app.config.WEB_ORIGIN,
+          config: app.config,
+          log: app.log,
         });
 
         if (fallbackMediaId) {
