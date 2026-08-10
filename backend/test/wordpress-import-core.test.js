@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyPasswordProtectedSeoPolicy,
   buildPostPayload,
+  buildPostUpdatePayloadForImport,
+  buildMediaAssetUpdatePayloadForImport,
   checksumForPayload,
   buildAuthorSeoPayload,
   buildStaticArchiveSeoPayload,
@@ -99,6 +101,47 @@ describe("WordPress core importer", () => {
     });
 
     expect(payload.visibility).toBe("PRIVATE");
+  });
+
+  it("does not clear existing post covers during a WordPress reimport", () => {
+    const updatePayload = buildPostUpdatePayloadForImport({
+      title: "Titulo",
+      slug: "titulo",
+      authorId: "11111111-1111-4111-8111-111111111111",
+      featuredMediaId: null,
+    });
+
+    expect(updatePayload).not.toHaveProperty("featuredMediaId");
+  });
+
+  it("does not revert migrated media storage back to WordPress during reimport", () => {
+    const updatePayload = buildMediaAssetUpdatePayloadForImport({
+      uploadedById: null,
+      disk: "wordpress",
+      url: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      path: "2026/08/cover.jpg",
+      originalUrl: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      legacyGuid: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      legacyMetadata: { raw: "legacy" },
+      mimeType: "image/jpeg",
+      fileName: "cover.jpg",
+      width: 1200,
+      height: 630,
+      altText: "Cover",
+      caption: "Caption",
+    });
+
+    expect(updatePayload).toMatchObject({
+      uploadedById: null,
+      legacyGuid: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      legacyMetadata: { raw: "legacy" },
+      altText: "Cover",
+      caption: "Caption",
+    });
+    expect(updatePayload).not.toHaveProperty("disk");
+    expect(updatePayload).not.toHaveProperty("url");
+    expect(updatePayload).not.toHaveProperty("path");
+    expect(updatePayload).not.toHaveProperty("originalUrl");
   });
 
   it("forces noindex SEO policy for WordPress password protected content", () => {

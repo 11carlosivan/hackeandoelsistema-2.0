@@ -851,21 +851,7 @@ async function upsertMediaAssets({ prisma, state, importRunId, userIdByLegacyId,
     const dbMedia = await prisma.mediaAsset.upsert({
       where: { legacyWordpressId: Number(post.id) },
       create: payload,
-      update: {
-        uploadedById: payload.uploadedById,
-        disk: payload.disk,
-        url: payload.url,
-        path: payload.path,
-        originalUrl: payload.originalUrl,
-        legacyGuid: payload.legacyGuid,
-        legacyMetadata: payload.legacyMetadata,
-        mimeType: payload.mimeType,
-        fileName: payload.fileName,
-        width: payload.width,
-        height: payload.height,
-        altText: payload.altText,
-        caption: payload.caption,
-      },
+      update: buildMediaAssetUpdatePayloadForImport(payload),
     });
 
     await upsertMapping(prisma, {
@@ -910,7 +896,7 @@ async function upsertPost({
   const dbPost = await prisma.post.upsert({
     where: { legacyWordpressId: Number(post.id) },
     create: payload,
-    update: payload,
+    update: buildPostUpdatePayloadForImport(payload),
   });
 
   const route = await upsertRoute(prisma, {
@@ -968,6 +954,23 @@ export function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = 
   };
 
   return payload;
+}
+
+export function buildPostUpdatePayloadForImport(payload) {
+  const updatePayload = { ...payload };
+  delete updatePayload.featuredMediaId;
+
+  return updatePayload;
+}
+
+export function buildMediaAssetUpdatePayloadForImport(payload) {
+  return {
+    uploadedById: payload.uploadedById,
+    legacyGuid: payload.legacyGuid,
+    legacyMetadata: payload.legacyMetadata,
+    altText: payload.altText,
+    caption: payload.caption,
+  };
 }
 
 export function applyPasswordProtectedSeoPolicy(post, payload) {

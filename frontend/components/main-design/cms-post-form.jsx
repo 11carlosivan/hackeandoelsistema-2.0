@@ -118,6 +118,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [error, setError] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(post?.featuredMedia || null);
+  const [featuredMediaDirty, setFeaturedMediaDirty] = useState(false);
   
   // Tags states
   const [tagQuery, setTagQuery] = useState('');
@@ -531,10 +532,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             robotsFollow: currentRobotsFollow,
           }),
         });
-        await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
-          method: 'PATCH',
-          body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
-        });
+        if (featuredMediaDirty) {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
+            method: 'PATCH',
+            body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
+          });
+        }
       } else {
         const json = await requestJson(`${apiBaseUrl}/api/v1/cms/posts`, {
           method: 'POST',
@@ -1324,7 +1327,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSelectedMedia(null)}
+                        onClick={() => {
+                          setSelectedMedia(null);
+                          setFeaturedMediaDirty(true);
+                        }}
                         className="border border-system-red/40 text-system-red px-3 py-2 text-[10px] font-bold hover:border-system-red"
                       >
                         Remover
@@ -1431,6 +1437,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         selectedMediaId={selectedMedia?.id || null}
         onSelect={(mediaAsset) => {
           setSelectedMedia(mediaAsset);
+          setFeaturedMediaDirty(true);
           setIsMediaModalOpen(false);
         }}
       />

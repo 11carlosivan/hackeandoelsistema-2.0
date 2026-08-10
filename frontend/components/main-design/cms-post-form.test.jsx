@@ -75,3 +75,56 @@ describe('CmsPostForm scheduling', () => {
     expect(JSON.parse(fetchSpy.mock.calls[1][1].body)).toEqual({ action: 'SCHEDULE' });
   });
 });
+
+describe('CmsPostForm featured media', () => {
+  const publishedPost = {
+    id: 'post-1',
+    title: 'Post publicado',
+    slug: 'post-publicado',
+    status: 'PUBLISHED',
+    visibility: 'PUBLIC',
+    postType: 'NEWS',
+    featuredMedia: { id: 'media-1', url: '/cover.jpg', altText: 'Cover', fileName: 'cover.jpg' },
+    categories: [],
+    tags: [],
+    route: { seo: {} },
+  };
+
+  it('does not clear an existing cover when saving without changing media', async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { post: publishedPost } }),
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    render(<CmsPostForm categories={[]} tags={[]} media={[]} post={publishedPost} />);
+
+    fireEvent.click(screen.getByText('Publicar cambios'));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/featured-media'))).toBe(false);
+  });
+
+  it('clears the cover only after the editor explicitly removes it', async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { post: { ...publishedPost, featuredMedia: null } } }),
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    render(<CmsPostForm categories={[]} tags={[]} media={[]} post={{ ...publishedPost, visibility: 'PRIVATE' }} />);
+
+    fireEvent.click(screen.getByText('Remover'));
+    fireEvent.click(screen.getByText('Publicar cambios'));
+
+    await waitFor(() => {
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/featured-media'))).toBe(true);
+    });
+
+    const mediaCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/featured-media'));
+    expect(JSON.parse(mediaCall[1].body)).toEqual({ mediaId: null });
+  });
+});
