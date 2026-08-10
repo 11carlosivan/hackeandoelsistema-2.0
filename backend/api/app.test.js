@@ -1436,18 +1436,20 @@ describe('api app', () => {
     expect(seoUpdated).toBe(false);
   });
 
-  it('does not publish public scheduled posts without featured media', async () => {
+  it('moves public scheduled posts without featured media back to draft', async () => {
     const duePostId = '99999999-9999-4999-8999-999999999999';
-    let postUpdated = false;
-    let routeUpdated = false;
+    let postUpdateData = null;
+    let routeUpdateData = null;
     const app = await buildApp({
       env: testEnv,
       prisma: createPrismaStub({
         post: {
           findMany: async ({ where }) =>
-            (where?.status === 'SCHEDULED' ? [{ id: duePostId, visibility: 'PUBLIC', featuredMediaId: null }] : []),
-          updateMany: async () => {
-            postUpdated = true;
+            (where?.status === 'SCHEDULED'
+              ? [{ id: duePostId, visibility: 'PUBLIC', featuredMediaId: null, scheduledAt: new Date() }]
+              : []),
+          updateMany: async ({ data }) => {
+            postUpdateData = data;
             return { count: 0 };
           },
           count: async () => 0,
@@ -1456,8 +1458,8 @@ describe('api app', () => {
         route: {
           findUnique: async () => null,
           findMany: async () => [],
-          updateMany: async () => {
-            routeUpdated = true;
+          updateMany: async ({ data }) => {
+            routeUpdateData = data;
             return { count: 0 };
           },
         },
@@ -1473,8 +1475,15 @@ describe('api app', () => {
     await app.close();
 
     expect(response.statusCode, response.body).toBe(200);
-    expect(postUpdated).toBe(false);
-    expect(routeUpdated).toBe(false);
+    expect(postUpdateData).toMatchObject({
+      status: 'DRAFT',
+      scheduledAt: null,
+    });
+    expect(routeUpdateData).toMatchObject({
+      status: 'GONE',
+      httpStatus: 404,
+      includeInSitemap: false,
+    });
   });
 
   it('returns public pages by entity id for hierarchical route rendering', async () => {

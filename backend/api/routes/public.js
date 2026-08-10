@@ -205,6 +205,7 @@ async function publishDueScheduledPosts(app) {
         featuredMediaId: true,
         title: true,
         contentHtml: true,
+        scheduledAt: true,
       },
     });
     for (const post of duePosts) {
@@ -228,16 +229,55 @@ async function publishDueScheduledPosts(app) {
     const publishablePosts = duePosts.filter((post) => post.visibility !== 'PUBLIC' || post.featuredMediaId);
     const blockedPublicPosts = duePosts.filter((post) => post.visibility === 'PUBLIC' && !post.featuredMediaId);
     const postIds = publishablePosts.map((post) => post.id).filter(Boolean);
+    const blockedPublicPostIds = blockedPublicPosts.map((post) => post.id).filter(Boolean);
     const publicPostIds = duePosts
       .filter((post) => post.visibility === 'PUBLIC' && post.featuredMediaId)
       .map((post) => post.id)
       .filter(Boolean);
 
-    if (blockedPublicPosts.length > 0) {
+    if (blockedPublicPostIds.length > 0) {
       app.log.warn(
-        { postIds: blockedPublicPosts.map((post) => post.id) },
-        'Skipped scheduled public posts without featured media',
+        { postIds: blockedPublicPostIds },
+        'Moved scheduled public posts without featured media back to draft',
       );
+
+      await app.prisma.post.updateMany({
+        where: {
+          id: { in: blockedPublicPostIds },
+          status: 'SCHEDULED',
+        },
+        data: {
+          status: 'DRAFT',
+          scheduledAt: null,
+        },
+      });
+
+      await app.prisma.route.updateMany({
+        where: {
+          entityType: 'POST',
+          entityId: { in: blockedPublicPostIds },
+        },
+        data: {
+          status: 'GONE',
+          httpStatus: 404,
+          includeInSitemap: false,
+          lastmodAt: now,
+        },
+      });
+
+      if (typeof app.prisma.auditLog?.createMany === 'function') {
+        await app.prisma.auditLog.createMany({
+          data: blockedPublicPosts.map((post) => ({
+            action: 'POST_SCHEDULE_REMOVED_MISSING_COVER',
+            entityType: 'POST',
+            entityId: post.id,
+            metadata: {
+              reason: 'missing_featured_media',
+              scheduledAt: post.scheduledAt,
+            },
+          })),
+        });
+      }
     }
 
     if (postIds.length === 0) {
