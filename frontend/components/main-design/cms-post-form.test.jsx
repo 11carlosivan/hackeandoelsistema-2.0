@@ -14,7 +14,19 @@ vi.mock('./cms-gutenberg-editor', () => ({
 }));
 
 vi.mock('./cms-media-selector-modal', () => ({
-  default: () => null,
+  default: ({ isOpen, onSelect }) => (isOpen ? (
+    <button
+      type="button"
+      onClick={() => onSelect({
+        id: 'media-2',
+        url: '/new-cover.jpg',
+        altText: 'Nueva portada',
+        fileName: 'new-cover.jpg',
+      })}
+    >
+      Seleccionar portada mock
+    </button>
+  ) : null),
 }));
 
 afterEach(() => {
@@ -74,6 +86,53 @@ describe('CmsPostForm scheduling', () => {
     expect(fetchSpy.mock.calls[1][0]).toContain('/api/v1/cms/posts/post-1/workflow');
     expect(JSON.parse(fetchSpy.mock.calls[1][1].body)).toEqual({ action: 'SCHEDULE' });
   });
+
+  it('saves a changed cover before scheduling an existing post', async () => {
+    const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { post: { id: 'post-1', status: 'SCHEDULED' } } }),
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    render(
+      <CmsPostForm
+        post={{
+          id: 'post-1',
+          title: 'Post programable',
+          slug: 'post-programable',
+          status: 'DRAFT',
+          visibility: 'PUBLIC',
+          postType: 'NEWS',
+          scheduledAt: futureDate.toISOString(),
+          featuredMedia: null,
+          categories: [],
+          tags: [],
+          route: { seo: {} },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Asignar imagen destacada'));
+    fireEvent.click(screen.getByText('Seleccionar portada mock'));
+    fireEvent.click(screen.getByText('keyboard_arrow_down').closest('button'));
+    fireEvent.click(screen.getByText('Programar'));
+    fireEvent.click(screen.getByText('Aceptar'));
+
+    await waitFor(() => {
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/featured-media'))).toBe(true);
+    });
+
+    const featuredCallIndex = fetchSpy.mock.calls.findIndex(([url]) => String(url).includes('/featured-media'));
+    const workflowCallIndex = fetchSpy.mock.calls.findIndex(([url]) => String(url).includes('/workflow'));
+
+    expect(featuredCallIndex).toBeGreaterThan(-1);
+    expect(workflowCallIndex).toBeGreaterThan(featuredCallIndex);
+    expect(JSON.parse(fetchSpy.mock.calls[featuredCallIndex][1].body)).toEqual({
+      mediaId: 'media-2',
+      remove: false,
+    });
+  });
 });
 
 describe('CmsPostForm featured media', () => {
@@ -125,6 +184,6 @@ describe('CmsPostForm featured media', () => {
     });
 
     const mediaCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/featured-media'));
-    expect(JSON.parse(mediaCall[1].body)).toEqual({ mediaId: null });
+    expect(JSON.parse(mediaCall[1].body)).toEqual({ mediaId: null, remove: true });
   });
 });

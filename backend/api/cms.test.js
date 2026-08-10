@@ -56,6 +56,7 @@ function createPrismaStub(user, options = {}) {
     submittedAt: null,
     reviewedAt: null,
     scheduledAt: options.scheduledAt || null,
+    featuredMediaId: options.featuredMediaId === undefined ? null : options.featuredMediaId,
     author: {
       id: user.id,
       email: user.email,
@@ -2056,7 +2057,7 @@ describe('cms routes', () => {
     const access = await signAccessToken({ config: testEnv, user });
     const app = await buildApp({
       env: testEnv,
-      prisma: createPrismaStub(user),
+      prisma: createPrismaStub(user, { featuredMediaId: '55555555-5555-4555-8555-555555555555' }),
       logger: false,
     });
 
@@ -2084,6 +2085,32 @@ describe('cms routes', () => {
       robotsIndex: 'INDEX',
       robotsFollow: 'FOLLOW',
     });
+  });
+
+  it('rejects publishing a public post without featured media', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'PUBLISH',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
+    expect(response.json().message).toBe('A featured image is required before publishing a public post');
   });
 
   it('publishes a private draft without exposing the route to sitemap indexing', async () => {
@@ -2152,7 +2179,10 @@ describe('cms routes', () => {
     const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const app = await buildApp({
       env: testEnv,
-      prisma: createPrismaStub(user, { scheduledAt: futureDate }),
+      prisma: createPrismaStub(user, {
+        scheduledAt: futureDate,
+        featuredMediaId: '55555555-5555-4555-8555-555555555555',
+      }),
       logger: false,
     });
 
@@ -2272,6 +2302,32 @@ describe('cms routes', () => {
       id: '55555555-5555-4555-8555-555555555555',
       mimeType: 'image/jpeg',
     });
+  });
+
+  it('rejects clearing post featured media without explicit confirmation', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { featuredMediaId: '55555555-5555-4555-8555-555555555555' }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/featured-media',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        mediaId: null,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
+    expect(response.json().message).toBe('Explicit remove confirmation is required to clear featured media');
   });
 
   it('returns a protected CMS post detail with SEO route data', async () => {

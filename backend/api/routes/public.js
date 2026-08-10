@@ -201,13 +201,23 @@ async function publishDueScheduledPosts(app) {
       select: {
         id: true,
         visibility: true,
+        featuredMediaId: true,
       },
     });
-    const postIds = duePosts.map((post) => post.id).filter(Boolean);
+    const publishablePosts = duePosts.filter((post) => post.visibility !== 'PUBLIC' || post.featuredMediaId);
+    const blockedPublicPosts = duePosts.filter((post) => post.visibility === 'PUBLIC' && !post.featuredMediaId);
+    const postIds = publishablePosts.map((post) => post.id).filter(Boolean);
     const publicPostIds = duePosts
-      .filter((post) => post.visibility === 'PUBLIC')
+      .filter((post) => post.visibility === 'PUBLIC' && post.featuredMediaId)
       .map((post) => post.id)
       .filter(Boolean);
+
+    if (blockedPublicPosts.length > 0) {
+      app.log.warn(
+        { postIds: blockedPublicPosts.map((post) => post.id) },
+        'Skipped scheduled public posts without featured media',
+      );
+    }
 
     if (postIds.length === 0) {
       return;

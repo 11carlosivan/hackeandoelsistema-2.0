@@ -535,7 +535,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         if (featuredMediaDirty) {
           await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
             method: 'PATCH',
-            body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
+            body: JSON.stringify({
+              mediaId: selectedMedia?.id || null,
+              remove: !selectedMedia?.id,
+            }),
           });
         }
       } else {
@@ -641,6 +644,16 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
           method: 'PATCH',
           body: JSON.stringify({ scheduledAt: scheduledAtVal }),
+        });
+      }
+
+      if (featuredMediaDirty) {
+        await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            mediaId: selectedMedia?.id || null,
+            remove: !selectedMedia?.id,
+          }),
         });
       }
 

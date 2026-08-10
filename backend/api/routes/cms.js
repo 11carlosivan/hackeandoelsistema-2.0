@@ -256,6 +256,7 @@ const seoUpdateSchema = z
   });
 const featuredMediaSchema = z.object({
   mediaId: z.uuid().nullable(),
+  remove: z.coerce.boolean().optional(),
 });
 const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
 const workflowTransitions = {
@@ -3627,6 +3628,7 @@ export async function registerCmsRoutes(app) {
           visibility: true,
           publishedAt: true,
           scheduledAt: true,
+          featuredMediaId: true,
         },
       });
 
@@ -3645,6 +3647,10 @@ export async function registerCmsRoutes(app) {
 
       if (action === 'SCHEDULE' && !hasFutureSchedule) {
         throw app.httpErrors.badRequest('A future scheduledAt date is required before scheduling a post');
+      }
+
+      if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !existingPost.featuredMediaId) {
+        throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
       }
 
       const postDataByAction = {
@@ -3820,9 +3826,64 @@ export async function registerCmsRoutes(app) {
         throw app.httpErrors.notFound('CMS post not found');
       }
 
-      if (body.data.mediaId) {
+      const nextMediaId = body.data.mediaId;
+
+      if (nextMediaId === null && !body.data.remove) {
+        throw app.httpErrors.badRequest('Explicit remove confirmation is required to clear featured media');
+      }
+
+      if (existingPost.featuredMediaId === nextMediaId) {
+        const currentPost = await app.prisma.post.findUnique({
+          where: { id: params.data.id },
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+              },
+            },
+            featuredMedia: {
+              select: {
+                id: true,
+                url: true,
+                originalUrl: true,
+                mimeType: true,
+                fileName: true,
+                width: true,
+                height: true,
+                altText: true,
+                caption: true,
+                credit: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    fullPath: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return {
+          data: {
+            post: normalizeCmsPost(currentPost),
+            featuredMedia: currentPost.featuredMedia,
+            unchanged: true,
+          },
+        };
+      }
+
+      if (nextMediaId) {
         const media = await app.prisma.mediaAsset.findUnique({
-          where: { id: body.data.mediaId },
+          where: { id: nextMediaId },
           select: {
             id: true,
             mimeType: true,
@@ -3842,7 +3903,7 @@ export async function registerCmsRoutes(app) {
         const post = await tx.post.update({
           where: { id: params.data.id },
           data: {
-            featuredMediaId: body.data.mediaId,
+            featuredMediaId: nextMediaId,
           },
           include: {
             author: {
@@ -3889,7 +3950,7 @@ export async function registerCmsRoutes(app) {
             entityId: params.data.id,
             metadata: {
               from: existingPost.featuredMediaId,
-              to: body.data.mediaId,
+              to: nextMediaId,
             },
           },
         });
