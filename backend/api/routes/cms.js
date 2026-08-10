@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
+import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.js';
 import { removeLocalMediaFile, storeMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
@@ -3629,6 +3630,8 @@ export async function registerCmsRoutes(app) {
           publishedAt: true,
           scheduledAt: true,
           featuredMediaId: true,
+          title: true,
+          contentHtml: true,
         },
       });
 
@@ -3647,10 +3650,6 @@ export async function registerCmsRoutes(app) {
 
       if (action === 'SCHEDULE' && !hasFutureSchedule) {
         throw app.httpErrors.badRequest('A future scheduledAt date is required before scheduling a post');
-      }
-
-      if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !existingPost.featuredMediaId) {
-        throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
       }
 
       const postDataByAction = {
@@ -3717,9 +3716,22 @@ export async function registerCmsRoutes(app) {
       };
 
       const result = await app.prisma.$transaction(async (tx) => {
+        const workflowFeaturedMediaId = (action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible
+          ? await ensureFeaturedMediaFromPostContent(tx, existingPost, { siteUrl: app.config.WEB_ORIGIN })
+          : existingPost.featuredMediaId;
+
+        if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !workflowFeaturedMediaId) {
+          throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
+        }
+
         const post = await tx.post.update({
           where: { id },
-          data: postDataByAction[action],
+          data: {
+            ...postDataByAction[action],
+            ...(!existingPost.featuredMediaId && workflowFeaturedMediaId
+              ? { featuredMediaId: workflowFeaturedMediaId }
+              : {}),
+          },
           include: {
             author: {
               select: {
@@ -3784,6 +3796,9 @@ export async function registerCmsRoutes(app) {
               routeId: route?.id || null,
               scheduledAt: existingPost.scheduledAt,
               shouldSchedule,
+              autoFeaturedMediaId: !existingPost.featuredMediaId && workflowFeaturedMediaId
+                ? workflowFeaturedMediaId
+                : null,
             },
           },
         });

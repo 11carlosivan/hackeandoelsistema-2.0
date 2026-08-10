@@ -39,8 +39,8 @@ function createPrismaStub(user, options = {}) {
     slug: 'sample-post',
     title: 'Sample Post',
     excerpt: 'Sample excerpt',
-    contentHtml: '<p>Sample content</p>',
-    contentText: 'Sample content',
+    contentHtml: options.contentHtml || '<p>Sample content</p>',
+    contentText: options.contentText || 'Sample content',
     status: options.postStatus || 'DRAFT',
     visibility: options.visibility || 'PUBLIC',
     postType: 'NEWS',
@@ -244,6 +244,7 @@ function createPrismaStub(user, options = {}) {
       update: async ({ data }) => ({
         ...post,
         ...data,
+        featuredMediaId: Object.hasOwn(data, 'featuredMediaId') ? data.featuredMediaId : post.featuredMediaId,
         featuredMedia: data.featuredMediaId === media.id ? media : post.featuredMedia,
         updatedAt: new Date('2026-01-03T00:00:00Z'),
       }),
@@ -450,6 +451,17 @@ function createPrismaStub(user, options = {}) {
     mediaAsset: {
       count,
       findMany: async () => [media],
+      findFirst: async ({ where }) => {
+        const candidates = where?.OR || [];
+
+        return candidates.some((candidate) =>
+          candidate.url === media.url ||
+          candidate.originalUrl === media.originalUrl ||
+          candidate.path === media.path
+        )
+          ? { id: media.id }
+          : null;
+      },
       findUnique: async ({ where }) => (where.id === media.id ? media : null),
       create: async ({ data }) => ({
         id: '66666666-6666-4666-8666-666666666666',
@@ -2111,6 +2123,34 @@ describe('cms routes', () => {
 
     expect(response.statusCode, response.body).toBe(400);
     expect(response.json().message).toBe('A featured image is required before publishing a public post');
+  });
+
+  it('promotes the first content image before publishing a public post without featured media', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, {
+        contentHtml: '<p>Contenido</p><img src="https://image.hackeandoelsistema.net/uploads/2026/08/cover.png" alt="Cover">',
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'PUBLISH',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.status).toBe('PUBLISHED');
   });
 
   it('publishes a private draft without exposing the route to sitemap indexing', async () => {

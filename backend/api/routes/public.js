@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AUTH_COOKIE_NAMES, verifyAccessToken } from '../services/auth.js';
+import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.js';
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
@@ -202,8 +203,28 @@ async function publishDueScheduledPosts(app) {
         id: true,
         visibility: true,
         featuredMediaId: true,
+        title: true,
+        contentHtml: true,
       },
     });
+    for (const post of duePosts) {
+      if (post.visibility !== 'PUBLIC' || post.featuredMediaId) {
+        continue;
+      }
+
+      try {
+        const fallbackMediaId = await ensureFeaturedMediaFromPostContent(app.prisma, post, {
+          siteUrl: app.config.WEB_ORIGIN,
+        });
+
+        if (fallbackMediaId) {
+          post.featuredMediaId = fallbackMediaId;
+        }
+      } catch (error) {
+        app.log.warn({ error, postId: post.id }, 'Unable to promote content image before scheduled publish');
+      }
+    }
+
     const publishablePosts = duePosts.filter((post) => post.visibility !== 'PUBLIC' || post.featuredMediaId);
     const blockedPublicPosts = duePosts.filter((post) => post.visibility === 'PUBLIC' && !post.featuredMediaId);
     const postIds = publishablePosts.map((post) => post.id).filter(Boolean);
