@@ -72,6 +72,42 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
+function dateTimeLocalValue(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (part) => String(part).padStart(2, '0');
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function scheduledDateError(value) {
+  if (!value) {
+    return 'Selecciona una fecha y hora futura antes de programar la publicacion.';
+  }
+
+  const scheduledDate = new Date(value);
+
+  if (Number.isNaN(scheduledDate.getTime())) {
+    return 'La fecha programada no es valida.';
+  }
+
+  if (scheduledDate.getTime() <= Date.now() + 60000) {
+    return 'La fecha programada debe estar al menos 1 minuto en el futuro.';
+  }
+
+  return '';
+}
+
 export default function CmsPostForm({ categories = [], tags = [], media = [], post = null }) {
   const router = useRouter();
   const [postId, setPostId] = useState(post?.id || null);
@@ -124,9 +160,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [isFeatured, setIsFeatured] = useState(post?.isFeatured || false);
   const [isBreaking, setIsBreaking] = useState(post?.isBreaking || false);
   const [isSponsored, setIsSponsored] = useState(post?.isSponsored || false);
-  const [scheduledAt, setScheduledAt] = useState(
-    post?.scheduledAt ? new Date(post.scheduledAt).toISOString().substring(0, 16) : ''
-  );
+  const [scheduledAt, setScheduledAt] = useState(dateTimeLocalValue(post?.scheduledAt));
   
   // Autosave message
   const [autoSaveMessage, setAutoSaveMessage] = useState('');
@@ -422,6 +456,15 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     if (event) event.preventDefault();
     setError('');
 
+    if (actionType === 'SCHEDULE') {
+      const scheduleError = scheduledDateError(scheduledAt);
+      if (scheduleError) {
+        setStatus('error');
+        setError(scheduleError);
+        return;
+      }
+    }
+
     if (!ensureSocialCover(actionType)) {
       return;
     }
@@ -499,10 +542,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         });
         finalId = json.data?.post?.id;
 
-        if (finalId && actionType === 'PUBLISH') {
+        if (finalId && (actionType === 'PUBLISH' || actionType === 'SCHEDULE')) {
           await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${finalId}/workflow`, {
             method: 'PATCH',
-            body: JSON.stringify({ action: 'PUBLISH' }),
+            body: JSON.stringify({ action: actionType }),
           });
         }
       }
@@ -543,6 +586,15 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   const runWorkflowAction = async (action) => {
     setError('');
+
+    if (action === 'SCHEDULE') {
+      const scheduleError = scheduledDateError(scheduledAt);
+      if (scheduleError) {
+        setStatus('error');
+        setError(scheduleError);
+        return;
+      }
+    }
 
     if (!ensureSocialCover(action)) {
       return;
@@ -638,6 +690,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     primaryActionLabel = 'Publicar';
     handlePrimaryAction = () => submit(null, 'PUBLISH');
     dropdownOptions = [
+      {
+        label: 'Programar',
+        action: 'SCHEDULE',
+        icon: 'calendar_today',
+        handler: () => submit(null, 'SCHEDULE'),
+      },
       {
         label: 'Guardar como borrador',
         action: 'DRAFT',
