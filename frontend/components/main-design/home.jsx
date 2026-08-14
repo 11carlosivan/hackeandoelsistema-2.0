@@ -484,23 +484,12 @@ export default function Home({ initialArticles, initialCategories = [], summary 
               {/* Dynamic Asymmetric Cards Layout per Category (Mínimo 4 noticias dispuestas visualmente con jerarquía) */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                 {visibleCategoryArticles.map((art, idx) => {
-                  // Varied Design Layouts per Card Position:
-                  // Card 0: Destacado Principal (takes 6 cols on md screen, larger height image)
-                  // Card 1: Horizontal Card (takes 6 cols on md screen with image on the side)
-                  // Card 2 & 3: Compact Vertical Cards (take 3 cols each)
-                  let colSpanClass = 'md:col-span-3 flex flex-col justify-between';
-                  let isHorizontal = false;
-
-                  if (idx === 0) {
-                    colSpanClass = 'md:col-span-6 flex flex-col justify-between';
-                  } else if (idx === 1) {
-                    colSpanClass = 'md:col-span-6 flex flex-col justify-between';
-                    isHorizontal = true;
-                  } else if (idx === 2) {
-                    colSpanClass = 'md:col-span-6 lg:col-span-3 flex flex-col justify-between';
-                  } else if (idx === 3) {
-                    colSpanClass = 'md:col-span-6 lg:col-span-3 flex flex-col justify-between';
-                  }
+                  // Clean & Balanced Grid: 4 items per row on desktop (lg:col-span-3 each)
+                  // On md screens: 2 items per row (md:col-span-6 each)
+                  // On sm screens: 1 item per row (col-span-1)
+                  // Card 0 has a slightly taller image for visual pop
+                  const isFeaturedCard = idx === 0;
+                  const colSpanClass = 'col-span-1 md:col-span-6 lg:col-span-3 flex flex-col justify-between';
 
                   return (
                     <div 
@@ -508,101 +497,62 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                       onClick={() => navigateToArticle(art)}
                       className={`${colSpanClass} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
                     >
-                      {isHorizontal ? (
-                        /* Horizontal Layout Card for Card 2 */
-                        <div className="flex flex-col sm:flex-row h-full">
-                          <div className="sm:w-1/2 relative overflow-hidden border-b sm:border-b-0 sm:border-r border-terminal-gray min-h-[160px]">
+                      <>
+                        <div>
+                          <div className={`${isFeaturedCard ? 'h-[180px]' : 'h-[145px]'} relative overflow-hidden border-b border-terminal-gray`}>
                             <SafeImage
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                               alt={art.title}
                               src={art.image}
                             />
-                            <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10 z-10">
+                            <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
                               {art.category}
                             </div>
                           </div>
-                          <div className="sm:w-1/2 p-4 flex flex-col justify-between">
-                            <div>
-                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                                <span>{art.date}</span>
-                                <span>•</span>
-                                <span>{art.views} visitas</span>
-                              </div>
-                              <h4 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-3">
-                                {art.title}
-                              </h4>
-                              <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
-                                {art.subtitle}
-                              </p>
+                          
+                          <div className="p-4">
+                            <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                              <span>{art.date}</span>
+                              <span>•</span>
+                              <span>{art.views} visitas</span>
                             </div>
-                            <div className="pt-3 mt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                              <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-[14px]">favorite_border</span>
-                                <span>{Number(art.likeCount || 0)}</span>
-                              </div>
-                            </div>
+                            <h4 className={`font-headline-md ${isFeaturedCard ? 'text-[15px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
+                              {art.title}
+                            </h4>
+                            <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
+                              {art.subtitle}
+                            </p>
                           </div>
                         </div>
-                      ) : (
-                        /* Vertical Layout Cards (Standard & Main Featured) */
-                        <>
-                          <div>
-                            <div className={`${idx === 0 ? 'h-[210px]' : 'h-[140px]'} relative overflow-hidden border-b border-terminal-gray`}>
-                              <SafeImage
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                                alt={art.title}
-                                src={art.image}
-                              />
-                              <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
-                                {art.category}
-                              </div>
-                            </div>
-                            
-                            <div className="p-4">
-                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                                <span>{art.date}</span>
-                                <span>•</span>
-                                <span>{art.views} visitas</span>
-                              </div>
-                              <h4 className={`font-headline-md ${idx === 0 ? 'text-[17px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
-                                {art.title}
-                              </h4>
-                              <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
-                                {art.subtitle}
-                              </p>
-                            </div>
-                          </div>
 
-                          {/* Card footer */}
-                          <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                            <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                            <div className="flex items-center gap-3">
-                              <button 
-                                onClick={(e) => toggleLike(art, e)}
-                                className={`flex items-center gap-1 hover:text-system-red transition-colors ${
-                                  likedArticles[art.id] ? 'text-system-red font-bold' : ''
-                                }`}
-                              >
-                                <span className="material-symbols-outlined text-[14px]">
-                                  {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
-                                </span>
-                                <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
-                              </button>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigateToArticle(art, '#comentarios-seccion');
-                                }}
-                                className="flex items-center gap-1 hover:text-white transition-colors"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
-                                <span>{Number(art.commentCount || 0)}</span>
-                              </button>
-                            </div>
+                        {/* Card footer */}
+                        <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                          <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={(e) => toggleLike(art, e)}
+                              className={`flex items-center gap-1 hover:text-system-red transition-colors ${
+                                likedArticles[art.id] ? 'text-system-red font-bold' : ''
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
+                              </span>
+                              <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigateToArticle(art, '#comentarios-seccion');
+                              }}
+                              className="flex items-center gap-1 hover:text-white transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
+                              <span>{Number(art.commentCount || 0)}</span>
+                            </button>
                           </div>
-                        </>
-                      )}
+                        </div>
+                      </>
                     </div>
                   );
                 })}
