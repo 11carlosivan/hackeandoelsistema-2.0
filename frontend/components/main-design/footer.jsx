@@ -21,6 +21,9 @@ export default function Footer() {
           <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/terminos-y-privacidad">
             Términos y Privacidad
           </Link>
+          <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/terms-of-service/">
+            Terminos
+          </Link>
           <Link className="text-on-surface-variant font-label-caps text-label-caps hover:text-white transition-opacity opacity-70 hover:opacity-100" href="/contact/">
             Contacto
           </Link>
@@ -33,14 +36,6 @@ export default function Footer() {
         </nav>
 
         <div className="flex gap-4">
-          <Link
-            aria-label="Sitemap XML"
-            className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all"
-            href="/sitemap.xml"
-            title="Sitemap XML"
-          >
-            <span className="material-symbols-outlined text-[20px]">account_tree</span>
-          </Link>
           <Link
             aria-label="Mapa de red"
             className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all"

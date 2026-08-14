@@ -52,7 +52,7 @@ export default function CmsPageDetail({ page, error }) {
         stats={[
           { label: 'ESTADO', value: page.status, icon: 'fact_check' },
           { label: 'SITEMAP', value: page.route?.includeInSitemap ? 'Incluido' : 'Fuera', icon: 'travel_explore' },
-          { label: 'WP ID', value: page.legacyWordpressId || 'Nuevo', icon: 'move_down' },
+          { label: 'RUTA', value: page.route?.path || publicPath, icon: 'alt_route' },
         ]}
       />
 
@@ -90,14 +90,13 @@ export default function CmsPageDetail({ page, error }) {
           </div>
 
           <div className="border border-terminal-gray bg-surface-container-low/30 p-6">
-            <h2 className="font-headline-md text-xl text-white uppercase mb-4">Migracion</h2>
+            <h2 className="font-headline-md text-xl text-white uppercase mb-4">Publicacion</h2>
             <div className="space-y-3">
               <Field label="Slug" value={page.slug} />
               <Field label="Autor" value={page.author?.displayName || page.author?.email} />
               <Field label="Publicado" value={formatDate(page.publishedAt)} />
               <Field label="Actualizado" value={formatDate(page.updatedAt)} />
-              <Field label="Legacy URL" value={page.legacyUrl || page.importMapping?.legacyUrl} />
-              <Field label="Nuevo URL" value={page.importMapping?.newUrl || publicPath} />
+              <Field label="URL publica" value={publicPath} />
             </div>
           </div>
         </aside>

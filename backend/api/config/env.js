@@ -19,6 +19,25 @@ const optionalStringEnv = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
+function defaultCorsOrigins(webOrigin) {
+  const origins = new Set([webOrigin]);
+
+  try {
+    const url = new URL(webOrigin);
+    if (url.hostname.startsWith('www.')) {
+      url.hostname = url.hostname.replace(/^www\./, '');
+      origins.add(url.origin);
+    } else {
+      url.hostname = `www.${url.hostname}`;
+      origins.add(url.origin);
+    }
+  } catch {
+    // The schema validates WEB_ORIGIN before this helper runs.
+  }
+
+  return [...origins];
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('127.0.0.1'),
@@ -43,7 +62,12 @@ const envSchema = z.object({
   MEDIA_REMOTE_UPLOAD_URL: optionalUrlEnv,
   MEDIA_REMOTE_PUBLIC_BASE_URL: optionalUrlEnv,
   MEDIA_REMOTE_SECRET: optionalStringEnv,
+  MEDIA_REMOTE_FILE_FIELD: z.string().min(1).default('file'),
+  MEDIA_REMOTE_AUTH_MODE: z.enum(['signed', 'bearer']).default('signed'),
+  MEDIA_REMOTE_RESPONSE_MODE: z.enum(['media_object', 'simple_url']).default('media_object'),
   MEDIA_REMOTE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(15000),
+  BANAHOC_API_URL: optionalUrlEnv,
+  BANAHOC_UPLOAD_TOKEN: optionalStringEnv,
   LEGACY_MEDIA_BASE_URL: optionalUrlEnv,
   WEATHER_API_URL: optionalUrlEnv,
   EXCHANGE_RATE_SOURCE_URL: optionalUrlEnv,
@@ -81,9 +105,15 @@ const envSchema = z.object({
 
 export function loadEnv(overrides = {}) {
   const rawEnv = { ...process.env, ...overrides };
+  const mediaRemoteUploadUrl = rawEnv.MEDIA_REMOTE_UPLOAD_URL || rawEnv.BANAHOC_API_URL;
+  const mediaRemoteSecret = rawEnv.MEDIA_REMOTE_SECRET || rawEnv.BANAHOC_UPLOAD_TOKEN;
+  const usingBanahostAlias = Boolean(rawEnv.BANAHOC_API_URL || rawEnv.BANAHOC_UPLOAD_TOKEN);
   const parsed = envSchema.safeParse({
     ...rawEnv,
     API_PORT: rawEnv.API_PORT ?? rawEnv.PORT,
+    MEDIA_REMOTE_UPLOAD_URL: mediaRemoteUploadUrl,
+    MEDIA_REMOTE_SECRET: mediaRemoteSecret,
+    MEDIA_REMOTE_RESPONSE_MODE: rawEnv.MEDIA_REMOTE_RESPONSE_MODE || (usingBanahostAlias ? 'simple_url' : undefined),
   });
 
   if (!parsed.success) {
@@ -95,7 +125,7 @@ export function loadEnv(overrides = {}) {
 
   const corsOrigins = parsed.data.CORS_ORIGINS
     ? parsed.data.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
-    : [parsed.data.WEB_ORIGIN];
+    : defaultCorsOrigins(parsed.data.WEB_ORIGIN);
 
   return {
     ...parsed.data,

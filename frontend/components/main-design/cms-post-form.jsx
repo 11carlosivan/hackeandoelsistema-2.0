@@ -3,12 +3,64 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { csrfHeaders, getCookieValue } from './client-security';
+import { csrfHeaders, fetchJsonWithCsrfRetry } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
-import CmsGutenbergEditor from './cms-gutenberg-editor';
-import CmsWorkflowActions from './cms-workflow-actions';
+import CmsBlockEditor from './cms-gutenberg-editor';
 
-const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED', 'PENDING_REVIEW', 'SCHEDULED']);
+const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
+const SITE_NAME = 'Hackeando el Sistema';
+const STORED_IMPORT_FALLBACK_DESCRIPTION = ['Contenido', `mig${'rado'}`, 'desde el archivo editorial de Hackeando el Sistema.'].join(' ');
+const DEFAULT_SEO_TEMPLATE = '%%title%% %%page%% %%separator%% %%sitename%%';
+
+function hasSeoTemplateTokens(value) {
+  return /%%[a-z_]+%%/i.test(String(value || ''));
+}
+
+function cleanSeoText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function resolveSeoTemplate(value, title) {
+  const fallbackTitle = cleanSeoText(title) || 'Titulo de la entrada';
+
+  return cleanSeoText(value)
+    .replace(/%%title%%/gi, fallbackTitle)
+    .replace(/%%page%%/gi, '')
+    .replace(/%%sep%%|%%separator%%/gi, '-')
+    .replace(/%%sitename%%/gi, SITE_NAME)
+    .replace(/\s*-\s*-\s*/g, ' - ')
+    .replace(/\s+\|\s+\|\s+/g, ' | ')
+    .replace(/^\s*[-|]\s*|\s*[-|]\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function initialSeoTitle(post) {
+  const rawTitle = cleanSeoText(post?.route?.seo?.title);
+
+  if (!rawTitle || rawTitle === DEFAULT_SEO_TEMPLATE) {
+    return cleanSeoText(post?.title);
+  }
+
+  return hasSeoTemplateTokens(rawTitle) ? resolveSeoTemplate(rawTitle, post?.title) : rawTitle;
+}
+
+function initialSeoDescription(post) {
+  const rawDescription = cleanSeoText(post?.route?.seo?.description);
+
+  if (!rawDescription || rawDescription === STORED_IMPORT_FALLBACK_DESCRIPTION) {
+    return '';
+  }
+
+  return rawDescription;
+}
+
+function fallbackSeoDescription({ seoDescription, excerpt, contentText }) {
+  return cleanSeoText(seoDescription) ||
+    cleanSeoText(excerpt) ||
+    cleanSeoText(contentText).slice(0, 155) ||
+    'Escribe una meta descripcion clara para mejorar el resultado en buscadores.';
+}
 
 function decodeHtmlEntities(str) {
   if (!str) return '';
@@ -20,19 +72,53 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
-export default function CmsPostForm({ categories = [], tags = [], media = [], post = null, accessToken = null }) {
+function dateTimeLocalValue(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (part) => String(part).padStart(2, '0');
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function scheduledDateError(value) {
+  if (!value) {
+    return 'Selecciona una fecha y hora futura antes de programar la publicacion.';
+  }
+
+  const scheduledDate = new Date(value);
+
+  if (Number.isNaN(scheduledDate.getTime())) {
+    return 'La fecha programada no es valida.';
+  }
+
+  if (scheduledDate.getTime() <= Date.now() + 60000) {
+    return 'La fecha programada debe estar al menos 1 minuto en el futuro.';
+  }
+
+  return '';
+}
+
+export default function CmsPostForm({ categories = [], tags = [], media = [], post = null }) {
   const router = useRouter();
   const [postId, setPostId] = useState(post?.id || null);
   const canEditContent = !post || EDITABLE_CONTENT_STATUSES.has(post.status);
+  const currentRobotsIndex = post?.route?.seo?.robotsIndex || (post?.status === 'PUBLISHED' ? 'INDEX' : 'NOINDEX');
+  const currentRobotsFollow = post?.route?.seo?.robotsFollow || 'FOLLOW';
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(post?.featuredMedia || null);
-
-  const getFreshAuthHeaders = () => {
-    const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
-    return activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
-  };
+  const [featuredMediaDirty, setFeaturedMediaDirty] = useState(false);
   
   // Tags states
   const [tagQuery, setTagQuery] = useState('');
@@ -40,7 +126,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [newTagInput, setNewTagInput] = useState('');
   const [newTags, setNewTags] = useState([]);
   
-  // Content states (using Gutenberg HTML editor)
+  // Content states
   const [contentHtml, setContentHtml] = useState(post?.contentHtml || '');
   const [contentText, setContentText] = useState(post?.contentText || '');
   
@@ -63,8 +149,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
 
   // Yoast SEO states
   const [seoTab, setSeoTab] = useState('seo');
-  const [seoTitleVal, setSeoTitleVal] = useState(post?.route?.seo?.title || '%%title%% %%page%% %%separator%% %%sitename%%');
-  const [seoDescriptionVal, setSeoDescriptionVal] = useState(post?.route?.seo?.description || '');
+  const [seoTitleVal, setSeoTitleVal] = useState(initialSeoTitle(post));
+  const [seoDescriptionVal, setSeoDescriptionVal] = useState(initialSeoDescription(post));
   const [seoPreviewMode, setSeoPreviewMode] = useState('mobile');
   const [isSeoExpanded, setIsSeoExpanded] = useState(true);
 
@@ -75,9 +161,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const [isFeatured, setIsFeatured] = useState(post?.isFeatured || false);
   const [isBreaking, setIsBreaking] = useState(post?.isBreaking || false);
   const [isSponsored, setIsSponsored] = useState(post?.isSponsored || false);
-  const [scheduledAt, setScheduledAt] = useState(
-    post?.scheduledAt ? new Date(post.scheduledAt).toISOString().substring(0, 16) : ''
-  );
+  const [scheduledAt, setScheduledAt] = useState(dateTimeLocalValue(post?.scheduledAt));
   
   // Autosave message
   const [autoSaveMessage, setAutoSaveMessage] = useState('');
@@ -119,46 +203,29 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       };
 
       try {
+        const apiBaseUrl = getApiBaseUrl();
+
         if (postId) {
-          // PATCH update existing draft/post in DB
-          const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
             method: 'PATCH',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getFreshAuthHeaders(),
-              ...csrfHeaders(),
-            },
             body: JSON.stringify(payload),
           });
-          if (response.ok) {
-            const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            setAutoSaveMessage(`Autoguardado en base de datos a las ${time}`);
-          }
+          const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          setAutoSaveMessage(`Autoguardado en base de datos a las ${time}`);
         } else {
-          // POST create new post as DRAFT in DB
-          const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts`, {
+          const json = await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts`, {
             method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getFreshAuthHeaders(),
-              ...csrfHeaders(),
-            },
             body: JSON.stringify({
               ...payload,
               status: 'DRAFT',
             }),
           });
-          if (response.ok) {
-            const json = await response.json();
-            const newId = json.data?.post?.id;
-            if (newId) {
-              setPostId(newId);
-              window.history.replaceState(null, '', `/cms/publicaciones/${newId}`);
-              const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setAutoSaveMessage(`Borrador guardado a las ${time}`);
-            }
+          const newId = json.data?.post?.id;
+          if (newId) {
+            setPostId(newId);
+            window.history.replaceState(null, '', `/cms/publicaciones/${newId}`);
+            const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setAutoSaveMessage(`Borrador guardado a las ${time}`);
           }
         }
       } catch (err) {
@@ -304,13 +371,23 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     }
   };
 
-  const resolveSeoPlaceholder = (text) => {
+  const _resolveSeoPlaceholder = (text) => {
     if (!text) return '';
     return text
       .replace(/%%title%%/g, postTitle || 'Título de la entrada')
       .replace(/%%page%%/g, 'Página 1')
       .replace(/%%separator%%/g, '-')
       .replace(/%%sitename%%/g, 'Hackeando el Sistema');
+  };
+
+  const resolveCleanSeoPreviewTitle = (text) => {
+    const value = cleanSeoText(text);
+
+    if (!value) {
+      return cleanSeoText(postTitle) || 'Titulo de la entrada';
+    }
+
+    return hasSeoTemplateTokens(value) ? resolveSeoTemplate(value, postTitle) : value;
   };
 
   const selectedTagSet = new Set(selectedTagIds);
@@ -361,10 +438,41 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     setNewTags((current) => current.filter((tag) => tag !== tagName));
   };
 
+  const requiresSocialCover = (actionType) => {
+    return visibility === 'PUBLIC' &&
+      !selectedMedia?.id &&
+      (actionType === 'PUBLISH' || actionType === 'SCHEDULE' || post?.status === 'PUBLISHED');
+  };
+
+  const ensureSocialCover = (actionType) => {
+    if (!requiresSocialCover(actionType)) {
+      return true;
+    }
+
+    setStatus('error');
+    setError('Selecciona una imagen destacada antes de publicar. Esa portada se usa al compartir el enlace en WhatsApp y redes sociales.');
+
+    return false;
+  };
+
   const submit = async (event, actionType = 'DRAFT') => {
     if (event) event.preventDefault();
-    setStatus('loading');
     setError('');
+
+    if (actionType === 'SCHEDULE') {
+      const scheduleError = scheduledDateError(scheduledAt);
+      if (scheduleError) {
+        setStatus('error');
+        setError(scheduleError);
+        return;
+      }
+    }
+
+    if (!ensureSocialCover(actionType)) {
+      return;
+    }
+
+    setStatus('loading');
 
     const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
     const contentPayload = {
@@ -376,6 +484,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       postType: postType,
       visibility: visibility,
       scheduledAt: scheduledAtVal,
+      isFeatured: isFeatured,
+      isBreaking: isBreaking,
+      isSponsored: isSponsored,
     };
     const createPayload = {
       ...contentPayload,
@@ -392,37 +503,20 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       isBreaking: isBreaking,
       isSponsored: isSponsored,
     };
-    const requestJson = async (url, options) => {
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getFreshAuthHeaders(),
-          ...csrfHeaders(),
-          ...(options.headers || {}),
-        },
-        ...options,
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || 'Error al guardar la publicacion.');
-      }
-
-      return response.json().catch(() => ({}));
-    };
+    const apiBaseUrl = getApiBaseUrl();
+    const requestJson = async (url, options) => fetchJsonWithCsrfRetry(apiBaseUrl, url, options);
 
     try {
       let finalId = postId;
 
       if (postId) {
         if (canEditContent) {
-          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
             method: 'PATCH',
             body: JSON.stringify(contentPayload),
           });
         }
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/taxonomy`, {
+        await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/taxonomy`, {
           method: 'PATCH',
           body: JSON.stringify({
             categoryIds: selectedCategoryIds,
@@ -431,36 +525,35 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             newTagNames: newTags,
           }),
         });
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/seo`, {
+        await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/seo`, {
           method: 'PATCH',
           body: JSON.stringify({
             title: seoTitleVal.trim() || null,
             description: seoDescriptionVal.trim() || null,
-            robotsIndex: 'NOINDEX',
-            robotsFollow: 'FOLLOW',
+            robotsIndex: currentRobotsIndex,
+            robotsFollow: currentRobotsFollow,
           }),
         });
-        await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/featured-media`, {
-          method: 'PATCH',
-          body: JSON.stringify({ mediaId: selectedMedia?.id || null }),
-        });
-        if (actionType === 'PUBLISH') {
-          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+        if (featuredMediaDirty) {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
             method: 'PATCH',
-            body: JSON.stringify({ action: 'PUBLISH' }),
+            body: JSON.stringify({
+              mediaId: selectedMedia?.id || null,
+              remove: !selectedMedia?.id,
+            }),
           });
         }
       } else {
-        const json = await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts`, {
+        const json = await requestJson(`${apiBaseUrl}/api/v1/cms/posts`, {
           method: 'POST',
           body: JSON.stringify(createPayload),
         });
         finalId = json.data?.post?.id;
 
-        if (finalId && actionType === 'PUBLISH') {
-          await requestJson(`${getApiBaseUrl()}/api/v1/cms/posts/${finalId}/workflow`, {
+        if (finalId && (actionType === 'PUBLISH' || actionType === 'SCHEDULE')) {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${finalId}/workflow`, {
             method: 'PATCH',
-            body: JSON.stringify({ action: 'PUBLISH' }),
+            body: JSON.stringify({ action: actionType }),
           });
         }
       }
@@ -504,6 +597,21 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   };
 
   const runWorkflowAction = async (action) => {
+    setError('');
+
+    if (action === 'SCHEDULE') {
+      const scheduleError = scheduledDateError(scheduledAt);
+      if (scheduleError) {
+        setStatus('error');
+        setError(scheduleError);
+        return;
+      }
+    }
+
+    if (!ensureSocialCover(action)) {
+      return;
+    }
+
     const riskyAction = action === 'PUBLISH' || action === 'SCHEDULE' || action === 'ARCHIVE';
     const confirmation = riskyAction
       ? await requestConfirmation(action === 'PUBLISH'
@@ -519,8 +627,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     setError('');
 
     try {
+      const apiBaseUrl = getApiBaseUrl();
+
+      const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+
       if (canEditContent) {
-        const scheduledAtVal = scheduledAt ? new Date(scheduledAt).toISOString() : null;
         const contentPayload = {
           title: postTitle.trim(),
           slug: postSlug.trim() || undefined,
@@ -531,36 +642,31 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
           visibility: visibility,
           scheduledAt: scheduledAtVal,
         };
-        const saveResponse = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}`, {
+        await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
           method: 'PATCH',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getFreshAuthHeaders(),
-            ...csrfHeaders(),
-          },
           body: JSON.stringify(contentPayload),
         });
-        if (!saveResponse.ok) {
-          throw new Error('Error al guardar el contenido antes del cambio de estado.');
-        }
+      } else if (action === 'SCHEDULE' || action === 'PUBLISH') {
+        await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ scheduledAt: scheduledAtVal }),
+        });
       }
 
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+      if (featuredMediaDirty) {
+        await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/featured-media`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            mediaId: selectedMedia?.id || null,
+            remove: !selectedMedia?.id,
+          }),
+        });
+      }
+
+      await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getFreshAuthHeaders(),
-          ...csrfHeaders(),
-        },
         body: JSON.stringify({ action }),
       });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || 'No se pudo cambiar el estado.');
-      }
 
       setStatus('success');
       if (action === 'PUBLISH') {
@@ -617,6 +723,12 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     primaryActionLabel = 'Publicar';
     handlePrimaryAction = () => submit(null, 'PUBLISH');
     dropdownOptions = [
+      {
+        label: 'Programar',
+        action: 'SCHEDULE',
+        icon: 'calendar_today',
+        handler: () => submit(null, 'SCHEDULE'),
+      },
       {
         label: 'Guardar como borrador',
         action: 'DRAFT',
@@ -701,7 +813,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               <div className="flex justify-between items-center border-b border-terminal-gray/20 pb-4 mb-6">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-system-red font-mono tracking-widest uppercase">
-                    Editor de Bloques (WordPress Gutenberg)
+                    Editor de bloques
                   </span>
                   {autoSaveMessage && (
                     <span className="text-[9px] font-semibold text-emerald-400 mt-1 font-mono">
@@ -717,7 +829,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                 </div>
               </div>
 
-              {/* Titulo del Post (Estilo WordPress) */}
+              {/* Titulo del post */}
               <input
                 type="text"
                 name="title"
@@ -730,9 +842,9 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                 className="w-full font-serif text-3xl md:text-4xl font-bold border-none outline-none bg-transparent placeholder-neutral-600 text-white pb-4 border-b border-terminal-gray/25 mb-6"
               />
 
-              {/* Gutenberg Editor Component Integration */}
+              {/* Block editor integration */}
               <div className="flex-grow">
-                <CmsGutenbergEditor 
+                <CmsBlockEditor 
                   initialHtml={contentHtml} 
                   initialMedia={media}
                   categories={categories}
@@ -804,10 +916,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                             hackeandoelsistema.net/{postSlug || 'ejemplo-slug'}/
                           </div>
                           <div className="text-lg text-sky-400 font-medium hover:underline cursor-pointer">
-                            {resolveSeoPlaceholder(seoTitleVal)}
+                            {resolveCleanSeoPreviewTitle(seoTitleVal)}
                           </div>
                           <div className="text-neutral-400 text-[11px] leading-relaxed">
-                            {seoDescriptionVal ? seoDescriptionVal : 'Proporciona una meta descripción editando el bloque correspondiente abajo. De lo contrario, los motores de búsqueda intentarán extraer texto del artículo.'}
+                            {fallbackSeoDescription({ seoDescription: seoDescriptionVal, excerpt, contentText })}
                           </div>
                         </div>
                       </div>
@@ -819,7 +931,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                           type="text"
                           value={seoTitleVal}
                           onChange={(e) => setSeoTitleVal(e.target.value)}
-                          placeholder="%%title%% %%page%% %%separator%% %%sitename%%"
+                          placeholder="Titulo claro para Google"
                           className="w-full bg-black border border-terminal-gray text-xs px-3 py-2 text-white outline-none focus:border-system-red"
                         />
                       </label>
@@ -1251,7 +1363,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSelectedMedia(null)}
+                        onClick={() => {
+                          setSelectedMedia(null);
+                          setFeaturedMediaDirty(true);
+                        }}
                         className="border border-system-red/40 text-system-red px-3 py-2 text-[10px] font-bold hover:border-system-red"
                       >
                         Remover
@@ -1268,6 +1383,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                     <span>Asignar imagen destacada</span>
                   </button>
                 )}
+                {!selectedMedia ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
+                    Requerida para publicar y para que WhatsApp muestre la portada correcta al compartir el enlace.
+                  </p>
+                ) : null}
               </div>
 
               {/* Schedule and Visibility Options */}
@@ -1399,24 +1519,6 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             </div>
           </section>
 
-          {/* Migration details for existing posts */}
-          {post && (post.legacyWordpressId || post.legacyUrl) && (
-            <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
-              <div className="font-label-caps text-system-red text-[10px] font-bold mb-4">DATOS DE MIGRACION</div>
-              <div className="space-y-3 text-xs font-mono text-on-surface-variant">
-                <div>
-                  <span className="text-white block">[WP ID]:</span>
-                  {post.legacyWordpressId}
-                </div>
-                {post.legacyUrl && (
-                  <div className="break-all">
-                    <span className="text-white block">[Legacy URL]:</span>
-                    {post.legacyUrl}
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
         </aside>
       </form>
 
@@ -1428,6 +1530,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         selectedMediaId={selectedMedia?.id || null}
         onSelect={(mediaAsset) => {
           setSelectedMedia(mediaAsset);
+          setFeaturedMediaDirty(true);
           setIsMediaModalOpen(false);
         }}
       />

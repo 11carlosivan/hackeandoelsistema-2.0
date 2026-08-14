@@ -31,16 +31,80 @@ function createAuthUser(passwordHash, overrides = {}) {
 
 function createPrismaStub(user) {
   const sessions = new Map();
+  let storedUser = user;
+  const permissions = new Map();
+  const roles = new Map();
 
   return {
     $queryRaw: async () => [{ '?column?': 1 }],
+    $transaction: async (callback) => callback(createPrismaStub(storedUser)),
     $disconnect: async () => undefined,
     user: {
       findUnique: async ({ where }) => {
-        if (where.email === user.email || where.id === user.id) return user;
+        if (!storedUser) return null;
+        if (where.email === storedUser.email || where.id === storedUser.id) return storedUser;
         return null;
       },
-      update: async () => user,
+      create: async ({ data }) => {
+        storedUser = {
+          id: '22222222-2222-4222-8222-222222222222',
+          username: null,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          emailVerifiedAt: null,
+          roles: [],
+          ...data,
+        };
+        return storedUser;
+      },
+      update: async () => storedUser,
+    },
+    permission: {
+      upsert: async ({ where, create }) => {
+        const permission = permissions.get(where.permissionKey) || {
+          id: `permission-${permissions.size + 1}`,
+          ...create,
+        };
+        permissions.set(where.permissionKey, permission);
+        return permission;
+      },
+    },
+    role: {
+      upsert: async ({ where, create }) => {
+        const role = roles.get(where.name) || {
+          id: `role-${roles.size + 1}`,
+          ...create,
+        };
+        roles.set(where.name, role);
+        return role;
+      },
+    },
+    rolePermission: {
+      upsert: async () => ({}),
+    },
+    userRole: {
+      create: async ({ data }) => {
+        const role = [...roles.values()].find((item) => item.id === data.roleId);
+        const permission = [...permissions.values()][0];
+        storedUser = {
+          ...storedUser,
+          roles: [
+            {
+              role: {
+                ...role,
+                permissions: permission
+                  ? [
+                      {
+                        permission,
+                      },
+                    ]
+                  : [],
+              },
+            },
+          ],
+        };
+        return { id: 'user-role-1', ...data };
+      },
     },
     userSession: {
       create: async ({ data }) => {
@@ -146,6 +210,69 @@ const testEnv = {
 };
 
 describe('auth routes', () => {
+  it('registers a member account and starts an authenticated session', async () => {
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(null),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: {
+        displayName: 'Lector Registrado',
+        email: 'lector@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.json().data.user).toMatchObject({
+      email: 'lector@example.com',
+      displayName: 'Lector Registrado',
+      roles: ['MEMBER'],
+      permissions: ['account:read'],
+    });
+    expect(response.json().data.user.passwordHash).toBeUndefined();
+    expect(response.json().data.accessToken).toBeTruthy();
+    expect(response.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('hes_access_token='),
+        expect.stringContaining('hes_refresh_token='),
+        expect.stringContaining('hes_csrf_token='),
+      ]),
+    );
+  });
+
+  it('rejects duplicate member registration emails', async () => {
+    const user = createAuthUser(await hashPassword('CorrectHorse123!'), {
+      email: 'lector@example.com',
+    });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: {
+        displayName: 'Otro Lector',
+        email: 'lector@example.com',
+        password: 'CorrectHorse123!',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode).toBe(409);
+  });
+
   it('logs in with valid credentials and returns sanitized user data', async () => {
     const user = createAuthUser(await hashPassword('CorrectHorse123!'));
     const app = await buildApp({

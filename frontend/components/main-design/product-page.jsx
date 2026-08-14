@@ -22,7 +22,7 @@ export default function ProductPage({ product }) {
       <SystemPageHeader
         eyebrow="PRODUCTO"
         title={product.title}
-        description={product.shortDescription || 'Producto migrado desde WordPress.'}
+        description={product.shortDescription || 'Producto disponible en Hackeando el Sistema.'}
         stats={[
           { label: 'PRECIO', value: formatPrice(product.priceAmount, product.currency), icon: 'payments' },
           { label: 'CANONICAL', value: product.canonicalPath || `/producto/${product.slug}/`, icon: 'travel_explore' },
@@ -46,7 +46,7 @@ export default function ProductPage({ product }) {
             />
           ) : (
             <p className="text-on-surface-variant leading-relaxed">
-              {product.shortDescription || 'Este producto fue migrado y todavia no tiene descripcion detallada.'}
+              {product.shortDescription || 'Este producto todavia no tiene descripcion detallada.'}
             </p>
           )}
         </article>

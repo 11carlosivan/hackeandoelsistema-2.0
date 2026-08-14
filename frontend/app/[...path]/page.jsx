@@ -12,7 +12,7 @@ export async function generateMetadata({ params }) {
   return generatePublicRouteMetadata(path);
 }
 
-export default async function LegacyRoutePage({ params, searchParams }) {
+export default async function PublicRoutePage({ params, searchParams }) {
   const { path } = await params;
 
   return renderPublicRoutePage(path, searchParams);

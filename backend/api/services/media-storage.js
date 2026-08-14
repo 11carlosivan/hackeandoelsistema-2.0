@@ -231,7 +231,32 @@ function signRemoteMediaUpload({ secret, timestamp, filename, mimetype, buffer }
   return createHmac('sha256', secret).update(payload).digest('hex');
 }
 
-function normalizeRemoteResponse(payload) {
+function normalizeRemoteResponse(payload, { file, buffer, responseMode = 'media_object' } = {}) {
+  if (responseMode === 'simple_url') {
+    const url = payload?.url || payload?.data?.url || payload?.data?.media?.url || payload?.media?.url;
+
+    if (!url || typeof url !== 'string') {
+      const error = new Error('Invalid remote media response');
+      error.statusCode = 502;
+      throw error;
+    }
+
+    const remoteUrl = new URL(url);
+    const dimensions = dimensionsFromImage(buffer, file.mimetype);
+    const fileName = path.basename(remoteUrl.pathname) || path.basename(file.filename);
+
+    return {
+      disk: 'remote_php',
+      url,
+      path: remoteUrl.pathname,
+      mimeType: file.mimetype,
+      fileName,
+      fileSize: buffer.length,
+      width: dimensions.width,
+      height: dimensions.height,
+    };
+  }
+
   const media = payload?.data?.media || payload?.media || payload?.data || payload;
 
   if (!media || typeof media !== 'object') {
@@ -262,13 +287,27 @@ function normalizeRemoteResponse(payload) {
   return {
     disk: 'remote_php',
     url: String(media.url),
-    path: String(media.path),
+    path: normalizeRemotePath(media.path, media.url),
     mimeType: String(media.mimeType),
     fileName: String(media.fileName),
     fileSize,
     width,
     height,
   };
+}
+
+function normalizeRemotePath(pathValue, urlValue) {
+  const rawPath = String(pathValue || '').trim();
+
+  if (!rawPath) {
+    return new URL(urlValue).pathname;
+  }
+
+  if (/^https?:\/\//i.test(rawPath)) {
+    return new URL(rawPath).pathname;
+  }
+
+  return rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
 }
 
 function assertRemotePublicUrl(config, url) {
@@ -293,33 +332,42 @@ export async function storeRemotePhpMediaUpload({ config, file, fetchImpl = glob
   validateMediaBuffer({ config, file, buffer });
 
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const signature = signRemoteMediaUpload({
-    secret: config.MEDIA_REMOTE_SECRET,
-    timestamp,
-    filename: file.filename,
-    mimetype: file.mimetype,
-    buffer,
-  });
   const form = new FormData();
   const blob = new Blob([buffer], { type: file.mimetype });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.MEDIA_REMOTE_TIMEOUT_MS || 15000);
+  const authMode = config.MEDIA_REMOTE_AUTH_MODE || 'signed';
+  const fileField = config.MEDIA_REMOTE_FILE_FIELD || 'file';
+  const responseMode = config.MEDIA_REMOTE_RESPONSE_MODE || 'media_object';
 
-  form.set('file', blob, file.filename);
-  form.set('filename', file.filename);
-  form.set('mimetype', file.mimetype);
+  form.set(fileField, blob, file.filename);
+
+  if (authMode === 'signed') {
+    form.set('filename', file.filename);
+    form.set('mimetype', file.mimetype);
+  }
 
   try {
     let response;
+    const headers = {
+      Authorization: `Bearer ${config.MEDIA_REMOTE_SECRET}`,
+    };
+
+    if (authMode === 'signed') {
+      headers['X-HES-Media-Timestamp'] = timestamp;
+      headers['X-HES-Media-Signature'] = signRemoteMediaUpload({
+        secret: config.MEDIA_REMOTE_SECRET,
+        timestamp,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        buffer,
+      });
+    }
 
     try {
       response = await fetchImpl(config.MEDIA_REMOTE_UPLOAD_URL, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${config.MEDIA_REMOTE_SECRET}`,
-          'X-HES-Media-Timestamp': timestamp,
-          'X-HES-Media-Signature': signature,
-        },
+        headers,
         body: form,
         signal: controller.signal,
       });
@@ -340,7 +388,7 @@ export async function storeRemotePhpMediaUpload({ config, file, fetchImpl = glob
       throw error;
     }
 
-    const storedMedia = normalizeRemoteResponse(await response.json());
+    const storedMedia = normalizeRemoteResponse(await response.json(), { file, buffer, responseMode });
     assertRemotePublicUrl(config, storedMedia.url);
 
     return storedMedia;

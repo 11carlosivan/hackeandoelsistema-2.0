@@ -75,6 +75,88 @@ describe('remote PHP media storage', () => {
     });
   });
 
+  it('supports Banahost-style uploads with image field, Bearer auth and a simple URL response', async () => {
+    const file = {
+      filename: 'Prueba CMS.png',
+      mimetype: 'image/png',
+      buffer: PNG_1X1,
+    };
+
+    const stored = await storeRemotePhpMediaUpload({
+      config: {
+        ...remoteConfig,
+        MEDIA_REMOTE_UPLOAD_URL: 'https://image.hackeandoelsistema.net/subir.php',
+        MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://image.hackeandoelsistema.net',
+        MEDIA_REMOTE_AUTH_MODE: 'bearer',
+        MEDIA_REMOTE_FILE_FIELD: 'image',
+        MEDIA_REMOTE_RESPONSE_MODE: 'simple_url',
+      },
+      file,
+      fetchImpl: async (url, options) => {
+        expect(url).toBe('https://image.hackeandoelsistema.net/subir.php');
+        expect(options.method).toBe('POST');
+        expect(options.headers).toEqual({
+          Authorization: `Bearer ${remoteConfig.MEDIA_REMOTE_SECRET}`,
+        });
+
+        const uploadedFile = options.body.get('image');
+        expect(uploadedFile).toBeTruthy();
+        expect(options.body.get('file')).toBeNull();
+        expect(options.body.get('filename')).toBeNull();
+        expect(options.body.get('mimetype')).toBeNull();
+
+        return {
+          ok: true,
+          json: async () => ({
+            url: 'https://image.hackeandoelsistema.net/img_prueba-cms.png',
+          }),
+        };
+      },
+    });
+
+    expect(stored).toMatchObject({
+      disk: 'remote_php',
+      url: 'https://image.hackeandoelsistema.net/img_prueba-cms.png',
+      path: '/img_prueba-cms.png',
+      mimeType: 'image/png',
+      fileName: 'img_prueba-cms.png',
+      fileSize: PNG_1X1.length,
+      width: 1,
+      height: 1,
+    });
+  });
+
+  it('normalizes remote PHP responses that send an absolute URL in the path field', async () => {
+    const stored = await storeRemotePhpMediaUpload({
+      config: {
+        ...remoteConfig,
+        MEDIA_REMOTE_UPLOAD_URL: 'https://image.hackeandoelsistema.net/subir.php',
+        MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://image.hackeandoelsistema.net',
+      },
+      file: {
+        filename: 'Prueba CMS.png',
+        mimetype: 'image/png',
+        buffer: PNG_1X1,
+      },
+      fetchImpl: async () => ({
+        ok: true,
+        json: async () => ({
+          media: {
+            url: 'https://image.hackeandoelsistema.net/uploads/2026/07/prueba-cms.png',
+            path: 'https://image.hackeandoelsistema.net/uploads/2026/07/prueba-cms.png',
+            mimeType: 'image/png',
+            fileName: 'prueba-cms.png',
+            fileSize: PNG_1X1.length,
+            width: 1,
+            height: 1,
+          },
+        }),
+      }),
+    });
+
+    expect(stored.path).toBe('/uploads/2026/07/prueba-cms.png');
+  });
+
   it('rejects remote responses from a different public origin', async () => {
     await expect(
       storeRemotePhpMediaUpload({

@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   applyPasswordProtectedSeoPolicy,
   buildPostPayload,
+  buildPostUpdatePayloadForImport,
+  buildMediaAssetUpdatePayloadForImport,
   checksumForPayload,
   buildAuthorSeoPayload,
   buildStaticArchiveSeoPayload,
   legacyPlaceholderEmail,
   isWordPressFrontPage,
   normalizeTitle,
+  normalizeLegacyEditorialHtml,
   inferMimeType,
   parseAttachmentDimensions,
   parseWordPressDate,
@@ -36,6 +39,35 @@ describe("WordPress core importer", () => {
     expect(sanitized).not.toContain("script");
     expect(sanitized).not.toContain("onclick");
     expect(sanitized).not.toContain("javascript:");
+  });
+
+  it("normalizes malformed legacy editorial HTML before storing it", () => {
+    const normalized = normalizeLegacyEditorialHtml(
+      '<h1 class="wp-block-heading">La discusion publica ha querido reducir todo a redes sociales. La politica no funciona solamente por presion mediatica y necesita contexto institucional.<br><br>Claves del caso<br><br>- Primer punto<br>- Segundo punto</h1>',
+    );
+
+    expect(normalized).toContain("<h2>La discusion publica ha querido reducir todo a redes sociales.</h2>");
+    expect(normalized).toContain(
+      "<p>La politica no funciona solamente por presion mediatica y necesita contexto institucional.</p>",
+    );
+    expect(normalized).toContain("<h2>Claves del caso</h2>");
+    expect(normalized).toContain("<ul><li>Primer punto</li><li>Segundo punto</li></ul>");
+    expect(normalized).not.toContain("<h1");
+  });
+
+  it("turns standalone WordPress embed URLs into clickable links before storing them", () => {
+    const normalized = normalizeLegacyEditorialHtml(`
+      <figure class="wp-block-embed is-type-wp-embed is-provider-hackeando-el-sistema">
+        <div class="wp-block-embed__wrapper">
+          https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/
+        </div>
+      </figure>
+    `);
+
+    expect(normalized).toContain(
+      '<a href="https://hackeandoelsistema.net/quien-se-queda-con-el-dinero-de-la-gasolina-en-republica-dominicana/" rel="noopener noreferrer">',
+    );
+    expect(normalized).not.toContain("wp-block-embed__wrapper");
   });
 
   it("normalizes slugs and titles for database limits", () => {
@@ -69,6 +101,47 @@ describe("WordPress core importer", () => {
     });
 
     expect(payload.visibility).toBe("PRIVATE");
+  });
+
+  it("does not clear existing post covers during a WordPress reimport", () => {
+    const updatePayload = buildPostUpdatePayloadForImport({
+      title: "Titulo",
+      slug: "titulo",
+      authorId: "11111111-1111-4111-8111-111111111111",
+      featuredMediaId: null,
+    });
+
+    expect(updatePayload).not.toHaveProperty("featuredMediaId");
+  });
+
+  it("does not revert migrated media storage back to WordPress during reimport", () => {
+    const updatePayload = buildMediaAssetUpdatePayloadForImport({
+      uploadedById: null,
+      disk: "wordpress",
+      url: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      path: "2026/08/cover.jpg",
+      originalUrl: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      legacyGuid: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      legacyMetadata: { raw: "legacy" },
+      mimeType: "image/jpeg",
+      fileName: "cover.jpg",
+      width: 1200,
+      height: 630,
+      altText: "Cover",
+      caption: "Caption",
+    });
+
+    expect(updatePayload).toMatchObject({
+      uploadedById: null,
+      legacyGuid: "https://hackeandoelsistema.net/wp-content/uploads/cover.jpg",
+      legacyMetadata: { raw: "legacy" },
+      altText: "Cover",
+      caption: "Caption",
+    });
+    expect(updatePayload).not.toHaveProperty("disk");
+    expect(updatePayload).not.toHaveProperty("url");
+    expect(updatePayload).not.toHaveProperty("path");
+    expect(updatePayload).not.toHaveProperty("originalUrl");
   });
 
   it("forces noindex SEO policy for WordPress password protected content", () => {

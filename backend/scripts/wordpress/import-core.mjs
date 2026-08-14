@@ -130,7 +130,199 @@ export function sanitizeLegacyHtml(value) {
     return null;
   }
 
-  return sanitizeHtml(value, HTML_SANITIZE_OPTIONS).trim() || null;
+  const safeHtml = sanitizeHtml(value, HTML_SANITIZE_OPTIONS).trim();
+
+  return normalizeLegacyEditorialHtml(safeHtml) || null;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sanitizedText(value) {
+  return sanitizeHtml(String(value || ""), {
+    allowedTags: [],
+    allowedAttributes: {},
+    textFilter: (text) => text.replace(/\s+/g, " "),
+  }).trim();
+}
+
+function splitInlineBreaks(value) {
+  return String(value || "")
+    .split(/(?:\s*<br\s*\/?>\s*){2,}/i)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function splitSoftLines(value) {
+  return String(value || "")
+    .split(/\s*<br\s*\/?>\s*|\n+/i)
+    .map((line) => sanitizedText(line))
+    .filter(Boolean);
+}
+
+function listHtmlFromSegment(segment) {
+  const lines = splitSoftLines(segment);
+
+  if (lines.length < 2) {
+    return null;
+  }
+
+  const unordered = lines.every((line) => /^[-*•]\s+/.test(line));
+  const ordered = lines.every((line) => /^\d+[.)]\s+/.test(line));
+
+  if (!unordered && !ordered) {
+    return null;
+  }
+
+  const tag = ordered ? "ol" : "ul";
+  const items = lines
+    .map((line) => line.replace(/^[-*•]\s+|^\d+[.)]\s+/, "").trim())
+    .filter(Boolean)
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join("");
+
+  return items ? `<${tag}>${items}</${tag}>` : null;
+}
+
+function splitLeadHeading(text) {
+  const cleanText = String(text || "").replace(/\s+/g, " ").trim();
+  const firstSentence = cleanText.match(/^(.{24,170}?[.:])\s+(.{80,})$/);
+
+  if (!firstSentence) {
+    return null;
+  }
+
+  const heading = firstSentence[1].trim();
+  const rest = firstSentence[2].trim();
+
+  if (heading.split(/\s+/).length > 24) {
+    return null;
+  }
+
+  return { heading, rest };
+}
+
+function isHeadingCandidate(segment, originalTag) {
+  const text = sanitizedText(segment);
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const originalHeading = /^h[1-6]$/i.test(originalTag);
+
+  return originalHeading && text.length <= 170 && wordCount <= 24;
+}
+
+function segmentToLegacyEditorialHtml(segment, originalTag = "p") {
+  const listHtml = listHtmlFromSegment(segment);
+
+  if (listHtml) {
+    return listHtml;
+  }
+
+  const text = sanitizedText(segment);
+
+  if (!text) {
+    return "";
+  }
+
+  if (/^h[1-6]$/i.test(originalTag)) {
+    const split = splitLeadHeading(text);
+
+    if (split) {
+      return `<h2>${escapeHtml(split.heading)}</h2>\n<p>${escapeHtml(split.rest)}</p>`;
+    }
+  }
+
+  if (isHeadingCandidate(segment, originalTag)) {
+    return `<h2>${segment.trim()}</h2>`;
+  }
+
+  return `<p>${segment.trim()}</p>`;
+}
+
+function textToLegacyEditorialHtml(value) {
+  return String(value || "")
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => segmentToLegacyEditorialHtml(block, "p"))
+    .join("\n");
+}
+
+function standaloneUrlAnchor(value) {
+  const text = sanitizedText(value).trim();
+
+  if (!/^https?:\/\/[^\s<>"']+$/i.test(text)) {
+    return null;
+  }
+
+  try {
+    const url = new URL(text);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return `<p><a href="${escapeHtml(url.href)}">${escapeHtml(text)}</a></p>`;
+  } catch {
+    return null;
+  }
+}
+
+function linkifyStandaloneLegacyUrls(value) {
+  return String(value || "")
+    .replace(/<figure\b[^>]*class=(["'])[^"']*\bwp-block-embed\b[^"']*\1[^>]*>[\s\S]*?<div\b[^>]*class=(["'])[^"']*\bwp-block-embed__wrapper\b[^"']*\2[^>]*>([\s\S]*?)<\/div>\s*<\/figure>/gi, (match, _figureQuote, _wrapperQuote, inner) => {
+      return standaloneUrlAnchor(inner) || match;
+    })
+    .replace(/<(p|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, attributes, inner) => {
+      const anchor = standaloneUrlAnchor(inner);
+
+      if (!anchor) {
+        return match;
+      }
+
+      return /^div$/i.test(tag) ? anchor : anchor.replace(/^<p>/, `<p${attributes}>`);
+    });
+}
+
+export function normalizeLegacyEditorialHtml(value) {
+  const safeHtml = String(value || "").trim();
+
+  if (!safeHtml) {
+    return null;
+  }
+
+  const hasEditorialTags = /<(?:p|h[1-6]|ul|ol|li|blockquote|figure|img|iframe)\b/i.test(safeHtml);
+
+  if (!hasEditorialTags) {
+    return sanitizeHtml(textToLegacyEditorialHtml(safeHtml), HTML_SANITIZE_OPTIONS).trim() || null;
+  }
+
+  const linkifiedHtml = linkifyStandaloneLegacyUrls(safeHtml);
+  const normalized = linkifiedHtml.replace(/<(p|h[1-6]|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, _attributes, inner) => {
+    const segments = splitInlineBreaks(inner);
+
+    if (segments.length < 2) {
+      const text = sanitizedText(inner);
+
+      if (/^h[1-6]$/i.test(tag) && text.length > 220) {
+        return segmentToLegacyEditorialHtml(inner, tag);
+      }
+
+      return match;
+    }
+
+    return segments
+      .map((segment) => segmentToLegacyEditorialHtml(segment, tag))
+      .filter(Boolean)
+      .join("\n");
+  });
+
+  return sanitizeHtml(normalized, HTML_SANITIZE_OPTIONS).trim() || null;
 }
 
 export function legacyPlaceholderEmail(userId) {
@@ -659,21 +851,7 @@ async function upsertMediaAssets({ prisma, state, importRunId, userIdByLegacyId,
     const dbMedia = await prisma.mediaAsset.upsert({
       where: { legacyWordpressId: Number(post.id) },
       create: payload,
-      update: {
-        uploadedById: payload.uploadedById,
-        disk: payload.disk,
-        url: payload.url,
-        path: payload.path,
-        originalUrl: payload.originalUrl,
-        legacyGuid: payload.legacyGuid,
-        legacyMetadata: payload.legacyMetadata,
-        mimeType: payload.mimeType,
-        fileName: payload.fileName,
-        width: payload.width,
-        height: payload.height,
-        altText: payload.altText,
-        caption: payload.caption,
-      },
+      update: buildMediaAssetUpdatePayloadForImport(payload),
     });
 
     await upsertMapping(prisma, {
@@ -718,7 +896,7 @@ async function upsertPost({
   const dbPost = await prisma.post.upsert({
     where: { legacyWordpressId: Number(post.id) },
     create: payload,
-    update: payload,
+    update: buildPostUpdatePayloadForImport(payload),
   });
 
   const route = await upsertRoute(prisma, {
@@ -776,6 +954,23 @@ export function buildPostPayload({ post, legacyUrl, authorId, featuredMediaId = 
   };
 
   return payload;
+}
+
+export function buildPostUpdatePayloadForImport(payload) {
+  const updatePayload = { ...payload };
+  delete updatePayload.featuredMediaId;
+
+  return updatePayload;
+}
+
+export function buildMediaAssetUpdatePayloadForImport(payload) {
+  return {
+    uploadedById: payload.uploadedById,
+    legacyGuid: payload.legacyGuid,
+    legacyMetadata: payload.legacyMetadata,
+    altText: payload.altText,
+    caption: payload.caption,
+  };
 }
 
 export function applyPasswordProtectedSeoPolicy(post, payload) {

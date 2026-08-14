@@ -1,356 +1,273 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { csrfHeaders } from './client-security';
 
-/* ── helpers ────────────────────────────────────────────────────────── */
 function formatBytes(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
+  const value = Number(bytes || 0);
+
+  if (!value) return 'Sin peso';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDate(str) {
-  if (!str) return '';
-  return new Date(str).toLocaleDateString('es-DO', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  });
+function formatDate(value) {
+  if (!value) return 'Sin fecha';
+
+  return new Intl.DateTimeFormat('es-DO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
-/* ── thumb ──────────────────────────────────────────────────────────── */
 function MediaThumb({ item, selected, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative block w-full aspect-square overflow-hidden border-2 transition-all ${
+      className={`group relative aspect-square overflow-hidden border text-left transition-all ${
         selected
-          ? 'border-system-red ring-2 ring-system-red/40'
-          : 'border-transparent hover:border-system-red/50'
+          ? 'border-system-red ring-2 ring-system-red/35'
+          : 'border-terminal-gray/60 hover:border-system-red'
       }`}
     >
-      {item?.type === 'IMAGE' ? (
+      {item?.type === 'IMAGE' && item?.url ? (
         <img
           src={item.url}
           alt={item.altText || item.fileName || ''}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]"
           loading="lazy"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-surface-container-low">
-          <span className="material-symbols-outlined text-system-red text-3xl">draft</span>
+        <div className="grid h-full w-full place-items-center bg-black">
+          <span className="material-symbols-outlined text-system-red text-4xl">draft</span>
         </div>
       )}
-      {selected && (
-        <div className="absolute top-1 right-1 w-5 h-5 bg-system-red rounded-full flex items-center justify-center">
-          <span className="material-symbols-outlined text-white text-[12px]">check</span>
+
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2">
+        <div className="truncate text-[10px] font-bold text-white">
+          {item.altText || item.fileName || 'Media'}
         </div>
-      )}
+      </div>
+
+      {selected ? (
+        <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-system-red text-black">
+          <span className="material-symbols-outlined text-[15px]">check</span>
+        </span>
+      ) : null}
     </button>
   );
 }
 
-/* ── upload tab ─────────────────────────────────────────────────────── */
-function UploadTab({ onUploaded }) {
-  const inputRef = useRef(null);
+function UploadDropzone({ onUploaded }) {
   const [dragging, setDragging] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState('idle'); // idle | uploading | done | error
+  const [status, setStatus] = useState('idle');
   const [message, setMessage] = useState('');
 
-  const doUpload = useCallback(async (file) => {
+  const uploadFile = useCallback(async (file) => {
     if (!file) return;
-    setUploadStatus('uploading');
+
+    if (!file.type?.startsWith('image/')) {
+      setStatus('error');
+      setMessage('Solo se permiten imagenes para la imagen destacada.');
+      return;
+    }
+
+    setStatus('loading');
     setMessage('');
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('altText', file.name.replace(/\.[^.]+$/, ''));
+
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/cms/media`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media`, {
         method: 'POST',
         credentials: 'include',
         headers: csrfHeaders(),
         body: formData,
       });
-      if (!res.ok) throw new Error('Error al subir el archivo.');
-      const json = await res.json();
-      const item = json.data?.media || json.media || json.data;
-      setUploadStatus('done');
-      setMessage(`"${file.name}" subido correctamente.`);
-      onUploaded?.(item);
-    } catch (err) {
-      setUploadStatus('error');
-      setMessage(err.message);
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message || payload?.error || 'No se pudo subir la imagen.');
+      }
+
+      const item = payload?.data?.media || payload?.media || payload?.data;
+
+      if (!item?.id) {
+        throw new Error('La API no devolvio la imagen subida.');
+      }
+
+      setStatus('success');
+      setMessage('Imagen subida. Ya puedes seleccionarla en la biblioteca.');
+      onUploaded(item);
+    } catch (error) {
+      setStatus('error');
+      setMessage(error.message);
     }
   }, [onUploaded]);
 
-  const onFileChange = (e) => {
-    doUpload(e.target.files?.[0]);
-    e.target.value = '';
-  };
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    doUpload(e.dataTransfer.files?.[0]);
-  };
-
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
+    <div className="flex min-h-0 flex-1 items-center justify-center p-5 md:p-10">
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
         onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        className={`flex flex-col items-center justify-center gap-4 w-full max-w-md py-20 border-2 border-dashed transition-colors ${
-          dragging ? 'border-system-red bg-system-red/5' : 'border-terminal-gray'
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          uploadFile(event.dataTransfer.files?.[0]);
+        }}
+        className={`flex w-full max-w-xl flex-col items-center justify-center gap-4 border-2 border-dashed px-6 py-16 text-center transition-colors ${
+          dragging ? 'border-system-red bg-system-red/10' : 'border-terminal-gray bg-black/20'
         }`}
       >
-        <span className="material-symbols-outlined text-5xl text-on-surface-variant">cloud_upload</span>
-        <p className="text-on-surface-variant text-sm text-center">
-          Arrastra los archivos para subirlos
-        </p>
-        <span className="text-on-surface-variant text-xs">o</span>
-        <label className="cursor-pointer border border-terminal-gray px-5 py-2 text-sm font-label-caps text-on-surface hover:border-system-red transition-colors">
-          Seleccionar archivos
-          <input ref={inputRef} type="file" accept="image/*,video/*" className="sr-only" onChange={onFileChange} />
+        <span className="material-symbols-outlined text-system-red text-5xl">cloud_upload</span>
+        <div>
+          <div className="font-label-caps text-sm font-bold text-white">Subir imagen</div>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            Arrastra una imagen o selecciona un archivo desde tu equipo.
+          </p>
+        </div>
+        <label className="cursor-pointer bg-system-red px-5 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white">
+          Seleccionar archivo
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(event) => {
+              uploadFile(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
         </label>
-
-        {uploadStatus === 'uploading' && (
-          <div className="flex items-center gap-2 text-sm text-on-surface-variant animate-pulse">
-            <span className="material-symbols-outlined text-base">sync</span>
-            Subiendo...
-          </div>
-        )}
-        {uploadStatus === 'done' && (
-          <div className="flex items-center gap-2 text-sm text-emerald-400">
-            <span className="material-symbols-outlined text-base">check_circle</span>
+        {status === 'loading' ? (
+          <div className="text-sm text-on-surface-variant">Subiendo imagen...</div>
+        ) : null}
+        {message ? (
+          <div className={`text-sm ${status === 'error' ? 'text-system-red' : 'text-emerald-400'}`}>
             {message}
           </div>
-        )}
-        {uploadStatus === 'error' && (
-          <div className="text-sm text-system-red">{message}</div>
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
 
-/* ── library tab ────────────────────────────────────────────────────── */
-function LibraryTab({ selectedMediaId, onSelect, initialMedia }) {
-  const [items, setItems] = useState(initialMedia || []);
+export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selectedMediaId = null, initialMedia = [] }) {
+  const [items, setItems] = useState(initialMedia);
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('idle');
-  const [selected, setSelected] = useState(null);
-
-  const load = useCallback(async (q) => {
-    setStatus('loading');
-    const params = new URLSearchParams({ type: 'IMAGE', limit: '60' });
-    if (q?.trim()) params.set('q', q.trim());
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/cms/media?${params}`, {
-        credentials: 'include',
-        headers: { Accept: 'application/json', ...csrfHeaders() },
-      });
-      if (!res.ok) throw new Error();
-      const json = await res.json();
-      setItems(json.data || []);
-      setStatus('idle');
-    } catch {
-      setStatus('error');
-    }
-  }, []);
-
-  useEffect(() => { load(query); }, [query, load]);
-
-  // sync preselected
-  useEffect(() => {
-    if (selectedMediaId && items.length) {
-      const found = items.find((i) => i.id === selectedMediaId);
-      if (found) setSelected(found);
-    }
-  }, [selectedMediaId, items]);
-
-  return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
-      {/* Grid area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Filter bar */}
-        <div className="flex items-center gap-3 border-b border-terminal-gray px-4 py-2 bg-surface-container-low/30">
-          <span className="text-xs text-on-surface-variant font-label-caps">Filtrar:</span>
-          <span className="text-xs text-on-surface-variant">Imágenes</span>
-          <div className="flex-1" />
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[14px] text-on-surface-variant">search</span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar medios"
-              className="pl-7 pr-3 py-1.5 text-xs border border-terminal-gray bg-black/30 text-on-surface outline-none focus:border-system-red w-44"
-            />
-          </div>
-        </div>
-
-        {/* Grid */}
-        <div className="flex-1 overflow-y-auto p-3">
-          {status === 'loading' && (
-            <div className="flex items-center justify-center h-32 text-on-surface-variant text-sm animate-pulse">
-              Cargando biblioteca...
-            </div>
-          )}
-          {status === 'error' && (
-            <div className="text-system-red text-sm p-4">No se pudo cargar la biblioteca.</div>
-          )}
-          {status === 'idle' && items.length === 0 && (
-            <div className="flex items-center justify-center h-32 text-on-surface-variant text-sm">
-              No se encontraron archivos.
-            </div>
-          )}
-          {status === 'idle' && items.length > 0 && (
-            <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))' }}>
-              {items.map((item) => (
-                <MediaThumb
-                  key={item.id}
-                  item={item}
-                  selected={selected?.id === item.id}
-                  onClick={() => setSelected(item)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Details sidebar */}
-      <div className="w-64 flex-shrink-0 border-l border-terminal-gray bg-surface-container-low/20 flex flex-col">
-        {selected ? (
-          <>
-            <div className="p-4 border-b border-terminal-gray">
-              <div className="font-label-caps text-[10px] text-system-red font-bold mb-3">DETALLES DEL ADJUNTO</div>
-              <div className="aspect-square w-full overflow-hidden border border-terminal-gray mb-3">
-                <img src={selected.url} alt={selected.altText || ''} className="h-full w-full object-cover" />
-              </div>
-              <div className="text-xs font-bold text-on-surface truncate">{selected.fileName}</div>
-              {selected.createdAt && (
-                <div className="text-[11px] text-on-surface-variant mt-1">{formatDate(selected.createdAt)}</div>
-              )}
-              {(selected.width && selected.height) && (
-                <div className="text-[11px] text-on-surface-variant">{selected.width} × {selected.height} píxeles</div>
-              )}
-              {selected.fileSize && (
-                <div className="text-[11px] text-on-surface-variant">{formatBytes(selected.fileSize)}</div>
-              )}
-              {selected.mimeType && (
-                <div className="text-[11px] text-on-surface-variant">{selected.mimeType}</div>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              <div>
-                <label className="block text-[10px] font-label-caps text-on-surface-variant mb-1">Texto alternativo</label>
-                <textarea
-                  defaultValue={selected.altText || ''}
-                  rows={2}
-                  className="w-full text-xs border border-terminal-gray bg-black/30 text-on-surface px-2 py-1.5 outline-none focus:border-system-red resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-label-caps text-on-surface-variant mb-1">Título</label>
-                <input
-                  defaultValue={selected.title || selected.altText || selected.fileName || ''}
-                  className="w-full text-xs border border-terminal-gray bg-black/30 text-on-surface px-2 py-1.5 outline-none focus:border-system-red"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-label-caps text-on-surface-variant mb-1">URL del archivo</label>
-                <input
-                  readOnly
-                  value={selected.url || ''}
-                  className="w-full text-[10px] border border-terminal-gray bg-black/10 text-on-surface-variant px-2 py-1.5 outline-none cursor-text select-all"
-                  onFocus={(e) => e.target.select()}
-                />
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-terminal-gray">
-              <button
-                type="button"
-                onClick={() => onSelect?.(selected)}
-                className="w-full bg-system-red text-black font-label-caps text-[11px] font-bold py-2.5 hover:bg-white transition-colors"
-              >
-                Establecer imagen destacada
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-1 items-center justify-center p-6 text-center">
-            <p className="text-xs text-on-surface-variant">
-              Selecciona una imagen para ver sus detalles
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── main modal ─────────────────────────────────────────────────────── */
-export default function CmsMediaSelectorModal({
-  isOpen,
-  onClose,
-  onSelect,
-  selectedMediaId = null,
-  initialMedia = [],
-}) {
   const [tab, setTab] = useState('library');
-  const [freshMedia, setFreshMedia] = useState(initialMedia);
+  const [status, setStatus] = useState('idle');
+  const [selectedId, setSelectedId] = useState(selectedMediaId || '');
+  const selectedItem = useMemo(
+    () => items.find((item) => item.id === selectedId) || null,
+    [items, selectedId],
+  );
 
-  // reset tab when opens
   useEffect(() => {
-    if (isOpen) setTab('library');
-  }, [isOpen]);
+    if (!isOpen) return;
+
+    setItems(initialMedia);
+    setSelectedId(selectedMediaId || '');
+    setTab('library');
+  }, [initialMedia, isOpen, selectedMediaId]);
+
+  useEffect(() => {
+    if (!isOpen || tab !== 'library') return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setStatus('loading');
+
+      const params = new URLSearchParams({
+        type: 'IMAGE',
+        limit: '72',
+      });
+
+      if (query.trim()) {
+        params.set('q', query.trim());
+      }
+
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media?${params.toString()}`, {
+          credentials: 'include',
+          headers: {
+            Accept: 'application/json',
+            ...csrfHeaders(),
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('No se pudo cargar la biblioteca.');
+        }
+
+        const payload = await response.json();
+        const nextItems = payload.data || [];
+
+        setItems(nextItems);
+        setStatus('idle');
+      } catch (error) {
+        if (error?.name !== 'AbortError') {
+          setStatus('error');
+        }
+      }
+    }, query.trim() ? 250 : 0);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isOpen, query, tab]);
 
   const handleUploaded = (item) => {
-    if (item) {
-      setFreshMedia((prev) => [item, ...prev.filter((e) => e.id !== item.id)]);
-    }
+    setItems((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
+    setSelectedId(item.id);
     setTab('library');
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center" style={{ padding: '2.5vh 2.5vw' }}>
-      <div className="flex flex-col border border-terminal-gray bg-background text-on-surface shadow-2xl" style={{ width: '95vw', height: '95vh' }}>
-
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between border-b border-terminal-gray px-5 py-3">
-          <h2 className="font-headline-md text-base text-on-surface uppercase tracking-wider">
-            Imagen destacada
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[2.5vh_2.5vw] backdrop-blur-sm">
+      <div className="flex h-[95vh] w-[95vw] flex-col border border-terminal-gray bg-background text-on-surface shadow-2xl">
+        <header className="flex items-center justify-between border-b border-terminal-gray px-4 py-3 md:px-5">
+          <div>
+            <div className="font-label-caps text-system-red text-[10px] font-bold">MEDIA</div>
+            <h2 className="font-headline-md text-xl text-white uppercase md:text-2xl">Imagen destacada</h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-on-surface-variant hover:text-system-red transition-colors"
+            className="grid h-10 w-10 place-items-center border border-terminal-gray text-white transition-colors hover:border-system-red hover:text-system-red"
+            aria-label="Cerrar selector de media"
           >
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
-        </div>
+        </header>
 
-        {/* ── Tabs ── */}
         <div className="flex border-b border-terminal-gray">
           {[
-            { key: 'upload', label: 'Subir archivos' },
-            { key: 'library', label: 'Biblioteca de medios' },
-          ].map(({ key, label }) => (
+            ['library', 'Biblioteca'],
+            ['upload', 'Subir nueva'],
+          ].map(([key, label]) => (
             <button
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`px-5 py-2.5 font-label-caps text-[11px] font-bold border-b-2 transition-colors ${
+              className={`border-b-2 px-4 py-3 font-label-caps text-[10px] font-bold transition-colors md:px-5 ${
                 tab === key
                   ? 'border-system-red text-system-red'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                  : 'border-transparent text-on-surface-variant hover:text-white'
               }`}
             >
               {label}
@@ -358,17 +275,125 @@ export default function CmsMediaSelectorModal({
           ))}
         </div>
 
-        {/* ── Content ── */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {tab === 'upload' && <UploadTab onUploaded={handleUploaded} />}
-          {tab === 'library' && (
-            <LibraryTab
-              selectedMediaId={selectedMediaId}
-              onSelect={(item) => { onSelect?.(item); onClose?.(); }}
-              initialMedia={freshMedia}
-            />
-          )}
-        </div>
+        {tab === 'upload' ? (
+          <UploadDropzone onUploaded={handleUploaded} />
+        ) : (
+          <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-1">
+            <section className="flex min-h-0 flex-col border-b border-terminal-gray lg:border-b-0 lg:border-r">
+              <div className="flex flex-col gap-3 border-b border-terminal-gray bg-black/20 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="font-label-caps text-[10px] font-bold text-on-surface-variant">
+                  {items.length} imagenes disponibles
+                </div>
+                <label className="relative block w-full md:w-72">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
+                    search
+                  </span>
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Buscar por nombre o alt"
+                    className="w-full border border-terminal-gray bg-black py-2 pl-9 pr-3 text-sm text-white outline-none focus:border-system-red"
+                  />
+                </label>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
+                {status === 'loading' ? (
+                  <div className="border border-dashed border-terminal-gray p-10 text-center text-on-surface-variant">
+                    Cargando media...
+                  </div>
+                ) : null}
+
+                {status === 'error' ? (
+                  <div className="border border-system-red/40 bg-system-red/10 p-4 text-white">
+                    No se pudo cargar la biblioteca.
+                  </div>
+                ) : null}
+
+                {status === 'idle' && items.length === 0 ? (
+                  <div className="border border-dashed border-terminal-gray p-10 text-center text-on-surface-variant">
+                    No hay imagenes para mostrar.
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                  {items.map((item) => (
+                    <MediaThumb
+                      key={item.id}
+                      item={item}
+                      selected={item.id === selectedId}
+                      onClick={() => setSelectedId(item.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <aside className="flex min-h-0 flex-col bg-black/20">
+              {selectedItem ? (
+                <>
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+                    <div className="font-label-caps text-system-red mb-3 text-[10px] font-bold">Detalles</div>
+                    <div className="mb-4 overflow-hidden border border-terminal-gray bg-black">
+                      <img
+                        src={selectedItem.url}
+                        alt={selectedItem.altText || selectedItem.fileName || ''}
+                        className="h-auto max-h-64 w-full object-contain"
+                      />
+                    </div>
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <div className="font-label-caps text-[9px] font-bold text-on-surface-variant">Archivo</div>
+                        <div className="break-all text-white">{selectedItem.fileName || 'Sin nombre'}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="font-label-caps text-[9px] font-bold text-on-surface-variant">Peso</div>
+                          <div className="text-white">{formatBytes(selectedItem.fileSize)}</div>
+                        </div>
+                        <div>
+                          <div className="font-label-caps text-[9px] font-bold text-on-surface-variant">Fecha</div>
+                          <div className="text-white">{formatDate(selectedItem.createdAt)}</div>
+                        </div>
+                      </div>
+                      {selectedItem.width && selectedItem.height ? (
+                        <div>
+                          <div className="font-label-caps text-[9px] font-bold text-on-surface-variant">Dimensiones</div>
+                          <div className="text-white">{selectedItem.width} x {selectedItem.height}px</div>
+                        </div>
+                      ) : null}
+                      <div>
+                        <div className="font-label-caps text-[9px] font-bold text-on-surface-variant">URL</div>
+                        <input
+                          readOnly
+                          value={selectedItem.url || ''}
+                          onFocus={(event) => event.target.select()}
+                          className="mt-1 w-full border border-terminal-gray bg-black px-2 py-2 text-[10px] text-on-surface-variant outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t border-terminal-gray p-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelect?.(selectedItem);
+                        onClose?.();
+                      }}
+                      className="w-full bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white"
+                    >
+                      Usar esta imagen
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="grid min-h-48 flex-1 place-items-center p-6 text-center text-sm text-on-surface-variant">
+                  Selecciona una imagen para ver sus detalles.
+                </div>
+              )}
+            </aside>
+          </div>
+        )}
       </div>
     </div>
   );

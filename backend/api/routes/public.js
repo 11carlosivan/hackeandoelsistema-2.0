@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AUTH_COOKIE_NAMES, verifyAccessToken } from '../services/auth.js';
+import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.js';
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
@@ -33,8 +34,6 @@ const idParamSchema = z.object({
   id: z.uuid(),
 });
 const publicCommentSchema = z.object({
-  authorName: z.string().trim().min(2).max(160).optional(),
-  authorEmail: z.string().trim().email().max(255).optional(),
   body: z.string().trim().min(3).max(2000),
   parentId: z.uuid().nullable().optional(),
 });
@@ -64,6 +63,20 @@ const SITEMAP_EXCLUDED_PATHS = [
 const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const PUBLIC_VISITOR_COOKIE = 'hes_public_visitor';
+const WP_UPLOADS_PREFIX = '/wp-content/uploads/';
+const INTERNAL_POST_LINK_EXCLUDED_SEGMENTS = new Set([
+  'author',
+  'category',
+  'tag',
+  'wp-admin',
+  'wp-content',
+  'wp-json',
+  'feed',
+  'page',
+  'shop',
+  'product',
+  'product-category',
+]);
 
 let lastScheduledPublishCheckAt = 0;
 let scheduledPublishInFlight = null;
@@ -219,13 +232,85 @@ async function publishDueScheduledPosts(app) {
       select: {
         id: true,
         visibility: true,
+        featuredMediaId: true,
+        title: true,
+        contentHtml: true,
+        scheduledAt: true,
       },
     });
-    const postIds = duePosts.map((post) => post.id).filter(Boolean);
+    for (const post of duePosts) {
+      if (post.visibility !== 'PUBLIC' || post.featuredMediaId) {
+        continue;
+      }
+
+      try {
+        const fallbackMediaId = await ensureFeaturedMediaFromPostContent(app.prisma, post, {
+          siteUrl: app.config.WEB_ORIGIN,
+          config: app.config,
+          log: app.log,
+        });
+
+        if (fallbackMediaId) {
+          post.featuredMediaId = fallbackMediaId;
+        }
+      } catch (error) {
+        app.log.warn({ error, postId: post.id }, 'Unable to promote content image before scheduled publish');
+      }
+    }
+
+    const publishablePosts = duePosts.filter((post) => post.visibility !== 'PUBLIC' || post.featuredMediaId);
+    const blockedPublicPosts = duePosts.filter((post) => post.visibility === 'PUBLIC' && !post.featuredMediaId);
+    const postIds = publishablePosts.map((post) => post.id).filter(Boolean);
+    const blockedPublicPostIds = blockedPublicPosts.map((post) => post.id).filter(Boolean);
     const publicPostIds = duePosts
-      .filter((post) => post.visibility === 'PUBLIC')
+      .filter((post) => post.visibility === 'PUBLIC' && post.featuredMediaId)
       .map((post) => post.id)
       .filter(Boolean);
+
+    if (blockedPublicPostIds.length > 0) {
+      app.log.warn(
+        { postIds: blockedPublicPostIds },
+        'Moved scheduled public posts without featured media back to draft',
+      );
+
+      await app.prisma.post.updateMany({
+        where: {
+          id: { in: blockedPublicPostIds },
+          status: 'SCHEDULED',
+        },
+        data: {
+          status: 'DRAFT',
+          scheduledAt: null,
+        },
+      });
+
+      await app.prisma.route.updateMany({
+        where: {
+          entityType: 'POST',
+          entityId: { in: blockedPublicPostIds },
+        },
+        data: {
+          status: 'GONE',
+          httpStatus: 404,
+          includeInSitemap: false,
+          lastmodAt: now,
+        },
+      });
+
+      if (typeof app.prisma.auditLog?.createMany === 'function') {
+        await app.prisma.auditLog.createMany({
+          data: blockedPublicPosts.map((post) => ({
+            action: 'POST_SCHEDULE_REMOVED_MISSING_COVER',
+            entityType: 'POST',
+            entityId: post.id,
+            metadata: {
+              reason: 'missing_featured_media',
+              scheduledAt: post.scheduledAt,
+            },
+          })),
+        });
+      }
+    }
 
     if (postIds.length === 0) {
       return;
@@ -446,30 +531,148 @@ function rewriteLegacyMediaUrl(config, value) {
   }
 
   try {
-    const legacyBaseUrl = config.LEGACY_MEDIA_BASE_URL.replace(/\/+$/g, '');
+    const legacyBase = new URL(config.LEGACY_MEDIA_BASE_URL.replace(/\/+$/g, ''));
     const url = String(value).startsWith('/')
-      ? new URL(String(value), legacyBaseUrl)
+      ? new URL(String(value), legacyBase.origin)
       : new URL(String(value));
 
-    if (!url.pathname.startsWith('/wp-content/uploads/')) {
+    if (!url.pathname.startsWith(WP_UPLOADS_PREFIX)) {
       return value;
     }
 
-    return `${legacyBaseUrl}${url.pathname}${url.search}`;
+    const basePath = legacyBase.pathname.replace(/\/+$/g, '');
+    const legacyUploadBasePath = basePath.endsWith('/wp-content/uploads')
+      ? basePath
+      : `${basePath}${WP_UPLOADS_PREFIX.slice(0, -1)}`.replace(/\/{2,}/g, '/');
+    const uploadPath = url.pathname.slice(WP_UPLOADS_PREFIX.length).replace(/^\/+/g, '');
+
+    return `${legacyBase.origin}${legacyUploadBasePath}/${uploadPath}${url.search}`;
   } catch {
     return value;
   }
 }
 
+function isBrokenSameSiteWordpressMedia(config, value) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = String(value).startsWith('/')
+      ? new URL(String(value), config?.WEB_ORIGIN || PUBLIC_SITE_URL)
+      : new URL(String(value));
+    const siteUrl = new URL(config?.WEB_ORIGIN || PUBLIC_SITE_URL);
+    const urlHost = url.hostname.replace(/^www\./i, '').toLowerCase();
+    const siteHost = siteUrl.hostname.replace(/^www\./i, '').toLowerCase();
+
+    return urlHost === siteHost && url.pathname.startsWith(WP_UPLOADS_PREFIX);
+  } catch {
+    return false;
+  }
+}
+
+function publicMediaUrl(config, value) {
+  const rewrittenUrl = rewriteLegacyMediaUrl(config, value);
+
+  return isBrokenSameSiteWordpressMedia(config, rewrittenUrl) ? null : rewrittenUrl;
+}
+
+function escapeHtmlAttribute(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function stripHtml(value) {
+  return String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeYoutubeEmbedUrl(value) {
+  const raw = String(value || '').trim();
+
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (hostname === 'youtu.be') {
+      const id = url.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+
+    if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+      if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      const id = url.searchParams.get('v');
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
+function youtubeEmbedHtml(value) {
+  const embedUrl = normalizeYoutubeEmbedUrl(value);
+
+  if (!embedUrl) return null;
+
+  return `<div class="wp-block-embed-youtube"><iframe src="${escapeHtmlAttribute(embedUrl)}" title="Video de YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+}
+
+function normalizeStandaloneYoutubeEmbeds(value) {
+  return String(value || '')
+    .replace(/<figure\b[^>]*class=(["'])[^"']*\bwp-block-embed\b[^"']*\1[^>]*>[\s\S]*?<div\b[^>]*class=(["'])[^"']*\bwp-block-embed__wrapper\b[^"']*\2[^>]*>([\s\S]*?)<\/div>\s*<\/figure>/gi, (match, _figureQuote, _wrapperQuote, inner) => {
+      return youtubeEmbedHtml(stripHtml(inner)) || match;
+    })
+    .replace(/<(p|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, _tag, _attributes, inner) => {
+      const text = stripHtml(inner);
+
+      if (!/^https?:\/\/[^\s<>"']+$/i.test(text)) {
+        return match;
+      }
+
+      return youtubeEmbedHtml(text) || match;
+    });
+}
+
 function rewriteLegacyMediaHtml(config, value) {
-  if (!value || !config?.LEGACY_MEDIA_BASE_URL) {
+  if (!value) {
     return value;
   }
 
-  return String(value).replace(
+  const normalizedEmbeds = normalizeStandaloneYoutubeEmbeds(value);
+
+  if (!config?.LEGACY_MEDIA_BASE_URL) {
+    return normalizedEmbeds;
+  }
+
+  return normalizedEmbeds.replace(
     /(https?:\/\/[^"'\s)]+\/wp-content\/uploads\/[^"'\s)]+|\/wp-content\/uploads\/[^"'\s)]+)/g,
     (url) => rewriteLegacyMediaUrl(config, url),
-  );
+  ).replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, (figure) => {
+    const src = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i.exec(figure);
+    const imageUrl = src?.[1] || src?.[2] || src?.[3];
+
+    return isBrokenSameSiteWordpressMedia(config, imageUrl) ? '' : figure;
+  }).replace(/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>/gi, (image, doubleQuoted, singleQuoted, unquoted) => {
+    const imageUrl = doubleQuoted || singleQuoted || unquoted;
+
+    return isBrokenSameSiteWordpressMedia(config, imageUrl) ? '' : image;
+  });
 }
 
 function rewriteLegacyMediaContentJson(config, value) {
@@ -491,9 +694,14 @@ function normalizePublicMediaAsset(config, media) {
     return null;
   }
 
+  const url = publicMediaUrl(config, media.url);
+  if (!url) {
+    return null;
+  }
+
   return {
     id: media.id,
-    url: rewriteLegacyMediaUrl(config, media.url),
+    url,
     altText: media.altText,
     width: media.width,
     height: media.height,
@@ -507,7 +715,7 @@ function normalizePublicSeoMetadata(config, seoMetadata) {
 
   return {
     ...seoMetadata,
-    ogImageUrl: rewriteLegacyMediaUrl(config, seoMetadata.ogImageUrl),
+    ogImageUrl: publicMediaUrl(config, seoMetadata.ogImageUrl),
     ogImage: seoMetadata.ogImage ? normalizePublicMediaAsset(config, seoMetadata.ogImage) : seoMetadata.ogImage,
   };
 }
@@ -596,16 +804,122 @@ const publicPostAuthorSelect = {
   legacyAuthorUrl: true,
 };
 
+function internalPostLinkCandidatesFromHtml(html, currentPost) {
+  const candidates = [];
+  const seen = new Set();
+  const currentSlugs = new Set([
+    currentPost?.slug,
+    currentPost?.legacySlug,
+    String(currentPost?.legacyUrl || '').replace(/^\/+|\/+$/g, ''),
+  ].filter(Boolean));
+  const siteOrigins = new Set([
+    'https://hackeandoelsistema.net',
+    'https://www.hackeandoelsistema.net',
+    PUBLIC_SITE_URL,
+  ]);
+  const urlPattern = /https?:\/\/(?:www\.)?hackeandoelsistema\.net\/[^"'<>\s)]+/gi;
+
+  for (const match of String(html || '').matchAll(urlPattern)) {
+    let url;
+
+    try {
+      url = new URL(match[0]);
+    } catch {
+      continue;
+    }
+
+    if (!siteOrigins.has(url.origin)) {
+      continue;
+    }
+
+    const segments = url.pathname.split('/').map((segment) => segment.trim()).filter(Boolean);
+
+    if (segments.length !== 1 || INTERNAL_POST_LINK_EXCLUDED_SEGMENTS.has(segments[0])) {
+      continue;
+    }
+
+    const slug = segments[0];
+    const legacyUrl = `/${slug}/`;
+
+    if (currentSlugs.has(slug) || currentSlugs.has(legacyUrl.replace(/^\/+|\/+$/g, ''))) {
+      continue;
+    }
+
+    if (!seen.has(slug)) {
+      seen.add(slug);
+      candidates.push({ slug, legacyUrl });
+    }
+  }
+
+  return candidates;
+}
+
+function sortPostsByEditorialLinks(posts, candidates) {
+  const order = new Map();
+
+  candidates.forEach((candidate, index) => {
+    order.set(candidate.slug, index);
+    order.set(candidate.legacyUrl, index);
+  });
+
+  return [...posts].sort((a, b) => {
+    const aOrder = Math.min(
+      order.get(a.slug) ?? Number.POSITIVE_INFINITY,
+      order.get(a.legacySlug) ?? Number.POSITIVE_INFINITY,
+      order.get(a.legacyUrl) ?? Number.POSITIVE_INFINITY,
+    );
+    const bOrder = Math.min(
+      order.get(b.slug) ?? Number.POSITIVE_INFINITY,
+      order.get(b.legacySlug) ?? Number.POSITIVE_INFINITY,
+      order.get(b.legacyUrl) ?? Number.POSITIVE_INFINITY,
+    );
+
+    return aOrder - bOrder;
+  });
+}
+
 async function findRelatedPosts(app, post, take = 3) {
+  const embeddedCandidates = internalPostLinkCandidatesFromHtml(post.contentHtml, post).slice(0, 12);
+  const embeddedRelatedPosts = embeddedCandidates.length > 0
+    ? sortPostsByEditorialLinks(await app.prisma.post.findMany({
+      where: {
+        id: { not: post.id },
+        status: 'PUBLISHED',
+        visibility: 'PUBLIC',
+        OR: [
+          { slug: { in: embeddedCandidates.map((candidate) => candidate.slug) } },
+          { legacySlug: { in: embeddedCandidates.map((candidate) => candidate.slug) } },
+          { legacyUrl: { in: embeddedCandidates.map((candidate) => candidate.legacyUrl) } },
+        ],
+      },
+      take: embeddedCandidates.length,
+      include: {
+        author: {
+          select: publicPostAuthorSelect,
+        },
+        featuredMedia: true,
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    }), embeddedCandidates).slice(0, take)
+    : [];
+
+  if (embeddedRelatedPosts.length >= take) {
+    return embeddedRelatedPosts;
+  }
+
   const primaryCategory = post.categories?.find((item) => item.isPrimary)?.category ?? post.categories?.[0]?.category;
 
   if (!primaryCategory?.id) {
-    return [];
+    return embeddedRelatedPosts;
   }
 
-  return app.prisma.post.findMany({
+  const fallbackPosts = await app.prisma.post.findMany({
     where: {
-      id: { not: post.id },
+      id: { notIn: [post.id, ...embeddedRelatedPosts.map((relatedPost) => relatedPost.id)] },
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
       categories: {
@@ -615,7 +929,7 @@ async function findRelatedPosts(app, post, take = 3) {
       },
     },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-    take,
+    take: take - embeddedRelatedPosts.length,
     include: {
       author: {
         select: publicPostAuthorSelect,
@@ -628,6 +942,8 @@ async function findRelatedPosts(app, post, take = 3) {
       },
     },
   });
+
+  return [...embeddedRelatedPosts, ...fallbackPosts];
 }
 
 const publicPostInclude = {
@@ -1301,6 +1617,57 @@ export async function registerPublicRoutes(app) {
     };
   });
 
+  app.post('/api/v1/public/posts/id/:id/view', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const post = await app.prisma.post.findFirst({
+      where: {
+        id,
+        status: 'PUBLISHED',
+        visibility: 'PUBLIC',
+      },
+      select: {
+        id: true,
+        viewCount: true,
+      },
+    });
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    const user = await getOptionalPublicUser(app, request);
+    ensurePublicVisitor(request, reply);
+    const { ipHash, userAgentHash } = requestHashMeta(request);
+
+    const updatedPost = await app.prisma.$transaction(async (tx) => {
+      await tx.postView.create({
+        data: {
+          postId: id,
+          userId: user?.id || null,
+          ipHash,
+          userAgentHash,
+          referrer: String(request.headers.referer || request.headers.referrer || '').slice(0, 768) || null,
+          viewedAt: new Date(),
+        },
+      });
+
+      return tx.post.update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+        select: { viewCount: true },
+      });
+    });
+
+    return {
+      data: {
+        postId: id,
+        viewCount: updatedPost.viewCount,
+      },
+    };
+  });
+
   app.post('/api/v1/public/posts/id/:id/like', async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     const body = publicLikeSchema.safeParse(request.body || {});
@@ -1493,7 +1860,7 @@ export async function registerPublicRoutes(app) {
     };
   });
 
-  app.post('/api/v1/public/posts/id/:id/comments', async (request, reply) => {
+  app.post('/api/v1/public/posts/id/:id/comments', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     const body = publicCommentSchema.safeParse(request.body || {});
 
@@ -1523,15 +1890,14 @@ export async function registerPublicRoutes(app) {
       }
     }
 
-    const user = await getOptionalPublicUser(app, request);
     const { ipHash, userAgentHash } = requestHashMeta(request);
     const comment = await app.prisma.comment.create({
       data: {
         postId: id,
-        userId: user?.id || null,
+        userId: request.auth.user.id,
         parentId: body.data.parentId || null,
-        authorName: user?.displayName || body.data.authorName || 'Visitante',
-        authorEmail: user?.email || body.data.authorEmail || null,
+        authorName: request.auth.user.displayName,
+        authorEmail: request.auth.user.email,
         body: body.data.body,
         status: 'PENDING',
         ipHash,

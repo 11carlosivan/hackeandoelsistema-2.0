@@ -64,7 +64,7 @@ export function CmsRedirectCreateForm() {
     <form onSubmit={handleSubmit} className="border border-terminal-gray bg-black/20 p-4 md:p-6">
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr_120px_auto] xl:items-end">
         <label>
-          <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Origen legacy</span>
+          <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">URL de origen</span>
           <input
             name="sourcePath"
             required

@@ -1,5 +1,6 @@
 import { authors } from './mock-data';
 const productionUrl = 'https://hackeandoelsistema.net';
+const socialImageProxyHosts = new Set(['image.hackeandoelsistema.net']);
 
 export const siteConfig = {
   name: 'Hackeando el Sistema',
@@ -35,6 +36,37 @@ function normalizeInternalPath(path = '/') {
   return `${normalizedPathname}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`;
 }
 
+function imageMimeType(imageUrl) {
+  const pathname = String(imageUrl || '').split('?', 1)[0].toLowerCase();
+
+  if (pathname.includes('/api/social-image/')) return 'image/jpeg';
+  if (pathname.endsWith('.png')) return 'image/png';
+  if (pathname.endsWith('.webp')) return 'image/webp';
+  if (pathname.endsWith('.gif')) return 'image/gif';
+
+  return 'image/jpeg';
+}
+
+export function socialPreviewImageUrl(imageUrl, versionSeed) {
+  try {
+    const url = new URL(imageUrl);
+
+    if (!socialImageProxyHosts.has(url.hostname)) {
+      return imageUrl;
+    }
+
+    const params = new URLSearchParams({ src: url.toString() });
+
+    if (versionSeed) {
+      params.set('v', String(versionSeed).replace(/[^a-z0-9-_.:]/gi, '').slice(0, 80));
+    }
+
+    return absoluteUrl(`/social-image/?${params.toString()}`);
+  } catch {
+    return imageUrl;
+  }
+}
+
 export function toIsoDate(dateValue) {
   if (!dateValue || !/\d{4}/.test(dateValue)) return undefined;
 
@@ -63,11 +95,18 @@ export function buildMetadata({
   twitterDescription,
   twitterCard,
 } = {}) {
-  const pageTitle = title ? `${title} | ${siteConfig.name}` : siteConfig.title;
+  const normalizedTitle = String(title || '').trim();
+  const titleAlreadyHasSite = new RegExp(`(?:\\||-)\\s*${siteConfig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+    .test(normalizedTitle);
+  const pageTitle = normalizedTitle
+    ? (titleAlreadyHasSite ? normalizedTitle : `${normalizedTitle} | ${siteConfig.name}`)
+    : siteConfig.title;
   const canonical = absoluteUrl(path);
-  const imageUrl = image?.startsWith('http') ? image : absoluteUrl(image || siteConfig.defaultImage);
+  const sourceImageUrl = image?.startsWith('http') ? image : absoluteUrl(image || siteConfig.defaultImage);
   const validPublishedTime = toIsoDate(publishedTime);
   const validModifiedTime = toIsoDate(modifiedTime);
+  const imageUrl = socialPreviewImageUrl(sourceImageUrl, validModifiedTime || validPublishedTime);
+  const imageType = imageMimeType(imageUrl);
   const shouldIndex = siteConfig.indexingEnabled && (robotsIndex ? robotsIndex === 'INDEX' : !noIndex);
   const shouldFollow = robotsFollow ? robotsFollow === 'FOLLOW' : true;
   const resolvedOgTitle = ogTitle || pageTitle;
@@ -124,9 +163,11 @@ export function buildMetadata({
       images: [
         {
           url: imageUrl,
+          secureUrl: imageUrl,
           width: 1200,
           height: 630,
           alt: title || siteConfig.name,
+          type: imageType,
         },
       ],
       publishedTime: validPublishedTime,
@@ -142,11 +183,8 @@ export function buildMetadata({
       images: [imageUrl],
     },
     icons: {
-      icon: [
-        { url: '/isotipo.png', type: 'image/png' },
-        { url: '/favicon.svg', type: 'image/svg+xml' }
-      ],
-      shortcut: '/isotipo.png',
+      icon: '/favicon.png',
+      shortcut: '/favicon.ico',
       apple: '/isotipo.png',
     },
   };

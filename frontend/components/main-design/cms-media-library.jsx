@@ -58,7 +58,7 @@ export default function CmsMediaLibrary({ media, meta, filters, error }) {
       <SystemPageHeader
         eyebrow="CMS / MEDIA"
         title="Biblioteca"
-        description="Inventario protegido de imagenes y archivos migrados desde WordPress. Aqui se corrige metadata visual antes del E2E."
+        description="Inventario protegido de imagenes y archivos del sistema editorial. Aqui se corrige metadata visual, SEO y accesibilidad."
         stats={[
           { label: 'TOTAL', value: Number(meta.total || 0).toLocaleString('es-DO'), icon: 'perm_media' },
           { label: 'PAGINA', value: `${meta.page || 1} / ${meta.totalPages || 1}`, icon: 'layers' },

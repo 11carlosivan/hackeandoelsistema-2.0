@@ -15,6 +15,21 @@ describe('api env config', () => {
     expect(env.AUTH_COOKIE_SECURE).toBe(false);
   });
 
+  it('allows the canonical web origin and its www variant by default', () => {
+    const env = loadEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'mysql://hackeando:hackeando@localhost:3306/test',
+      AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
+      WEB_ORIGIN: 'https://hackeandoelsistema.net',
+      CORS_ORIGINS: '',
+    });
+
+    expect(env.corsOrigins).toEqual([
+      'https://hackeandoelsistema.net',
+      'https://www.hackeandoelsistema.net',
+    ]);
+  });
+
   it('requires remote PHP media credentials when that driver is enabled', () => {
     expect(() =>
       loadEnv({
@@ -42,5 +57,23 @@ describe('api env config', () => {
 
     expect(env.MEDIA_STORAGE_DRIVER).toBe('remote_php');
     expect(env.MEDIA_REMOTE_PUBLIC_BASE_URL).toBe('https://media.hackeandoelsistema.net');
+  });
+
+  it('maps Banahost upload aliases to the remote PHP media configuration', () => {
+    const env = loadEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'mysql://hackeando:hackeando@localhost:3306/test',
+      AUTH_JWT_SECRET: 'test-secret-with-more-than-32-characters',
+      MEDIA_STORAGE_DRIVER: 'remote_php',
+      MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://image.hackeandoelsistema.net',
+      BANAHOC_API_URL: 'https://image.hackeandoelsistema.net/subir.php',
+      BANAHOC_UPLOAD_TOKEN: 'hes_upload_sec_test_token_with_more_than_32_chars',
+    });
+
+    expect(env.MEDIA_REMOTE_UPLOAD_URL).toBe('https://image.hackeandoelsistema.net/subir.php');
+    expect(env.MEDIA_REMOTE_SECRET).toBe('hes_upload_sec_test_token_with_more_than_32_chars');
+    expect(env.MEDIA_REMOTE_AUTH_MODE).toBe('signed');
+    expect(env.MEDIA_REMOTE_FILE_FIELD).toBe('file');
+    expect(env.MEDIA_REMOTE_RESPONSE_MODE).toBe('simple_url');
   });
 });

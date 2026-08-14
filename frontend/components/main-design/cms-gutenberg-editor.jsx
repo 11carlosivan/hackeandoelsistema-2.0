@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsRelatedPostModal from './cms-related-post-modal';
-import SafeImage from './safe-image';
 
 // Helper to escape HTML characters for attributes
 function escapeHtml(text) {
@@ -31,6 +30,46 @@ function normalizeSafeUrl(value) {
   }
 }
 
+function normalizeSafeMediaUrl(value) {
+  const safeUrl = normalizeSafeUrl(value);
+
+  return safeUrl.includes('/wp-content/uploads/') ? '' : safeUrl;
+}
+
+function normalizeYoutubeEmbedUrl(value) {
+  const safeUrl = normalizeSafeUrl(value);
+
+  if (!safeUrl) return '';
+
+  try {
+    const url = new URL(safeUrl, 'https://hackeandoelsistema.net');
+
+    if (url.hostname === 'youtu.be') {
+      const id = url.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+
+    if (url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com' || url.hostname === 'm.youtube.com' || url.hostname === 'www.youtube-nocookie.com' || url.hostname === 'youtube-nocookie.com') {
+      if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      const id = url.searchParams.get('v');
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
 function normalizeHeadingLevel(value) {
   const level = Number.parseInt(value, 10);
 
@@ -55,20 +94,16 @@ function htmlToBlocks(html) {
     doc.body.childNodes.forEach((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const tagName = node.tagName.toLowerCase();
-
         if (node.classList?.contains('wp-block-hes-related') || node.getAttribute('data-type') === 'related') {
           const link = node.querySelector('a');
           const img = node.querySelector('img');
-          const title = node.querySelector('.related-title')?.textContent || link?.textContent || '';
-          const category = node.querySelector('.related-category')?.textContent || '';
-          
           blocks.push({
             id: `b-${idCounter++}-${Date.now()}`,
             type: 'related',
-            title,
+            title: node.querySelector('.related-title')?.textContent || link?.textContent || '',
             url: link?.getAttribute('href') || '',
             image: img?.getAttribute('src') || '',
-            category,
+            category: node.querySelector('.related-category')?.textContent || '',
           });
         } else if (/^h[1-6]$/.test(tagName)) {
           blocks.push({
@@ -103,16 +138,24 @@ function htmlToBlocks(html) {
             type: 'quote',
             content: p ? p.innerHTML : node.innerHTML
           });
-        } else if (tagName === 'figure' || tagName === 'img' || tagName === 'iframe') {
+        } else if (tagName === 'figure' || tagName === 'img' || tagName === 'iframe' || tagName === 'video') {
           const iframe = tagName === 'iframe' ? node : node.querySelector('iframe');
+          const video = tagName === 'video' ? node : node.querySelector('video');
           const img = tagName === 'img' ? node : node.querySelector('img');
           const figcaption = node.querySelector('figcaption');
-
           if (iframe) {
             blocks.push({
               id: `b-${idCounter++}-${Date.now()}`,
               type: 'youtube',
               url: iframe.getAttribute('src') || '',
+            });
+          } else if (video) {
+            blocks.push({
+              id: `b-${idCounter++}-${Date.now()}`,
+              type: 'video',
+              url: video.getAttribute('src') || video.querySelector('source')?.getAttribute('src') || '',
+              poster: video.getAttribute('poster') || '',
+              caption: figcaption ? figcaption.innerHTML : '',
             });
           } else if (img) {
             blocks.push({
@@ -148,7 +191,7 @@ function htmlToBlocks(html) {
 
     return blocks.length > 0 ? blocks : [{ id: 'b-1', type: 'paragraph', content: '' }];
   } catch (err) {
-    console.error("HTML parsing error in Gutenberg editor:", err);
+    console.error("HTML parsing error in block editor:", err);
     return [{ id: 'b-1', type: 'paragraph', content: html }];
   }
 }
@@ -164,38 +207,37 @@ function blocksToHtml(blocks) {
       case 'quote':
         return `<blockquote><p>${b.content}</p></blockquote>`;
       case 'image': {
-        const safeUrl = normalizeSafeUrl(b.url);
+        const safeUrl = normalizeSafeMediaUrl(b.url);
 
         if (!safeUrl) return '';
 
         return `<figure><img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(b.caption || '')}" /><figcaption>${escapeHtml(b.caption || '')}</figcaption></figure>`;
       }
+      case 'video': {
+        const safeUrl = normalizeSafeUrl(b.url);
+        const safePoster = normalizeSafeMediaUrl(b.poster);
+
+        if (!safeUrl) return '';
+
+        return `<figure class="wp-block-video"><video src="${escapeHtml(safeUrl)}"${safePoster ? ` poster="${escapeHtml(safePoster)}"` : ''} controls preload="metadata" playsinline></video>${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ''}</figure>`;
+      }
       case 'list':
         return `<ul>${b.items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+      case 'youtube': {
+        const embedUrl = normalizeYoutubeEmbedUrl(b.url);
+
+        if (!embedUrl) return '';
+
+        return `<div class="wp-block-embed-youtube"><iframe src="${escapeHtml(embedUrl)}" title="${escapeHtml(b.title || 'Video de YouTube')}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+      }
       case 'related': {
         const safeUrl = normalizeSafeUrl(b.url);
-        const safeImg = normalizeSafeUrl(b.image);
-        if (!safeUrl && !b.title) return '';
+        const safeImage = normalizeSafeMediaUrl(b.image);
+        const title = b.title || 'Ver articulo relacionado';
 
-        return `<div class="wp-block-hes-related my-4 border border-terminal-gray/40 bg-black/40 p-3 flex items-center gap-3">
-          ${safeImg ? `<img src="${escapeHtml(safeImg)}" alt="${escapeHtml(b.title || '')}" class="w-16 h-12 object-cover border border-terminal-gray" />` : ''}
-          <div>
-            ${b.category ? `<span class="related-category text-[9px] font-mono text-system-red font-bold uppercase block">${escapeHtml(b.category)}</span>` : ''}
-            <a href="${escapeHtml(safeUrl || '#')}" class="related-title text-sm font-bold text-system-red hover:underline">${escapeHtml(b.title || 'Ver artículo relacionado')}</a>
-          </div>
-        </div>`;
-      }
-      case 'video':
-      case 'youtube': {
-        const safeUrl = normalizeSafeUrl(b.url);
         if (!safeUrl) return '';
-        let embedUrl = safeUrl;
-        if (safeUrl.includes('youtube.com/watch?v=')) {
-          embedUrl = safeUrl.replace('watch?v=', 'embed/');
-        } else if (safeUrl.includes('youtu.be/')) {
-          embedUrl = safeUrl.replace('youtu.be/', 'youtube.com/embed/');
-        }
-        return `<div class="wp-block-embed-youtube my-6 aspect-video w-full overflow-hidden border border-terminal-gray bg-black"><iframe src="${escapeHtml(embedUrl)}" class="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+
+        return `<div class="wp-block-hes-related" data-type="related">${safeImage ? `<img src="${escapeHtml(safeImage)}" alt="${escapeHtml(title)}" loading="lazy" />` : ''}<div>${b.category ? `<span class="related-category">${escapeHtml(b.category)}</span>` : ''}<a class="related-title" href="${escapeHtml(safeUrl)}">${escapeHtml(title)}</a></div></div>`;
       }
       default:
         return '';
@@ -221,6 +263,15 @@ function blocksToText(blocks) {
   return blocks.map(b => {
     if (b.type === 'list') {
       return (b.items || []).map(item => `- ${stripHtml(item)}`).join('\n');
+    }
+    if (b.type === 'related') {
+      return stripHtml(`${b.title || ''} ${b.url || ''}`);
+    }
+    if (b.type === 'youtube') {
+      return stripHtml(b.url || '');
+    }
+    if (b.type === 'video') {
+      return stripHtml(`${b.caption || ''} ${b.url || ''}`);
     }
     return stripHtml(b.content || b.caption || '');
   }).join('\n\n');
@@ -324,12 +375,12 @@ function FormattingToolbar() {
   );
 }
 
-export default function CmsGutenbergEditor({ initialHtml = '', onChange, initialMedia = [], categories = [] }) {
+export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], categories = [], onChange }) {
   const [blocks, setBlocks] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [mediaModalBlockIndex, setMediaModalBlockIndex] = useState(null);
-  const [relatedModalIndex, setRelatedModalIndex] = useState(null);
+  const [relatedModalBlockIndex, setRelatedModalBlockIndex] = useState(null);
 
   // Parse HTML string to Block Objects on initial load
   useEffect(() => {
@@ -348,31 +399,30 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
     }
   };
 
-  const updateBlockData = (index, newData) => {
-    const updated = [...blocks];
-    updated[index] = { ...updated[index], ...newData };
-    setBlocks(updated);
-    emitChange(updated);
-  };
-
-  const addBlock = (afterIndex, type = 'paragraph') => {
-    const newBlock = {
-      id: `b-${Date.now()}`,
-      type,
-      content: '',
-      ...(type === 'heading' ? { level: 2 } : {}),
-      ...(type === 'image' ? { url: '', caption: '' } : {}),
-      ...(type === 'list' ? { items: [''] } : {}),
-      ...(type === 'related' ? { title: '', url: '', image: '', category: '' } : {}),
+  const addBlock = (index, type) => {
+    const defaultBlockMap = {
+      paragraph: { type: 'paragraph', content: '' },
+      heading: { type: 'heading', content: '', level: 2 },
+      quote: { type: 'quote', content: '' },
+      image: { type: 'image', url: '', caption: '' },
+      video: { type: 'video', url: '', poster: '', caption: '' },
+      list: { type: 'list', items: [''] },
+      youtube: { type: 'youtube', url: '' },
+      related: { type: 'related', title: '', url: '', image: '', category: '' }
     };
-    const updated = [...blocks];
-    updated.splice(afterIndex + 1, 0, newBlock);
-    setBlocks(updated);
-    setActiveBlockIndex(afterIndex + 1);
-    emitChange(updated);
+    
+    const newBlock = {
+      id: `b-added-${Date.now()}`,
+      ...defaultBlockMap[type]
+    };
+
+    const newBlocks = [...blocks];
+    newBlocks.splice(index + 1, 0, newBlock);
+    updateParent(newBlocks);
+    setActiveBlockIndex(index + 1);
 
     if (type === 'related') {
-      setRelatedModalIndex(afterIndex + 1);
+      setRelatedModalBlockIndex(index + 1);
     }
   };
 
@@ -407,15 +457,19 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
   };
 
   const selectRelatedPost = (post) => {
-    if (relatedModalIndex === null) return;
-    updateBlockData(relatedModalIndex, {
-      title: post.title,
-      url: post.canonicalPath || `/${post.slug}/`,
-      image: post.featuredMedia?.url || '/isotipo.png',
+    if (relatedModalBlockIndex === null || !post) {
+      setRelatedModalBlockIndex(null);
+      return;
+    }
+
+    updateBlockData(relatedModalBlockIndex, {
+      title: post.title || '',
+      url: post.canonicalPath || (post.slug ? `/${post.slug}/` : ''),
+      image: post.featuredMedia?.url || '',
       category: post.primaryCategory?.name || 'NOTICIA',
     });
-    setActiveBlockIndex(relatedModalIndex);
-    setRelatedModalIndex(null);
+    setActiveBlockIndex(relatedModalBlockIndex);
+    setRelatedModalBlockIndex(null);
   };
 
   if (!initialized) {
@@ -429,7 +483,7 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
     <>
     <div className="space-y-4 border border-terminal-gray bg-black/40 p-4 rounded-0">
       <div className="flex items-center justify-between border-b border-terminal-gray pb-3 mb-2">
-        <span className="font-label-caps text-[9px] text-system-red font-bold">EDITOR DE BLOQUES (ESTILO WP)</span>
+        <span className="font-label-caps text-[9px] text-system-red font-bold">EDITOR DE BLOQUES</span>
         <span className="text-[9px] font-mono text-on-surface-variant uppercase">{blocks.length} Bloques</span>
       </div>
 
@@ -468,8 +522,10 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
                 <option value="heading">Título</option>
                 <option value="quote">Cita</option>
                 <option value="image">Imagen</option>
+                <option value="video">Video archivo</option>
                 <option value="list">Lista</option>
-                <option value="related">Post Relacionado</option>
+                <option value="youtube">YouTube</option>
+                <option value="related">Relacionado</option>
               </select>
               <button 
                 type="button"
@@ -571,6 +627,125 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
                       />
                     </label>
                   </div>
+                </div>
+              )}
+
+              {block.type === 'video' && (
+                <div className="space-y-3 border border-terminal-gray/40 bg-black/40 p-4">
+                  <div className="flex items-center gap-2 font-label-caps text-xs font-bold text-white">
+                    <span className="material-symbols-outlined text-base text-system-red">movie</span>
+                    Video archivo
+                  </div>
+                  {normalizeSafeUrl(block.url) ? (
+                    <div className="aspect-video max-h-56 w-full overflow-hidden border border-terminal-gray bg-black">
+                      <video
+                        src={normalizeSafeUrl(block.url)}
+                        poster={normalizeSafeUrl(block.poster) || undefined}
+                        className="h-full w-full object-contain"
+                        controls
+                        preload="metadata"
+                        playsInline
+                      />
+                    </div>
+                  ) : null}
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">URL del video</span>
+                      <input
+                        type="text"
+                        value={block.url || ''}
+                        onChange={(event) => updateBlockData(index, { url: event.target.value })}
+                        placeholder="https://.../video.mp4"
+                        className="w-full border border-terminal-gray/40 bg-black px-2 py-1.5 text-xs text-white outline-none focus:border-system-red"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">Portada / poster</span>
+                      <input
+                        type="text"
+                        value={block.poster || ''}
+                        onChange={(event) => updateBlockData(index, { poster: event.target.value })}
+                        placeholder="https://.../portada.jpg"
+                        className="w-full border border-terminal-gray/40 bg-black px-2 py-1.5 text-xs text-white outline-none focus:border-system-red"
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">Pie / descripcion</span>
+                    <EditableText
+                      value={block.caption || ''}
+                      onChange={(val) => updateBlockData(index, { caption: val })}
+                      onFocus={() => setActiveBlockIndex(index)}
+                      placeholder="Descripcion del video..."
+                      className="min-h-[1.5em] w-full border border-terminal-gray/40 bg-black px-2 py-1 text-xs text-white outline-none focus:border-system-red"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {block.type === 'youtube' && (
+                <div className="space-y-3 border border-terminal-gray/40 bg-black/40 p-4">
+                  <div className="flex items-center gap-2 font-label-caps text-xs font-bold text-white">
+                    <span className="material-symbols-outlined text-base text-system-red">smart_display</span>
+                    Video de YouTube
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block font-mono text-[8px] uppercase text-on-surface-variant">URL de YouTube</span>
+                    <input
+                      type="text"
+                      value={block.url || ''}
+                      onChange={(event) => updateBlockData(index, { url: event.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="w-full border border-terminal-gray/40 bg-black px-2 py-1.5 text-xs text-white outline-none focus:border-system-red"
+                    />
+                  </label>
+                  {normalizeYoutubeEmbedUrl(block.url) ? (
+                    <div className="aspect-video max-h-48 w-full overflow-hidden border border-terminal-gray bg-black">
+                      <iframe
+                        src={normalizeYoutubeEmbedUrl(block.url)}
+                        className="h-full w-full border-0"
+                        title="YouTube preview"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {block.type === 'related' && (
+                <div className="space-y-3 border border-terminal-gray/40 bg-black/40 p-4">
+                  <div className="flex items-center justify-between gap-3 border-b border-terminal-gray/30 pb-2">
+                    <span className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase text-system-red">
+                      <span className="material-symbols-outlined text-[14px]">link</span>
+                      Publicacion relacionada
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBlockIndex(index);
+                        setRelatedModalBlockIndex(index);
+                      }}
+                      className="border border-system-red/60 bg-system-red/10 px-3 py-1 font-label-caps text-[9px] font-bold text-white transition-colors hover:bg-system-red hover:text-black"
+                    >
+                      Buscar post
+                    </button>
+                  </div>
+
+                  {block.title || block.url ? (
+                    <div className="flex items-center gap-3 border border-terminal-gray/30 bg-black p-2.5">
+                      {normalizeSafeUrl(block.image) ? (
+                        <img src={normalizeSafeUrl(block.image)} alt={block.title || ''} className="h-12 w-16 shrink-0 border border-terminal-gray object-cover" />
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        {block.category ? <span className="block font-mono text-[8px] font-bold uppercase text-system-red">{block.category}</span> : null}
+                        <h4 className="truncate font-headline-md text-xs font-bold uppercase text-white">{block.title || 'Sin titulo'}</h4>
+                        <span className="block truncate font-mono text-[9px] text-on-surface-variant">{block.url}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-dashed border-terminal-gray/40 py-4 text-center font-mono text-xs text-on-surface-variant">
+                      Selecciona una noticia relacionada.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -703,9 +878,10 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
                 <button type="button" onClick={() => addBlock(index, 'heading')} className="hover:text-white px-1">Título</button>
                 <button type="button" onClick={() => addBlock(index, 'quote')} className="hover:text-white px-1">Cita</button>
                 <button type="button" onClick={() => addBlock(index, 'image')} className="hover:text-white px-1">Imagen</button>
-                <button type="button" onClick={() => addBlock(index, 'youtube')} className="hover:text-white px-1 text-system-red font-bold">Video YouTube</button>
+                <button type="button" onClick={() => addBlock(index, 'video')} className="hover:text-white px-1">Video</button>
                 <button type="button" onClick={() => addBlock(index, 'list')} className="hover:text-white px-1">Lista</button>
-                <button type="button" onClick={() => addBlock(index, 'related')} className="hover:text-white px-1 text-system-red font-bold">+ Post Relacionado</button>
+                <button type="button" onClick={() => addBlock(index, 'youtube')} className="hover:text-white px-1 text-system-red">YouTube</button>
+                <button type="button" onClick={() => addBlock(index, 'related')} className="hover:text-white px-1 text-system-red">Relacionado</button>
               </div>
             </div>
 
@@ -747,10 +923,10 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
           </button>
           <button
             type="button"
-            onClick={() => addBlock(blocks.length - 1, 'youtube')}
-            className="border border-system-red/60 text-system-red font-bold hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
+            onClick={() => addBlock(blocks.length - 1, 'video')}
+            className="border border-terminal-gray/40 hover:border-system-red hover:text-white px-3 py-1.5 transition-all"
           >
-            + Video YouTube
+            + Video
           </button>
           <button
             type="button"
@@ -761,10 +937,17 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
           </button>
           <button
             type="button"
-            onClick={() => addBlock(blocks.length - 1, 'related')}
-            className="border border-system-red/60 text-system-red font-bold hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
+            onClick={() => addBlock(blocks.length - 1, 'youtube')}
+            className="border border-system-red/60 text-system-red hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
           >
-            + Post Relacionado
+            + YouTube
+          </button>
+          <button
+            type="button"
+            onClick={() => addBlock(blocks.length - 1, 'related')}
+            className="border border-system-red/60 text-system-red hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
+          >
+            + Relacionado
           </button>
         </div>
       </div>
@@ -777,10 +960,10 @@ export default function CmsGutenbergEditor({ initialHtml = '', onChange, initial
       onSelect={selectImageFromMedia}
     />
     <CmsRelatedPostModal
-      isOpen={relatedModalIndex !== null}
-      onClose={() => setRelatedModalIndex(null)}
-      categories={categories}
+      isOpen={relatedModalBlockIndex !== null}
+      onClose={() => setRelatedModalBlockIndex(null)}
       onSelect={selectRelatedPost}
+      categories={categories}
     />
     </>
   );

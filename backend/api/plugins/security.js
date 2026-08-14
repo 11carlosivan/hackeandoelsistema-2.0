@@ -6,6 +6,7 @@ import { AUTH_COOKIE_NAMES } from '../services/auth.js';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CSRF_EXEMPT_PATHS = new Set(['/api/v1/auth/login', '/api/v1/auth/refresh']);
+const INTERNAL_HOSTS = new Set(['backend', 'localhost', '127.0.0.1', '::1']);
 
 function getCookieValue(cookieHeader, name) {
   return String(cookieHeader || '')
@@ -32,6 +33,41 @@ function csrfTokensMatch(cookieToken, headerToken) {
   return Boolean(cookieToken && headerToken && cookieToken.length >= 32 && cookieToken === headerToken);
 }
 
+function isPrivateAddress(address) {
+  const value = String(address || '').replace(/^::ffff:/, '');
+
+  return (
+    value === '::1' ||
+    value === '127.0.0.1' ||
+    value.startsWith('10.') ||
+    value.startsWith('172.16.') ||
+    value.startsWith('172.17.') ||
+    value.startsWith('172.18.') ||
+    value.startsWith('172.19.') ||
+    value.startsWith('172.20.') ||
+    value.startsWith('172.21.') ||
+    value.startsWith('172.22.') ||
+    value.startsWith('172.23.') ||
+    value.startsWith('172.24.') ||
+    value.startsWith('172.25.') ||
+    value.startsWith('172.26.') ||
+    value.startsWith('172.27.') ||
+    value.startsWith('172.28.') ||
+    value.startsWith('172.29.') ||
+    value.startsWith('172.30.') ||
+    value.startsWith('172.31.') ||
+    value.startsWith('192.168.')
+  );
+}
+
+function isInternalServerRequest(request) {
+  const host = String(request.headers.host || '').toLowerCase().split(':')[0];
+  const forwardedFor = request.headers['x-forwarded-for'];
+  const remoteAddress = request.socket?.remoteAddress || request.raw?.socket?.remoteAddress || request.ip;
+
+  return INTERNAL_HOSTS.has(host) && !forwardedFor && isPrivateAddress(remoteAddress);
+}
+
 export async function registerSecurityPlugins(app, env) {
   await app.register(sensible);
 
@@ -47,7 +83,9 @@ export async function registerSecurityPlugins(app, env) {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net', 'https://image.hackeandoelsistema.net'],
+        mediaSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net', 'https://image.hackeandoelsistema.net'],
+        frameSrc: ["'self'", 'https://www.youtube.com', 'https://youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com', 'https://www.facebook.com'],
         connectSrc: ["'self'", ...env.corsOrigins],
         formAction: ["'self'"],
         upgradeInsecureRequests: env.isProduction ? [] : null,
@@ -74,6 +112,7 @@ export async function registerSecurityPlugins(app, env) {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW,
     hook: 'onRequest',
+    allowList: (request) => isInternalServerRequest(request),
   });
 
   app.addHook('preHandler', async (request) => {

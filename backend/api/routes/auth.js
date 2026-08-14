@@ -4,6 +4,7 @@ import {
   AUTH_COOKIE_NAMES,
   createCsrfToken,
   createRefreshSession,
+  hashPassword,
   normalizeEmail,
   recordSecurityEvent,
   revokeRefreshSession,
@@ -19,6 +20,13 @@ import { noStoreHeaders } from '../utils/http.js';
 const loginSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(200),
+  tokenResponse: z.boolean().optional(),
+});
+
+const registerSchema = z.object({
+  displayName: z.string().trim().min(2).max(160),
+  email: z.string().email().max(255),
+  password: z.string().min(12).max(200),
   tokenResponse: z.boolean().optional(),
 });
 
@@ -126,7 +134,109 @@ async function recordFailedLogin(app, request, user, reason) {
   });
 }
 
+async function ensureMemberRole(prisma) {
+  const permission = await prisma.permission.upsert({
+    where: { permissionKey: 'account:read' },
+    create: {
+      permissionKey: 'account:read',
+      description: 'Basic account access',
+    },
+    update: {},
+  });
+  const role = await prisma.role.upsert({
+    where: { name: 'MEMBER' },
+    create: {
+      name: 'MEMBER',
+      description: 'Acceso basico de miembro.',
+    },
+    update: {},
+  });
+
+  await prisma.rolePermission.upsert({
+    where: {
+      roleId_permissionId: {
+        roleId: role.id,
+        permissionId: permission.id,
+      },
+    },
+    create: {
+      roleId: role.id,
+      permissionId: permission.id,
+    },
+    update: {},
+  });
+
+  return role;
+}
+
 export async function registerAuthRoutes(app) {
+  app.post('/api/v1/auth/register', async (request, reply) => {
+    noStoreHeaders(reply);
+
+    const parsed = registerSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Invalid register payload');
+    }
+
+    const email = normalizeEmail(parsed.data.email);
+    const existingUser = await app.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw app.httpErrors.conflict('Email already registered');
+    }
+
+    const passwordHash = await hashPassword(parsed.data.password);
+    const user = await app.prisma.$transaction(async (tx) => {
+      const memberRole = await ensureMemberRole(tx);
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          displayName: parsed.data.displayName,
+          status: 'ACTIVE',
+          passwordChangedAt: new Date(),
+        },
+      });
+
+      await tx.userRole.create({
+        data: {
+          userId: createdUser.id,
+          roleId: memberRole.id,
+        },
+      });
+
+      return tx.user.findUnique({
+        where: { id: createdUser.id },
+        include: userAuthInclude,
+      });
+    });
+
+    const [access, refresh] = await Promise.all([
+      signAccessToken({ config: app.config, user }),
+      createRefreshSession({ prisma: app.prisma, config: app.config, request, userId: user.id }),
+      recordSecurityEvent({
+        prisma: app.prisma,
+        request,
+        userId: user.id,
+        eventType: 'LOGIN_SUCCESS',
+        metadata: { source: 'register' },
+      }),
+    ]);
+
+    setAuthCookies(reply, app, access, refresh.refreshToken);
+    reply.code(201);
+
+    return authResponse({
+      user,
+      access,
+      refreshToken: refresh.refreshToken,
+      includeRefreshToken: parsed.data.tokenResponse === true,
+    });
+  });
+
   app.post('/api/v1/auth/login', async (request, reply) => {
     noStoreHeaders(reply);
 

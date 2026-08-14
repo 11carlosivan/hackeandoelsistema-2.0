@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
+import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.js';
 import { removeLocalMediaFile, storeMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 
@@ -85,7 +86,7 @@ const commentsQuerySchema = z.object({
 });
 const mediaQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(60).default(24),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
   q: z.string().trim().min(1).max(120).optional(),
   type: z.enum(['IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'OTHER']).optional(),
 });
@@ -256,8 +257,9 @@ const seoUpdateSchema = z
   });
 const featuredMediaSchema = z.object({
   mediaId: z.uuid().nullable(),
+  remove: z.coerce.boolean().optional(),
 });
-const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']);
+const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
 const workflowTransitions = {
   SUBMIT_REVIEW: new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']),
   RETURN_TO_DRAFT: new Set(['PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED']),
@@ -343,9 +345,9 @@ function internalRedirectPath(value) {
   try {
     const target = new URL(value);
     const site = new URL(PUBLIC_SITE_URL);
-    const prodSite = new URL('https://hackeandoelsistema.net');
+    const productionSite = new URL('https://hackeandoelsistema.net');
 
-    if (target.origin !== site.origin && target.origin !== prodSite.origin) {
+    if (target.origin !== site.origin && target.origin !== productionSite.origin) {
       return null;
     }
 
@@ -513,12 +515,82 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function htmlToPlainText(value) {
+  return sanitizeHtml(String(value || ''), {
+    allowedTags: [],
+    allowedAttributes: {},
+    textFilter: (textValue) => textValue.replace(/\s+/g, ' '),
+  }).trim();
+}
+
+function normalizeYoutubeEmbedUrl(value) {
+  const raw = String(value || '').trim();
+
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (hostname === 'youtu.be') {
+      const id = url.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+
+    if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+      if (url.pathname.startsWith('/embed/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/')) {
+        const id = url.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      }
+
+      const id = url.searchParams.get('v');
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
+function youtubeEmbedHtml(value) {
+  const embedUrl = normalizeYoutubeEmbedUrl(value);
+
+  if (!embedUrl) return null;
+
+  return `<div class="wp-block-embed-youtube"><iframe src="${escapeHtml(embedUrl)}" title="Video de YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+}
+
+function normalizeStandaloneYoutubeEmbeds(value) {
+  return String(value || '')
+    .replace(/<figure\b[^>]*class=(["'])[^"']*\bwp-block-embed\b[^"']*\1[^>]*>[\s\S]*?<div\b[^>]*class=(["'])[^"']*\bwp-block-embed__wrapper\b[^"']*\2[^>]*>([\s\S]*?)<\/div>\s*<\/figure>/gi, (match, _figureQuote, _wrapperQuote, inner) => {
+      const embed = youtubeEmbedHtml(htmlToPlainText(inner));
+      return embed || match;
+    })
+    .replace(/<(p|div)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, _tag, _attributes, inner) => {
+      const text = htmlToPlainText(inner);
+
+      if (!/^https?:\/\/[^\s<>"']+$/i.test(text)) {
+        return match;
+      }
+
+      return youtubeEmbedHtml(text) || match;
+    });
+}
+
 const EDITORIAL_HTML_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    'div',
     'img',
     'figure',
     'figcaption',
     'iframe',
+    'video',
     'picture',
     'source',
     'blockquote',
@@ -534,18 +606,36 @@ const EDITORIAL_HTML_OPTIONS = {
     '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+    video: ['src', 'poster', 'width', 'height', 'controls', 'preload', 'playsinline', 'muted', 'loop'],
     iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'frameborder', 'loading', 'title'],
     source: ['src', 'srcset', 'type', 'media', 'sizes'],
   },
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
   allowedSchemesByTag: {
     img: ['http', 'https'],
+    video: ['http', 'https'],
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
-  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'www.facebook.com'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'youtube-nocookie.com', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
+    iframe: (tagName, attribs) => {
+      const youtubeSrc = normalizeYoutubeEmbedUrl(attribs.src);
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          src: youtubeSrc || attribs.src,
+          title: attribs.title || 'Video',
+          loading: attribs.loading || 'lazy',
+          allow: attribs.allow || 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+          allowfullscreen: attribs.allowfullscreen || '',
+        },
+      };
+    },
+    video: sanitizeHtml.simpleTransform('video', { controls: '', preload: 'metadata', playsinline: '' }, true),
   },
 };
 
@@ -554,20 +644,11 @@ function sanitizeEditorialHtml(value) {
     return null;
   }
 
-  return sanitizeHtml(value, EDITORIAL_HTML_OPTIONS).trim() || null;
+  return sanitizeHtml(normalizeStandaloneYoutubeEmbeds(value), EDITORIAL_HTML_OPTIONS).trim() || null;
 }
 
 function htmlToText(value) {
-  if (!value) {
-    return null;
-  }
-
-  const text = sanitizeHtml(String(value), {
-    allowedTags: [],
-    allowedAttributes: {},
-    textFilter: (textValue) => textValue.replace(/\s+/g, ' '),
-  }).trim();
-
+  const text = htmlToPlainText(value);
   return text || null;
 }
 
@@ -1021,65 +1102,59 @@ function normalizePostDetail(post, route, importMapping) {
 
 async function getPostRankingsData(app, period = 'week', limit = 10) {
   const now = new Date();
-  let durationMs = 7 * 24 * 60 * 60 * 1000;
-
-  if (period === 'day') {
-    durationMs = 24 * 60 * 60 * 1000;
-  } else if (period === 'month') {
-    durationMs = 30 * 24 * 60 * 60 * 1000;
-  } else if (period === 'year') {
-    durationMs = 365 * 24 * 60 * 60 * 1000;
-  }
-
+  const periodDurations = {
+    day: 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    month: 30 * 24 * 60 * 60 * 1000,
+    year: 365 * 24 * 60 * 60 * 1000,
+  };
+  const durationMs = periodDurations[period] || periodDurations.week;
   const currentPeriodStart = new Date(now.getTime() - durationMs);
   const previousPeriodStart = new Date(now.getTime() - 2 * durationMs);
-
-  const hasPostView = typeof app.prisma.postView?.groupBy === 'function';
 
   let currentViewsByPost = [];
   let previousViewsByPost = [];
 
-  if (hasPostView) {
-    try {
-      [currentViewsByPost, previousViewsByPost] = await Promise.all([
-        app.prisma.postView.groupBy({
-          by: ['postId'],
-          where: {
-            viewedAt: { gte: currentPeriodStart, lte: now },
-          },
-          _count: { id: true },
-          orderBy: { _count: { id: 'desc' } },
-          take: limit * 2,
-        }),
-        app.prisma.postView.groupBy({
-          by: ['postId'],
-          where: {
-            viewedAt: { gte: previousPeriodStart, lt: currentPeriodStart },
-          },
-          _count: { id: true },
-        }),
-      ]);
-    } catch {
-      currentViewsByPost = [];
-      previousViewsByPost = [];
-    }
+  try {
+    [currentViewsByPost, previousViewsByPost] = await Promise.all([
+      app.prisma.postView.groupBy({
+        by: ['postId'],
+        where: {
+          viewedAt: { gte: currentPeriodStart, lte: now },
+          post: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+        },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: limit * 2,
+      }),
+      app.prisma.postView.groupBy({
+        by: ['postId'],
+        where: {
+          viewedAt: { gte: previousPeriodStart, lt: currentPeriodStart },
+          post: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+        },
+        _count: { id: true },
+      }),
+    ]);
+  } catch (error) {
+    app.log.warn({ err: error }, 'cms ranking view aggregation failed, falling back to post counters');
   }
 
-  const prevMap = new Map(previousViewsByPost.map((item) => [item.postId, item._count.id]));
-  const currentMap = new Map(currentViewsByPost.map((item) => [item.postId, item._count.id]));
-
-  let targetPostIds = Array.from(currentMap.keys());
+  const previousViews = new Map(previousViewsByPost.map((item) => [item.postId, item._count.id]));
+  const currentViews = new Map(currentViewsByPost.map((item) => [item.postId, item._count.id]));
+  let targetPostIds = Array.from(currentViews.keys());
 
   if (targetPostIds.length < limit) {
     const fallbackPosts = await app.prisma.post.findMany({
       where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
-      orderBy: [{ viewCount: 'desc' }, { publishedAt: 'desc' }],
+      orderBy: [{ viewCount: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }],
       take: limit,
       select: { id: true },
     });
-    for (const item of fallbackPosts) {
-      if (!targetPostIds.includes(item.id)) {
-        targetPostIds.push(item.id);
+
+    for (const post of fallbackPosts) {
+      if (!targetPostIds.includes(post.id)) {
+        targetPostIds.push(post.id);
       }
     }
   }
@@ -1096,7 +1171,11 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
   }
 
   const posts = await app.prisma.post.findMany({
-    where: { id: { in: targetPostIds } },
+    where: {
+      id: { in: targetPostIds },
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+    },
     include: {
       author: {
         select: { id: true, username: true, displayName: true },
@@ -1113,27 +1192,25 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
       },
     },
   });
-
   const postsById = new Map(posts.map((post) => [post.id, post]));
 
   const rankings = targetPostIds
     .map((postId, index) => {
       const post = postsById.get(postId);
-      if (!post) return null;
 
-      const currentPeriodViews = currentMap.get(postId) || post.viewCount || 0;
-      const previousPeriodViews = prevMap.get(postId) || 0;
-
-      let percentageChange = 0;
-      if (previousPeriodViews > 0) {
-        percentageChange = Math.round(((currentPeriodViews - previousPeriodViews) / previousPeriodViews) * 1000) / 10;
-      } else if (currentPeriodViews > 0) {
-        percentageChange = 100;
+      if (!post) {
+        return null;
       }
 
-      const totalComments = post.comments?.length || post.commentCount || 0;
-      const approvedComments = post.comments?.filter((c) => c.status === 'APPROVED').length || 0;
-      const pendingComments = post.comments?.filter((c) => c.status === 'PENDING').length || 0;
+      const currentPeriodViews = currentViews.get(postId) || post.viewCount || 0;
+      const previousPeriodViews = previousViews.get(postId) || 0;
+      const percentageChange = previousPeriodViews > 0
+        ? Math.round(((currentPeriodViews - previousPeriodViews) / previousPeriodViews) * 1000) / 10
+        : currentPeriodViews > 0
+          ? 100
+          : 0;
+      const approvedComments = post.comments?.filter((comment) => comment.status === 'APPROVED').length || 0;
+      const pendingComments = post.comments?.filter((comment) => comment.status === 'PENDING').length || 0;
 
       return {
         rank: index + 1,
@@ -1143,13 +1220,13 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
           previousPeriodViews,
           viewsDifference: currentPeriodViews - previousPeriodViews,
           percentageChange,
-          totalViewsAllTime: post.viewCount,
+          totalViewsAllTime: post.viewCount || 0,
           likes: post.likeCount || 0,
           saves: post.saveCount || 0,
           shares: post.shareCount || 0,
         },
         commentsStats: {
-          total: totalComments,
+          total: post.comments?.length || post.commentCount || 0,
           approved: approvedComments,
           pending: pendingComments,
         },
@@ -1262,6 +1339,7 @@ export async function registerCmsRoutes(app) {
         },
       }),
     ]);
+    const defaultRankings = await getPostRankingsData(app, 'week', 10);
 
     const defaultRankings = await getPostRankingsData(app, 'week', 10);
 
@@ -1303,9 +1381,9 @@ export async function registerCmsRoutes(app) {
 
     noStoreHeaders(reply);
 
-    const data = await getPostRankingsData(app, parsed.data.period, parsed.data.limit);
-
-    return { data };
+    return {
+      data: await getPostRankingsData(app, parsed.data.period, parsed.data.limit),
+    };
   });
 
   app.get('/api/v1/cms/categories', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
@@ -3553,6 +3631,9 @@ export async function registerCmsRoutes(app) {
           visibility: true,
           publishedAt: true,
           scheduledAt: true,
+          featuredMediaId: true,
+          title: true,
+          contentHtml: true,
         },
       });
 
@@ -3636,10 +3717,27 @@ export async function registerCmsRoutes(app) {
         },
       };
 
+      const workflowFeaturedMediaId = (action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible
+        ? await ensureFeaturedMediaFromPostContent(app.prisma, existingPost, {
+            siteUrl: app.config.WEB_ORIGIN,
+            config: app.config,
+            log: app.log,
+          })
+        : existingPost.featuredMediaId;
+
+      if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !workflowFeaturedMediaId) {
+        throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
+      }
+
       const result = await app.prisma.$transaction(async (tx) => {
         const post = await tx.post.update({
           where: { id },
-          data: postDataByAction[action],
+          data: {
+            ...postDataByAction[action],
+            ...(!existingPost.featuredMediaId && workflowFeaturedMediaId
+              ? { featuredMediaId: workflowFeaturedMediaId }
+              : {}),
+          },
           include: {
             author: {
               select: {
@@ -3704,6 +3802,9 @@ export async function registerCmsRoutes(app) {
               routeId: route?.id || null,
               scheduledAt: existingPost.scheduledAt,
               shouldSchedule,
+              autoFeaturedMediaId: !existingPost.featuredMediaId && workflowFeaturedMediaId
+                ? workflowFeaturedMediaId
+                : null,
             },
           },
         });
@@ -3746,9 +3847,64 @@ export async function registerCmsRoutes(app) {
         throw app.httpErrors.notFound('CMS post not found');
       }
 
-      if (body.data.mediaId) {
+      const nextMediaId = body.data.mediaId;
+
+      if (nextMediaId === null && !body.data.remove) {
+        throw app.httpErrors.badRequest('Explicit remove confirmation is required to clear featured media');
+      }
+
+      if (existingPost.featuredMediaId === nextMediaId) {
+        const currentPost = await app.prisma.post.findUnique({
+          where: { id: params.data.id },
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+              },
+            },
+            featuredMedia: {
+              select: {
+                id: true,
+                url: true,
+                originalUrl: true,
+                mimeType: true,
+                fileName: true,
+                width: true,
+                height: true,
+                altText: true,
+                caption: true,
+                credit: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    fullPath: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return {
+          data: {
+            post: normalizeCmsPost(currentPost),
+            featuredMedia: currentPost.featuredMedia,
+            unchanged: true,
+          },
+        };
+      }
+
+      if (nextMediaId) {
         const media = await app.prisma.mediaAsset.findUnique({
-          where: { id: body.data.mediaId },
+          where: { id: nextMediaId },
           select: {
             id: true,
             mimeType: true,
@@ -3768,7 +3924,7 @@ export async function registerCmsRoutes(app) {
         const post = await tx.post.update({
           where: { id: params.data.id },
           data: {
-            featuredMediaId: body.data.mediaId,
+            featuredMediaId: nextMediaId,
           },
           include: {
             author: {
@@ -3815,7 +3971,7 @@ export async function registerCmsRoutes(app) {
             entityId: params.data.id,
             metadata: {
               from: existingPost.featuredMediaId,
-              to: body.data.mediaId,
+              to: nextMediaId,
             },
           },
         });

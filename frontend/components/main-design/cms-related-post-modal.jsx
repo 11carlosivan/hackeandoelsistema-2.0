@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
 import SafeImage from './safe-image';
 
 export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categories = [] }) {
@@ -10,46 +9,49 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
   const [selectedCategory, setSelectedCategory] = useState('');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
 
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    const timeoutId = setTimeout(() => {
+      setLoading(true);
+      setError('');
 
-    const params = new URLSearchParams();
-    params.set('limit', '20');
-    params.set('status', 'PUBLISHED');
-    if (searchQuery.trim()) {
-      params.set('q', searchQuery.trim());
-    }
+      const params = new URLSearchParams();
+      params.set('limit', '20');
+      if (searchQuery.trim()) {
+        params.set('q', searchQuery.trim());
+      }
 
-    fetch(`${getApiBaseUrl()}/api/v1/public/posts?${params.toString()}`, {
-      headers: {
-        Accept: 'application/json',
-        ...csrfHeaders(),
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('Error al cargar publicaciones');
-        return res.json();
+      fetch(`${getApiBaseUrl()}/api/v1/public/posts?${params.toString()}`, {
+        headers: { Accept: 'application/json' },
       })
-      .then((payload) => {
-        if (cancelled) return;
-        setPosts(payload.data || []);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+        .then((response) => {
+          if (!response.ok) throw new Error('No se pudieron cargar publicaciones.');
+          return response.json();
+        })
+        .then((payload) => {
+          if (!cancelled) {
+            setPosts(payload.data || []);
+          }
+        })
+        .catch((fetchError) => {
+          if (!cancelled) {
+            setError(fetchError.message);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        });
+    }, 250);
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, [isOpen, searchQuery]);
 
@@ -57,12 +59,9 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
 
   const filteredPosts = posts.filter((post) => {
     if (!selectedCategory) return true;
-    const catId = String(selectedCategory);
-    return (
-      post.primaryCategory?.id === catId ||
+    return post.primaryCategory?.id === selectedCategory ||
       post.primaryCategory?.slug === selectedCategory ||
-      (post.categories || []).some((c) => c.category?.id === catId || c.category?.slug === selectedCategory)
-    );
+      (post.categories || []).some((item) => item.category?.id === selectedCategory || item.category?.slug === selectedCategory);
   });
 
   return (
@@ -70,62 +69,51 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col border border-terminal-gray bg-surface-container-low p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between border-b border-terminal-gray pb-3">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-system-red text-xl">link</span>
-            <h2 className="font-headline-md text-lg text-white uppercase font-bold tracking-wide">
-              Seleccionar Post Relacionado
+            <span className="material-symbols-outlined text-xl text-system-red">link</span>
+            <h2 className="font-headline-md text-lg font-bold uppercase text-white">
+              Seleccionar post relacionado
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-on-surface-variant hover:text-system-red text-xl font-bold transition-colors"
-          >
-            ✕
+          <button type="button" onClick={onClose} className="text-on-surface-variant transition-colors hover:text-system-red">
+            <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        {/* Search and Category Filter Bar */}
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por título o palabra clave..."
-              className="w-full border border-terminal-gray bg-black px-3 py-2 text-xs text-white placeholder-on-surface-variant/50 outline-none focus:border-system-red"
-            />
-            <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-sm text-on-surface-variant">
-              search
-            </span>
-          </div>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Buscar por titulo..."
+            className="w-full border border-terminal-gray bg-black px-3 py-2 text-xs text-white outline-none focus:border-system-red"
+          />
 
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full border border-terminal-gray bg-black px-3 py-2 text-xs text-white outline-none focus:border-system-red font-mono"
+            onChange={(event) => setSelectedCategory(event.target.value)}
+            className="w-full border border-terminal-gray bg-black px-3 py-2 font-mono text-xs text-white outline-none focus:border-system-red"
           >
-            <option value="">Todas las Categorías</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
+            <option value="">Todas las categorias</option>
+            {categories.map((category) => (
+              <option key={category.id || category.slug} value={category.id || category.slug}>
+                {category.name || category.title || category.slug}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Post Results Grid / List */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[300px]">
+        <div className="min-h-[300px] flex-1 space-y-2 overflow-y-auto pr-1">
           {loading ? (
-            <div className="flex items-center justify-center h-48 text-xs font-mono text-system-red animate-pulse">
+            <div className="flex h-48 items-center justify-center font-mono text-xs text-system-red">
               [ BUSCANDO PUBLICACIONES... ]
             </div>
           ) : error ? (
-            <div className="flex items-center justify-center h-48 text-xs font-mono text-system-red">
+            <div className="flex h-48 items-center justify-center font-mono text-xs text-system-red">
               {error}
             </div>
           ) : filteredPosts.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-xs font-mono text-on-surface-variant">
-              No se encontraron publicaciones que coincidan con la búsqueda.
+            <div className="flex h-48 items-center justify-center font-mono text-xs text-on-surface-variant">
+              No se encontraron publicaciones.
             </div>
           ) : (
             filteredPosts.map((post) => {
@@ -133,51 +121,39 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
               const categoryName = post.primaryCategory?.name || 'NOTICIA';
 
               return (
-                <div
+                <button
                   key={post.id}
+                  type="button"
                   onClick={() => {
                     onSelect(post);
                     onClose();
                   }}
-                  className="group flex items-center gap-4 border border-terminal-gray/40 bg-black/40 p-3 cursor-pointer hover:border-system-red hover:bg-black transition-all"
+                  className="group flex w-full cursor-pointer items-center gap-4 border border-terminal-gray/40 bg-black/40 p-3 text-left transition-all hover:border-system-red hover:bg-black"
                 >
                   <div className="relative h-14 w-20 shrink-0 overflow-hidden border border-terminal-gray bg-black">
-                    <SafeImage src={image} alt={post.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                    <SafeImage src={image} alt={post.title} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-[9px] font-mono text-system-red font-bold uppercase mb-1">
-                      <span className="bg-system-red/10 border border-system-red/30 px-1.5 py-0.2">{categoryName}</span>
-                      {post.publishedAt && <span>{new Date(post.publishedAt).toLocaleDateString('es-DO')}</span>}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2 font-mono text-[9px] font-bold uppercase text-system-red">
+                      <span className="border border-system-red/30 bg-system-red/10 px-1.5">{categoryName}</span>
+                      {post.publishedAt ? <span>{new Date(post.publishedAt).toLocaleDateString('es-DO')}</span> : null}
                     </div>
-                    <h3 className="font-headline-md text-xs text-white uppercase line-clamp-1 group-hover:text-system-red transition-colors">
+                    <h3 className="line-clamp-1 font-headline-md text-xs uppercase text-white transition-colors group-hover:text-system-red">
                       {post.title}
                     </h3>
-                    <p className="text-[10px] text-on-surface-variant line-clamp-1 mt-0.5">
+                    <p className="mt-0.5 line-clamp-1 text-[10px] text-on-surface-variant">
                       {post.excerpt || post.slug}
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    className="shrink-0 bg-system-red/10 border border-system-red/50 text-system-red px-3 py-1 text-[10px] font-mono font-bold group-hover:bg-system-red group-hover:text-black transition-all"
-                  >
-                    + AÑADIR
-                  </button>
-                </div>
+                  <span className="shrink-0 border border-system-red/50 bg-system-red/10 px-3 py-1 font-mono text-[10px] font-bold text-system-red transition-all group-hover:bg-system-red group-hover:text-black">
+                    ADD
+                  </span>
+                </button>
               );
             })
           )}
-        </div>
-
-        <div className="mt-4 flex justify-end border-t border-terminal-gray pt-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="border border-terminal-gray px-4 py-2 text-xs font-mono text-white hover:border-system-red transition-colors"
-          >
-            CANCELAR
-          </button>
         </div>
       </div>
     </div>

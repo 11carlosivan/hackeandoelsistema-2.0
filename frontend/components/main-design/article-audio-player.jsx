@@ -1,145 +1,148 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+function htmlToText(html) {
+  if (!html || typeof window === 'undefined') return '';
+
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  template.content.querySelectorAll('script, style, iframe, noscript').forEach((node) => node.remove());
+
+  return template.content.textContent || '';
+}
+
+function normalizeText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
 
 export default function ArticleAudioPlayer({ title = '', contentText = '', contentHtml = '' }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isSupported, setIsSupported] = useState(true);
+  const [supported, setSupported] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [rate, setRate] = useState(1);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setIsSupported(false);
-    }
+    const hasSupport = typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+    setSupported(hasSupport);
+
+    return () => {
+      if (hasSupport) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
-  const extractCleanText = () => {
-    let rawText = contentText || '';
-    if (!rawText && contentHtml && typeof document !== 'undefined') {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = contentHtml;
-      rawText = tempDiv.textContent || tempDiv.innerText || '';
-    }
-    const fullText = `${title}. ${rawText}`;
-    return fullText.replace(/\s+/g, ' ').trim();
+  const readableText = useMemo(() => {
+    const body = normalizeText(contentText) || normalizeText(htmlToText(contentHtml));
+    return normalizeText(`${title}. ${body}`);
+  }, [contentHtml, contentText, title]);
+
+  const stop = () => {
+    if (!supported) return;
+    window.speechSynthesis.cancel();
+    setPlaying(false);
+    setPaused(false);
   };
 
-  const handlePlay = () => {
-    if (!isSupported) return;
+  const play = () => {
+    if (!supported || !readableText) return;
 
-    if (isPaused) {
+    if (paused) {
       window.speechSynthesis.resume();
-      setIsPlaying(true);
-      setIsPaused(false);
+      setPlaying(true);
+      setPaused(false);
       return;
     }
 
-    window.speechSynthesis.cancel(); // Detener lecturas previas
+    window.speechSynthesis.cancel();
 
-    const textToRead = extractCleanText();
-    if (!textToRead) return;
-
-    const utterance = new SpeechSynthesisUtterance(textToRead);
-    utterance.lang = 'es-DO'; // Preferir español de República Dominicana o genérico es-ES / es-MX
+    const utterance = new SpeechSynthesisUtterance(readableText);
+    utterance.lang = 'es-DO';
     utterance.rate = rate;
 
-    // Buscar voz en español disponible en el navegador
     const voices = window.speechSynthesis.getVoices();
-    const spanishVoice = voices.find(
-      (v) => v.lang.startsWith('es') || v.lang.includes('es-')
-    );
+    const spanishVoice = voices.find((voice) => voice.lang?.toLowerCase().startsWith('es'));
     if (spanishVoice) {
       utterance.voice = spanishVoice;
     }
 
     utterance.onend = () => {
-      setIsPlaying(false);
-      setIsPaused(false);
+      setPlaying(false);
+      setPaused(false);
     };
-
-    utterance.onerror = (e) => {
-      console.error('Audio playback error:', e);
-      setIsPlaying(false);
-      setIsPaused(false);
+    utterance.onerror = () => {
+      setPlaying(false);
+      setPaused(false);
     };
 
     window.speechSynthesis.speak(utterance);
-    setIsPlaying(true);
-    setIsPaused(false);
+    setPlaying(true);
+    setPaused(false);
   };
 
-  const handlePause = () => {
-    if (!isSupported || !isPlaying) return;
+  const pause = () => {
+    if (!supported || !playing) return;
     window.speechSynthesis.pause();
-    setIsPlaying(false);
-    setIsPaused(true);
+    setPlaying(false);
+    setPaused(true);
   };
 
-  const handleStop = () => {
-    if (!isSupported) return;
-    window.speechSynthesis.cancel();
-    setIsPlaying(false);
-    setIsPaused(false);
-  };
-
-  const changeSpeed = () => {
+  const changeRate = () => {
     const nextRate = rate === 1 ? 1.25 : rate === 1.25 ? 1.5 : 1;
     setRate(nextRate);
-    if (isPlaying) {
-      handleStop();
-      setTimeout(handlePlay, 100);
+
+    if (playing) {
+      window.speechSynthesis.cancel();
+      setPlaying(false);
+      setPaused(false);
     }
   };
 
-  if (!isSupported) {
+  if (!supported || !readableText) {
     return null;
   }
 
   return (
-    <div className="border border-terminal-gray bg-black/40 p-4 mb-6 flex flex-wrap items-center justify-between gap-4 rounded-sm">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border border-terminal-gray bg-black/40 p-4">
       <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-full bg-system-red/10 border border-system-red flex items-center justify-center text-system-red">
-          <span className="material-symbols-outlined text-xl">
-            {isPlaying ? 'volume_up' : 'campaign'}
-          </span>
+        <div className="flex h-10 w-10 items-center justify-center border border-system-red bg-system-red/10 text-system-red">
+          <span className="material-symbols-outlined text-[22px]">{playing ? 'volume_up' : 'record_voice_over'}</span>
         </div>
         <div>
-          <div className="font-label-caps text-xs text-white font-bold tracking-wider">
-            Escuchar artículo
-          </div>
-          <div className="text-[10px] text-on-surface-variant font-mono">
-            {isPlaying ? 'Reproduciendo audio...' : isPaused ? 'Audio pausado' : 'Lectura por voz con IA'}
+          <div className="font-label-caps text-[10px] font-bold tracking-wider text-white">Escuchar articulo</div>
+          <div className="font-mono text-[10px] text-on-surface-variant">
+            {playing ? 'Reproduciendo lectura...' : paused ? 'Lectura pausada' : 'Lectura por voz del navegador'}
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        {!isPlaying ? (
+        {playing ? (
           <button
             type="button"
-            onClick={handlePlay}
-            className="flex items-center gap-1.5 bg-system-red text-black px-4 py-2 font-label-caps text-[10px] font-bold hover:bg-white transition-colors cursor-pointer rounded-sm"
+            onClick={pause}
+            className="inline-flex items-center gap-1.5 border border-terminal-gray bg-black px-4 py-2 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red hover:text-system-red"
           >
-            <span className="material-symbols-outlined text-base">play_arrow</span>
-            <span>{isPaused ? 'Reanudar' : 'Escuchar'}</span>
+            <span className="material-symbols-outlined text-base">pause</span>
+            Pausar
           </button>
         ) : (
           <button
             type="button"
-            onClick={handlePause}
-            className="flex items-center gap-1.5 border border-terminal-gray bg-black px-4 py-2 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors cursor-pointer rounded-sm"
+            onClick={play}
+            className="inline-flex items-center gap-1.5 bg-system-red px-4 py-2 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white"
           >
-            <span className="material-symbols-outlined text-base">pause</span>
-            <span>Pausar</span>
+            <span className="material-symbols-outlined text-base">play_arrow</span>
+            {paused ? 'Reanudar' : 'Escuchar'}
           </button>
         )}
 
-        {(isPlaying || isPaused) && (
+        {(playing || paused) && (
           <button
             type="button"
-            onClick={handleStop}
-            className="p-2 border border-terminal-gray bg-black text-on-surface-variant hover:text-system-red hover:border-system-red transition-colors cursor-pointer rounded-sm"
+            onClick={stop}
+            className="border border-terminal-gray bg-black p-2 text-on-surface-variant transition-colors hover:border-system-red hover:text-system-red"
             title="Detener"
           >
             <span className="material-symbols-outlined text-base">stop</span>
@@ -148,9 +151,9 @@ export default function ArticleAudioPlayer({ title = '', contentText = '', conte
 
         <button
           type="button"
-          onClick={changeSpeed}
-          className="border border-terminal-gray bg-black/60 px-2.5 py-2 font-mono text-[10px] text-white hover:border-system-red hover:text-system-red transition-colors cursor-pointer rounded-sm"
-          title="Cambiar velocidad"
+          onClick={changeRate}
+          className="border border-terminal-gray bg-black/60 px-3 py-2 font-mono text-[10px] text-white transition-colors hover:border-system-red hover:text-system-red"
+          title="Velocidad"
         >
           {rate}x
         </button>

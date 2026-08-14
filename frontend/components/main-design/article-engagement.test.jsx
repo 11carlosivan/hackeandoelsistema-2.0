@@ -67,10 +67,7 @@ describe('ArticleEngagement', () => {
       }
 
       if (pathname.endsWith('/comments')) {
-        expect(JSON.parse(options.body)).toMatchObject({
-          authorName: 'Visitante',
-          body: 'Comentario de prueba',
-        });
+        expect(JSON.parse(options.body)).toEqual({ body: 'Comentario de prueba' });
         return jsonResponse({
           data: {
             moderation: {
@@ -103,14 +100,84 @@ describe('ArticleEngagement', () => {
     fireEvent.click(shareButton);
     await waitFor(() => expect(screen.getByText('Enlace copiado.')).toBeInTheDocument());
 
-    fireEvent.change(screen.getByPlaceholderText('Tu Nombre'), { target: { value: 'Visitante' } });
-    fireEvent.change(screen.getByPlaceholderText('Escribe tu comentario...'), {
+    fireEvent.change(screen.getByPlaceholderText('Escribe un comentario para moderacion'), {
       target: { value: 'Comentario de prueba' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Publicar Comentario' }));
 
     await waitFor(() => expect(screen.getByText('Comentario recibido y pendiente de moderacion.')).toBeInTheDocument());
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/articulo-de-prueba/');
+  });
+
+  it('prompts visitors to sign in before commenting', async () => {
+    global.fetch = vi.fn((url) => {
+      const pathname = new URL(String(url)).pathname;
+
+      if (pathname.endsWith('/engagement')) {
+        return jsonResponse({
+          data: {
+            liked: false,
+            saved: false,
+            authenticated: false,
+            counts: {
+              likes: 1,
+              saves: 0,
+              shares: 0,
+              comments: 0,
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ message: 'Not found' }, { status: 404 });
+    });
+
+    render(<ArticleEngagement article={article} />);
+
+    await waitFor(() => expect(screen.getByText('Inicia sesion para comentar.')).toBeInTheDocument());
+    expect(screen.queryByPlaceholderText('Escribe un comentario para moderacion')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Iniciar sesion' })[0]).toHaveAttribute(
+      'href',
+      '/iniciar-sesion?next=%2Farticulo-de-prueba%2F',
+    );
+  });
+
+  it('opens the auth modal before private reader actions', async () => {
+    global.fetch = vi.fn((url) => {
+      const pathname = new URL(String(url)).pathname;
+
+      if (pathname.endsWith('/engagement')) {
+        return jsonResponse({
+          data: {
+            liked: false,
+            saved: false,
+            authenticated: false,
+            counts: {
+              likes: 1,
+              saves: 0,
+              shares: 0,
+              comments: 0,
+            },
+          },
+        });
+      }
+
+      return jsonResponse({ message: 'Not found' }, { status: 404 });
+    });
+
+    render(<ArticleEngagement article={article} />);
+
+    await waitFor(() => expect(screen.getByText('Inicia sesion para comentar.')).toBeInTheDocument());
+
+    const [likeButton] = screen.getAllByRole('button');
+    fireEvent.click(likeButton);
+
+    await waitFor(() => expect(screen.getByText('CUENTA REQUERIDA')).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Crear cuenta' })).toHaveAttribute('href', '/register');
+    expect(screen.getAllByRole('link', { name: 'Iniciar sesion' })[0]).toHaveAttribute(
+      'href',
+      '/iniciar-sesion?next=%2Farticulo-de-prueba%2F',
+    );
   });
 });
 

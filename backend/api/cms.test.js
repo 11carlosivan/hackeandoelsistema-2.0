@@ -39,8 +39,8 @@ function createPrismaStub(user, options = {}) {
     slug: 'sample-post',
     title: 'Sample Post',
     excerpt: 'Sample excerpt',
-    contentHtml: '<p>Sample content</p>',
-    contentText: 'Sample content',
+    contentHtml: options.contentHtml || '<p>Sample content</p>',
+    contentText: options.contentText || 'Sample content',
     status: options.postStatus || 'DRAFT',
     visibility: options.visibility || 'PUBLIC',
     postType: 'NEWS',
@@ -56,6 +56,7 @@ function createPrismaStub(user, options = {}) {
     submittedAt: null,
     reviewedAt: null,
     scheduledAt: options.scheduledAt || null,
+    featuredMediaId: options.featuredMediaId === undefined ? null : options.featuredMediaId,
     author: {
       id: user.id,
       email: user.email,
@@ -243,6 +244,7 @@ function createPrismaStub(user, options = {}) {
       update: async ({ data }) => ({
         ...post,
         ...data,
+        featuredMediaId: Object.hasOwn(data, 'featuredMediaId') ? data.featuredMediaId : post.featuredMediaId,
         featuredMedia: data.featuredMediaId === media.id ? media : post.featuredMedia,
         updatedAt: new Date('2026-01-03T00:00:00Z'),
       }),
@@ -449,6 +451,17 @@ function createPrismaStub(user, options = {}) {
     mediaAsset: {
       count,
       findMany: async () => [media],
+      findFirst: async ({ where }) => {
+        const candidates = where?.OR || [];
+
+        return candidates.some((candidate) =>
+          candidate.url === media.url ||
+          candidate.originalUrl === media.originalUrl ||
+          candidate.path === media.path
+        )
+          ? { id: media.id }
+          : null;
+      },
       findUnique: async ({ where }) => (where.id === media.id ? media : null),
       create: async ({ data }) => ({
         id: '66666666-6666-4666-8666-666666666666',
@@ -1385,7 +1398,7 @@ describe('cms routes', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/v1/cms/media?type=IMAGE&q=sample&page=1&limit=12',
+      url: '/api/v1/cms/media?type=IMAGE&q=sample&page=1&limit=72',
       headers: {
         authorization: `Bearer ${access.token}`,
       },
@@ -1404,7 +1417,7 @@ describe('cms routes', () => {
     });
     expect(response.json().meta).toMatchObject({
       page: 1,
-      limit: 12,
+      limit: 72,
       total: 1,
       filters: {
         q: 'sample',
@@ -1762,6 +1775,68 @@ describe('cms routes', () => {
     expect(response.json().data.post.contentText).toContain('Titulo');
   });
 
+  it('keeps safe video embeds with poster images when creating a draft CMS post', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Borrador con video',
+        contentHtml: '<figure class="wp-block-video"><video src="https://image.hackeandoelsistema.net/uploads/video.mp4" poster="https://image.hackeandoelsistema.net/uploads/poster.jpg" autoplay onerror="alert(1)"></video><figcaption>Video principal</figcaption></figure>',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.post.contentHtml).toContain('<video');
+    expect(response.json().data.post.contentHtml).toContain('poster="https://image.hackeandoelsistema.net/uploads/poster.jpg"');
+    expect(response.json().data.post.contentHtml).toContain('controls');
+    expect(response.json().data.post.contentHtml).toContain('preload="metadata"');
+    expect(response.json().data.post.contentHtml).not.toContain('autoplay');
+    expect(response.json().data.post.contentHtml).not.toContain('onerror');
+  });
+
+  it('keeps safe YouTube embeds when creating a draft CMS post', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Borrador con YouTube',
+        contentHtml: '<figure class="wp-block-embed is-type-video is-provider-youtube"><div class="wp-block-embed__wrapper">https://www.youtube.com/watch?v=dQw4w9WgXcQ</div></figure>',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.post.contentHtml).toContain('class="wp-block-embed-youtube"');
+    expect(response.json().data.post.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    expect(response.json().data.post.contentHtml).toContain('allowfullscreen');
+    expect(response.json().data.post.contentHtml).not.toContain('wp-block-embed__wrapper');
+  });
+
   it('deduplicates draft slugs against existing posts and routes', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
@@ -1937,7 +2012,7 @@ describe('cms routes', () => {
     expect(response.json().data.post.tags).toHaveLength(2);
   });
 
-  it('rejects content edits for published posts', async () => {
+  it('allows managers to edit published posts', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
     const app = await buildApp({
@@ -1959,7 +2034,8 @@ describe('cms routes', () => {
 
     await app.close();
 
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.title).toBe('Published updated');
   });
 
   it('submits a draft post to editorial review', async () => {
@@ -1993,7 +2069,7 @@ describe('cms routes', () => {
     const access = await signAccessToken({ config: testEnv, user });
     const app = await buildApp({
       env: testEnv,
-      prisma: createPrismaStub(user),
+      prisma: createPrismaStub(user, { featuredMediaId: '55555555-5555-4555-8555-555555555555' }),
       logger: false,
     });
 
@@ -2021,6 +2097,60 @@ describe('cms routes', () => {
       robotsIndex: 'INDEX',
       robotsFollow: 'FOLLOW',
     });
+  });
+
+  it('rejects publishing a public post without featured media', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'PUBLISH',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
+    expect(response.json().message).toBe('A featured image is required before publishing a public post');
+  });
+
+  it('promotes the first content image before publishing a public post without featured media', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, {
+        contentHtml: '<p>Contenido</p><img src="https://image.hackeandoelsistema.net/uploads/2026/08/cover.png" alt="Cover">',
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'PUBLISH',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.status).toBe('PUBLISHED');
   });
 
   it('publishes a private draft without exposing the route to sitemap indexing', async () => {
@@ -2089,7 +2219,10 @@ describe('cms routes', () => {
     const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const app = await buildApp({
       env: testEnv,
-      prisma: createPrismaStub(user, { scheduledAt: futureDate }),
+      prisma: createPrismaStub(user, {
+        scheduledAt: futureDate,
+        featuredMediaId: '55555555-5555-4555-8555-555555555555',
+      }),
       logger: false,
     });
 
@@ -2209,6 +2342,32 @@ describe('cms routes', () => {
       id: '55555555-5555-4555-8555-555555555555',
       mimeType: 'image/jpeg',
     });
+  });
+
+  it('rejects clearing post featured media without explicit confirmation', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { featuredMediaId: '55555555-5555-4555-8555-555555555555' }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/featured-media',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        mediaId: null,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(400);
+    expect(response.json().message).toBe('Explicit remove confirmation is required to clear featured media');
   });
 
   it('returns a protected CMS post detail with SEO route data', async () => {

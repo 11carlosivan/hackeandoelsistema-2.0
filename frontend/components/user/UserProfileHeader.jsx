@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import VerifiedBadge from './VerifiedBadge';
+import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 
 export default function UserProfileHeader({ user: initialUser, isOwnProfile = false }) {
   const [profile, setProfile] = useState(initialUser);
+  const [sessionUser, setSessionUser] = useState(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -22,7 +24,8 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
             fotoPerfil: parsed.fotoPerfil || prev?.fotoPerfil || '/isotipo.png',
             fotoPortada: parsed.fotoPortada || prev?.fotoPortada || '/logo.png',
             isVerified: parsed.isVerified !== undefined ? parsed.isVerified : prev?.isVerified,
-            isAdmin: parsed.isAdmin !== undefined ? parsed.isAdmin : prev?.isAdmin,
+            isAdmin: Boolean(prev?.isAdmin || parsed.isAdmin),
+            roles: Array.isArray(parsed.roles) && parsed.roles.length > 0 ? parsed.roles : prev?.roles,
             direccion: {
               pais: parsed.pais || prev?.direccion?.pais,
               ciudad: parsed.ciudad || prev?.direccion?.ciudad,
@@ -31,15 +34,38 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
               calle: parsed.calle || prev?.direccion?.calle,
             },
           }));
-        } catch (_) {}
+        } catch {}
       }
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`${getClientApiBaseUrl()}/api/v1/auth/me`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!cancelled) {
+          setSessionUser(payload?.data?.user || null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSessionUser(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const {
     nombre = 'Lector Hackeando',
     apellido = '',
-    correo = '',
     fotoPerfil = '/isotipo.png',
     fotoPortada = '/logo.png',
     isVerified = true,
@@ -50,6 +76,9 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
 
   const fullName = `${nombre} ${apellido}`.trim();
   const locationString = [direccion.sectorBarrio, direccion.ciudad, direccion.pais].filter(Boolean).join(', ');
+  const hasCmsRole = (user) => Array.isArray(user?.roles)
+    && user.roles.some((role) => ['ADMIN', 'EDITOR'].includes(String(role).toUpperCase()));
+  const canAccessCms = Boolean(profile?.isAdmin) || hasCmsRole(profile) || hasCmsRole(sessionUser);
 
   return (
     <div className="w-full bg-background border border-terminal-gray mb-8">
@@ -92,7 +121,7 @@ export default function UserProfileHeader({ user: initialUser, isOwnProfile = fa
 
           {/* Botones de Acciones */}
           <div className="flex flex-wrap items-center gap-3">
-            {profile?.isAdmin && (
+            {canAccessCms && (
               <Link
                 href="/cms"
                 className="bg-black border border-system-red text-system-red font-label-caps text-[11px] font-bold px-4 py-2.5 hover:bg-system-red hover:text-black transition-colors inline-flex items-center gap-2"

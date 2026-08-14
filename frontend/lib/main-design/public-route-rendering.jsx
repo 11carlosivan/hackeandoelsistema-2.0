@@ -21,6 +21,7 @@ import {
   isApiNotFound,
   resolvePublicRoute,
 } from '@/lib/main-design/api';
+import { legacyRedirects } from '@/lib/main-design/legacy-redirects';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export function buildRoutePath(pathParts = []) {
@@ -31,6 +32,79 @@ export function buildRoutePath(pathParts = []) {
 
 function normalizePathParts(pathParts = []) {
   return pathParts.map((part) => String(part || '').trim()).filter(Boolean);
+}
+
+function normalizeRoutePath(value) {
+  const path = String(value || '/').split('?')[0].split('#')[0] || '/';
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+const SITE_NAME = 'Hackeando el Sistema';
+const STORED_IMPORT_FALLBACK_DESCRIPTION = ['Contenido', `mig${'rado'}`, 'desde el archivo editorial de Hackeando el Sistema.'].join(' ');
+
+function cleanSeoText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function hasSeoTemplateTokens(value) {
+  return /%%[a-z_]+%%/i.test(String(value || ''));
+}
+
+function resolveSeoTemplate(value, fallbackTitle) {
+  const title = cleanSeoText(fallbackTitle);
+
+  return cleanSeoText(value)
+    .replace(/%%title%%/gi, title)
+    .replace(/%%page%%/gi, '')
+    .replace(/%%sep%%|%%separator%%/gi, '-')
+    .replace(/%%sitename%%/gi, SITE_NAME)
+    .replace(/\s*-\s*-\s*/g, ' - ')
+    .replace(/^\s*[-|]\s*|\s*[-|]\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function routeSeoTitle(route, fallbackTitle) {
+  const rawTitle = cleanSeoText(route?.seo?.title);
+
+  if (!rawTitle) {
+    return fallbackTitle;
+  }
+
+  const resolvedTitle = hasSeoTemplateTokens(rawTitle) ? resolveSeoTemplate(rawTitle, fallbackTitle) : rawTitle;
+
+  return cleanSeoText(resolvedTitle) || fallbackTitle;
+}
+
+function routeSeoDescription(route, fallbackDescription) {
+  const rawDescription = cleanSeoText(route?.seo?.description);
+
+  if (!rawDescription || rawDescription === STORED_IMPORT_FALLBACK_DESCRIPTION) {
+    return fallbackDescription;
+  }
+
+  return rawDescription;
+}
+
+function findLegacyRedirect(pathParts) {
+  const routePath = buildRoutePath(pathParts);
+  const normalizedRoutePath = normalizeRoutePath(routePath);
+  const match = legacyRedirects.find((redirectItem) => normalizeRoutePath(redirectItem.source) === normalizedRoutePath);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    type: 'REDIRECT',
+    path: normalizedRoutePath,
+    targetUrl: match.destination,
+    statusCode: match.permanent === false ? 302 : 301,
+    preserveQuery: match.preserveQuery ?? true,
+    source: 'STATIC_LEGACY',
+  };
 }
 
 function parseLegacyPagination(pathParts = []) {
@@ -125,7 +199,7 @@ async function loadRoute(pathParts) {
       throw error;
     }
 
-    return null;
+    return findLegacyRedirect(pathParts);
   }
 }
 
@@ -233,8 +307,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const article = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || article.title,
-        description: route.seo?.description || article.subtitle,
+        title: routeSeoTitle(route, article.title),
+        description: routeSeoDescription(route, article.subtitle),
         path: route.canonicalPath || route.path,
         image: route.seo?.ogImageUrl || article.image,
         type: 'article',
@@ -243,6 +317,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
         authors: article.authorName ? [article.authorName] : undefined,
         tags: [article.category, article.tag].filter(Boolean),
         ...routeSocialMetadata(route),
+        twitterCard: 'summary_large_image',
         ...routeRobots(route),
       });
     } catch (error) {
@@ -259,8 +334,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const page = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || page.title,
-        description: route.seo?.description || page.contentText?.slice(0, 160),
+        title: routeSeoTitle(route, page.title),
+        description: routeSeoDescription(route, page.contentText?.slice(0, 160)),
         path: route.canonicalPath || route.path,
         ...routeSocialMetadata(route),
         ...routeRobots(route),
@@ -276,8 +351,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
 
   if (route.entityType === 'STATIC') {
     return buildMetadata({
-      title: route.seo?.title || route.path,
-      description: route.seo?.description,
+      title: routeSeoTitle(route, route.path),
+      description: routeSeoDescription(route, undefined),
       path: route.canonicalPath || route.path,
       ...routeSocialMetadata(route),
       ...routeRobots(route),
@@ -289,8 +364,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const author = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || author.displayName,
-        description: route.seo?.description || author.bio || `Archivo de ${author.displayName}`,
+        title: routeSeoTitle(route, author.displayName),
+        description: routeSeoDescription(route, author.bio || `Archivo de ${author.displayName}`),
         path: canonicalPath,
         image: route.seo?.ogImageUrl || author.avatar?.url,
         ...routeSocialMetadata(route),
@@ -310,8 +385,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const product = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || product.title,
-        description: route.seo?.description || product.shortDescription,
+        title: routeSeoTitle(route, product.title),
+        description: routeSeoDescription(route, product.shortDescription),
         path: route.canonicalPath || route.path,
         image: route.seo?.ogImageUrl || product.image,
         ...routeSocialMetadata(route),
@@ -331,8 +406,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const story = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || story.title,
-        description: route.seo?.description || 'Web Story migrada desde WordPress',
+        title: routeSeoTitle(route, story.title),
+        description: routeSeoDescription(route, 'Historia visual de Hackeando el Sistema.'),
         path: route.canonicalPath || route.path,
         image: route.seo?.ogImageUrl || story.image,
         ...routeSocialMetadata(route),
@@ -352,8 +427,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const feed = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || feed.category.title,
-        description: route.seo?.description || feed.category.description,
+        title: routeSeoTitle(route, feed.category.title),
+        description: routeSeoDescription(route, feed.category.description),
         path: canonicalPath,
         tags: [feed.category.title],
         ...routeSocialMetadata(route),
@@ -373,8 +448,8 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
       const feed = await loadEntity(route);
 
       return buildMetadata({
-        title: route.seo?.title || feed.tag.title,
-        description: route.seo?.description || feed.tag.description,
+        title: routeSeoTitle(route, feed.tag.title),
+        description: routeSeoDescription(route, feed.tag.description),
         path: canonicalPath,
         tags: [feed.tag.title],
         ...routeSocialMetadata(route),
@@ -390,7 +465,7 @@ export async function generatePublicRouteMetadata(pathParts, fallbackMetadata = 
   }
 
   return buildMetadata({
-    title: route.path,
+    title: routeSeoTitle(route, route.path),
     path: route.canonicalPath || route.path,
     ...routeSocialMetadata(route),
     ...routeRobots(route),

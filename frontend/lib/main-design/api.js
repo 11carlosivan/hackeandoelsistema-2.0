@@ -58,12 +58,26 @@ export async function fetchApi(path, options = {}) {
   }
 
   const url = `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-  
+  const timeoutMs = options.timeoutMs ?? 5000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? 3000);
+  const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  const requestOptions = { ...options };
+  const optionSignal = requestOptions.signal;
+  delete requestOptions.timeoutMs;
+  delete requestOptions.signal;
+
+  if (optionSignal) {
+    if (optionSignal.aborted) {
+      controller.abort();
+    } else {
+      optionSignal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
 
   const fetchOptions = {
-    ...options,
+    ...requestOptions,
     signal: controller.signal,
     headers: {
       Accept: 'application/json',
@@ -77,22 +91,33 @@ export async function fetchApi(path, options = {}) {
     fetchOptions.next = options.next ?? { revalidate: 60 };
   }
 
-  try {
-    const response = await fetch(url, fetchOptions);
-    clearTimeout(timeoutId);
+  let response;
 
-    if (!response.ok) {
-      throw new ApiRequestError(`API request failed ${response.status} for ${path}`, {
-        status: response.status,
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new ApiRequestError(`API request timed out for ${path}`, {
+        status: 504,
         path,
       });
     }
 
-    return response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
     throw error;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
   }
+
+  if (!response.ok) {
+    throw new ApiRequestError(`API request failed ${response.status} for ${path}`, {
+      status: response.status,
+      path,
+    });
+  }
+
+  return response.json();
 }
 
 export async function fetchProtectedApi(path, accessToken, options = {}) {
@@ -114,7 +139,7 @@ export async function fetchProtectedApi(path, accessToken, options = {}) {
 export async function getHomeFeed() {
   try {
     const [postsResponse, categoriesResponse, summaryResponse] = await Promise.all([
-      fetchApi('/api/v1/public/posts?limit=12', { cache: 'no-store' }),
+      fetchApi('/api/v1/public/posts?limit=24', { next: { revalidate: 60 } }),
       fetchApi('/api/v1/public/categories', { next: { revalidate: 300 } }),
       fetchApi('/api/v1/public/site-summary', { cache: 'no-store' }),
     ]);
@@ -639,11 +664,16 @@ export async function getCmsRedirects(accessToken, filters = {}) {
 
 export async function getCmsAutoPostSettings(accessToken) {
   try {
+    if (!accessToken) {
+      throw new Error('Missing CMS access token');
+    }
+
     const response = await fetchProtectedApi('/api/v1/cms/auto-post/settings', accessToken);
+
     return response.data?.settings || {
       sources: '',
       aiProvider: 'gemini',
-      apiKey: '',
+      apiKeyConfigured: false,
       postStatus: 'DRAFT',
       categoryIds: [],
       processedCount: 0,
@@ -652,7 +682,7 @@ export async function getCmsAutoPostSettings(accessToken) {
     return {
       sources: '',
       aiProvider: 'gemini',
-      apiKey: '',
+      apiKeyConfigured: false,
       postStatus: 'DRAFT',
       categoryIds: [],
       processedCount: 0,

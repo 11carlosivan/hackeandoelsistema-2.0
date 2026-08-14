@@ -1,5 +1,31 @@
 const FALLBACK_IMAGE = '/isotipo.png';
 
+function decodeAttributeEntities(value) {
+  return String(value || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+export function firstImageFromHtml(html) {
+  const source = String(html || '');
+  const quotedMatch = source.match(/<img\b[^>]*\bsrc=(["'])(.*?)\1/i);
+  const unquotedMatch = quotedMatch ? null : source.match(/<img\b[^>]*\bsrc=([^\s>]+)/i);
+  const rawUrl = quotedMatch?.[2] || unquotedMatch?.[1];
+  const imageUrl = decodeAttributeEntities(rawUrl);
+
+  if (!imageUrl || /^(?:data|blob|javascript):/i.test(imageUrl)) {
+    return null;
+  }
+
+  if (imageUrl.includes('/wp-content/uploads/')) {
+    return null;
+  }
+
+  return /^(?:https?:\/\/|\/)/i.test(imageUrl) ? imageUrl : null;
+}
+
 function normalizePublicPath(value) {
   if (!value) {
     return null;
@@ -26,6 +52,24 @@ function normalizeCategoryPath(category) {
   return category?.slug ? `/category/${category.slug}/` : null;
 }
 
+function publicRawPost(post) {
+  return {
+    id: post.id,
+    canonicalPath: post.canonicalPath,
+    updatedAt: post.updatedAt,
+    excerpt: post.excerpt,
+    status: post.status,
+    guid: post.legacyGuid || post.id,
+  };
+}
+
+function publicRawAuthor(author) {
+  return {
+    id: author.id,
+    canonicalPath: author.canonicalPath,
+  };
+}
+
 export function mapApiPostToArticle(post, index = 0, options = {}) {
   const category = post.primaryCategory?.name?.toUpperCase() || 'ULTIMA HORA';
   const categoryPath = normalizeCategoryPath(post.primaryCategory);
@@ -40,10 +84,11 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
 
   return {
     id: post.slug,
+    postId: post.id,
     slug: post.slug,
     route: canonicalPath,
     title: post.title,
-    subtitle: post.excerpt || excerptFromText(post.contentText) || 'Contenido migrado desde el archivo editorial de Hackeando el Sistema.',
+    subtitle: post.excerpt || excerptFromText(post.contentText) || 'Lee la cobertura completa en Hackeando el Sistema.',
     category,
     categoryPath,
     tag: post.postType || 'NEWS',
@@ -58,7 +103,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     saveCount: Number(post.saveCount ?? 0),
     shareCount: Number(post.shareCount ?? 0),
     readTime: estimateReadingTime(post.contentText || post.excerpt),
-    image: post.featuredMedia?.url || FALLBACK_IMAGE,
+    image: post.featuredMedia?.url || firstImageFromHtml(post.contentHtml) || FALLBACK_IMAGE,
     isHero: index === 0,
     isFeatured: index > 0 && index < 4,
     related: (post.relatedPosts || []).map((relatedPost, relatedIndex) =>
@@ -72,7 +117,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     })),
     contentHtml: options.includeContent ? post.contentHtml : undefined,
     content: options.includeContent ? htmlToBlocks(post.contentHtml || post.contentText || '') : undefined,
-    raw: post,
+    raw: publicRawPost(post),
   };
 }
 
@@ -103,15 +148,13 @@ export function mapApiAuthorArchive(author) {
     id: author.id,
     username: author.username,
     displayName: author.displayName,
-    legacyAuthorSlug: author.legacyAuthorSlug,
-    legacyAuthorUrl: author.legacyAuthorUrl,
     canonicalPath: author.canonicalPath,
     bio: author.bio,
     websiteUrl: author.websiteUrl,
     avatar: author.avatar,
     stats: author.stats || { posts: 0 },
     posts: (author.posts || []).map(mapApiPostToArticle),
-    raw: author,
+    raw: publicRawAuthor(author),
   };
 }
 
@@ -156,6 +199,7 @@ export function mapApiSummary(summary) {
     editorial: summary.editorial,
     securityEvents: summary.securityEvents || [],
     latestImportRun: summary.latestImportRun,
+    rankingsData: summary.rankingsData || null,
     recentPosts: (summary.recentPosts || []).map(mapApiPostToArticle),
     rankingsData: summary.rankingsData || null,
   };

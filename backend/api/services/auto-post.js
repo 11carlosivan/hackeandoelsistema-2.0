@@ -1,467 +1,681 @@
-import rssParser from 'rss-parser';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
+import net from 'node:net';
+import path from 'node:path';
 import * as cheerio from 'cheerio';
-import { randomUUID } from 'node:crypto';
+import RssParser from 'rss-parser';
+import { storeMediaUpload } from './media-storage.js';
 
-const parser = new rssParser({
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-  },
-  timeout: 15000,
-});
+const SETTINGS_KEY = 'auto_post_config';
+const MAX_RESPONSE_BYTES = 2_000_000;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const IMAGE_MIME_EXTENSIONS = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+  ['image/gif', 'gif'],
+]);
+const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.6-flash';
+const DEFAULT_CONFIG = {
+  sources: '',
+  aiProvider: 'gemini',
+  apiKeyEncrypted: '',
+  postStatus: 'DRAFT',
+  categoryIds: [],
+  processedHashes: [],
+};
 
-/**
- * Clean basic HTML tags from raw content
- */
-function stripTags(html) {
-  if (!html) return '';
-  return String(html)
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+const parser = new RssParser();
+
+function encryptionKey(app) {
+  return createHash('sha256').update(app.config.AUTH_JWT_SECRET).digest();
 }
 
-/**
- * Scrape full article body paragraphs if RSS summary is too short
- */
-async function scrapeFullArticleBody(url) {
+function encryptSecret(app, value) {
+  const plainText = String(value || '').trim();
+  if (!plainText) return '';
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', encryptionKey(app), iv);
+  const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return `enc:v1:${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
+}
+
+function decryptSecret(app, value) {
+  const raw = String(value || '');
+  if (!raw.startsWith('enc:v1:')) return raw;
+
+  const [, , ivRaw, tagRaw, encryptedRaw] = raw.split(':');
+  if (!ivRaw || !tagRaw || !encryptedRaw) return '';
+
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+    const decipher = createDecipheriv('aes-256-gcm', encryptionKey(app), Buffer.from(ivRaw, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagRaw, 'base64'));
+    return Buffer.concat([
+      decipher.update(Buffer.from(encryptedRaw, 'base64')),
+      decipher.final(),
+    ]).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+
+function publicConfig(config) {
+  return {
+    sources: config.sources || '',
+    aiProvider: config.aiProvider || 'gemini',
+    apiKeyConfigured: Boolean(config.apiKeyEncrypted),
+    apiKeyStatus: config.apiKeyEncrypted ? 'configured' : 'missing',
+    postStatus: config.postStatus || 'DRAFT',
+    categoryIds: Array.isArray(config.categoryIds) ? config.categoryIds : [],
+    processedCount: Array.isArray(config.processedHashes) ? config.processedHashes.length : 0,
+  };
+}
+
+export async function getAutoPostConfig(app, { includeSecret = false } = {}) {
+  const row = await app.prisma.siteSetting.findUnique({
+    where: { settingKey: SETTINGS_KEY },
+  });
+  const config = {
+    ...DEFAULT_CONFIG,
+    ...(row?.value && typeof row.value === 'object' ? row.value : {}),
+  };
+
+  if (!includeSecret) {
+    return publicConfig(config);
+  }
+
+  const apiKey = decryptSecret(app, config.apiKeyEncrypted);
+
+  return {
+    ...config,
+    apiKey,
+    apiKeyDecryptFailed: Boolean(config.apiKeyEncrypted && !apiKey),
+  };
+}
+
+export async function saveAutoPostConfig(app, input) {
+  const current = await getAutoPostConfig(app, { includeSecret: true });
+  const next = {
+    ...DEFAULT_CONFIG,
+    ...current,
+    sources: String(input.sources || '')
+      .split(/\r?\n/)
+      .map((source) => source.trim())
+      .filter((source) => source && !source.startsWith('#'))
+      .filter(Boolean)
+      .join('\n'),
+    aiProvider: input.aiProvider,
+    postStatus: input.postStatus,
+    categoryIds: [...new Set(input.categoryIds || [])],
+  };
+
+  if (input.clearApiKey) {
+    next.apiKeyEncrypted = '';
+  } else if (input.apiKey?.trim()) {
+    next.apiKeyEncrypted = encryptSecret(app, input.apiKey);
+  }
+
+  delete next.apiKey;
+  delete next.apiKeyDecryptFailed;
+
+  await app.prisma.siteSetting.upsert({
+    where: { settingKey: SETTINGS_KEY },
+    create: { settingKey: SETTINGS_KEY, value: next },
+    update: { value: next },
+  });
+
+  return publicConfig(next);
+}
+
+function isPrivateIp(address) {
+  if (!address) return true;
+
+  if (net.isIP(address) === 4) {
+    const parts = address.split('.').map((part) => Number.parseInt(part, 10));
+    const [a, b] = parts;
+
+    return a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      address === '0.0.0.0';
+  }
+
+  if (net.isIP(address) === 6) {
+    const lower = address.toLowerCase();
+    return lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:');
+  }
+
+  return true;
+}
+
+async function assertPublicHttpUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(String(rawUrl || '').trim());
+  } catch {
+    throw new Error('URL invalida.');
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('Solo se permiten URLs http/https.');
+  }
+
+  const hostname = url.hostname.toLowerCase();
+  if (['localhost', '0.0.0.0'].includes(hostname) || hostname.endsWith('.local')) {
+    throw new Error('Host no permitido.');
+  }
+
+  const records = await lookup(hostname, { all: true });
+  if (!records.length || records.some((record) => isPrivateIp(record.address))) {
+    throw new Error('La URL apunta a una red privada o no permitida.');
+  }
+
+  return url.href;
+}
+
+async function fetchExternalText(rawUrl, { timeoutMs = 15000 } = {}) {
+  const url = await assertPublicHttpUrl(rawUrl);
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'text/html,application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8',
+      'User-Agent': 'HackeandoElSistemaBot/1.0 (+https://hackeandoelsistema.net/)',
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} al leer fuente.`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return response.text();
+  }
+
+  const chunks = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_RESPONSE_BYTES) {
+      throw new Error('Respuesta externa demasiado grande.');
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+function mimeFromContentType(value) {
+  return String(value || '').split(';')[0].trim().toLowerCase();
+}
+
+function safeImageFileName(imageUrl, slug, mimeType) {
+  const extension = IMAGE_MIME_EXTENSIONS.get(mimeType) || 'jpg';
+  let stem = slug || 'auto-post';
+
+  try {
+    const parsed = new URL(imageUrl);
+    const baseName = path.basename(parsed.pathname, path.extname(parsed.pathname));
+    if (baseName) {
+      stem = baseName;
+    }
+  } catch {
+    // Keep the generated slug fallback.
+  }
+
+  const cleanStem = String(stem)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'auto-post';
+
+  return `${cleanStem}.${extension}`;
+}
+
+async function downloadExternalImage(rawUrl, { timeoutMs = 15000 } = {}) {
+  const url = await assertPublicHttpUrl(rawUrl);
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.1',
+      'User-Agent': 'HackeandoElSistemaBot/1.0 (+https://hackeandoelsistema.net/)',
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} al leer imagen.`);
+  }
+
+  const mimeType = mimeFromContentType(response.headers.get('content-type'));
+  if (!IMAGE_MIME_EXTENSIONS.has(mimeType)) {
+    throw new Error('La imagen externa no tiene un formato permitido.');
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > MAX_IMAGE_BYTES) {
+      throw new Error('Imagen externa vacia o demasiado grande.');
+    }
+    return { buffer, mimeType, finalUrl: response.url || url };
+  }
+
+  const chunks = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_IMAGE_BYTES) {
+      throw new Error('Imagen externa demasiado grande.');
+    }
+    chunks.push(value);
+  }
+
+  const buffer = Buffer.concat(chunks);
+  if (!buffer.length) {
+    throw new Error('Imagen externa vacia.');
+  }
+
+  return { buffer, mimeType, finalUrl: response.url || url };
+}
+
+async function createAutoPostMedia(app, { imageUrl, slug, title }) {
+  if (!imageUrl) {
+    return null;
+  }
+
+  try {
+    const image = await downloadExternalImage(imageUrl);
+    const storedMedia = await storeMediaUpload({
+      config: app.config,
+      file: {
+        buffer: image.buffer,
+        filename: safeImageFileName(image.finalUrl, slug, image.mimeType),
+        mimetype: image.mimeType,
       },
-      signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) return '';
+    return app.prisma.mediaAsset.create({
+      data: {
+        ...storedMedia,
+        uploadedById: null,
+        originalUrl: imageUrl,
+        altText: title,
+        caption: title,
+      },
+    });
+  } catch (error) {
+    app.log.warn({ error, imageUrl }, 'Auto-post image could not be imported into media storage');
+    return null;
+  }
+}
 
-    const html = await response.text();
+function stripTags(html) {
+  return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function sourceHash(value) {
+  return createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+async function scrapeFullArticleBody(url) {
+  try {
+    const html = await fetchExternalText(url, { timeoutMs: 10000 });
     const $ = cheerio.load(html);
-
     const paragraphs = [];
-    $('p').each((_, el) => {
-      const text = $(el).text().trim();
+
+    $('article p, main p, .entry-content p, .post-content p, p').each((_, element) => {
+      const text = $(element).text().trim();
       if (text.length > 40) {
         paragraphs.push(text);
       }
     });
 
-    return paragraphs.join('\n\n');
-  } catch (err) {
+    return paragraphs.slice(0, 30).join('\n\n');
+  } catch {
     return '';
   }
 }
 
-/**
- * Extract og:image or first <img> from HTML or URL
- */
-async function extractOgOrFirstImage(url, rawHtml = '') {
+async function extractImage(url, rawHtml = '') {
   let imageUrl = '';
 
   if (rawHtml) {
     const $ = cheerio.load(rawHtml);
     imageUrl = $('meta[property="og:image"]').attr('content') ||
-               $('meta[content][property="og:image"]').attr('content') ||
-               $('img[src]').attr('src') || '';
+      $('meta[name="twitter:image"]').attr('content') ||
+      $('img[src]').attr('src') ||
+      '';
   }
 
   if (!imageUrl && url) {
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-        },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (response.ok) {
-        const html = await response.text();
-        const $ = cheerio.load(html);
-        imageUrl = $('meta[property="og:image"]').attr('content') ||
-                   $('meta[content][property="og:image"]').attr('content') ||
-                   $('img[src]').attr('src') || '';
-      }
-    } catch (_) {}
+      const html = await fetchExternalText(url, { timeoutMs: 10000 });
+      const $ = cheerio.load(html);
+      imageUrl = $('meta[property="og:image"]').attr('content') ||
+        $('meta[name="twitter:image"]').attr('content') ||
+        $('img[src]').attr('src') ||
+        '';
+    } catch {
+      imageUrl = '';
+    }
   }
 
-  if (imageUrl && imageUrl.startsWith('//')) {
-    imageUrl = 'https:' + imageUrl;
-  }
+  if (!imageUrl) return '';
 
-  if (!imageUrl) {
-    imageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1024&auto=format&fit=crop';
+  try {
+    return new URL(imageUrl, url).href;
+  } catch {
+    return '';
   }
-
-  return imageUrl;
 }
 
-/**
- * Scrape unprocessed RSS articles
- */
-export async function getUnprocessedRssArticles({ sources = [], processedHashes = [], limit = 3 }) {
+async function getUnprocessedRssArticles({ sources, processedHashes, limit }) {
   const articles = [];
 
-  for (const sourceUrl of sources) {
-    if (!sourceUrl || articles.length >= limit) break;
+  for (const source of sources) {
+    if (articles.length >= limit) break;
 
     try {
-      const feed = await parser.parseURL(sourceUrl.trim());
-      const items = (feed.items || []).slice(0, 5);
+      const xml = await fetchExternalText(source);
+      const feed = await parser.parseString(xml);
 
-      for (const item of items) {
+      for (const item of (feed.items || []).slice(0, 8)) {
         if (articles.length >= limit) break;
 
-        const permalink = item.link || item.guid;
-        if (!permalink) continue;
+        const url = item.link || item.guid;
+        const hash = sourceHash(url);
+        const content = item['content:encoded'] || item.content || item.summary || item.contentSnippet || '';
+        let text = stripTags(content);
 
-        // Hash link to prevent duplicates
-        const urlHash = Buffer.from(permalink).toString('base64').replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
-        if (processedHashes.includes(urlHash) || processedHashes.includes(permalink)) {
-          continue;
-        }
+        if (!url || processedHashes.includes(hash)) continue;
 
-        const title = item.title?.trim();
-        let content = item['content:encoded'] || item.content || item.summary || item.contentSnippet || '';
-        let cleanContent = stripTags(content);
-
-        if (cleanContent.length < 300) {
-          const scrapedText = await scrapeFullArticleBody(permalink);
-          if (scrapedText.length > cleanContent.length) {
-            cleanContent = scrapedText;
+        if (text.length < 300) {
+          const scrapedText = await scrapeFullArticleBody(url);
+          if (scrapedText.length > text.length) {
+            text = scrapedText;
           }
         }
 
-        if (title && cleanContent.length > 100) {
+        if (item.title && text.length > 100) {
           articles.push({
-            url: permalink,
-            urlHash,
-            originalTitle: title,
-            originalContent: cleanContent,
+            url,
+            hash,
+            title: item.title.trim(),
+            content: text,
             rawContent: content,
-            date: item.pubDate || new Date().toISOString(),
           });
         }
       }
-    } catch (err) {
-      console.warn(`[AutoPost] Error parsing feed ${sourceUrl}:`, err.message);
+    } catch (error) {
+      articles.push({ sourceError: `Fuente ${source}: ${error.message}` });
     }
   }
 
   return articles;
 }
 
-/**
- * Build journalistic rewrite prompt for Gemini or OpenAI
- */
-function buildRewritePrompt(title, content, allowedCategories = []) {
-  let catInstruction = "Clasifica la noticia en una sola palabra principal en español (ej: Deportes, Política, Economía, Tecnología, Entretenimiento, Internacional, Sociedad, Ciencia, Cultura, Salud).";
+function buildPrompt({ title, content, allowedCategories }) {
+  const categoryInstruction = allowedCategories.length
+    ? `Elige exactamente una categoria de esta lista: ${allowedCategories.join(', ')}.`
+    : 'Elige una categoria periodistica breve en espanol.';
 
-  if (Array.isArray(allowedCategories) && allowedCategories.length > 0) {
-    const catsList = allowedCategories.join(', ');
-    catInstruction = `DEBES elegir OBLIGATORIAMENTE la categoría que mejor encaje únicamente dentro de esta lista de categorías permitidas: [${catsList}]. No inventes otra categoría.`;
-  }
+  return `Redacta una noticia original en espanol neutro, con enfoque periodistico, basada en esta fuente. No copies frases literales largas. Devuelve JSON valido sin markdown.
 
-  return `Actúa como un periodista profesional senior y redactor jefe de un prestigioso periódico digital internacional.
-Tu objetivo principal es tomar la noticia de origen y redactar un ARTÍCULO PERIODÍSTICO EXTENSO, COMPLETO, PROFUNDO Y 100% INÉDITO en español neutro. La redacción debe ser rica en detalles, fluida y estructurada formalmente (mínimo entre 400 y 700 palabras) para cumplir estrictamente con los estándares de contenido de alto valor de Google AdSense.
+Titulo fuente: ${title}
+Texto fuente:
+${content.slice(0, 7000)}
 
-NOTICIA DE ORIGEN:
-Título original: ${title}
-Texto de origen:
-${content}
+Requisitos:
+- Titulo SEO atractivo, maximo 90 caracteres.
+- Resumen de 1 a 2 oraciones.
+- Contenido HTML con parrafos <p>, subtitulos <h2> y listas <ul><li> si aporta valor.
+- ${categoryInstruction}
 
-REQUISITOS OBLIGATORIOS DE REDACCIÓN:
-1. PARÁFRASEOPROFUNDO: No copies frases literales ni la estructura original. Vuelve a redactar los hechos con un vocabulario periodístico amplio, analítico e imparcial.
-2. EXTENSIÓN Y DETALLE: Desarrolla a fondo el tema. Expande los antecedentes, el contexto de los hechos, los implicados y las repercusiones o implicaciones a futuro. El artículo NUNCA debe ser un resumen corto.
-3. ESTRUCTURA HTML RICO: Organiza la nota usando:
-   - Una introducción impactante que responda al 'Qué, Quién, Cuándo, Dónde y Por qué' (Pirámide Invertida).
-   - Al menos dos o tres subtítulos <h2> descriptivos e informativos.
-   - Múltiples párrafos desarrollados (<p>).
-   - Listas de puntos <ul> / <li> para destacar datos clave si aplica.
-   - Una conclusión o reflexión final.
-4. CATEGORÍA: ${catInstruction}
-5. TÍTULO SEO: Un titular completamente nuevo, profesional, sin amarillismo pero muy atractivo para Google Noticias (máximo 80 caracteres).
-6. RESUMEN: Una meta-descripción de 2 oraciones para redes sociales y motores de búsqueda.
-7. PROMPT DE IMAGEN: Un prompt en inglés detallado para generar una fotografía periodística fotorrealista de alta calidad relacionada con el tema (sin texto).
-
-DEBES RESPONDER EXCLUSIVAMENTE EN FORMATO JSON VÁLIDO CON LA SIGUIENTE ESTRUCTURA (sin bloques de markdown ni comillas extrañas):
-
-{
-  "title": "Nuevo Titular Periodístico Impresionante",
-  "category": "NombreDeCategoriaPermitida",
-  "content": "<p>Introducción extensa...</p><h2>Contexto del Suceso</h2><p>Párrafo detallado 1...</p><p>Párrafo detallado 2...</p><h2>Repercusiones e Implicaciones</h2><p>Más análisis...</p>",
-  "summary": "Resumen conciso y profesional del artículo...",
-  "image_prompt": "Editorial news photograph showing..."
-}`;
+Formato:
+{"title":"...","summary":"...","category":"...","content":"<p>...</p>"}`;
 }
 
-/**
- * Call Gemini API
- */
-async function callGeminiApi(apiKey, prompt) {
-  const cleanKey = apiKey.trim();
-  let validModels = ['models/gemini-1.5-flash', 'models/gemini-2.0-flash', 'models/gemini-1.5-flash-latest'];
+async function callGemini(apiKey, prompt) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.65, responseMimeType: 'application/json' },
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
 
-  try {
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`, { signal: AbortSignal.timeout(10000) });
-    if (listRes.ok) {
-      const listData = await listRes.json();
-      if (Array.isArray(listData.models)) {
-        const discovered = listData.models
-          .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
-          .map(m => m.name);
-        if (discovered.length > 0) validModels = discovered;
-      }
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    if (response.status === 429) {
+      throw new Error('Gemini rechazo la solicitud por cuota o facturacion. Revisa el limite/billing de la API key en Google AI Studio.');
     }
-  } catch (_) {}
-
-  let lastError = null;
-
-  for (const modelPath of validModels) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${cleanKey}`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7 },
-        }),
-        signal: AbortSignal.timeout(35000),
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson?.error?.message || `HTTP ${res.status}`;
-        continue;
-      }
-
-      const json = await res.json();
-      const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawText) {
-        const cleanJson = rawText.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
-        const parsed = JSON.parse(cleanJson);
-        if (parsed?.title && parsed?.content) return parsed;
-      }
-    } catch (err) {
-      lastError = err.message;
-    }
+    throw new Error(error?.error?.message || `Gemini ${GEMINI_MODEL} HTTP ${response.status}`);
   }
 
-  throw new Error(`Gemini API Error: ${lastError || 'No se pudo generar contenido.'}`);
+  const json = await response.json();
+  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini no devolvio contenido.');
+
+  return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
 }
 
-/**
- * Call OpenAI API
- */
-async function callOpenAiApi(apiKey, prompt) {
-  const cleanKey = apiKey.trim();
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+async function callOpenAi(apiKey, prompt) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${cleanKey}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
+      temperature: 0.65,
     }),
     signal: AbortSignal.timeout(45000),
   });
 
-  if (!res.ok) {
-    const errJson = await res.json().catch(() => ({}));
-    throw new Error(`OpenAI API Error (${res.status}): ${errJson?.error?.message || 'Failed'}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.error?.message || `OpenAI HTTP ${response.status}`);
   }
 
-  const json = await res.json();
-  const rawText = json?.choices?.[0]?.message?.content;
-  if (rawText) {
-    const parsed = JSON.parse(rawText);
-    if (parsed?.title && parsed?.content) return parsed;
-  }
+  const json = await response.json();
+  const text = json?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('OpenAI no devolvio contenido.');
 
-  throw new Error('Respuesta inválida de la API de OpenAI.');
+  return JSON.parse(text);
 }
 
-/**
- * Main Auto-Post Processor Execution
- */
-export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
-  const prisma = app.prisma;
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 90);
+}
 
-  // Read settings
-  const settingsRows = await prisma.systemSetting.findMany({
+async function uniqueSlug(prisma, title) {
+  const base = slugify(title) || `auto-post-${Date.now()}`;
+  let slug = base;
+  let suffix = 2;
+
+  while (await prisma.post.findUnique({ where: { slug }, select: { id: true } })) {
+    slug = `${base}-${suffix++}`;
+  }
+
+  return slug;
+}
+
+async function findAuthorId(prisma) {
+  const admin = await prisma.user.findFirst({
     where: {
-      key: {
-        in: [
-          'auto_post_sources',
-          'auto_post_ai_provider',
-          'auto_post_ai_api_key',
-          'auto_post_processed_urls',
-          'auto_post_status',
-          'auto_post_categories',
-        ],
-      },
+      status: 'ACTIVE',
+      roles: { some: { role: { name: 'ADMIN' } } },
     },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
   });
 
-  const settings = {};
-  settingsRows.forEach(row => { settings[row.key] = row.value; });
+  if (admin?.id) return admin.id;
 
-  const sourcesRaw = settings.auto_post_sources || '';
-  const sources = sourcesRaw.split('\n').map(s => s.trim()).filter(Boolean);
-  const aiProvider = settings.auto_post_ai_provider || 'gemini';
-  const apiKey = settings.auto_post_ai_api_key || '';
-  const processedHashes = JSON.parse(settings.auto_post_processed_urls || '[]');
-  const postStatus = settings.auto_post_status || 'DRAFT';
-  const selectedCategoryIds = JSON.parse(settings.auto_post_categories || '[]');
+  const user = await prisma.user.findFirst({
+    where: { status: 'ACTIVE' },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (!user?.id) {
+    throw new Error('No hay usuario activo para asignar como autor.');
+  }
+
+  return user.id;
+}
+
+export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
+  const config = await getAutoPostConfig(app, { includeSecret: true });
+  const sources = String(config.sources || '').split(/\r?\n/).map((source) => source.trim()).filter(Boolean);
+  const apiKey = config.apiKey;
+  const processedHashes = Array.isArray(config.processedHashes) ? config.processedHashes : [];
+  const categoryIds = Array.isArray(config.categoryIds) ? config.categoryIds : [];
 
   if (!sources.length) {
     return { success: false, message: 'No hay fuentes RSS configuradas.' };
+  }
+
+  if (config.apiKeyDecryptFailed) {
+    return {
+      success: false,
+      message: 'La clave API guardada no se pudo descifrar. Guardala nuevamente desde la configuracion.',
+    };
   }
 
   if (!apiKey) {
     return { success: false, message: 'Falta configurar la clave API de IA.' };
   }
 
-  // Load allowed category names
-  let allowedCategories = [];
-  if (selectedCategoryIds.length > 0) {
-    const categories = await prisma.category.findMany({
-      where: { id: { in: selectedCategoryIds } },
-      select: { id: true, name: true },
-    });
-    allowedCategories = categories.map(c => c.name);
-  }
-
-  const articles = await getUnprocessedRssArticles({ sources, processedHashes, limit });
-
-  if (!articles.length) {
-    return { success: true, processedCount: 0, message: 'No hay noticias nuevas para procesar.' };
-  }
+  const categories = categoryIds.length
+    ? await app.prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
+    : await app.prisma.category.findMany({ take: 20, select: { id: true, name: true } });
+  const allowedCategories = categories.map((category) => category.name);
+  const articles = await getUnprocessedRssArticles({
+    sources,
+    processedHashes,
+    limit: Math.min(5, Math.max(1, limit)),
+  });
 
   const results = {
     processed: 0,
     success: 0,
-    errors: [],
     createdPosts: [],
+    errors: articles.filter((item) => item.sourceError).map((item) => item.sourceError),
   };
 
-  for (const article of articles) {
-    results.processed++;
+  const authorId = await findAuthorId(app.prisma);
+  const nextProcessedHashes = [...processedHashes];
 
+  for (const article of articles.filter((item) => !item.sourceError)) {
     try {
-      const prompt = buildRewritePrompt(article.originalTitle, article.originalContent, allowedCategories);
-      let aiResult = null;
+      results.processed += 1;
+      const prompt = buildPrompt({ title: article.title, content: article.content, allowedCategories });
+      const generated = config.aiProvider === 'openai'
+        ? await callOpenAi(apiKey, prompt)
+        : await callGemini(apiKey, prompt);
 
-      if (aiProvider === 'gemini') {
-        aiResult = await callGeminiApi(apiKey, prompt);
-      } else {
-        aiResult = await callOpenAiApi(apiKey, prompt);
+      if (!generated?.title || !generated?.content) {
+        throw new Error('La IA devolvio una respuesta incompleta.');
       }
 
-      // Match category
-      let categoryId = selectedCategoryIds[0] || null;
-      if (aiResult.category) {
-        const matchedCat = await prisma.category.findFirst({
-          where: { name: { equals: aiResult.category.trim() } },
+      const slug = await uniqueSlug(app.prisma, generated.title);
+      const matchedCategory = categories.find((category) =>
+        category.name.toLowerCase() === String(generated.category || '').toLowerCase()
+      ) || categories[0];
+      const imageUrl = await extractImage(article.url, article.rawContent);
+      const media = await createAutoPostMedia(app, { imageUrl, slug, title: generated.title });
+      const status = config.postStatus === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
+
+      const post = await app.prisma.$transaction(async (tx) => {
+        const createdPost = await tx.post.create({
+          data: {
+            authorId,
+            featuredMediaId: media?.id,
+            title: generated.title,
+            slug,
+            excerpt: generated.summary || null,
+            contentHtml: generated.content,
+            contentText: stripTags(generated.content),
+            status,
+            postType: 'NEWS',
+            visibility: 'PUBLIC',
+            publishedAt: status === 'PUBLISHED' ? new Date() : null,
+          },
         });
-        if (matchedCat) {
-          categoryId = matchedCat.id;
+
+        await tx.route.create({
+          data: {
+            path: `/${slug}/`,
+            entityType: 'POST',
+            entityId: createdPost.id,
+            status: 'ACTIVE',
+            lastmodAt: new Date(),
+          },
+        });
+
+        if (matchedCategory?.id) {
+          await tx.postCategory.create({
+            data: {
+              postId: createdPost.id,
+              categoryId: matchedCategory.id,
+              isPrimary: true,
+            },
+          });
         }
-      }
 
-      // Download / Extract news image
-      const imageUrl = await extractOgOrFirstImage(article.url, article.rawContent);
-
-      // Create Featured Media asset
-      let mediaId = null;
-      if (imageUrl) {
-        const media = await prisma.mediaAsset.create({
-          data: {
-            fileName: `${aiResult.title.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}.jpg`,
-            mimeType: 'image/jpeg',
-            url: imageUrl,
-            path: imageUrl,
-            disk: 'external',
-            altText: aiResult.title,
-            caption: aiResult.title,
-          },
-        });
-        mediaId = media.id;
-      }
-
-      // Embed image tag at top of HTML content
-      let contentHtml = aiResult.content;
-      if (imageUrl) {
-        contentHtml = `<p><img src="${imageUrl}" alt="${aiResult.title}" class="w-full h-auto rounded-none mb-6 border border-terminal-gray" /></p>${contentHtml}`;
-      }
-
-      // Generate slug
-      const slug = aiResult.title
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '')
-        .substring(0, 80) + `-${Date.now().toString().slice(-4)}`;
-
-      // Admin author
-      const adminUser = await prisma.user.findFirst({ where: { username: 'admin1' } });
-
-      const post = await prisma.post.create({
-        data: {
-          title: aiResult.title,
-          slug,
-          excerpt: aiResult.summary || null,
-          contentHtml,
-          contentText: stripTags(contentHtml),
-          status: postStatus === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
-          postType: 'NEWS',
-          visibility: 'PUBLIC',
-          authorId: adminUser?.id || undefined,
-          featuredMediaId: mediaId,
-          publishedAt: postStatus === 'PUBLISHED' ? new Date() : null,
-        },
+        return createdPost;
       });
 
-      await prisma.route.create({
-        data: {
-          path: `/${slug}/`,
-          entityType: 'POST',
-          entityId: post.id,
-          status: 'ACTIVE',
-        },
-      });
-
-      if (categoryId) {
-        await prisma.postCategory.create({
-          data: {
-            postId: post.id,
-            categoryId: categoryId,
-            isPrimary: true,
-          },
-        });
-      }
-
-      // Save processed hash
-      processedHashes.push(article.urlHash);
-      await prisma.systemSetting.upsert({
-        where: { key: 'auto_post_processed_urls' },
-        create: { key: 'auto_post_processed_urls', value: JSON.stringify(processedHashes) },
-        update: { value: JSON.stringify(processedHashes) },
-      });
-
-      results.success++;
+      nextProcessedHashes.push(article.hash);
+      results.success += 1;
       results.createdPosts.push({ id: post.id, title: post.title, slug: post.slug });
-    } catch (err) {
-      results.errors.push(`Error en "${article.originalTitle}": ${err.message}`);
+    } catch (error) {
+      results.errors.push(`Error en "${article.title}": ${error.message}`);
     }
   }
 
+  const updatedConfig = {
+    ...DEFAULT_CONFIG,
+    ...config,
+    processedHashes: [...new Set(nextProcessedHashes)].slice(-2000),
+  };
+  delete updatedConfig.apiKey;
+  delete updatedConfig.apiKeyDecryptFailed;
+
+  await app.prisma.siteSetting.upsert({
+    where: { settingKey: SETTINGS_KEY },
+    create: { settingKey: SETTINGS_KEY, value: updatedConfig },
+    update: { value: updatedConfig },
+  });
+
   return {
-    success: true,
+    ok: true,
     ...results,
+    message: results.success ? 'Auto-Post finalizado.' : 'No se crearon publicaciones nuevas.',
   };
 }

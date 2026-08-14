@@ -1,22 +1,48 @@
 'use client';
 
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 
-export function getSafeLoginNextPath(next) {
+const CMS_ROLES = new Set(['ADMIN', 'EDITOR']);
+
+export function getSafeLoginNextPath(next, fallback = '/cms') {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
-    return '/perfil';
+    return fallback;
   }
 
   return next;
 }
 
 function getNextPath() {
-  if (typeof window === 'undefined') return '/perfil';
+  if (typeof window === 'undefined') return null;
 
-  return getSafeLoginNextPath(new URLSearchParams(window.location.search).get('next'));
+  return getSafeLoginNextPath(new URLSearchParams(window.location.search).get('next'), null);
+}
+
+export function userHasCmsAccess(user) {
+  return Array.isArray(user?.roles) && user.roles.some((role) => CMS_ROLES.has(role));
+}
+
+export function profilePathForUser(user) {
+  return user?.id ? `/perfil/${encodeURIComponent(user.id)}/` : '/';
+}
+
+export function loginRedirectPath(user, nextPath = null) {
+  const hasCmsAccess = userHasCmsAccess(user);
+  const fallback = hasCmsAccess ? '/cms' : profilePathForUser(user);
+
+  if (!nextPath) {
+    return fallback;
+  }
+
+  if (nextPath === '/cms' || nextPath.startsWith('/cms/')) {
+    return hasCmsAccess ? nextPath : fallback;
+  }
+
+  return nextPath;
 }
 
 export default function LoginForm() {
@@ -40,46 +66,14 @@ export default function LoginForm() {
         },
         body: JSON.stringify({ email: email.trim(), password }),
       });
+      const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        const errorJson = await response.json().catch(() => null);
-        throw new Error(errorJson?.message || 'Credenciales invalidas o cuenta bloqueada temporalmente.');
-      }
-
-      const result = await response.json().catch(() => ({}));
-      
-      const userData = result.data?.user || result.user || {};
-      const accessToken = result.data?.accessToken || result.accessToken;
-      const refreshToken = result.data?.refreshToken || result.refreshToken;
-      
-      if (typeof window !== 'undefined') {
-        const userRoles = userData.roles || [];
-        const isUserAdmin = userRoles.some(r => ['admin', 'editor'].includes(String(r).toLowerCase())) || email.startsWith('admin');
-
-        localStorage.setItem('hes_authenticated', 'true');
-        localStorage.setItem(
-          'hes_user_profile',
-          JSON.stringify({
-            nombre: userData.displayName || userData.nombre || email.split('@')[0],
-            correo: email,
-            isAdmin: isUserAdmin,
-          })
-        );
-
-        if (accessToken) {
-          document.cookie = `hes_access_token=${accessToken}; path=/; max-age=900; SameSite=Lax; SameSite=Strict`;
-          document.cookie = `hes_access_token=${accessToken}; path=/; max-age=900`;
-        }
-        if (refreshToken) {
-          document.cookie = `hes_refresh_token=${refreshToken}; path=/; max-age=2592000`;
-        }
+        throw new Error(payload?.message || 'Credenciales invalidas o cuenta bloqueada temporalmente.');
       }
 
       setStatus('success');
-      const userSlug = encodeURIComponent((result.user?.displayName || result.user?.nombre || email.split('@')[0]).toLowerCase().replace(/\s+/g, '-'));
-      const targetPath = getNextPath();
-      const finalPath = targetPath === '/perfil' ? `/perfil/${userSlug}` : targetPath;
-      router.push(finalPath);
+      router.push(loginRedirectPath(payload?.data?.user, getNextPath()));
       router.refresh();
     } catch (loginError) {
       setStatus('error');
@@ -155,17 +149,16 @@ export default function LoginForm() {
             {status === 'loading' ? 'Validando...' : 'Entrar al CMS'}
           </button>
 
-          <div className="mt-8 pt-6 border-t border-terminal-gray/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-xs text-on-surface-variant font-medium">¿Aún no tienes una cuenta?</p>
-              <p className="text-[11px] text-on-surface-variant/70">Únete a la comunidad de lectores y colaboradores.</p>
-            </div>
-            <a
+          <div className="mt-8 flex flex-col gap-3 border-t border-terminal-gray pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-on-surface-variant">
+              Necesitas una cuenta de lector?
+            </p>
+            <Link
               href="/register"
-              className="inline-flex border border-terminal-gray bg-black/50 text-white font-label-caps text-[11px] font-bold px-4 py-2 hover:border-system-red hover:text-system-red transition-colors"
+              className="inline-flex border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red hover:text-system-red"
             >
-              Registrarse
-            </a>
+              Crear cuenta
+            </Link>
           </div>
         </form>
 
