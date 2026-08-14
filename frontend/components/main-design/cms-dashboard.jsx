@@ -153,12 +153,6 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Auto-Post IA
           </Link>
           <Link
-            href="/cms/analiticas"
-            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
-          >
-            Analiticas
-          </Link>
-          <Link
             href="/cms/categorias"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >
@@ -183,15 +177,8 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Redirects
           </Link>
           <Link
-            href="/cms/analiticas"
-            className="border border-system-red bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-system-red hover:bg-system-red hover:text-black transition-colors flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[14px]">analytics</span>
-            Análisis / Visitas
-          </Link>
-          <Link
             href="/cms/ajustes"
-            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors flex items-center gap-1.5"
+            className="border border-system-red bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-system-red hover:bg-system-red hover:text-black transition-colors flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[14px]">tune</span>
             Ajustes Portada
