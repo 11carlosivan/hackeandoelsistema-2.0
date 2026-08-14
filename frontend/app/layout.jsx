@@ -32,13 +32,18 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const theme = localStorage.getItem('theme') || 'dark';
-                if (theme === 'light') {
-                  document.documentElement.classList.remove('dark');
-                  document.documentElement.classList.add('light');
-                } else {
+                const storedTheme = localStorage.getItem('theme');
+                let effectiveTheme = storedTheme;
+                if (!effectiveTheme) {
+                  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  effectiveTheme = prefersDark ? 'dark' : 'light';
+                }
+                if (effectiveTheme === 'dark') {
                   document.documentElement.classList.add('dark');
                   document.documentElement.classList.remove('light');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
                 }
               } catch (_) {}
             `,

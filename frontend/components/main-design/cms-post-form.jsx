@@ -1334,30 +1334,37 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
             </div>
           </section>
 
-          {/* Media & Scheduling Panel */}
-          <section className="border border-terminal-gray bg-black/20 p-6 w-full max-w-full overflow-hidden">
-            <div className="font-label-caps text-system-red text-[10px] font-bold mb-5">MEDIA Y PROGRAMACION</div>
+          {/* Media & Scheduling Panel (Visibilidad asegurada en celulares) */}
+          <section id="seccion-imagen-portada" className="border border-terminal-gray bg-black/20 p-4 md:p-6 w-full max-w-full overflow-hidden">
+            <div className="font-label-caps text-system-red text-[10px] font-bold mb-4 flex items-center justify-between">
+              <span>MEDIA Y PROGRAMACION</span>
+              <span className="text-[9px] font-mono text-on-surface-variant md:hidden border border-terminal-gray px-1.5 py-0.5">
+                PORTADA MÓVIL
+              </span>
+            </div>
 
-            <div className="grid gap-5">
-              <div>
-                <span className="block font-label-caps text-[10px] text-system-red font-bold mb-2">Imagen destacada</span>
+            <div className="grid gap-5 w-full">
+              <div className="w-full">
+                <span className="block font-label-caps text-[11px] text-system-red font-bold mb-2 uppercase">
+                  Imagen destacada (Portada)
+                </span>
                 <input type="hidden" name="featuredMediaId" value={selectedMedia?.id || ''} />
                 
                 {selectedMedia ? (
-                  <div className="border border-terminal-gray bg-black/40 p-4">
+                  <div className="border border-terminal-gray bg-black/40 p-4 w-full">
                     <img
                       src={selectedMedia.url}
                       alt={selectedMedia.altText || selectedMedia.fileName}
-                      className="w-full max-h-[180px] object-contain border border-terminal-gray bg-black mb-3"
+                      className="w-full max-h-[220px] md:max-h-[180px] object-contain border border-terminal-gray bg-black mb-3"
                     />
                     <div className="text-xs text-on-surface-variant mb-3 truncate" title={selectedMedia.fileName}>
                       {selectedMedia.fileName}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full">
                       <button
                         type="button"
                         onClick={() => setIsMediaModalOpen(true)}
-                        className="flex-grow border border-terminal-gray px-3 py-2 text-[10px] font-bold text-white hover:border-system-red"
+                        className="flex-1 border border-terminal-gray px-3 py-2 text-[10px] font-bold text-white hover:border-system-red"
                       >
                         Reemplazar
                       </button>
@@ -1377,10 +1384,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                   <button
                     type="button"
                     onClick={() => setIsMediaModalOpen(true)}
-                    className="w-full border border-dashed border-terminal-gray hover:border-system-red p-8 text-center text-xs text-on-surface-variant flex flex-col items-center justify-center gap-2"
+                    className="w-full border-2 border-dashed border-system-red/50 bg-system-red/5 hover:border-system-red hover:bg-system-red/10 p-6 md:p-8 text-center text-xs text-white flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
                   >
-                    <span className="material-symbols-outlined text-2xl">add_photo_alternate</span>
-                    <span>Asignar imagen destacada</span>
+                    <span className="material-symbols-outlined text-3xl text-system-red">add_photo_alternate</span>
+                    <span className="font-bold uppercase tracking-wider text-[11px]">Asignar imagen de portada</span>
+                    <span className="text-[10px] text-on-surface-variant">Toca aquí para seleccionar de la galería o subir desde el celular</span>
                   </button>
                 )}
                 {!selectedMedia ? (

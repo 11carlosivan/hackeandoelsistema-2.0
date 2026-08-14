@@ -313,8 +313,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 <span>Por: {getAuthorName(currentHero.authorId)}</span>
                 <span>•</span>
                 <span>{currentHero.date}</span>
-                <span>•</span>
-                <span className="text-system-red font-bold">{currentHero.views} visitas</span>
               </div>
             </div>
 
@@ -355,8 +353,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 </h3>
                 <div className="flex items-center gap-2 text-[8px] text-on-surface-variant font-mono uppercase mt-1">
                   <span>Hace {formatRelativeTime(art.publishedAt)}</span>
-                  <span>•</span>
-                  <span className="text-system-red font-bold">{art.views} visitas</span>
                 </div>
               </div>
             </div>
@@ -384,9 +380,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   <h4 className="text-[12px] font-bold text-white group-hover:text-system-red transition-colors leading-tight line-clamp-2 uppercase">
                     {art.title}
                   </h4>
-                  <span className="text-[9px] text-on-surface-variant font-mono uppercase block mt-0.5">
-                    {art.views} LECTURAS
-                  </span>
                 </div>
               </div>
             ))}
@@ -547,8 +540,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                               <div className="p-4">
                                 <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
                                   <span>{art.date}</span>
-                                  <span>•</span>
-                                  <span>{art.views} visitas</span>
                                 </div>
                                 <h4 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2">
                                   {art.title}
@@ -634,8 +625,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                             <div className="p-5">
                               <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[10px] font-bold uppercase">
                                 <span>{heroArt.date}</span>
-                                <span>•</span>
-                                <span>{heroArt.views} visitas</span>
                               </div>
                               <h4 className="font-headline-md text-[18px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold">
                                 {heroArt.title}
@@ -702,7 +691,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                               </div>
                               <div className="p-3.5">
                                 <span className="text-system-red font-mono text-[9px] font-bold uppercase block mb-1">
-                                  {art.date} • {art.views} visitas
+                                  {art.date}
                                 </span>
                                 <h5 className="font-headline-md text-[13px] text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
                                   {art.title}
@@ -780,8 +769,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                           <div className="p-5">
                             <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[10px] font-bold uppercase">
                               <span>{heroArt.date}</span>
-                              <span>•</span>
-                              <span>{heroArt.views} visitas</span>
                             </div>
                             <h4 className="font-headline-md text-[18px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold">
                               {heroArt.title}
@@ -816,7 +803,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                             </div>
                             <div className="p-3.5">
                               <span className="text-system-red font-mono text-[9px] font-bold uppercase block mb-1">
-                                {art.date} • {art.views} visitas
+                                {art.date}
                               </span>
                               <h5 className="font-headline-md text-[13px] text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
                                 {art.title}

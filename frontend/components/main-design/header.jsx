@@ -50,8 +50,22 @@ export default function Header({ categories = [] }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
-    const storedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(storedTheme);
+    const storedTheme = localStorage.getItem('theme');
+    let effectiveTheme = storedTheme;
+
+    if (!effectiveTheme) {
+      const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      effectiveTheme = prefersDark ? 'dark' : 'light';
+    }
+
+    setTheme(effectiveTheme);
+    if (effectiveTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
 
     try {
       const isAuth = localStorage.getItem('hes_authenticated') === 'true';
