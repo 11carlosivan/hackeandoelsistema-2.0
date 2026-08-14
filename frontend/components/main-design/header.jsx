@@ -50,21 +50,43 @@ export default function Header({ categories = [] }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
+    const applyTheme = (targetTheme) => {
+      setTheme(targetTheme);
+      if (targetTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+    };
+
     const storedTheme = localStorage.getItem('theme');
-    let effectiveTheme = storedTheme;
-
-    if (!effectiveTheme) {
-      const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      effectiveTheme = prefersDark ? 'dark' : 'light';
-    }
-
-    setTheme(effectiveTheme);
-    if (effectiveTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
+    if (storedTheme) {
+      applyTheme(storedTheme);
     } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(mediaQuery.matches ? 'dark' : 'light');
+
+      const handleChange = (e) => {
+        if (!localStorage.getItem('theme')) {
+          applyTheme(e.matches ? 'dark' : 'light');
+        }
+      };
+
+      if (mediaQuery.addEventListener) {
+        mediaQuery.addEventListener('change', handleChange);
+      } else {
+        mediaQuery.addListener(handleChange);
+      }
+
+      return () => {
+        if (mediaQuery.removeEventListener) {
+          mediaQuery.removeEventListener('change', handleChange);
+        } else {
+          mediaQuery.removeListener(handleChange);
+        }
+      };
     }
 
     try {

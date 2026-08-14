@@ -7,8 +7,36 @@ export const metadata = buildMetadata();
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className="dark" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var storedTheme = localStorage.getItem('theme');
+                  var effectiveTheme = storedTheme;
+                  if (!effectiveTheme) {
+                    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    effectiveTheme = prefersDark ? 'dark' : 'light';
+                  }
+                  if (effectiveTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.classList.add('light');
+                  }
+                } catch (e) {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+                }
+              })();
+            `,
+          }}
+        />
         <meta name="application-name" content={siteConfig.name} />
         <meta name="apple-mobile-web-app-title" content={siteConfig.name} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,29 +54,6 @@ export default function RootLayout({ children }) {
         <SiteStructuredData />
       </head>
       <body className="bg-background text-on-surface font-body-md selection:bg-system-red selection:text-white overflow-x-hidden">
-        <Script
-          id="theme-script"
-          strategy="lazyOnload"
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const storedTheme = localStorage.getItem('theme');
-                let effectiveTheme = storedTheme;
-                if (!effectiveTheme) {
-                  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  effectiveTheme = prefersDark ? 'dark' : 'light';
-                }
-                if (effectiveTheme === 'dark') {
-                  document.documentElement.classList.add('dark');
-                  document.documentElement.classList.remove('light');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                  document.documentElement.classList.add('light');
-                }
-              } catch (_) {}
-            `,
-          }}
-        />
         {children}
       </body>
     </html>
