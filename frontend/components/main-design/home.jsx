@@ -70,12 +70,28 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     setCurrentHeroIndex((prev) => (prev - 1 + actualHeroArticles.length) % actualHeroArticles.length);
   };
 
+  // Middle stack: take 3 articles that are not the current hero slider article
+  const getMiddleArticles = () => {
+    if (!currentHero) {
+      return articles.slice(0, 3);
+    }
+    return articles
+      .filter(a => a.id !== currentHero.id)
+      .slice(0, 3);
+  };
+  const middleArticles = getMiddleArticles();
+
   // parse views string to compare (e.g. "15.4K" -> 15400)
   const parseViews = (viewsStr) => {
     if (!viewsStr) return 0;
     const num = parseFloat(String(viewsStr).replace('K', ''));
     return String(viewsStr).includes('K') ? num * 1000 : num;
   };
+
+  // Trending articles (sorted by views desc, top 5)
+  const trendingArticles = [...articles]
+    .sort((a, b) => parseViews(b.views) - parseViews(a.views))
+    .slice(0, 5);
 
   // All opinions list (both from mock-data opinions and any articles tagged with OPINIÓN)
   const opinionArticlesFromArticles = articles.filter(
