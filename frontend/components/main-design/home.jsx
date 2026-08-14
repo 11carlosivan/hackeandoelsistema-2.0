@@ -497,20 +497,22 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   </span>
                 </div>
 
-                {/* Pagination Controls */}
+                {/* Pagination Controls (Ciclado continuo de filas sin salir de la página) */}
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] font-mono text-on-surface-variant">
-                    FILA <strong className="text-white">{currentPage + 1}</strong> DE <strong className="text-white">{totalPages}</strong>
+                    FILA <strong className="text-white">{currentPage + 1}</strong> DE <strong className="text-white">{Math.max(1, totalPages)}</strong>
                   </span>
-                  {totalPages > 1 && (
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => handleNextCategoryRow(catName, totalPages)}
-                      className="px-3 py-1 bg-surface-container border border-terminal-gray hover:border-system-red text-white hover:text-system-red text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1 active:scale-95 select-none"
+                      type="button"
+                      onClick={() => handleNextCategoryRow(catName, Math.max(1, totalPages))}
+                      title="Mover a la siguiente fila de noticias de esta categoría"
+                      className="px-3 py-1 bg-surface-container border border-terminal-gray hover:border-system-red text-white hover:text-system-red text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1.5 active:scale-95 select-none cursor-pointer"
                     >
-                      <span>Próxima Fila</span>
-                      <span className="material-symbols-outlined text-[14px]">refresh</span>
+                      <span>Cargar Próxima Fila</span>
+                      <span className="material-symbols-outlined text-[14px] text-system-red">autorenew</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
 
