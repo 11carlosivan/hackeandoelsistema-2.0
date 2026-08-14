@@ -24,7 +24,7 @@ export default async function Page() {
 
   return (
     <Layout>
-      <CmsAnalyticsPanel />
+      <CmsAnalyticsPanel initialSummary={summary} accessToken={accessToken} />
     </Layout>
   );
 }
