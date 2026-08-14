@@ -92,14 +92,20 @@ export default function CmsHomeSettingsPanel({ allCategories = [], accessToken =
     setSelectedCategories(newCats);
   };
 
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
     setLoading(true);
+    setSavedMessage('');
+    
     try {
       const configPayload = {
         selectedCategories,
         categoryLayouts,
         updatedAt: new Date().toISOString()
       };
+
+      // Simulate a brief asynchronous operation so the user clearly sees loading feedback
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       localStorage.setItem('hes_home_category_config', JSON.stringify(configPayload));
       
       // Dispatch custom event to update live Home component
@@ -108,7 +114,9 @@ export default function CmsHomeSettingsPanel({ allCategories = [], accessToken =
       }
 
       setSavedMessage('¡Ajustes de categorías y diseños guardados exitosamente!');
-      setTimeout(() => setSavedMessage(''), 4000);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      setTimeout(() => setSavedMessage(''), 6000);
     } catch (err) {
       alert('Error al guardar la configuración: ' + err.message);
     } finally {
@@ -336,15 +344,39 @@ export default function CmsHomeSettingsPanel({ allCategories = [], accessToken =
             )}
 
             {/* Save Button */}
-            <div className="pt-6 border-t border-terminal-gray mt-6 flex justify-end">
+            <div className="pt-6 border-t border-terminal-gray mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-on-surface-variant font-mono">
+                {savedMessage ? (
+                  <span className="text-system-red font-bold flex items-center gap-1.5 animate-pulse">
+                    <span className="material-symbols-outlined text-[16px]">verified</span>
+                    {savedMessage}
+                  </span>
+                ) : (
+                  <span>Cambios no guardados se perderán si navegas fuera.</span>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={handleSaveConfig}
                 disabled={loading}
-                className="bg-system-red text-black px-6 py-3 font-label-caps text-xs font-bold hover:bg-white transition-all flex items-center gap-2 active:scale-95 shadow-lg"
+                className={`px-6 py-3 font-label-caps text-xs font-bold transition-all flex items-center gap-2 shadow-lg select-none ${
+                  loading 
+                    ? 'bg-terminal-gray text-white cursor-wait opacity-80' 
+                    : 'bg-system-red text-black hover:bg-white active:scale-95 cursor-pointer'
+                }`}
               >
-                <span className="material-symbols-outlined text-[18px]">save</span>
-                <span>{loading ? 'GUARDANDO...' : 'GUARDAR CONFIGURACIÓN DE PORTADA'}</span>
+                {loading ? (
+                  <>
+                    <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                    <span>GUARDANDO CAMBIOS...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">save</span>
+                    <span>GUARDAR CONFIGURACIÓN DE PORTADA</span>
+                  </>
+                )}
               </button>
             </div>
 
