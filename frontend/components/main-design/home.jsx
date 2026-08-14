@@ -18,6 +18,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   );
   const actualHeroArticles = heroArticles.length > 0 ? heroArticles : articles.slice(0, 4);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const currentHero = actualHeroArticles[currentHeroIndex] || actualHeroArticles[0];
 
   // Auto-play hero slider every 20 seconds (20,000 ms)
   useEffect(() => {
