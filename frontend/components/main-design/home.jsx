@@ -269,7 +269,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 <div
                   key={heroArt.id}
                   onClick={() => navigateToArticle(heroArt)}
-                  className="min-w-full h-full relative cursor-pointer flex flex-col justify-end shrink-0"
+                  className="w-full basis-full shrink-0 grow-0 h-full relative cursor-pointer flex flex-col justify-end overflow-hidden"
                 >
                   <SafeImage
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
