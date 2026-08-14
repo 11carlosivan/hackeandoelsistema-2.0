@@ -143,18 +143,17 @@ export default function RegisterForm() {
         </p>
       ) : null}
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="submit"
           disabled={status === 'loading'}
-          className="inline-flex justify-center bg-system-red px-6 py-3 font-label-caps text-[11px] font-bold text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="bg-system-red px-6 py-3 font-label-caps text-[11px] font-bold text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {status === 'loading' ? 'Creando cuenta...' : 'Registrarme'}
+          {status === 'loading' ? 'Creando...' : 'Crear cuenta'}
         </button>
-
         <p className="text-sm text-on-surface-variant">
-          ¿Ya tienes cuenta?{' '}
-          <Link href="/iniciar-sesion" className="text-white hover:text-system-red underline">
+          Ya tienes cuenta?{' '}
+          <Link href="/iniciar-sesion" className="font-bold text-system-red hover:underline">
             Iniciar sesion
           </Link>
         </p>
