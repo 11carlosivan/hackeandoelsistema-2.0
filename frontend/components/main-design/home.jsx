@@ -183,7 +183,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     return `${Math.floor(diffHours / 24)} D`;
   };
 
-  const ITEMS_PER_ROW = 4;
+  const ITEMS_PER_ROW = 7;
 
   const handleNextCategoryRow = (catName, maxPages) => {
     setCategoryPageMap((prev) => {
@@ -433,22 +433,24 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         </div>
       </section>
 
-      {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (Mínimo 4 noticias por categoría con diseño dinámico/variado de cuadros) */}
-      <div className="space-y-12">
-        {allCategoryNames.map((catName) => {
+      {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (7 noticias por categoría en patrones alternados según la secuencia solicitada) */}
+      <div className="space-y-16">
+        {allCategoryNames.map((catName, catIdx) => {
           let categoryArticles = articles.filter((a) => a.category?.toUpperCase() === catName);
           if (categoryArticles.length === 0) return null;
 
-          // Si hay menos de 4 artículos en la categoría, completar con otros artículos para garantizar mínimo 4 cuadros
-          if (categoryArticles.length < 4) {
+          // Si hay menos de 7 artículos en la categoría, completar con otros artículos para garantizar 7 noticias
+          if (categoryArticles.length < ITEMS_PER_ROW) {
             const extraArticles = articles.filter(a => a.category?.toUpperCase() !== catName && !categoryArticles.some(c => c.id === a.id));
-            categoryArticles = [...categoryArticles, ...extraArticles.slice(0, 4 - categoryArticles.length)];
+            categoryArticles = [...categoryArticles, ...extraArticles.slice(0, ITEMS_PER_ROW - categoryArticles.length)];
           }
 
           const totalPages = Math.ceil(categoryArticles.length / ITEMS_PER_ROW);
           const currentPage = categoryPageMap[catName] || 0;
           const startIndex = currentPage * ITEMS_PER_ROW;
           const visibleCategoryArticles = categoryArticles.slice(startIndex, startIndex + ITEMS_PER_ROW);
+
+          const patternIndex = catIdx % 3;
 
           return (
             <section key={catName} className="space-y-6 border-t border-terminal-gray/60 pt-8">
@@ -481,267 +483,320 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 </div>
               </div>
 
-              {/* Dynamic Varied Cards Layout per Category (Fills 12 columns completely with dynamic layouts) */}
+              {/* Dynamic 7-Card Grid Layouts according to exact user sequence */}
               {(() => {
-                // Determine a layout pattern index based on category name
-                const patternIndex = Math.abs(catName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 3;
-
-                // PATTERN 0: 1 Featured Card (7 cols) + 1 Stacked Card (5 cols) in top row; 2 Balanced Cards (6 cols each) in bottom row
+                // CATEGORY PATTERN 1: 3 cards in top row (4 cols each) + 4 small cards in bottom row (3 cols each) = 7 articles
                 if (patternIndex === 0) {
+                  const topRowArticles = visibleCategoryArticles.slice(0, 3);
+                  const bottomRowArticles = visibleCategoryArticles.slice(3, 7);
+
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                      {visibleCategoryArticles.map((art, idx) => {
-                        let colSpan = 'md:col-span-6';
-                        let isHorizontal = false;
-                        let isMainBanner = false;
-
-                        if (idx === 0) {
-                          colSpan = 'md:col-span-7 flex flex-col justify-between';
-                          isMainBanner = true;
-                        } else if (idx === 1) {
-                          colSpan = 'md:col-span-5 flex flex-col justify-between';
-                          isHorizontal = true;
-                        } else if (idx === 2) {
-                          colSpan = 'md:col-span-6 flex flex-col justify-between';
-                        } else if (idx === 3) {
-                          colSpan = 'md:col-span-6 flex flex-col justify-between';
-                        }
-
-                        return (
+                    <div className="space-y-6">
+                      {/* Top Row: 3 Medium Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {topRowArticles.map((art, idx) => (
                           <div 
-                            key={`${art.id}-${idx}`} 
+                            key={`${art.id}-top-${idx}`} 
                             onClick={() => navigateToArticle(art)}
-                            className={`${colSpan} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                            className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-col justify-between"
                           >
-                            {isHorizontal ? (
-                              /* Side horizontal card layout */
-                              <div className="flex flex-col sm:flex-row h-full">
-                                <div className="sm:w-2/5 relative overflow-hidden border-b sm:border-b-0 sm:border-r border-terminal-gray min-h-[140px]">
-                                  <SafeImage
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
-                                    alt={art.title}
-                                    src={art.image}
-                                  />
-                                  <div className="absolute top-2 left-2 bg-black/85 text-[8px] text-white px-1.5 py-0.5 font-bold uppercase border border-white/10 z-10">
-                                    {art.category}
-                                  </div>
-                                </div>
-                                <div className="sm:w-3/5 p-4 flex flex-col justify-between">
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-1.5 text-system-red font-mono text-[9px] font-bold uppercase">
-                                      <span>{art.date}</span>
-                                      <span>•</span>
-                                      <span>{art.views} visitas</span>
-                                    </div>
-                                    <h4 className="font-headline-md text-[13px] mb-1.5 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-3">
-                                      {art.title}
-                                    </h4>
-                                  </div>
-                                  <div className="pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                                    <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                                    <div className="flex items-center gap-1">
-                                      <span className="material-symbols-outlined text-[13px]">favorite_border</span>
-                                      <span>{Number(art.likeCount || 0)}</span>
-                                    </div>
-                                  </div>
+                            <div>
+                              <div className="h-[160px] relative overflow-hidden border-b border-terminal-gray">
+                                <SafeImage
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                  alt={art.title}
+                                  src={art.image}
+                                />
+                                <div className="absolute top-2 left-2 bg-black/85 text-[9px] text-white px-2 py-0.5 font-bold uppercase border border-white/10">
+                                  {art.category}
                                 </div>
                               </div>
-                            ) : (
-                              /* Vertical card layout */
-                              <>
-                                <div>
-                                  <div className={`${isMainBanner ? 'h-[220px]' : 'h-[150px]'} relative overflow-hidden border-b border-terminal-gray`}>
-                                    <SafeImage
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                                      alt={art.title}
-                                      src={art.image}
-                                    />
-                                    <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
-                                      {art.category}
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="p-4">
-                                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                                      <span>{art.date}</span>
-                                      <span>•</span>
-                                      <span>{art.views} visitas</span>
-                                    </div>
-                                    <h4 className={`font-headline-md ${isMainBanner ? 'text-[17px]' : 'text-[14px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
-                                      {art.title}
-                                    </h4>
-                                    <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
-                                      {art.subtitle}
-                                    </p>
-                                  </div>
+                              <div className="p-4">
+                                <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                                  <span>{art.date}</span>
+                                  <span>•</span>
+                                  <span>{art.views} visitas</span>
                                 </div>
-
-                                <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                                  <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                                  <div className="flex items-center gap-3">
-                                    <button 
-                                      onClick={(e) => toggleLike(art, e)}
-                                      className={`flex items-center gap-1 hover:text-system-red transition-colors ${
-                                        likedArticles[art.id] ? 'text-system-red font-bold' : ''
-                                      }`}
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">
-                                        {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
-                                      </span>
-                                      <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              </>
-                            )}
+                                <h4 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2">
+                                  {art.title}
+                                </h4>
+                                <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
+                                  {art.subtitle}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                              <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                              <span className="text-system-red font-bold uppercase">VER</span>
+                            </div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
+
+                      {/* Bottom Row: 4 Small Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                        {bottomRowArticles.map((art, idx) => (
+                          <div 
+                            key={`${art.id}-bot-${idx}`} 
+                            onClick={() => navigateToArticle(art)}
+                            className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="h-[120px] relative overflow-hidden border-b border-terminal-gray">
+                                <SafeImage
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                  alt={art.title}
+                                  src={art.image}
+                                />
+                                <div className="absolute top-2 left-2 bg-black/85 text-[8px] text-white px-1.5 py-0.5 font-bold uppercase border border-white/10">
+                                  {art.category}
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <div className="flex items-center gap-1.5 mb-1 text-system-red font-mono text-[8px] font-bold uppercase">
+                                  <span>{art.date}</span>
+                                </div>
+                                <h5 className="font-headline-md text-[12px] mb-1 text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
+                                  {art.title}
+                                </h5>
+                              </div>
+                            </div>
+                            <div className="px-3 pb-2 pt-1.5 border-t border-terminal-gray/30 flex justify-between items-center text-[8px] font-mono text-on-surface-variant">
+                              <span className="truncate max-w-[100px]">{getAuthorName(art.authorId).toUpperCase()}</span>
+                              <span className="text-system-red font-bold">→</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 }
 
-                // PATTERN 1: 3 Columns in top row (4 cols each) + 1 Wide Full Banner (12 cols) in bottom row
+                // CATEGORY PATTERN 2: Opinion Style with Large Card on LEFT (7 cols) + 3 Stacked Cards on Right (5 cols) + 3 Cards Below
                 if (patternIndex === 1) {
-                  return (
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                      {visibleCategoryArticles.map((art, idx) => {
-                        const isWideBanner = idx === 3;
-                        const colSpan = isWideBanner ? 'md:col-span-12' : 'md:col-span-4 flex flex-col justify-between';
+                  const heroArt = visibleCategoryArticles[0];
+                  const sideArts = visibleCategoryArticles.slice(1, 4);
+                  const bottomArts = visibleCategoryArticles.slice(4, 7);
 
-                        return (
+                  return (
+                    <div className="space-y-6">
+                      {/* Top Split: Hero on Left + 3 Stacked Side Cards on Right */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        {/* Hero Left Card (7 cols) */}
+                        {heroArt && (
                           <div 
-                            key={`${art.id}-${idx}`} 
-                            onClick={() => navigateToArticle(art)}
-                            className={`${colSpan} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                            onClick={() => navigateToArticle(heroArt)}
+                            className="md:col-span-7 bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-col justify-between"
                           >
-                            {isWideBanner ? (
-                              /* Full Width Banner Layout */
-                              <div className="flex flex-col md:flex-row h-full">
-                                <div className="md:w-1/2 relative overflow-hidden border-b md:border-b-0 md:border-r border-terminal-gray h-[200px] md:h-auto min-h-[180px]">
-                                  <SafeImage
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
-                                    alt={art.title}
-                                    src={art.image}
-                                  />
-                                  <div className="absolute top-3 left-3 bg-system-red text-black font-label-sm text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider z-10">
-                                    {art.category} • DESTACADO
-                                  </div>
-                                </div>
-                                <div className="md:w-1/2 p-6 flex flex-col justify-between">
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[10px] font-bold uppercase">
-                                      <span>{art.date}</span>
-                                      <span>•</span>
-                                      <span>{art.views} visitas</span>
-                                    </div>
-                                    <h4 className="font-headline-md text-[18px] md:text-[20px] mb-3 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold">
-                                      {art.title}
-                                    </h4>
-                                    <p className="text-on-surface-variant text-[12px] line-clamp-3 leading-relaxed font-body-md">
-                                      {art.subtitle}
-                                    </p>
-                                  </div>
-                                  <div className="pt-4 mt-3 border-t border-terminal-gray/30 flex justify-between items-center text-[10px] font-mono text-on-surface-variant">
-                                    <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                                    <span className="text-system-red font-bold uppercase">Leer informe completo →</span>
-                                  </div>
-                                </div>
+                            <div className="relative h-[230px] overflow-hidden border-b border-terminal-gray">
+                              <SafeImage
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                alt={heroArt.title}
+                                src={heroArt.image}
+                              />
+                              <div className="absolute top-3 left-3 bg-system-red text-black font-label-sm text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider">
+                                {heroArt.category} • DESTACADO
                               </div>
-                            ) : (
-                              /* Vertical 4-col Cards */
-                              <>
-                                <div>
-                                  <div className="h-[150px] relative overflow-hidden border-b border-terminal-gray">
-                                    <SafeImage
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                                      alt={art.title}
-                                      src={art.image}
-                                    />
-                                    <div className="absolute top-2 left-2 bg-black/85 text-[9px] text-white px-2 py-0.5 font-bold uppercase border border-white/10">
-                                      {art.category}
-                                    </div>
-                                  </div>
-                                  <div className="p-4">
-                                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                                      <span>{art.date}</span>
-                                      <span>•</span>
-                                      <span>{art.views} visitas</span>
-                                    </div>
-                                    <h4 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2">
-                                      {art.title}
-                                    </h4>
-                                    <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed">
-                                      {art.subtitle}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                                  <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                                  <span className="text-system-red font-bold">VER</span>
-                                </div>
-                              </>
-                            )}
+                            </div>
+                            <div className="p-5">
+                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[10px] font-bold uppercase">
+                                <span>{heroArt.date}</span>
+                                <span>•</span>
+                                <span>{heroArt.views} visitas</span>
+                              </div>
+                              <h4 className="font-headline-md text-[18px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold">
+                                {heroArt.title}
+                              </h4>
+                              <p className="text-on-surface-variant text-[12px] line-clamp-2 leading-relaxed">
+                                {heroArt.subtitle}
+                              </p>
+                            </div>
+                            <div className="px-5 pb-4 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[10px] font-mono text-on-surface-variant">
+                              <span>POR: {getAuthorName(heroArt.authorId).toUpperCase()}</span>
+                              <span className="text-system-red font-bold uppercase">LEER ARTÍCULO →</span>
+                            </div>
                           </div>
-                        );
-                      })}
+                        )}
+
+                        {/* 3 Stacked Horizontal Cards on Right (5 cols) */}
+                        <div className="md:col-span-5 flex flex-col justify-between gap-3">
+                          {sideArts.map((art, idx) => (
+                            <div 
+                              key={`${art.id}-side-${idx}`} 
+                              onClick={() => navigateToArticle(art)}
+                              className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-row h-[115px]"
+                            >
+                              <div className="w-2/5 relative overflow-hidden border-r border-terminal-gray">
+                                <SafeImage
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
+                                  alt={art.title}
+                                  src={art.image}
+                                />
+                              </div>
+                              <div className="w-3/5 p-3 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-system-red font-mono text-[8px] font-bold uppercase block mb-1">
+                                    {art.date}
+                                  </span>
+                                  <h5 className="font-headline-md text-[12px] text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
+                                    {art.title}
+                                  </h5>
+                                </div>
+                                <span className="text-[8px] font-mono text-on-surface-variant uppercase">
+                                  POR: {getAuthorName(art.authorId).toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Bottom Row: 3 Cards (4 cols each) */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {bottomArts.map((art, idx) => (
+                          <div 
+                            key={`${art.id}-b3-${idx}`} 
+                            onClick={() => navigateToArticle(art)}
+                            className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="h-[135px] relative overflow-hidden border-b border-terminal-gray">
+                                <SafeImage
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                  alt={art.title}
+                                  src={art.image}
+                                />
+                              </div>
+                              <div className="p-3.5">
+                                <span className="text-system-red font-mono text-[9px] font-bold uppercase block mb-1">
+                                  {art.date} • {art.views} visitas
+                                </span>
+                                <h5 className="font-headline-md text-[13px] text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
+                                  {art.title}
+                                </h5>
+                              </div>
+                            </div>
+                            <div className="px-3.5 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                              <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                              <span className="text-system-red font-bold">VER</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 }
 
-                // PATTERN 2: 2 Columns Top (8 cols + 4 cols) + 2 Columns Bottom (4 cols + 8 cols)
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    {visibleCategoryArticles.map((art, idx) => {
-                      let colSpan = 'md:col-span-4 flex flex-col justify-between';
-                      if (idx === 0) colSpan = 'md:col-span-8 flex flex-col justify-between';
-                      if (idx === 1) colSpan = 'md:col-span-4 flex flex-col justify-between';
-                      if (idx === 2) colSpan = 'md:col-span-4 flex flex-col justify-between';
-                      if (idx === 3) colSpan = 'md:col-span-8 flex flex-col justify-between';
+                // CATEGORY PATTERN 3: Opinion Style with Large Card on RIGHT (7 cols) + 3 Stacked Cards on Left (5 cols) + 3 Cards Below
+                const heroArt = visibleCategoryArticles[0];
+                const sideArts = visibleCategoryArticles.slice(1, 4);
+                const bottomArts = visibleCategoryArticles.slice(4, 7);
 
-                      return (
+                return (
+                  <div className="space-y-6">
+                    {/* Top Split: 3 Stacked Cards on Left + Hero Card on Right */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      {/* 3 Stacked Horizontal Cards on Left (5 cols) */}
+                      <div className="md:col-span-5 flex flex-col justify-between gap-3">
+                        {sideArts.map((art, idx) => (
+                          <div 
+                            key={`${art.id}-side-l-${idx}`} 
+                            onClick={() => navigateToArticle(art)}
+                            className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-row h-[115px]"
+                          >
+                            <div className="w-2/5 relative overflow-hidden border-r border-terminal-gray">
+                              <SafeImage
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
+                                alt={art.title}
+                                src={art.image}
+                              />
+                            </div>
+                            <div className="w-3/5 p-3 flex flex-col justify-between">
+                              <div>
+                                <span className="text-system-red font-mono text-[8px] font-bold uppercase block mb-1">
+                                  {art.date}
+                                </span>
+                                <h5 className="font-headline-md text-[12px] text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
+                                  {art.title}
+                                </h5>
+                              </div>
+                              <span className="text-[8px] font-mono text-on-surface-variant uppercase">
+                                POR: {getAuthorName(art.authorId).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Hero Right Card (7 cols) */}
+                      {heroArt && (
                         <div 
-                          key={`${art.id}-${idx}`} 
+                          onClick={() => navigateToArticle(heroArt)}
+                          className="md:col-span-7 bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-col justify-between"
+                        >
+                          <div className="relative h-[230px] overflow-hidden border-b border-terminal-gray">
+                            <SafeImage
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                              alt={heroArt.title}
+                              src={heroArt.image}
+                            />
+                            <div className="absolute top-3 left-3 bg-system-red text-black font-label-sm text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider">
+                              {heroArt.category} • DESTACADO
+                            </div>
+                          </div>
+                          <div className="p-5">
+                            <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[10px] font-bold uppercase">
+                              <span>{heroArt.date}</span>
+                              <span>•</span>
+                              <span>{heroArt.views} visitas</span>
+                            </div>
+                            <h4 className="font-headline-md text-[18px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold">
+                              {heroArt.title}
+                            </h4>
+                            <p className="text-on-surface-variant text-[12px] line-clamp-2 leading-relaxed">
+                              {heroArt.subtitle}
+                            </p>
+                          </div>
+                          <div className="px-5 pb-4 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[10px] font-mono text-on-surface-variant">
+                            <span>POR: {getAuthorName(heroArt.authorId).toUpperCase()}</span>
+                            <span className="text-system-red font-bold uppercase">LEER ARTÍCULO →</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Row: 3 Cards (4 cols each) */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {bottomArts.map((art, idx) => (
+                        <div 
+                          key={`${art.id}-b3-r-${idx}`} 
                           onClick={() => navigateToArticle(art)}
-                          className={`${colSpan} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                          className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden flex flex-col justify-between"
                         >
                           <div>
-                            <div className={`${(idx === 0 || idx === 3) ? 'h-[190px]' : 'h-[145px]'} relative overflow-hidden border-b border-terminal-gray`}>
+                            <div className="h-[135px] relative overflow-hidden border-b border-terminal-gray">
                               <SafeImage
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                                 alt={art.title}
                                 src={art.image}
                               />
-                              <div className="absolute top-2 left-2 bg-black/85 text-[9px] text-white px-2 py-0.5 font-bold uppercase border border-white/10">
-                                {art.category}
-                              </div>
                             </div>
-                            
-                            <div className="p-4">
-                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                                <span>{art.date}</span>
-                                <span>•</span>
-                                <span>{art.views} visitas</span>
-                              </div>
-                              <h4 className={`font-headline-md ${(idx === 0 || idx === 3) ? 'text-[16px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
+                            <div className="p-3.5">
+                              <span className="text-system-red font-mono text-[9px] font-bold uppercase block mb-1">
+                                {art.date} • {art.views} visitas
+                              </span>
+                              <h5 className="font-headline-md text-[13px] text-white group-hover:text-system-red transition-colors leading-tight uppercase font-bold line-clamp-2">
                                 {art.title}
-                              </h4>
-                              <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed">
-                                {art.subtitle}
-                              </p>
+                              </h5>
                             </div>
                           </div>
-
-                          <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                          <div className="px-3.5 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
                             <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-[13px]">favorite_border</span>
-                              <span>{Number(art.likeCount || 0)}</span>
-                            </div>
+                            <span className="text-system-red font-bold">VER</span>
                           </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 );
               })()}
