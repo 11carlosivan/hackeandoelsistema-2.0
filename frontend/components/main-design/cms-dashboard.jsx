@@ -177,8 +177,15 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Redirects
           </Link>
           <Link
-            href="/cms/ajustes"
+            href="/cms/analisis"
             className="border border-system-red bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-system-red hover:bg-system-red hover:text-black transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px]">analytics</span>
+            Análisis Estadístico
+          </Link>
+          <Link
+            href="/cms/ajustes"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[14px]">tune</span>
             Ajustes Portada
