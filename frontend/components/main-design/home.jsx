@@ -202,14 +202,14 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         </div>
       </div>
 
-      {/* 2. Top Featured Split Grid (3-column layout with 30s auto-moving slider) */}
+      {/* 2. Top Featured Split Grid (3-column layout: Hero Slider 6 cols + Middle 3 cols + Trending 3 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Hero news slider (Takes 6/12 columns) */}
         {currentHero && (
           <section 
             onClick={() => navigateToArticle(currentHero)}
-            className="lg:col-span-12 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
+            className="lg:col-span-6 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
           >
             <div className="absolute inset-0 scanline z-10 pointer-events-none opacity-20"></div>
             <SafeImage
@@ -257,9 +257,19 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 </span>
               </div>
               
-              <h2 className="font-headline-xl text-[24px] md:text-[28px] text-white mb-2.5 leading-snug uppercase group-hover:text-system-red transition-colors font-bold">
+              <h2 className="font-headline-xl text-[22px] md:text-[26px] text-white mb-2 leading-snug uppercase group-hover:text-system-red transition-colors font-bold">
                 {currentHero.title}
               </h2>
+              <p className="text-[11px] text-on-surface-variant line-clamp-2 font-body-md max-w-xl leading-relaxed">
+                {currentHero.subtitle}
+              </p>
+              <div className="flex items-center gap-3 border-t border-terminal-gray/40 pt-2.5 mt-3 text-[10px] font-mono text-on-surface-variant uppercase">
+                <span>Por: {getAuthorName(currentHero.authorId)}</span>
+                <span>•</span>
+                <span>{currentHero.date}</span>
+                <span>•</span>
+                <span className="text-system-red font-bold">{currentHero.views} visitas</span>
+              </div>
             </div>
 
             {/* Slider Dots */}
@@ -274,9 +284,72 @@ export default function Home({ initialArticles, initialCategories = [], summary 
             </div>
           </section>
         )}
+
+        {/* Middle Column: Vertical stack of 3 news backdrop cards (Takes 3/12 columns) */}
+        <div className="lg:col-span-3 flex flex-col justify-between gap-4 h-[400px] md:h-[450px]">
+          {middleArticles.map((art) => (
+            <div 
+              key={art.id}
+              onClick={() => navigateToArticle(art)}
+              className="relative flex-grow h-[126px] border border-terminal-gray overflow-hidden group cursor-pointer flex flex-col justify-end p-3 bg-surface-container-low"
+            >
+              <SafeImage
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                alt={art.title}
+                src={art.image}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent z-10"></div>
+              
+              <div className="relative z-20">
+                <span className="inline-block bg-system-red/90 text-black font-label-caps text-[8px] px-1.5 py-0.2 mb-1 font-bold uppercase">
+                  {art.category}
+                </span>
+                <h3 className="text-white font-bold text-[11px] leading-tight line-clamp-2 uppercase group-hover:text-system-red transition-colors">
+                  {art.title}
+                </h3>
+                <div className="flex items-center gap-2 text-[8px] text-on-surface-variant font-mono uppercase mt-1">
+                  <span>Hace {formatRelativeTime(art.publishedAt)}</span>
+                  <span>•</span>
+                  <span className="text-system-red font-bold">{art.views} visitas</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Right Column: Trending articles "TENDENCIAS" ranking box (Takes 3/12 columns) */}
+        <div className="lg:col-span-3 border border-terminal-gray bg-surface-container-low/40 p-4 h-[400px] md:h-[450px] flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-terminal-gray pb-2 mb-3">
+            <span className="font-label-caps text-label-caps text-white font-bold tracking-wider">TENDENCIAS</span>
+            <span className="material-symbols-outlined text-system-red text-[16px] animate-pulse">trending_up</span>
+          </div>
+
+          <div className="space-y-3.5 overflow-y-auto no-scrollbar flex-grow py-1">
+            {trendingArticles.map((art, idx) => (
+              <div 
+                key={art.id}
+                onClick={() => navigateToArticle(art)}
+                className="flex items-start gap-3 cursor-pointer group select-none"
+              >
+                <span className="font-headline-md text-[20px] text-system-red/30 group-hover:text-system-red font-black leading-none mt-0.5 w-6 shrink-0 text-center font-mono">
+                  {String(idx + 1).padStart(2, '0')}
+                </span>
+                <div className="min-w-0">
+                  <h4 className="text-[12px] font-bold text-white group-hover:text-system-red transition-colors leading-tight line-clamp-2 uppercase">
+                    {art.title}
+                  </h4>
+                  <span className="text-[9px] text-on-surface-variant font-mono uppercase block mt-0.5">
+                    {art.views} LECTURAS
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
 
-      {/* 3. OPINIÓN DESTACADA Section (Muestra todo lo de la categoría Opinión) */}
+      {/* 3. OPINIÓN DESTACADA Section (Con foto del autor, verificado y título del artículo de opinión) */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-terminal-gray pb-4">
           <div className="flex items-center gap-3">
@@ -300,7 +373,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
             <div 
               key={op.id} 
               onClick={() => router.push(op.route)}
-              className="bg-surface-container/20 border border-terminal-gray hover:border-system-red p-5 transition-all flex gap-4 items-start group cursor-pointer hover:bg-surface-container-low/40"
+              className="bg-surface-container/20 border border-terminal-gray hover:border-system-red p-5 transition-all flex gap-4 items-start group cursor-pointer hover:bg-surface-container-low/40 relative overflow-hidden"
             >
               {op.authorPhoto ? (
                 <SafeImage
@@ -318,17 +391,25 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   <span className="text-white font-bold text-[13px] truncate uppercase group-hover:text-system-red transition-colors">
                     {op.authorName}
                   </span>
-                  <span className="material-symbols-outlined text-[14px] text-blue-500 fill-current" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  <span className="material-symbols-outlined text-[16px] text-blue-500 fill-current shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>
                     verified
                   </span>
                 </div>
-                <h4 className="text-on-surface-variant text-[12px] font-medium italic leading-snug line-clamp-2 mb-2">
-                  "{op.quote}"
+
+                {/* Título/Cita de la última columna de opinión */}
+                <h4 className="text-white font-bold text-[12px] leading-snug line-clamp-2 mb-1.5 group-hover:text-system-red transition-colors uppercase">
+                  {op.title}
                 </h4>
-                <div className="text-[9px] text-system-red font-mono uppercase flex items-center gap-2">
+                {op.quote && op.quote !== op.title && (
+                  <p className="text-on-surface-variant text-[11px] font-medium italic line-clamp-2 mb-2">
+                    "{op.quote}"
+                  </p>
+                )}
+
+                <div className="text-[9px] text-system-red font-mono uppercase flex items-center gap-2 mt-auto">
                   <span>{op.date}</span>
                   <span>•</span>
-                  <span className="hover:underline">Leer columna completa →</span>
+                  <span className="hover:underline font-bold">Leer columna →</span>
                 </div>
               </div>
             </div>
@@ -336,11 +417,17 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         </div>
       </section>
 
-      {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (Noticias en cuadros asimétricos con paginación de filas) */}
+      {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (Mínimo 4 noticias por categoría con diseño dinámico/variado de cuadros) */}
       <div className="space-y-12">
         {allCategoryNames.map((catName) => {
-          const categoryArticles = articles.filter((a) => a.category?.toUpperCase() === catName);
+          let categoryArticles = articles.filter((a) => a.category?.toUpperCase() === catName);
           if (categoryArticles.length === 0) return null;
+
+          // Si hay menos de 4 artículos en la categoría, completar con otros artículos para garantizar mínimo 4 cuadros
+          if (categoryArticles.length < 4) {
+            const extraArticles = articles.filter(a => a.category?.toUpperCase() !== catName && !categoryArticles.some(c => c.id === a.id));
+            categoryArticles = [...categoryArticles, ...extraArticles.slice(0, 4 - categoryArticles.length)];
+          }
 
           const totalPages = Math.ceil(categoryArticles.length / ITEMS_PER_ROW);
           const currentPage = categoryPageMap[catName] || 0;
@@ -378,78 +465,128 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 </div>
               </div>
 
-              {/* Asymmetric Cards Layout per Category (3-4 noticias por categoría) */}
+              {/* Dynamic Asymmetric Cards Layout per Category (Mínimo 4 noticias dispuestas visualmente con jerarquía) */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                 {visibleCategoryArticles.map((art, idx) => {
-                  const isMainCard = idx === 0 && visibleCategoryArticles.length >= 3;
-                  const colSpanClass = isMainCard 
-                    ? 'md:col-span-6 flex flex-col justify-between' 
-                    : visibleCategoryArticles.length === 3 
-                      ? 'md:col-span-3 flex flex-col justify-between'
-                      : visibleCategoryArticles.length === 2 
-                        ? 'md:col-span-6 flex flex-col justify-between'
-                        : 'md:col-span-3 flex flex-col justify-between';
+                  // Varied Design Layouts per Card Position:
+                  // Card 0: Destacado Principal (takes 6 cols on md screen, larger height image)
+                  // Card 1: Horizontal Card (takes 6 cols on md screen with image on the side)
+                  // Card 2 & 3: Compact Vertical Cards (take 3 cols each)
+                  let colSpanClass = 'md:col-span-3 flex flex-col justify-between';
+                  let isHorizontal = false;
+
+                  if (idx === 0) {
+                    colSpanClass = 'md:col-span-6 flex flex-col justify-between';
+                  } else if (idx === 1) {
+                    colSpanClass = 'md:col-span-6 flex flex-col justify-between';
+                    isHorizontal = true;
+                  } else if (idx === 2) {
+                    colSpanClass = 'md:col-span-6 lg:col-span-3 flex flex-col justify-between';
+                  } else if (idx === 3) {
+                    colSpanClass = 'md:col-span-6 lg:col-span-3 flex flex-col justify-between';
+                  }
 
                   return (
                     <div 
-                      key={art.id} 
+                      key={`${art.id}-${idx}`} 
                       onClick={() => navigateToArticle(art)}
                       className={`${colSpanClass} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
                     >
-                      <div>
-                        <div className={`${isMainCard ? 'h-[220px]' : 'h-[140px]'} relative overflow-hidden border-b border-terminal-gray`}>
-                          <SafeImage
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                            alt={art.title}
-                            src={art.image}
-                          />
-                          <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
-                            {art.category}
+                      {isHorizontal ? (
+                        /* Horizontal Layout Card for Card 2 */
+                        <div className="flex flex-col sm:flex-row h-full">
+                          <div className="sm:w-1/2 relative overflow-hidden border-b sm:border-b-0 sm:border-r border-terminal-gray min-h-[160px]">
+                            <SafeImage
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
+                              alt={art.title}
+                              src={art.image}
+                            />
+                            <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10 z-10">
+                              {art.category}
+                            </div>
+                          </div>
+                          <div className="sm:w-1/2 p-4 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                                <span>{art.date}</span>
+                                <span>•</span>
+                                <span>{art.views} visitas</span>
+                              </div>
+                              <h4 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-3">
+                                {art.title}
+                              </h4>
+                              <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
+                                {art.subtitle}
+                              </p>
+                            </div>
+                            <div className="pt-3 mt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                              <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[14px]">favorite_border</span>
+                                <span>{Number(art.likeCount || 0)}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                            <span>{art.date}</span>
-                            <span>•</span>
-                            <span>{art.views} visitas</span>
+                      ) : (
+                        /* Vertical Layout Cards (Standard & Main Featured) */
+                        <>
+                          <div>
+                            <div className={`${idx === 0 ? 'h-[210px]' : 'h-[140px]'} relative overflow-hidden border-b border-terminal-gray`}>
+                              <SafeImage
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                alt={art.title}
+                                src={art.image}
+                              />
+                              <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
+                                {art.category}
+                              </div>
+                            </div>
+                            
+                            <div className="p-4">
+                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                                <span>{art.date}</span>
+                                <span>•</span>
+                                <span>{art.views} visitas</span>
+                              </div>
+                              <h4 className={`font-headline-md ${idx === 0 ? 'text-[17px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
+                                {art.title}
+                              </h4>
+                              <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
+                                {art.subtitle}
+                              </p>
+                            </div>
                           </div>
-                          <h4 className={`font-headline-md ${isMainCard ? 'text-[17px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold`}>
-                            {art.title}
-                          </h4>
-                          <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
-                            {art.subtitle}
-                          </p>
-                        </div>
-                      </div>
 
-                      {/* Card footer */}
-                      <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                        <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={(e) => toggleLike(art, e)}
-                            className={`flex items-center gap-1 hover:text-system-red transition-colors ${
-                              likedArticles[art.id] ? 'text-system-red font-bold' : ''
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-[14px]">
-                              {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
-                            </span>
-                            <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigateToArticle(art, '#comentarios-seccion');
-                            }}
-                            className="flex items-center gap-1 hover:text-white transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
-                            <span>{Number(art.commentCount || 0)}</span>
-                          </button>
-                        </div>
-                      </div>
+                          {/* Card footer */}
+                          <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                            <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                onClick={(e) => toggleLike(art, e)}
+                                className={`flex items-center gap-1 hover:text-system-red transition-colors ${
+                                  likedArticles[art.id] ? 'text-system-red font-bold' : ''
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-[14px]">
+                                  {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
+                                </span>
+                                <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigateToArticle(art, '#comentarios-seccion');
+                                }}
+                                className="flex items-center gap-1 hover:text-white transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
+                                <span>{Number(art.commentCount || 0)}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -462,4 +599,5 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     </div>
   );
 }
+
 
