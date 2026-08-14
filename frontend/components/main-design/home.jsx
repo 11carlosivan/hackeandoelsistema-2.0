@@ -456,49 +456,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         </div>
       </section>
 
-      {/* HES TV: REPORTE - Official YouTube Playlist Section */}
-      <section className="space-y-6 border-t border-terminal-gray/60 pt-8">
-        <div className="flex items-center justify-between border-b border-terminal-gray pb-4">
-          <div className="flex items-center gap-3">
-            <span className="w-3 h-3 bg-system-red animate-pulse"></span>
-            <h2 className="font-headline-md text-headline-md text-white uppercase font-bold tracking-wide flex items-center gap-2">
-              <span className="material-symbols-outlined text-system-red text-[24px]">live_tv</span>
-              HES TV: REPORTE
-            </h2>
-            <span className="bg-system-red text-black text-[10px] font-mono font-bold px-2 py-0.5 uppercase">
-              EN VIVO / PLAYLIST
-            </span>
-          </div>
-          <a
-            href="https://youtube.com/playlist?list=PLuQz2sA-mNvuo6MF6SND1OtMCqIM598s-&si=aUYQeY4qvbfZuFKa"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] font-mono text-system-red hover:underline flex items-center gap-1 uppercase font-bold"
-          >
-            <span>Ver Lista de Reproducción Completa en YouTube</span>
-            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-          </a>
-        </div>
 
-        <div className="w-full bg-black border border-terminal-gray p-2 md:p-4 rounded-sm shadow-2xl relative overflow-hidden">
-          <div className="relative w-full aspect-video rounded-sm overflow-hidden bg-black/90">
-            <iframe
-              src="https://www.youtube-nocookie.com/embed/videoseries?list=PLuQz2sA-mNvuo6MF6SND1OtMCqIM598s-&autoplay=1&mute=1&enablejsapi=1"
-              title="HES TV: Reporte - Lista de Reproducción Oficial"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              className="w-full h-full border-0"
-            />
-          </div>
-          <div className="mt-3 flex items-center justify-between px-2 text-[10px] font-mono text-on-surface-variant">
-            <span className="text-white font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              REPRODUCCIÓN AUTOMÁTICA HABILITADA
-            </span>
-            <span className="text-system-red">HACKEANDO EL SISTEMA TV</span>
-          </div>
-        </div>
-      </section>
 
       {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (7 noticias por categoría en patrones alternados según la secuencia solicitada) */}
       <div className="space-y-16">

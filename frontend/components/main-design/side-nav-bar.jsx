@@ -125,30 +125,37 @@ export default function SideNavBar() {
           </div>
         </div>
 
-        <div className="group px-6 py-1 text-secondary-fixed-dim font-label-caps text-label-caps">
+        <div className="group px-6 py-2 text-secondary-fixed-dim font-label-caps text-label-caps">
           <div className="flex flex-col gap-2 w-full">
-            <div className="flex items-center gap-4">
-              <span className="material-symbols-outlined text-system-red">play_circle</span>
-              <span className="text-on-surface text-[11px] tracking-wider uppercase">HES TV: Reporte</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-system-red text-[20px] animate-pulse">play_circle</span>
+                <span className="text-on-surface text-[11px] tracking-wider uppercase font-bold">HES TV: Reporte</span>
+              </div>
+              <span className="text-[9px] font-mono bg-system-red text-black px-1.5 py-0.5 font-bold uppercase">
+                EN VIVO
+              </span>
+            </div>
+
+            {/* Official YouTube Playlist Auto-Play Player */}
+            <div className="relative w-full aspect-video bg-black border border-white/10 overflow-hidden group-hover:border-system-red transition-colors shadow-lg">
+              <iframe
+                src="https://www.youtube-nocookie.com/embed/videoseries?list=PLuQz2sA-mNvuo6MF6SND1OtMCqIM598s-&autoplay=1&mute=1&enablejsapi=1"
+                title="HES TV: Reporte - Lista de Reproducción Oficial"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
             </div>
 
             <a
-              href="https://www.youtube.com/@hackeandoelsistemaTV"
+              href="https://youtube.com/playlist?list=PLuQz2sA-mNvuo6MF6SND1OtMCqIM598s-&si=aUYQeY4qvbfZuFKa"
               target="_blank"
               rel="noreferrer"
-              className="relative block aspect-video bg-surface-container border border-white/10 overflow-hidden group-hover:border-system-red transition-colors cursor-pointer"
+              className="text-[10px] text-system-red font-mono font-bold hover:underline flex items-center justify-between pt-1 uppercase"
             >
-              <div
-                className="w-full h-full bg-cover bg-center flex flex-col items-center justify-center p-4 bg-stripes bg-[size:10px_10px]"
-                style={{ backgroundImage: `url('${systemStats.hesTv.thumbnail}')` }}
-              >
-                <span className="material-symbols-outlined text-[48px] text-system-red group-hover:scale-110 transition-all drop-shadow-[0_0_12px_rgba(255,0,0,0.4)]">
-                  play_circle
-                </span>
-                <span className="text-[10px] text-white font-mono tracking-widest mt-2 bg-black/80 px-2 py-0.5 border border-white/10 font-bold">
-                  IR AL CANAL OFICIAL
-                </span>
-              </div>
+              <span>Ir al canal / lista oficial ↗</span>
+              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
             </a>
           </div>
         </div>
