@@ -158,7 +158,7 @@ describe('CmsPostForm featured media', () => {
 
     render(<CmsPostForm categories={[]} tags={[]} media={[]} post={publishedPost} />);
 
-    fireEvent.click(screen.getByText('Publicar cambios'));
+    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalled();
@@ -177,7 +177,7 @@ describe('CmsPostForm featured media', () => {
     render(<CmsPostForm categories={[]} tags={[]} media={[]} post={{ ...publishedPost, visibility: 'PRIVATE' }} />);
 
     fireEvent.click(screen.getByText('Remover'));
-    fireEvent.click(screen.getByText('Publicar cambios'));
+    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
 
     await waitFor(() => {
       expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/featured-media'))).toBe(true);

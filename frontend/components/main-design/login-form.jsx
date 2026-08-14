@@ -8,7 +8,7 @@ import { SystemPageHeader } from './content-primitives';
 
 const CMS_ROLES = new Set(['ADMIN', 'EDITOR']);
 
-export function getSafeLoginNextPath(next, fallback = '/cms') {
+export function getSafeLoginNextPath(next, fallback = '/perfil') {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
     return fallback;
   }
