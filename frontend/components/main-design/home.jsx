@@ -305,7 +305,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
               
               <h1 className="font-headline-md text-2xl sm:text-3xl text-white uppercase group-hover:text-system-red transition-colors line-clamp-2 leading-tight">
                 {currentHero.title}
-              </h2>
+              </h1>
               <p className="text-[11px] text-on-surface-variant line-clamp-2 font-body-md max-w-xl leading-relaxed">
                 {currentHero.subtitle}
               </p>
