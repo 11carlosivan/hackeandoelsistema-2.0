@@ -276,50 +276,188 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         )}
       </div>
 
-      {/* 4. OPINIÓN DESTACADA Section */}
+      {/* 3. OPINIÓN DESTACADA Section (Muestra todo lo de la categoría Opinión) */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-terminal-gray pb-4">
           <div className="flex items-center gap-3">
             <span className="w-2.5 h-2.5 bg-system-red"></span>
-            <h2 className="font-headline-md text-headline-md text-white uppercase font-bold">OPINIÓN DESTACADA</h2>
+            <h2 className="font-headline-md text-headline-md text-white uppercase font-bold">OPINIÓN</h2>
+            <span className="text-[10px] font-mono text-on-surface-variant border border-terminal-gray px-2 py-0.5">
+              {allOpinions.length} COLUMNAS
+            </span>
           </div>
+          <Link 
+            href="/opinion" 
+            className="text-[11px] font-mono text-system-red hover:underline flex items-center gap-1 uppercase font-bold"
+          >
+            <span>Ver todas las opiniones</span>
+            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {featuredOpinions.map((op) => {
-            const author = authors.find(auth => auth.id === op.authorId) || {};
-            return (
-              <div 
-                key={op.id} 
-                onClick={() => router.push(`/opinion/${op.id}`)}
-                className="bg-surface-container/20 border border-terminal-gray hover:border-system-red p-4 transition-all flex gap-4 items-center group cursor-pointer"
-              >
+          {allOpinions.map((op) => (
+            <div 
+              key={op.id} 
+              onClick={() => router.push(op.route)}
+              className="bg-surface-container/20 border border-terminal-gray hover:border-system-red p-5 transition-all flex gap-4 items-start group cursor-pointer hover:bg-surface-container-low/40"
+            >
+              {op.authorPhoto ? (
                 <SafeImage
                   className="w-14 h-14 rounded-full object-cover border-2 border-system-red shrink-0" 
-                  alt={author.name}
-                  src={author.photo}
+                  alt={op.authorName}
+                  src={op.authorPhoto}
                 />
-                <div className="flex-grow min-w-0">
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <span className="text-white font-bold text-[12px] truncate hover:underline uppercase">
-                      {author.name}
-                    </span>
-                    <span className="material-symbols-outlined text-[14px] text-blue-500 fill-current" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      verified
-                    </span>
-                  </div>
-                  <h4 className="text-on-surface-variant text-[11px] font-medium italic truncate line-clamp-1 group-hover:text-system-red transition-colors">
-                    "{op.quote}"
-                  </h4>
-                  <div className="text-[9px] text-on-surface-variant font-mono mt-1 uppercase">
-                    {op.date}
-                  </div>
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-system-red/20 border-2 border-system-red flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-system-red text-[24px]">edit_note</span>
+                </div>
+              )}
+              <div className="flex-grow min-w-0">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-white font-bold text-[13px] truncate uppercase group-hover:text-system-red transition-colors">
+                    {op.authorName}
+                  </span>
+                  <span className="material-symbols-outlined text-[14px] text-blue-500 fill-current" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    verified
+                  </span>
+                </div>
+                <h4 className="text-on-surface-variant text-[12px] font-medium italic leading-snug line-clamp-2 mb-2">
+                  "{op.quote}"
+                </h4>
+                <div className="text-[9px] text-system-red font-mono uppercase flex items-center gap-2">
+                  <span>{op.date}</span>
+                  <span>•</span>
+                  <span className="hover:underline">Leer columna completa →</span>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </section>
+
+      {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (Noticias en cuadros asimétricos con paginación de filas) */}
+      <div className="space-y-12">
+        {allCategoryNames.map((catName) => {
+          const categoryArticles = articles.filter((a) => a.category?.toUpperCase() === catName);
+          if (categoryArticles.length === 0) return null;
+
+          const totalPages = Math.ceil(categoryArticles.length / ITEMS_PER_ROW);
+          const currentPage = categoryPageMap[catName] || 0;
+          const startIndex = currentPage * ITEMS_PER_ROW;
+          const visibleCategoryArticles = categoryArticles.slice(startIndex, startIndex + ITEMS_PER_ROW);
+
+          return (
+            <section key={catName} className="space-y-6 border-t border-terminal-gray/60 pt-8">
+              {/* Category Header with Row Counter and Next Row Button */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-terminal-gray pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-3 h-3 bg-system-red"></span>
+                  <h3 className="font-headline-md text-headline-md text-white uppercase font-bold tracking-wide">
+                    {catName}
+                  </h3>
+                  <span className="bg-surface-container-low border border-terminal-gray text-[10px] font-mono text-on-surface-variant px-2 py-0.5">
+                    {categoryArticles.length} PUBLICACIONES
+                  </span>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono text-on-surface-variant">
+                    FILA <strong className="text-white">{currentPage + 1}</strong> DE <strong className="text-white">{totalPages}</strong>
+                  </span>
+                  {totalPages > 1 && (
+                    <button
+                      onClick={() => handleNextCategoryRow(catName, totalPages)}
+                      className="px-3 py-1 bg-surface-container border border-terminal-gray hover:border-system-red text-white hover:text-system-red text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1 active:scale-95 select-none"
+                    >
+                      <span>Próxima Fila</span>
+                      <span className="material-symbols-outlined text-[14px]">refresh</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Asymmetric Cards Layout per Category (3-4 noticias por categoría) */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                {visibleCategoryArticles.map((art, idx) => {
+                  const isMainCard = idx === 0 && visibleCategoryArticles.length >= 3;
+                  const colSpanClass = isMainCard 
+                    ? 'md:col-span-6 flex flex-col justify-between' 
+                    : visibleCategoryArticles.length === 3 
+                      ? 'md:col-span-3 flex flex-col justify-between'
+                      : visibleCategoryArticles.length === 2 
+                        ? 'md:col-span-6 flex flex-col justify-between'
+                        : 'md:col-span-3 flex flex-col justify-between';
+
+                  return (
+                    <div 
+                      key={art.id} 
+                      onClick={() => navigateToArticle(art)}
+                      className={`${colSpanClass} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                    >
+                      <div>
+                        <div className={`${isMainCard ? 'h-[220px]' : 'h-[140px]'} relative overflow-hidden border-b border-terminal-gray`}>
+                          <SafeImage
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            alt={art.title}
+                            src={art.image}
+                          />
+                          <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
+                            {art.category}
+                          </div>
+                        </div>
+                        
+                        <div className="p-4">
+                          <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                            <span>{art.date}</span>
+                            <span>•</span>
+                            <span>{art.views} visitas</span>
+                          </div>
+                          <h4 className={`font-headline-md ${isMainCard ? 'text-[17px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold`}>
+                            {art.title}
+                          </h4>
+                          <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
+                            {art.subtitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Card footer */}
+                      <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                        <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={(e) => toggleLike(art, e)}
+                            className={`flex items-center gap-1 hover:text-system-red transition-colors ${
+                              likedArticles[art.id] ? 'text-system-red font-bold' : ''
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[14px]">
+                              {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
+                            </span>
+                            <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateToArticle(art, '#comentarios-seccion');
+                            }}
+                            className="flex items-center gap-1 hover:text-white transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
+                            <span>{Number(art.commentCount || 0)}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
 
     </div>
   );
