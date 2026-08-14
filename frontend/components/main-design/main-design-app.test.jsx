@@ -17,7 +17,7 @@ describe('MainDesignApp', () => {
     expect(screen.getAllByAltText(/hackeando el sistema/i).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/ltimas noticias/i)).toBeInTheDocument();
     expect(screen.getAllByText(/tendencias/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/lo .ltimo/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /opinión/i })).toBeInTheDocument();
   });
 
   it('does not inject mock articles when the production feed falls back empty', () => {
