@@ -123,11 +123,22 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     .sort((a, b) => parseViews(b.views) - parseViews(a.views))
     .slice(0, 5);
 
-  // All opinions list (both from mock-data opinions and any articles tagged with OPINIÓN)
+  // Strict opinions list (ONLY articles & columns belonging strictly to OPINIÓN category)
   const opinionArticlesFromArticles = articles.filter(
-    (a) => a.category === 'OPINIÓN' || a.category === 'OPINION'
+    (a) => a.category === 'OPINIÓN' || a.category === 'OPINION' || a.postType === 'OPINION'
   );
-  
+
+  const formattedArticleOpinions = opinionArticlesFromArticles.map((art) => ({
+    id: art.id,
+    title: art.title,
+    quote: art.subtitle || art.title,
+    authorName: getAuthorName(art.authorId),
+    authorPhoto: authors.find((auth) => auth.id === art.authorId)?.photo || (art.image && !art.image.includes('default') ? art.image : null),
+    date: art.date,
+    isOpinionItem: false,
+    route: art.route || `/articulo/${art.id}`
+  }));
+
   const formattedMockOpinions = opinions.map((op) => {
     const author = authors.find((auth) => auth.id === op.authorId) || {};
     return {
@@ -142,19 +153,10 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     };
   });
 
-  const formattedArticleOpinions = opinionArticlesFromArticles.map((art) => ({
-    id: art.id,
-    title: art.title,
-    quote: art.subtitle || art.title,
-    authorName: getAuthorName(art.authorId),
-    authorPhoto: authors.find(auth => auth.id === art.authorId)?.photo || art.image,
-    date: art.date,
-    isOpinionItem: false,
-    route: art.route || `/articulo/${art.id}`
-  }));
-
-  // Combined list of opinions
-  const allOpinions = [...formattedMockOpinions, ...formattedArticleOpinions];
+  // Combined opinions list: prioritize real articles from database tagged with OPINIÓN
+  const allOpinions = formattedArticleOpinions.length > 0
+    ? formattedArticleOpinions.slice(0, 6)
+    : formattedMockOpinions.slice(0, 3);
 
   const toggleLike = async (article, e) => {
     e.stopPropagation();
