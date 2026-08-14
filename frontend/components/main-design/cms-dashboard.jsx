@@ -183,6 +183,13 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Redirects
           </Link>
           <Link
+            href="/cms/ajustes"
+            className="border border-system-red bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-system-red hover:bg-system-red hover:text-black transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px]">tune</span>
+            Ajustes Portada
+          </Link>
+          <Link
             href={`/perfil/${encodeURIComponent(viewer?.displayName?.toLowerCase().replace(/\s+/g, '-') || viewer?.username || 'admin')}`}
             className="border border-system-red bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-system-red hover:bg-system-red hover:text-black transition-colors"
           >

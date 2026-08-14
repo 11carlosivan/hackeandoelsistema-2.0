@@ -34,8 +34,34 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   // Pagination state per category for the main categories section
   const [categoryPageMap, setCategoryPageMap] = useState({});
 
+  // Dynamic home category and layout configuration from CMS settings
+  const [homeConfig, setHomeConfig] = useState({ selectedCategories: null, categoryLayouts: {} });
+
+  useEffect(() => {
+    const loadHomeConfig = () => {
+      try {
+        const stored = localStorage.getItem('hes_home_category_config');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setHomeConfig(parsed);
+        }
+      } catch (_) {}
+    };
+
+    loadHomeConfig();
+
+    const handleUpdate = (e) => {
+      if (e.detail) setHomeConfig(e.detail);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hes_home_config_updated', handleUpdate);
+      return () => window.removeEventListener('hes_home_config_updated', handleUpdate);
+    }
+  }, []);
+
   // Extract unique categories from articles and initialCategories (excluding OPINIÓN)
-  const allCategoryNames = [
+  const defaultCategoryNames = [
     ...new Set(
       [
         ...(initialCategories.map((c) => c.title || c.name)),
@@ -47,6 +73,10 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         .filter((c) => c !== 'OPINIÓN' && c !== 'OPINION')
     )
   ];
+
+  const allCategoryNames = homeConfig.selectedCategories?.length > 0
+    ? homeConfig.selectedCategories
+    : defaultCategoryNames;
 
   const getAuthorName = (authorId) => {
     const articleAuthor = articles.find((article) => article.authorId === authorId)?.authorName;
@@ -450,7 +480,9 @@ export default function Home({ initialArticles, initialCategories = [], summary 
           const startIndex = currentPage * ITEMS_PER_ROW;
           const visibleCategoryArticles = categoryArticles.slice(startIndex, startIndex + ITEMS_PER_ROW);
 
-          const patternIndex = catIdx % 3;
+          const patternIndex = homeConfig.categoryLayouts && homeConfig.categoryLayouts[catName] !== undefined
+            ? Number(homeConfig.categoryLayouts[catName]) % 3
+            : catIdx % 3;
 
           return (
             <section key={catName} className="space-y-6 border-t border-terminal-gray/60 pt-8">
