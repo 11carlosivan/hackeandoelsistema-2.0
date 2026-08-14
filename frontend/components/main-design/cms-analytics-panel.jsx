@@ -1,42 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { SystemPageHeader } from '@/components/main-design/content-primitives';
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString('es-DO');
-}
-
-// Timeframes datasets for total statistical analytics
-const DAILY_STATS_7_DAYS = [
-  { label: 'Lun 07 Ago', date: '2026-08-07', pageviews: 14250, sessions: 9800 },
-  { label: 'Mar 08 Ago', date: '2026-08-08', pageviews: 18900, sessions: 12400 },
-  { label: 'Mié 09 Ago', date: '2026-08-09', pageviews: 22400, sessions: 15100 },
-  { label: 'Jue 10 Ago', date: '2026-08-10', pageviews: 19800, sessions: 13200 },
-  { label: 'Vie 11 Ago', date: '2026-08-11', pageviews: 26500, sessions: 18400 },
-  { label: 'Sáb 12 Ago', date: '2026-08-12', pageviews: 31200, sessions: 21900 },
-  { label: 'Dom 13 Ago (Hoy)', date: '2026-08-13', pageviews: 28400, sessions: 19600 },
-];
-
-const WEEKLY_STATS_4_WEEKS = [
-  { label: 'Semana 1 (18-24 Jul)', date: 'Semana 1', pageviews: 112000, sessions: 76000 },
-  { label: 'Semana 2 (25-31 Jul)', date: 'Semana 2', pageviews: 134000, sessions: 89000 },
-  { label: 'Semana 3 (01-07 Ago)', date: 'Semana 3', pageviews: 158000, sessions: 104000 },
-  { label: 'Semana 4 (08-14 Ago)', date: 'Semana 4', pageviews: 161450, sessions: 110400 },
-];
-
-const MONTHLY_STATS_6_MONTHS = [
-  { label: 'Marzo 2026', date: 'Mar 2026', pageviews: 420000, sessions: 290000 },
-  { label: 'Abril 2026', date: 'Abr 2026', pageviews: 485000, sessions: 330000 },
-  { label: 'Mayo 2026', date: 'May 2026', pageviews: 530000, sessions: 365000 },
-  { label: 'Junio 2026', date: 'Jun 2026', pageviews: 590000, sessions: 410000 },
-  { label: 'Julio 2026', date: 'Jul 2026', pageviews: 640000, sessions: 445000 },
-  { label: 'Agosto 2026 (Actual)', date: 'Ago 2026', pageviews: 565450, sessions: 390400 },
-];
-
-'use client';
-
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SystemPageHeader } from '@/components/main-design/content-primitives';
