@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import AuthModal from '@/components/user/AuthModal';
 import { csrfHeaders } from './client-security';
-import AuthModal from '@/components/user/AuthModal';
 import VerifiedBadge from '@/components/user/VerifiedBadge';
 
 function safeCount(value) {

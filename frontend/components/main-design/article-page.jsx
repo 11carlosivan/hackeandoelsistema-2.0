@@ -7,7 +7,6 @@ import ArticleEngagement from './article-engagement';
 import ArticleAudioPlayer from './article-audio-player';
 import ArticleViewTracker from './article-view-tracker';
 import SafeImage from './safe-image';
-import ArticleAudioPlayer from './article-audio-player';
 
 function renderBlock(block, index) {
   if (block.type === 'blockquote') {
