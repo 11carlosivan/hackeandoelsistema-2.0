@@ -199,6 +199,8 @@ export default function CmsDashboard({ summary, accessToken = null }) {
               Ver mi perfil
             </span>
           </Link>
+          <CmsSessionActions />
+        </div>
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
