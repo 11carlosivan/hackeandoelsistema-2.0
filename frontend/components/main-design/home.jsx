@@ -12,18 +12,19 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   const router = useRouter();
   const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
   
-  // Hero articles (slider on the left)
-  const heroArticles = articles.filter(a => a.isHero || a.isFeatured || a.category === 'INVESTIGACIÓN' || a.category === 'POLÍTICA');
+  // Hero articles slider: strictly OPINIÓN category articles
+  const heroArticles = articles.filter(
+    (a) => a.category === 'OPINIÓN' || a.category === 'OPINION' || a.postType === 'OPINION'
+  );
   const actualHeroArticles = heroArticles.length > 0 ? heroArticles : articles.slice(0, 4);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
-  const currentHero = actualHeroArticles[currentHeroIndex] || actualHeroArticles[0];
 
-  // Auto-play hero slider every 30 seconds (30,000 ms)
+  // Auto-play hero slider every 20 seconds (20,000 ms)
   useEffect(() => {
     if (actualHeroArticles.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentHeroIndex((prev) => (prev + 1) % actualHeroArticles.length);
-    }, 30000);
+    }, 20000);
     return () => clearInterval(interval);
   }, [actualHeroArticles.length]);
 
@@ -253,34 +254,80 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       {/* 2. Top Featured Split Grid (3-column layout: Hero Slider 6 cols + Middle 3 cols + Trending 3 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: Hero news slider (Takes 6/12 columns) */}
-        {currentHero && (
-          <section 
-            onClick={() => navigateToArticle(currentHero)}
-            className="lg:col-span-6 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
-          >
+        {/* Left Column: Hero OPINIÓN slider with smooth horizontal sliding (Takes 6/12 columns) */}
+        {actualHeroArticles.length > 0 && (
+          <section className="lg:col-span-6 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px]">
             <div className="absolute inset-0 scanline z-10 pointer-events-none opacity-20"></div>
-            <SafeImage
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-102 transition-transform duration-700" 
-              alt={currentHero.title}
-              src={currentHero.image}
-            />
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent z-25"></div>
-            
+
+            {/* Lateral Sliding Carousel Track */}
+            <div
+              className="flex h-full w-full transition-transform duration-700 ease-in-out"
+              style={{ transform: `translateX(-${currentHeroIndex * 100}%)` }}
+            >
+              {actualHeroArticles.map((heroArt) => (
+                <div
+                  key={heroArt.id}
+                  onClick={() => navigateToArticle(heroArt)}
+                  className="min-w-full h-full relative cursor-pointer flex flex-col justify-end shrink-0"
+                >
+                  <SafeImage
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    alt={heroArt.title}
+                    src={heroArt.image}
+                  />
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-25"></div>
+
+                  {/* Content Overlay */}
+                  <div className="relative p-5 sm:p-6 z-30 max-w-full">
+                    <div className="flex items-center gap-3 mb-2.5">
+                      <span className="bg-system-red text-black font-label-caps text-[10px] sm:text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider">
+                        {heroArt.category || 'OPINIÓN'}
+                      </span>
+                      {heroArt.tag && (
+                        <span className="text-on-surface-variant font-label-caps text-[10px] sm:text-[9px] border-l border-terminal-gray pl-3 uppercase">
+                          {heroArt.tag}
+                        </span>
+                      )}
+                      <span className="text-[10px] sm:text-[9px] font-mono text-system-red/80 ml-auto flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-system-red animate-pulse"></span>
+                        SLIDE 20S
+                      </span>
+                    </div>
+
+                    <h1 className="font-headline-md text-2xl sm:text-3xl text-white uppercase group-hover:text-system-red transition-colors line-clamp-2 leading-tight">
+                      {heroArt.title}
+                    </h1>
+                    {heroArt.subtitle && (
+                      <p className="text-on-surface-variant text-[11px] line-clamp-2 font-body-md max-w-xl leading-relaxed mt-2">
+                        {heroArt.subtitle}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 border-t border-terminal-gray/40 pt-2.5 mt-3 text-[10px] font-mono text-on-surface-variant uppercase">
+                      <span>COLUMNA DE: {getAuthorName(heroArt.authorId).toUpperCase()}</span>
+                      <span>•</span>
+                      <span>{heroArt.date}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Slider Controls (Chevron hover buttons) */}
             {actualHeroArticles.length > 1 && (
               <div className="absolute top-4 right-4 z-40 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
+                <button
+                  type="button"
                   onClick={handlePrevHero}
-                  title="Anterior (Auto 30s)"
+                  title="Anterior (Auto 20s)"
                   className="w-10 h-10 flex items-center justify-center bg-black/70 border border-white/20 hover:border-system-red hover:text-system-red transition-all active:scale-90"
                 >
                   <span className="material-symbols-outlined text-white text-[18px]">chevron_left</span>
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={handleNextHero}
-                  title="Siguiente (Auto 30s)"
+                  title="Siguiente (Auto 20s)"
                   className="w-10 h-10 flex items-center justify-center bg-black/70 border border-white/20 hover:border-system-red hover:text-system-red transition-all active:scale-90"
                 >
                   <span className="material-symbols-outlined text-white text-[18px]">chevron_right</span>
@@ -288,43 +335,18 @@ export default function Home({ initialArticles, initialCategories = [], summary 
               </div>
             )}
 
-            {/* Content overlay */}
-            <div className="relative p-5 sm:p-6 z-30 max-w-full">
-              <div className="flex items-center gap-3 mb-2.5">
-                <span className="bg-system-red text-black font-label-caps text-[10px] sm:text-[9px] px-2 py-0.5 font-bold">
-                  {currentHero.category}
-                </span>
-                {currentHero.tag && (
-                  <span className="text-on-surface-variant font-label-caps text-[10px] sm:text-[9px] border-l border-terminal-gray pl-3 uppercase">
-                    {currentHero.tag}
-                  </span>
-                )}
-                <span className="text-[10px] sm:text-[9px] font-mono text-system-red/80 ml-auto flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-system-red animate-pulse"></span>
-                  HACE {formatRelativeTime(currentHero.publishedAt)}
-                </span>
-              </div>
-              
-              <h1 className="font-headline-md text-2xl sm:text-3xl text-white uppercase group-hover:text-system-red transition-colors line-clamp-2 leading-tight">
-                {currentHero.title}
-              </h1>
-              <p className="text-[11px] text-on-surface-variant line-clamp-2 font-body-md max-w-xl leading-relaxed">
-                {currentHero.subtitle}
-              </p>
-              <div className="flex items-center gap-3 border-t border-terminal-gray/40 pt-2.5 mt-3 text-[10px] font-mono text-on-surface-variant uppercase">
-                <span>Por: {getAuthorName(currentHero.authorId)}</span>
-                <span>•</span>
-                <span>{currentHero.date}</span>
-              </div>
-            </div>
-
-            {/* Slider Dots */}
+            {/* Slider Dots Indicator */}
             <div className="absolute bottom-4 right-6 z-30 flex gap-1.5">
               {actualHeroArticles.map((_, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex(idx); }}
-                  className={`h-1.5 transition-all cursor-pointer ${idx === currentHeroIndex ? 'w-5 bg-system-red' : 'w-1.5 bg-terminal-gray hover:bg-white'}`}
+                <div
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentHeroIndex(idx);
+                  }}
+                  className={`h-1.5 transition-all cursor-pointer ${
+                    idx === currentHeroIndex ? 'w-5 bg-system-red' : 'w-1.5 bg-terminal-gray hover:bg-white'
+                  }`}
                 />
               ))}
             </div>
