@@ -481,82 +481,270 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                 </div>
               </div>
 
-              {/* Dynamic Asymmetric Cards Layout per Category (Mínimo 4 noticias dispuestas visualmente con jerarquía) */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                {visibleCategoryArticles.map((art, idx) => {
-                  // Clean & Balanced Grid: 4 items per row on desktop (lg:col-span-3 each)
-                  // On md screens: 2 items per row (md:col-span-6 each)
-                  // On sm screens: 1 item per row (col-span-1)
-                  // Card 0 has a slightly taller image for visual pop
-                  const isFeaturedCard = idx === 0;
-                  const colSpanClass = 'col-span-1 md:col-span-6 lg:col-span-3 flex flex-col justify-between';
+              {/* Dynamic Varied Cards Layout per Category (Fills 12 columns completely with dynamic layouts) */}
+              {(() => {
+                // Determine a layout pattern index based on category name
+                const patternIndex = Math.abs(catName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 3;
 
+                // PATTERN 0: 1 Featured Card (7 cols) + 1 Stacked Card (5 cols) in top row; 2 Balanced Cards (6 cols each) in bottom row
+                if (patternIndex === 0) {
                   return (
-                    <div 
-                      key={`${art.id}-${idx}`} 
-                      onClick={() => navigateToArticle(art)}
-                      className={`${colSpanClass} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
-                    >
-                      <>
-                        <div>
-                          <div className={`${isFeaturedCard ? 'h-[180px]' : 'h-[145px]'} relative overflow-hidden border-b border-terminal-gray`}>
-                            <SafeImage
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                              alt={art.title}
-                              src={art.image}
-                            />
-                            <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
-                              {art.category}
-                            </div>
-                          </div>
-                          
-                          <div className="p-4">
-                            <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                              <span>{art.date}</span>
-                              <span>•</span>
-                              <span>{art.views} visitas</span>
-                            </div>
-                            <h4 className={`font-headline-md ${isFeaturedCard ? 'text-[15px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
-                              {art.title}
-                            </h4>
-                            <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
-                              {art.subtitle}
-                            </p>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      {visibleCategoryArticles.map((art, idx) => {
+                        let colSpan = 'md:col-span-6';
+                        let isHorizontal = false;
+                        let isMainBanner = false;
 
-                        {/* Card footer */}
-                        <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                          <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                          <div className="flex items-center gap-3">
-                            <button 
-                              onClick={(e) => toggleLike(art, e)}
-                              className={`flex items-center gap-1 hover:text-system-red transition-colors ${
-                                likedArticles[art.id] ? 'text-system-red font-bold' : ''
-                              }`}
-                            >
-                              <span className="material-symbols-outlined text-[14px]">
-                                {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
-                              </span>
-                              <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
-                            </button>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigateToArticle(art, '#comentarios-seccion');
-                              }}
-                              className="flex items-center gap-1 hover:text-white transition-colors"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
-                              <span>{Number(art.commentCount || 0)}</span>
-                            </button>
+                        if (idx === 0) {
+                          colSpan = 'md:col-span-7 flex flex-col justify-between';
+                          isMainBanner = true;
+                        } else if (idx === 1) {
+                          colSpan = 'md:col-span-5 flex flex-col justify-between';
+                          isHorizontal = true;
+                        } else if (idx === 2) {
+                          colSpan = 'md:col-span-6 flex flex-col justify-between';
+                        } else if (idx === 3) {
+                          colSpan = 'md:col-span-6 flex flex-col justify-between';
+                        }
+
+                        return (
+                          <div 
+                            key={`${art.id}-${idx}`} 
+                            onClick={() => navigateToArticle(art)}
+                            className={`${colSpan} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                          >
+                            {isHorizontal ? (
+                              /* Side horizontal card layout */
+                              <div className="flex flex-col sm:flex-row h-full">
+                                <div className="sm:w-2/5 relative overflow-hidden border-b sm:border-b-0 sm:border-r border-terminal-gray min-h-[140px]">
+                                  <SafeImage
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
+                                    alt={art.title}
+                                    src={art.image}
+                                  />
+                                  <div className="absolute top-2 left-2 bg-black/85 text-[8px] text-white px-1.5 py-0.5 font-bold uppercase border border-white/10 z-10">
+                                    {art.category}
+                                  </div>
+                                </div>
+                                <div className="sm:w-3/5 p-4 flex flex-col justify-between">
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-1.5 text-system-red font-mono text-[9px] font-bold uppercase">
+                                      <span>{art.date}</span>
+                                      <span>•</span>
+                                      <span>{art.views} visitas</span>
+                                    </div>
+                                    <h4 className="font-headline-md text-[13px] mb-1.5 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-3">
+                                      {art.title}
+                                    </h4>
+                                  </div>
+                                  <div className="pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                                    <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-[13px]">favorite_border</span>
+                                      <span>{Number(art.likeCount || 0)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Vertical card layout */
+                              <>
+                                <div>
+                                  <div className={`${isMainBanner ? 'h-[220px]' : 'h-[150px]'} relative overflow-hidden border-b border-terminal-gray`}>
+                                    <SafeImage
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                      alt={art.title}
+                                      src={art.image}
+                                    />
+                                    <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-[9px] text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
+                                      {art.category}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="p-4">
+                                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                                      <span>{art.date}</span>
+                                      <span>•</span>
+                                      <span>{art.views} visitas</span>
+                                    </div>
+                                    <h4 className={`font-headline-md ${isMainBanner ? 'text-[17px]' : 'text-[14px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
+                                      {art.title}
+                                    </h4>
+                                    <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
+                                      {art.subtitle}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                                  <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                                  <div className="flex items-center gap-3">
+                                    <button 
+                                      onClick={(e) => toggleLike(art, e)}
+                                      className={`flex items-center gap-1 hover:text-system-red transition-colors ${
+                                        likedArticles[art.id] ? 'text-system-red font-bold' : ''
+                                      }`}
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">
+                                        {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
+                                      </span>
+                                      <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
-                        </div>
-                      </>
+                        );
+                      })}
                     </div>
                   );
-                })}
-              </div>
+                }
+
+                // PATTERN 1: 3 Columns in top row (4 cols each) + 1 Wide Full Banner (12 cols) in bottom row
+                if (patternIndex === 1) {
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      {visibleCategoryArticles.map((art, idx) => {
+                        const isWideBanner = idx === 3;
+                        const colSpan = isWideBanner ? 'md:col-span-12' : 'md:col-span-4 flex flex-col justify-between';
+
+                        return (
+                          <div 
+                            key={`${art.id}-${idx}`} 
+                            onClick={() => navigateToArticle(art)}
+                            className={`${colSpan} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                          >
+                            {isWideBanner ? (
+                              /* Full Width Banner Layout */
+                              <div className="flex flex-col md:flex-row h-full">
+                                <div className="md:w-1/2 relative overflow-hidden border-b md:border-b-0 md:border-r border-terminal-gray h-[200px] md:h-auto min-h-[180px]">
+                                  <SafeImage
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0" 
+                                    alt={art.title}
+                                    src={art.image}
+                                  />
+                                  <div className="absolute top-3 left-3 bg-system-red text-black font-label-sm text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider z-10">
+                                    {art.category} • DESTACADO
+                                  </div>
+                                </div>
+                                <div className="md:w-1/2 p-6 flex flex-col justify-between">
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[10px] font-bold uppercase">
+                                      <span>{art.date}</span>
+                                      <span>•</span>
+                                      <span>{art.views} visitas</span>
+                                    </div>
+                                    <h4 className="font-headline-md text-[18px] md:text-[20px] mb-3 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold">
+                                      {art.title}
+                                    </h4>
+                                    <p className="text-on-surface-variant text-[12px] line-clamp-3 leading-relaxed font-body-md">
+                                      {art.subtitle}
+                                    </p>
+                                  </div>
+                                  <div className="pt-4 mt-3 border-t border-terminal-gray/30 flex justify-between items-center text-[10px] font-mono text-on-surface-variant">
+                                    <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                                    <span className="text-system-red font-bold uppercase">Leer informe completo →</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Vertical 4-col Cards */
+                              <>
+                                <div>
+                                  <div className="h-[150px] relative overflow-hidden border-b border-terminal-gray">
+                                    <SafeImage
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                      alt={art.title}
+                                      src={art.image}
+                                    />
+                                    <div className="absolute top-2 left-2 bg-black/85 text-[9px] text-white px-2 py-0.5 font-bold uppercase border border-white/10">
+                                      {art.category}
+                                    </div>
+                                  </div>
+                                  <div className="p-4">
+                                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                                      <span>{art.date}</span>
+                                      <span>•</span>
+                                      <span>{art.views} visitas</span>
+                                    </div>
+                                    <h4 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2">
+                                      {art.title}
+                                    </h4>
+                                    <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed">
+                                      {art.subtitle}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                                  <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                                  <span className="text-system-red font-bold">VER</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // PATTERN 2: 2 Columns Top (8 cols + 4 cols) + 2 Columns Bottom (4 cols + 8 cols)
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    {visibleCategoryArticles.map((art, idx) => {
+                      let colSpan = 'md:col-span-4 flex flex-col justify-between';
+                      if (idx === 0) colSpan = 'md:col-span-8 flex flex-col justify-between';
+                      if (idx === 1) colSpan = 'md:col-span-4 flex flex-col justify-between';
+                      if (idx === 2) colSpan = 'md:col-span-4 flex flex-col justify-between';
+                      if (idx === 3) colSpan = 'md:col-span-8 flex flex-col justify-between';
+
+                      return (
+                        <div 
+                          key={`${art.id}-${idx}`} 
+                          onClick={() => navigateToArticle(art)}
+                          className={`${colSpan} bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer overflow-hidden`}
+                        >
+                          <div>
+                            <div className={`${(idx === 0 || idx === 3) ? 'h-[190px]' : 'h-[145px]'} relative overflow-hidden border-b border-terminal-gray`}>
+                              <SafeImage
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                alt={art.title}
+                                src={art.image}
+                              />
+                              <div className="absolute top-2 left-2 bg-black/85 text-[9px] text-white px-2 py-0.5 font-bold uppercase border border-white/10">
+                                {art.category}
+                              </div>
+                            </div>
+                            
+                            <div className="p-4">
+                              <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
+                                <span>{art.date}</span>
+                                <span>•</span>
+                                <span>{art.views} visitas</span>
+                              </div>
+                              <h4 className={`font-headline-md ${(idx === 0 || idx === 3) ? 'text-[16px]' : 'text-[13px]'} mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase font-bold line-clamp-2`}>
+                                {art.title}
+                              </h4>
+                              <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed">
+                                {art.subtitle}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="px-4 pb-3 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
+                            <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[13px]">favorite_border</span>
+                              <span>{Number(art.likeCount || 0)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
           );
         })}
