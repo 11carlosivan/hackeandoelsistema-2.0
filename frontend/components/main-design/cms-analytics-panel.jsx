@@ -1,10 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { SystemPageHeader } from '@/components/main-design/content-primitives';
 import { getApiBaseUrl } from '@/lib/main-design/api';
 import { csrfHeaders } from '@/components/main-design/client-security';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js';
+import { Bar, Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('es-DO');
@@ -12,6 +37,7 @@ function formatNumber(value) {
 
 export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
   const [activePeriod, setActivePeriod] = useState('day'); // 'day' | 'week' | 'month' | 'year'
+  const [chartType, setChartType] = useState('bar'); // 'bar' | 'line'
   const [rankingsData, setRankingsData] = useState(initialSummary?.rankingsData || null);
   const [loading, setLoading] = useState(false);
 
@@ -47,21 +73,108 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
   const rankings = rankingsData?.rankings || [];
   const totalPeriodVisits = rankings.reduce((sum, r) => sum + Number(r.metrics?.currentPeriodViews || 0), 0);
   const totalAllTimeVisits = rankings.reduce((sum, r) => sum + Number(r.metrics?.totalViewsAllTime || 0), 0);
-  const maxVal = Math.max(...rankings.map((r) => Number(r.metrics?.currentPeriodViews || 0)), 1);
+
+  // Prepare Chart.js dataset
+  const chartLabels = rankings.map((r) => {
+    const title = r.post?.title || 'Publicación';
+    return title.length > 22 ? title.slice(0, 20) + '...' : title;
+  });
+
+  const periodData = rankings.map((r) => Number(r.metrics?.currentPeriodViews || 0));
+  const totalData = rankings.map((r) => Number(r.metrics?.totalViewsAllTime || 0));
+
+  const chartData = {
+    labels: chartLabels,
+    datasets: [
+      {
+        label: 'Visitas en Período Seleccionado',
+        data: periodData,
+        backgroundColor: 'rgba(230, 0, 0, 0.75)',
+        borderColor: '#e60000',
+        borderWidth: 2,
+        borderRadius: 4,
+        hoverBackgroundColor: '#ffffff',
+        tension: 0.35,
+        fill: chartType === 'line',
+      },
+      {
+        label: 'Visitas Históricas Totales',
+        data: totalData,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        borderWidth: 1.5,
+        borderRadius: 4,
+        tension: 0.35,
+        hidden: true,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          color: '#ffffff',
+          font: { family: 'monospace', size: 11, weight: 'bold' },
+          usePointStyle: true,
+          boxWidth: 8,
+        },
+      },
+      tooltip: {
+        backgroundColor: '#000000',
+        titleColor: '#e60000',
+        bodyColor: '#ffffff',
+        borderColor: '#333333',
+        borderWidth: 1,
+        padding: 12,
+        displayColors: true,
+        callbacks: {
+          title: (items) => {
+            if (!items.length) return '';
+            const idx = items[0].dataIndex;
+            return `#${rankings[idx]?.rank || idx + 1} - ${rankings[idx]?.post?.title || ''}`;
+          },
+          label: (context) => ` ${context.dataset.label}: ${formatNumber(context.raw)} lecturas`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+        ticks: {
+          color: '#888888',
+          font: { family: 'monospace', size: 10 },
+          maxRotation: 45,
+          minRotation: 0,
+        },
+      },
+      y: {
+        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+        ticks: {
+          color: '#888888',
+          font: { family: 'monospace', size: 10 },
+          callback: (value) => formatNumber(value),
+        },
+      },
+    },
+  };
 
   return (
     <div className="w-full space-y-8">
       <SystemPageHeader
-        eyebrow="CMS TERMINAL / ANALÍTICAS REALES"
+        eyebrow="CMS TERMINAL / ANALÍTICAS PROFESIONALES"
         title="Análisis Estadístico de Publicaciones"
-        description="Módulo de lectura en tiempo real conectado a la base de datos oficial. Conteo de visitas acumuladas, comparativa con períodos anteriores e interacción por publicación."
+        description="Módulo de lectura en tiempo real con motor gráfico Chart.js. Visualiza de manera profesional las visitas acumuladas, comparativa con períodos anteriores e interacción por publicación."
         stats={[
           { label: 'VISITAS EN PERÍODO', value: formatNumber(totalPeriodVisits), icon: 'analytics' },
           { label: 'VISITAS TOTALES ACUMULADAS', value: formatNumber(totalAllTimeVisits), icon: 'visibility' },
         ]}
       />
 
-      {/* Overview Cards */}
+      {/* Overview Metric Cards */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
           ['Artículos Analizados', rankings.length, 'article'],
@@ -69,7 +182,7 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
           ['Visitas Históricas Totales', totalAllTimeVisits, 'visibility'],
           ['Interacciones de Lectores', rankings.reduce((s, r) => s + (r.metrics?.commentsCount || 0), 0), 'forum'],
         ].map(([label, value, icon]) => (
-          <div key={label} className="border border-terminal-gray bg-black/30 p-5 hover:border-system-red/50 transition-colors">
+          <div key={label} className="border border-terminal-gray bg-black/30 p-5 hover:border-system-red/50 transition-colors shadow-md">
             <div className="flex items-center justify-between gap-4">
               <div className="font-label-caps text-[10px] text-system-red font-bold uppercase">{label}</div>
               <span className="material-symbols-outlined text-system-red text-[20px]">{icon}</span>
@@ -81,104 +194,90 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
         ))}
       </section>
 
-      {/* Main Interactive Chart: Real Articles Visits Comparison */}
+      {/* Main Interactive Chart.js Section */}
       <section className="border border-terminal-gray bg-surface-container-low/30 p-6 md:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-terminal-gray pb-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-terminal-gray pb-4 mb-6">
           <div>
-            <span className="text-[10px] font-mono text-system-red font-bold uppercase block mb-1">
-              Lecturas Reales de Artículos
+            <span className="text-[10px] font-mono text-system-red font-bold uppercase block mb-1 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">show_chart</span>
+              Gráfico Profesional con Chart.js
             </span>
             <h2 className="font-headline-md text-xl md:text-2xl text-white uppercase font-bold">
               Comparativa de Visitas por Publicación
             </h2>
           </div>
 
-          {/* Timeframe Selector Buttons */}
-          <div className="flex items-center gap-1.5 bg-black p-1.5 border border-terminal-gray">
-            <button
-              type="button"
-              onClick={() => fetchRankings('day')}
-              disabled={loading}
-              className={`px-3 py-1.5 text-xs font-mono font-bold uppercase transition-all ${
-                activePeriod === 'day'
-                  ? 'bg-system-red text-black'
-                  : 'text-on-surface-variant hover:text-white hover:bg-terminal-gray/40'
-              }`}
-            >
-              Hoy (24h)
-            </button>
-            <button
-              type="button"
-              onClick={() => fetchRankings('week')}
-              disabled={loading}
-              className={`px-3 py-1.5 text-xs font-mono font-bold uppercase transition-all ${
-                activePeriod === 'week'
-                  ? 'bg-system-red text-black'
-                  : 'text-on-surface-variant hover:text-white hover:bg-terminal-gray/40'
-              }`}
-            >
-              7 Días
-            </button>
-            <button
-              type="button"
-              onClick={() => fetchRankings('month')}
-              disabled={loading}
-              className={`px-3 py-1.5 text-xs font-mono font-bold uppercase transition-all ${
-                activePeriod === 'month'
-                  ? 'bg-system-red text-black'
-                  : 'text-on-surface-variant hover:text-white hover:bg-terminal-gray/40'
-              }`}
-            >
-              Este Mes (30d)
-            </button>
-            <button
-              type="button"
-              onClick={() => fetchRankings('year')}
-              disabled={loading}
-              className={`px-3 py-1.5 text-xs font-mono font-bold uppercase transition-all ${
-                activePeriod === 'year'
-                  ? 'bg-system-red text-black'
-                  : 'text-on-surface-variant hover:text-white hover:bg-terminal-gray/40'
-              }`}
-            >
-              Anual
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Chart Type Selector */}
+            <div className="flex items-center gap-1 bg-black p-1 border border-terminal-gray">
+              <button
+                type="button"
+                onClick={() => setChartType('bar')}
+                title="Ver como Gráfico de Barras"
+                className={`px-2.5 py-1 text-xs font-mono font-bold flex items-center gap-1 ${
+                  chartType === 'bar' ? 'bg-system-red text-black' : 'text-on-surface-variant hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">bar_chart</span>
+                <span>Barras</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartType('line')}
+                title="Ver como Gráfico de Líneas"
+                className={`px-2.5 py-1 text-xs font-mono font-bold flex items-center gap-1 ${
+                  chartType === 'line' ? 'bg-system-red text-black' : 'text-on-surface-variant hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">show_chart</span>
+                <span>Líneas</span>
+              </button>
+            </div>
+
+            {/* Timeframe Selector Buttons */}
+            <div className="flex items-center gap-1 bg-black p-1 border border-terminal-gray">
+              {[
+                ['day', 'Hoy (24h)'],
+                ['week', '7 Días'],
+                ['month', 'Este Mes (30d)'],
+                ['year', 'Anual'],
+              ].map(([period, label]) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => fetchRankings(period)}
+                  disabled={loading}
+                  className={`px-3 py-1 text-xs font-mono font-bold uppercase transition-all ${
+                    activePeriod === period
+                      ? 'bg-system-red text-black'
+                      : 'text-on-surface-variant hover:text-white hover:bg-terminal-gray/40'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Visual Bar Chart */}
+        {/* Visual Chart.js Canvas */}
         {loading ? (
-          <div className="py-16 text-center text-system-red font-mono text-xs animate-pulse">
-            [ CARGANDO ESTADÍSTICAS REALES DE LA BASE DE DATOS... ]
+          <div className="h-72 flex items-center justify-center text-system-red font-mono text-xs animate-pulse border border-terminal-gray bg-black/40">
+            [ CONSULTANDO MOTOR GRÁFICO Y BASE DE DATOS... ]
           </div>
         ) : rankings.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between text-xs font-mono text-on-surface-variant">
-              <span>Publicaciones ordenadas por mayor número de lecturas en el período</span>
-              <span className="text-system-red font-bold">Máximo registrado: {formatNumber(maxVal)} visitas</span>
+              <span>Pasa el cursor / toca sobre cada barra para ver los detalles completos de la noticia</span>
+              <span className="text-system-red font-bold">Top {rankings.length} Publicaciones</span>
             </div>
 
-            <div className="flex h-64 items-end gap-2 md:gap-3 border border-terminal-gray bg-black/40 p-6 overflow-x-auto">
-              {rankings.map((item) => {
-                const val = Number(item.metrics?.currentPeriodViews || 0);
-                const heightPct = Math.max(10, Math.round((val / maxVal) * 100));
-
-                return (
-                  <div key={item.post.id} className="flex min-w-[60px] flex-1 flex-col items-center gap-2 group h-full justify-end">
-                    <span className="text-[9px] font-mono text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-black border border-terminal-gray px-1.5 py-0.5 whitespace-nowrap z-10">
-                      {formatNumber(val)}
-                    </span>
-                    <div
-                      className="w-full border border-system-red/60 bg-gradient-to-t from-system-red/30 via-system-red/70 to-system-red transition-all group-hover:brightness-125 cursor-pointer"
-                      style={{ height: `${heightPct}%` }}
-                      title={`${item.post.title}: ${formatNumber(val)} visitas en período`}
-                    />
-                    <span className="text-[9px] font-mono text-on-surface-variant truncate font-bold uppercase max-w-full text-center group-hover:text-white">
-                      #{item.rank}
-                    </span>
-                  </div>
-                );
-              })}
+            <div className="h-72 border border-terminal-gray bg-black/50 p-4">
+              {chartType === 'bar' ? (
+                <Bar data={chartData} options={chartOptions} />
+              ) : (
+                <Line data={chartData} options={chartOptions} />
+              )}
             </div>
           </div>
         ) : (
