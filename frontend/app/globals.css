@@ -355,7 +355,12 @@
   flex-direction: row;
   flex-wrap: nowrap;
   width: max-content;
-  animation: marquee 30s linear infinite;
+  animation: marquee 65s linear infinite;
+}
+@media (min-width: 768px) {
+  .animate-marquee {
+    animation-duration: 35s;
+  }
 }
 .animate-marquee:hover {
   animation-play-state: paused;

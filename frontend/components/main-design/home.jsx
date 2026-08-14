@@ -287,23 +287,23 @@ export default function Home({ initialArticles, initialCategories = [], summary 
             )}
 
             {/* Content overlay */}
-            <div className="relative p-6 z-30 max-w-full">
+            <div className="relative p-5 sm:p-6 z-30 max-w-full">
               <div className="flex items-center gap-3 mb-2.5">
-                <span className="bg-system-red text-black font-label-caps text-[9px] px-2 py-0.5 font-bold">
+                <span className="bg-system-red text-black font-label-caps text-[10px] sm:text-[9px] px-2 py-0.5 font-bold">
                   {currentHero.category}
                 </span>
                 {currentHero.tag && (
-                  <span className="text-on-surface-variant font-label-caps text-[9px] border-l border-terminal-gray pl-3 uppercase">
+                  <span className="text-on-surface-variant font-label-caps text-[10px] sm:text-[9px] border-l border-terminal-gray pl-3 uppercase">
                     {currentHero.tag}
                   </span>
                 )}
-                <span className="text-[9px] font-mono text-system-red/80 ml-auto flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-system-red animate-ping"></span>
-                  AUTO-SLIDE 30S
+                <span className="text-[10px] sm:text-[9px] font-mono text-system-red/80 ml-auto flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-system-red animate-pulse"></span>
+                  HACE {formatRelativeTime(currentHero.publishedAt)}
                 </span>
               </div>
               
-              <h2 className="font-headline-xl text-[22px] md:text-[26px] text-white mb-2 leading-snug uppercase group-hover:text-system-red transition-colors font-bold">
+              <h1 className="font-headline-md text-2xl sm:text-3xl text-white uppercase group-hover:text-system-red transition-colors line-clamp-2 leading-tight">
                 {currentHero.title}
               </h2>
               <p className="text-[11px] text-on-surface-variant line-clamp-2 font-body-md max-w-xl leading-relaxed">
