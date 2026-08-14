@@ -103,7 +103,7 @@ describe('ArticleEngagement', () => {
     fireEvent.change(screen.getByPlaceholderText('Escribe un comentario para moderacion'), {
       target: { value: 'Comentario de prueba' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Publicar Comentario' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar comentario' }));
 
     await waitFor(() => expect(screen.getByText('Comentario recibido y pendiente de moderacion.')).toBeInTheDocument());
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/articulo-de-prueba/');

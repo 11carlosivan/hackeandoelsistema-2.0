@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
@@ -11,31 +11,42 @@ import SafeImage from './safe-image';
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
   const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
-  const totalPosts = Number(summary?.counts?.posts || articles.length || 0);
-  const archiveTotalPages = Math.max(1, Math.ceil(totalPosts / 24));
   
   // Hero articles (slider on the left)
-  const heroArticles = articles.filter(a => a.isHero || a.isFeatured);
+  const heroArticles = articles.filter(a => a.isHero || a.isFeatured || a.category === 'INVESTIGACIÓN' || a.category === 'POLÍTICA');
+  const actualHeroArticles = heroArticles.length > 0 ? heroArticles : articles.slice(0, 4);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
-  const currentHero = heroArticles[currentHeroIndex] || heroArticles[0];
+  const currentHero = actualHeroArticles[currentHeroIndex] || actualHeroArticles[0];
 
-  // Active filter for LO ÚLTIMO
-  const [activeFilter, setActiveFilter] = useState('TODAS');
-  
+  // Auto-play hero slider every 30 seconds (30,000 ms)
+  useEffect(() => {
+    if (actualHeroArticles.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentHeroIndex((prev) => (prev + 1) % actualHeroArticles.length);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [actualHeroArticles.length]);
+
   // Likes state map for feed items
   const [likedArticles, setLikedArticles] = useState({});
   const [articleLikeCounts, setArticleLikeCounts] = useState({});
 
-  const categories = [
-    'TODAS',
+  // Pagination state per category for the main categories section
+  const [categoryPageMap, setCategoryPageMap] = useState({});
+
+  // Extract unique categories from articles and initialCategories (excluding OPINIÓN)
+  const allCategoryNames = [
     ...new Set(
-      (initialCategories.length > 0
-        ? initialCategories.map((category) => category.title || category.name)
-        : ['POLÍTICA', 'NACIONALES', 'TECNOLOGÍA', 'INTERNACIONAL', 'INVESTIGACIÓN']
-      ).filter(Boolean).map((category) => category.toUpperCase()),
-    ),
-  ].slice(0, 10);
-  const visibleCategories = useMockFallback || initialCategories.length > 0 ? categories : ['TODAS'];
+      [
+        ...(initialCategories.map((c) => c.title || c.name)),
+        ...articles.map((a) => a.category),
+        'POLÍTICA', 'NACIONALES', 'TECNOLOGÍA', 'INTERNACIONAL', 'INVESTIGACIÓN'
+      ]
+        .filter(Boolean)
+        .map((c) => c.toUpperCase())
+        .filter((c) => c !== 'OPINIÓN' && c !== 'OPINION')
+    )
+  ];
 
   const getAuthorName = (authorId) => {
     const articleAuthor = articles.find((article) => article.authorId === authorId)?.authorName;
@@ -50,51 +61,54 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   };
 
   const handleNextHero = (e) => {
-    e.stopPropagation();
-    setCurrentHeroIndex((prev) => (prev + 1) % heroArticles.length);
+    if (e) e.stopPropagation();
+    setCurrentHeroIndex((prev) => (prev + 1) % actualHeroArticles.length);
   };
 
   const handlePrevHero = (e) => {
-    e.stopPropagation();
-    setCurrentHeroIndex((prev) => (prev - 1 + heroArticles.length) % heroArticles.length);
+    if (e) e.stopPropagation();
+    setCurrentHeroIndex((prev) => (prev - 1 + actualHeroArticles.length) % actualHeroArticles.length);
   };
-
-  // Middle stack: take 3 articles that are not the current hero slider article
-  const getMiddleArticles = () => {
-    if (!currentHero) {
-      return articles.slice(0, 3);
-    }
-
-    return articles
-      .filter(a => a.id !== currentHero.id)
-      .slice(0, 3);
-  };
-  const middleArticles = getMiddleArticles();
 
   // parse views string to compare (e.g. "15.4K" -> 15400)
   const parseViews = (viewsStr) => {
     if (!viewsStr) return 0;
-    const num = parseFloat(viewsStr.replace('K', ''));
-    return viewsStr.includes('K') ? num * 1000 : num;
+    const num = parseFloat(String(viewsStr).replace('K', ''));
+    return String(viewsStr).includes('K') ? num * 1000 : num;
   };
 
-  // Trending articles (sorted by views desc, top 5)
-  const trendingArticles = [...articles]
-    .sort((a, b) => parseViews(b.views) - parseViews(a.views))
-    .slice(0, 5);
+  // All opinions list (both from mock-data opinions and any articles tagged with OPINIÓN)
+  const opinionArticlesFromArticles = articles.filter(
+    (a) => a.category === 'OPINIÓN' || a.category === 'OPINION'
+  );
+  
+  const formattedMockOpinions = opinions.map((op) => {
+    const author = authors.find((auth) => auth.id === op.authorId) || {};
+    return {
+      id: op.id,
+      title: op.title || op.quote,
+      quote: op.quote,
+      authorName: author.name || 'Columnista',
+      authorPhoto: author.photo,
+      date: op.date,
+      isOpinionItem: true,
+      route: `/opinion/${op.id}`
+    };
+  });
 
-  // Filter articles for LO ÚLTIMO grid
-  const getFilteredArticles = () => {
-    let list = articles;
-    if (activeFilter !== 'TODAS') {
-      list = articles.filter(a => a.category === activeFilter);
-    }
-    return list.slice(0, 8);
-  };
-  const filteredArticles = getFilteredArticles();
+  const formattedArticleOpinions = opinionArticlesFromArticles.map((art) => ({
+    id: art.id,
+    title: art.title,
+    quote: art.subtitle || art.title,
+    authorName: getAuthorName(art.authorId),
+    authorPhoto: authors.find(auth => auth.id === art.authorId)?.photo || art.image,
+    date: art.date,
+    isOpinionItem: false,
+    route: art.route || `/articulo/${art.id}`
+  }));
 
-  // Featured opinions list
-  const featuredOpinions = useMockFallback ? opinions.slice(0, 3) : [];
+  // Combined list of opinions
+  const allOpinions = [...formattedMockOpinions, ...formattedArticleOpinions];
 
   const toggleLike = async (article, e) => {
     e.stopPropagation();
@@ -145,25 +159,28 @@ export default function Home({ initialArticles, initialCategories = [], summary 
 
   const formatRelativeTime = (value) => {
     const publishedAt = value ? new Date(value) : null;
-
-    if (!publishedAt || Number.isNaN(publishedAt.getTime())) {
-      return 'FECHA PENDIENTE';
-    }
-
+    if (!publishedAt || Number.isNaN(publishedAt.getTime())) return 'FECHA PENDIENTE';
     const diffMinutes = Math.max(1, Math.floor((Date.now() - publishedAt.getTime()) / 60000));
-
     if (diffMinutes < 60) return `${diffMinutes} MIN`;
-
     const diffHours = Math.floor(diffMinutes / 60);
     if (diffHours < 24) return `${diffHours} H`;
-
     return `${Math.floor(diffHours / 24)} D`;
+  };
+
+  const ITEMS_PER_ROW = 4;
+
+  const handleNextCategoryRow = (catName, maxPages) => {
+    setCategoryPageMap((prev) => {
+      const currentPage = prev[catName] || 0;
+      const nextPage = (currentPage + 1) % maxPages;
+      return { ...prev, [catName]: nextPage };
+    });
   };
 
   return (
     <div className="space-y-12">
       
-      {/* 1. ÚLTIMAS NOTICIAS Bar (Horizontal Marquee News Ticker) - Rediseñado y Más Grande */}
+      {/* 1. ÚLTIMAS NOTICIAS Bar (Horizontal Marquee News Ticker) */}
       <div className="flex items-center border-y border-x-0 border-terminal-gray bg-surface-container-low/40 h-12 overflow-hidden text-[12px] font-mono select-none -mt-4 -mx-4 lg:-mx-6 mb-8">
         <div className="flex items-center gap-2 bg-system-red text-black px-5 h-full font-bold uppercase shrink-0">
           <span className="material-symbols-outlined text-[18px] animate-pulse">bolt</span>
@@ -171,8 +188,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         </div>
         <div className="relative flex-grow overflow-hidden h-full flex items-center">
           <div className="animate-marquee flex flex-row flex-nowrap items-center gap-12 pl-4 w-max">
-            {/* Duplicated list to allow seamless loop scrolling */}
-            {articles.slice(0, 8).concat(articles.slice(0, 8)).map((art, idx) => (
+            {articles.slice(0, 5).concat(articles.slice(0, 5)).map((art, idx) => (
               <Link 
                 key={`${art.id}-${idx}`} 
                 href={art.route || `/articulo/${art.id}`} 
@@ -186,30 +202,14 @@ export default function Home({ initialArticles, initialCategories = [], summary 
         </div>
       </div>
 
-      {summary?.counts && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'POSTS', value: summary.counts.posts },
-            { label: 'RUTAS SEO', value: summary.counts.routes },
-            { label: 'CATEGORIAS', value: summary.counts.categories },
-            { label: 'TAGS', value: summary.counts.tags },
-          ].map((item) => (
-            <div key={item.label} className="border border-terminal-gray bg-surface-container-low/25 px-4 py-3">
-              <div className="font-label-caps text-[9px] text-system-red font-bold">{item.label}</div>
-              <div className="font-headline-md text-2xl text-white">{Number(item.value || 0).toLocaleString('es-DO')}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 2. Top Featured Split Grid (3-column layout) */}
+      {/* 2. Top Featured Split Grid (3-column layout with 30s auto-moving slider) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Hero news slider (Takes 6/12 columns) */}
         {currentHero && (
           <section 
             onClick={() => navigateToArticle(currentHero)}
-            className="lg:col-span-6 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
+            className="lg:col-span-12 relative group overflow-hidden border border-terminal-gray bg-surface-container-low h-[400px] md:h-[450px] cursor-pointer flex flex-col justify-end"
           >
             <div className="absolute inset-0 scanline z-10 pointer-events-none opacity-20"></div>
             <SafeImage
@@ -221,16 +221,18 @@ export default function Home({ initialArticles, initialCategories = [], summary 
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent z-25"></div>
             
             {/* Slider Controls (Chevron hover buttons) */}
-            {heroArticles.length > 1 && (
+            {actualHeroArticles.length > 1 && (
               <div className="absolute top-4 right-4 z-40 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
                   onClick={handlePrevHero}
+                  title="Anterior (Auto 30s)"
                   className="w-10 h-10 flex items-center justify-center bg-black/70 border border-white/20 hover:border-system-red hover:text-system-red transition-all active:scale-90"
                 >
                   <span className="material-symbols-outlined text-white text-[18px]">chevron_left</span>
                 </button>
                 <button 
                   onClick={handleNextHero}
+                  title="Siguiente (Auto 30s)"
                   className="w-10 h-10 flex items-center justify-center bg-black/70 border border-white/20 hover:border-system-red hover:text-system-red transition-all active:scale-90"
                 >
                   <span className="material-symbols-outlined text-white text-[18px]">chevron_right</span>
@@ -249,234 +251,30 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                     {currentHero.tag}
                   </span>
                 )}
+                <span className="text-[9px] font-mono text-system-red/80 ml-auto flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-system-red animate-ping"></span>
+                  AUTO-SLIDE 30S
+                </span>
               </div>
               
               <h2 className="font-headline-xl text-[24px] md:text-[28px] text-white mb-2.5 leading-snug uppercase group-hover:text-system-red transition-colors font-bold">
                 {currentHero.title}
               </h2>
-              
-              <p className="text-[12px] text-on-surface-variant mb-4 line-clamp-2 font-body-md max-w-xl leading-relaxed">
-                {currentHero.subtitle}
-              </p>
-              
-              <div className="flex items-center gap-3 border-t border-terminal-gray/40 pt-3 text-[10px] font-mono text-on-surface-variant uppercase">
-                <span>Por: {getAuthorName(currentHero.authorId)}</span>
-                <span>•</span>
-                <span>{currentHero.date}</span>
-                <span>•</span>
-                <span className="text-system-red font-bold">{currentHero.views} visitas</span>
-              </div>
             </div>
 
             {/* Slider Dots */}
             <div className="absolute bottom-4 right-6 z-30 flex gap-1.5">
-              {heroArticles.map((_, idx) => (
+              {actualHeroArticles.map((_, idx) => (
                 <div 
                   key={idx} 
-                  className={`h-1.5 transition-all ${idx === currentHeroIndex ? 'w-4 bg-system-red' : 'w-1.5 bg-terminal-gray'}`}
+                  onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex(idx); }}
+                  className={`h-1.5 transition-all cursor-pointer ${idx === currentHeroIndex ? 'w-5 bg-system-red' : 'w-1.5 bg-terminal-gray hover:bg-white'}`}
                 />
               ))}
             </div>
           </section>
         )}
-
-        {/* Middle Column: Vertical stack of 3 news backdrop cards (Takes 3/12 columns) */}
-        <div className="lg:col-span-3 flex flex-col justify-between gap-4 h-[400px] md:h-[450px]">
-          {middleArticles.map((art) => (
-            <div 
-              key={art.id}
-              onClick={() => navigateToArticle(art)}
-              className="relative flex-grow h-[126px] border border-terminal-gray overflow-hidden group cursor-pointer flex flex-col justify-end p-3"
-            >
-              <SafeImage
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                alt={art.title}
-                src={art.image}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10"></div>
-              
-              <div className="relative z-20">
-                <span className="inline-block bg-system-red/90 text-black font-label-caps text-[8px] px-1.5 py-0.2 mb-1.5 font-bold uppercase">
-                  {art.category}
-                </span>
-                <h3 className="text-white font-bold text-[11px] leading-tight line-clamp-2 uppercase group-hover:text-system-red transition-colors">
-                  {art.title}
-                </h3>
-                <div className="flex items-center gap-2 text-[8px] text-on-surface-variant font-mono uppercase mt-1">
-                  <span>Hace {formatRelativeTime(art.publishedAt)}</span>
-                  <span>•</span>
-                  <span className="text-system-red font-bold">{art.views} visitas</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Right Column: Trending articles "TENDENCIAS" ranking box (Takes 3/12 columns) */}
-        <div className="lg:col-span-3 border border-terminal-gray bg-surface-container-low/40 p-4 h-[400px] md:h-[450px] flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-terminal-gray pb-2 mb-3">
-            <span className="font-label-caps text-label-caps text-white font-bold tracking-wider">TENDENCIAS</span>
-            <span className="material-symbols-outlined text-system-red text-[16px] animate-pulse">trending_up</span>
-          </div>
-
-          <div className="space-y-3.5 overflow-y-auto no-scrollbar flex-grow py-1">
-            {trendingArticles.map((art, idx) => (
-              <div 
-                key={art.id}
-                onClick={() => navigateToArticle(art)}
-                className="flex items-start gap-3 cursor-pointer group select-none"
-              >
-                <span className="font-headline-md text-[20px] text-system-red/30 group-hover:text-system-red font-black leading-none mt-0.5 w-6 shrink-0 text-center font-mono">
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <div className="min-w-0">
-                  <h4 className="text-[12px] font-bold text-white group-hover:text-system-red transition-colors leading-tight line-clamp-2 uppercase">
-                    {art.title}
-                  </h4>
-                  <span className="text-[9px] text-on-surface-variant font-mono uppercase block mt-0.5">
-                    {art.views} LECTURAS
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
-
-      {/* 3. Feed "LO ÚLTIMO" Category Filters Section */}
-      <section className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-terminal-gray pb-4">
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="w-2.5 h-2.5 bg-system-red animate-pulse"></span>
-            <div>
-              <h2 className="font-headline-md text-headline-md text-white uppercase font-bold">LO ÚLTIMO</h2>
-              <p className="font-mono text-[10px] text-on-surface-variant uppercase">
-                {totalPosts.toLocaleString('es-DO')} publicaciones en archivo
-              </p>
-            </div>
-          </div>
-          
-          {/* Category Tabs */}
-          <div className="flex flex-wrap items-center gap-2">
-            {visibleCategories.map((cat) => (
-              <button 
-                key={cat}
-                onClick={() => setActiveFilter(cat)}
-                className={`px-3 py-1 font-label-caps text-[9px] tracking-wider transition-all select-none border border-terminal-gray hover:border-system-red font-bold ${
-                  activeFilter === cat 
-                    ? 'bg-system-red text-black border-system-red' 
-                    : 'bg-surface-container/20 text-on-surface-variant hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-            <Link
-              href="/archivo"
-              className="border border-system-red px-3 py-1 font-label-caps text-[9px] font-bold tracking-wider text-system-red transition-colors hover:bg-system-red hover:text-black"
-            >
-              VER ARCHIVO
-            </Link>
-          </div>
-        </div>
-
-        {/* Filters Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          {filteredArticles.length > 0 ? (
-            filteredArticles.map((art) => (
-              <div 
-                key={art.id} 
-                onClick={() => navigateToArticle(art)}
-                className="bg-surface-container-low border border-terminal-gray hover:border-system-red transition-all group cursor-pointer flex flex-col justify-between"
-              >
-                <div>
-                  <div className="aspect-video relative overflow-hidden border-b border-terminal-gray">
-                    <SafeImage
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500" 
-                      alt={art.title}
-                      src={art.image}
-                    />
-                    <div className="absolute top-2 left-2 bg-black/85 font-label-sm text-label-sm text-white px-2 py-0.5 font-bold uppercase tracking-wider border border-white/10">
-                      {art.category}
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2 text-system-red font-mono text-[9px] font-bold uppercase">
-                      <span>{art.date}</span>
-                      <span>•</span>
-                      <span>{art.views} visitas</span>
-                    </div>
-                    <h3 className="font-headline-md text-[14px] mb-2 text-white group-hover:text-system-red transition-colors leading-snug uppercase">
-                      {art.title}
-                    </h3>
-                    <p className="text-on-surface-variant text-[11px] line-clamp-2 leading-relaxed font-body-md">
-                      {art.subtitle}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card footer */}
-                <div className="px-4 pb-4 pt-2 border-t border-terminal-gray/30 flex justify-between items-center text-[9px] font-mono text-on-surface-variant">
-                  <span>POR: {getAuthorName(art.authorId).toUpperCase()}</span>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={(e) => toggleLike(art, e)}
-                      className={`flex items-center gap-1 hover:text-system-red transition-colors ${
-                        likedArticles[art.id] ? 'text-system-red font-bold' : ''
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {likedArticles[art.id] ? 'favorite' : 'favorite_border'}
-                      </span>
-                      <span>{articleLikeCounts[art.id] ?? (Number(art.likeCount || 0) + (likedArticles[art.id] ? 1 : 0))}</span>
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateToArticle(art, '#comentarios-seccion');
-                      }}
-                      className="flex items-center gap-1 hover:text-white transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
-                      <span>{Number(art.commentCount || 0)}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-4 border border-dashed border-terminal-gray p-8 text-center text-on-surface-variant font-label-caps text-[11px]">
-              [ALERTA: SIN INFORMES REGISTRADOS BAJO ESTA CLASIFICACIÓN]
-            </div>
-          )}
-        </div>
-        <div className="border border-terminal-gray bg-surface-container-low/25 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="font-label-caps text-[10px] text-system-red font-bold uppercase">Archivo completo</div>
-            <p className="text-[12px] text-on-surface-variant">
-              Navega las {totalPosts.toLocaleString('es-DO')} publicaciones en {archiveTotalPages.toLocaleString('es-DO')} paginas.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/archivo"
-              className="border border-terminal-gray px-4 py-2 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red hover:text-system-red"
-            >
-              IR AL ARCHIVO
-            </Link>
-            {archiveTotalPages > 1 && (
-              <Link
-                href="/archivo?page=2"
-                className="border border-system-red bg-system-red px-4 py-2 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-transparent hover:text-system-red"
-              >
-                MAS ANTIGUAS
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
 
       {/* 4. OPINIÓN DESTACADA Section */}
       <section className="space-y-6">
