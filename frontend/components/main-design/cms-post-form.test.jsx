@@ -156,9 +156,9 @@ describe('CmsPostForm featured media', () => {
     }));
     vi.stubGlobal('fetch', fetchSpy);
 
-    render(<CmsPostForm categories={[]} tags={[]} media={[]} post={publishedPost} />);
+    const { container } = render(<CmsPostForm categories={[]} tags={[]} media={[]} post={publishedPost} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    fireEvent.submit(container.querySelector('form'));
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalled();
@@ -174,10 +174,10 @@ describe('CmsPostForm featured media', () => {
     }));
     vi.stubGlobal('fetch', fetchSpy);
 
-    render(<CmsPostForm categories={[]} tags={[]} media={[]} post={{ ...publishedPost, visibility: 'PRIVATE' }} />);
+    const { container } = render(<CmsPostForm categories={[]} tags={[]} media={[]} post={{ ...publishedPost, visibility: 'PRIVATE' }} />);
 
     fireEvent.click(screen.getByText('Remover'));
-    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    fireEvent.submit(container.querySelector('form'));
 
     await waitFor(() => {
       expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/featured-media'))).toBe(true);
