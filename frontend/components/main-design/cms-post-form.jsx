@@ -1387,7 +1387,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                     className="w-full border-2 border-dashed border-system-red/50 bg-system-red/5 hover:border-system-red hover:bg-system-red/10 p-6 md:p-8 text-center text-xs text-white flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
                   >
                     <span className="material-symbols-outlined text-3xl text-system-red">add_photo_alternate</span>
-                    <span className="font-bold uppercase tracking-wider text-[11px]">Asignar imagen de portada</span>
+                    <span className="font-bold uppercase tracking-wider text-[11px]">Asignar imagen destacada</span>
                     <span className="text-[10px] text-on-surface-variant">Toca aquí para seleccionar de la galería o subir desde el celular</span>
                   </button>
                 )}
