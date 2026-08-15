@@ -8,15 +8,25 @@ import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import { csrfHeaders } from './client-security';
 import SafeImage from './safe-image';
 
+function normalizeCategoryName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+}
+
+export function isOpinionCategoryArticle(article) {
+  return normalizeCategoryName(article?.category) === 'OPINION';
+}
+
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
   const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
   
-  // Hero articles slider: strictly OPINIÓN category articles
-  const heroArticles = articles.filter(
-    (a) => a.category === 'OPINIÓN' || a.category === 'OPINION' || a.postType === 'OPINION'
-  );
-  const actualHeroArticles = heroArticles.length > 0 ? heroArticles : articles.slice(0, 4);
+  // Hero articles slider: strictly OPINION category articles.
+  const heroArticles = articles.filter(isOpinionCategoryArticle);
+  const actualHeroArticles = heroArticles;
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const currentHero = actualHeroArticles[currentHeroIndex] || actualHeroArticles[0];
 
@@ -102,12 +112,12 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     setCurrentHeroIndex((prev) => (prev - 1 + actualHeroArticles.length) % actualHeroArticles.length);
   };
 
-  // Middle stack: take 3 articles that are not the current hero slider article
+  // Middle stack: take 3 opinion articles that are not the current hero slider article.
   const getMiddleArticles = () => {
     if (!currentHero) {
-      return articles.slice(0, 3);
+      return actualHeroArticles.slice(0, 3);
     }
-    return articles
+    return actualHeroArticles
       .filter(a => a.id !== currentHero.id)
       .slice(0, 3);
   };
@@ -125,10 +135,8 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     .sort((a, b) => parseViews(b.views) - parseViews(a.views))
     .slice(0, 5);
 
-  // Strict opinions list (ONLY articles & columns belonging strictly to OPINIÓN category)
-  const opinionArticlesFromArticles = articles.filter(
-    (a) => a.category === 'OPINIÓN' || a.category === 'OPINION' || a.postType === 'OPINION'
-  );
+  // Strict opinions list: only articles belonging strictly to OPINION category.
+  const opinionArticlesFromArticles = articles.filter(isOpinionCategoryArticle);
 
   const formattedArticleOpinions = opinionArticlesFromArticles.map((art) => ({
     id: art.id,
