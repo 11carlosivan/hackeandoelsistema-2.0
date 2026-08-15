@@ -1341,8 +1341,6 @@ export async function registerCmsRoutes(app) {
     ]);
     const defaultRankings = await getPostRankingsData(app, 'week', 10);
 
-    const defaultRankings = await getPostRankingsData(app, 'week', 10);
-
     return {
       data: {
         viewer: request.auth.safeUser,
