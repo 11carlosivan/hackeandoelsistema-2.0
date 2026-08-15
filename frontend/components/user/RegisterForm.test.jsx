@@ -29,7 +29,7 @@ describe('RegisterForm', () => {
 
   it('creates an account through the auth API and redirects', async () => {
     global.fetch = vi.fn((url, options = {}) => {
-      expect(String(url)).toBe('http://localhost:4000/api/v1/auth/register');
+      expect(String(url)).toBe(`${window.location.origin}/api/v1/auth/register`);
       expect(options.credentials).toBe('include');
       expect(JSON.parse(options.body)).toEqual({
         displayName: 'Lector HES',
