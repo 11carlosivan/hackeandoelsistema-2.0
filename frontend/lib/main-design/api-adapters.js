@@ -129,6 +129,8 @@ export function mapApiCategory(category) {
     title: category.name?.toUpperCase() || category.slug?.toUpperCase(),
     fullPath: normalizeCategoryPath(category),
     description: category.description || `Archivo editorial de ${category.name}.`,
+    showInMenu: Boolean(category.showInMenu),
+    showOnHome: Boolean(category.showOnHome),
   };
 }
 

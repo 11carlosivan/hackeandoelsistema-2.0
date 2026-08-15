@@ -21,12 +21,32 @@ export function isOpinionCategoryArticle(article) {
   return normalizeCategoryName(article?.category) === 'OPINION';
 }
 
-export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
+function categorySectionsToArticleMap(sections = []) {
+  return Object.fromEntries(
+    sections
+      .filter((section) => section?.key && section?.articles?.length)
+      .map((section) => [normalizeCategoryName(section.key), section.articles]),
+  );
+}
+
+function categorySectionsToMetaMap(sections = []) {
+  return Object.fromEntries(
+    sections
+      .filter((section) => section?.key && section?.meta)
+      .map((section) => [normalizeCategoryName(section.key), section.meta]),
+  );
+}
+
+export default function Home({ initialArticles, initialCategories = [], initialCategorySections = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
-  const [loadedCategoryArticlesMap, setLoadedCategoryArticlesMap] = useState({});
-  const [categoryMetaMap, setCategoryMetaMap] = useState({});
+  const [loadedCategoryArticlesMap, setLoadedCategoryArticlesMap] = useState(() => categorySectionsToArticleMap(initialCategorySections));
+  const [categoryMetaMap, setCategoryMetaMap] = useState(() => categorySectionsToMetaMap(initialCategorySections));
   const [loadingCategoryName, setLoadingCategoryName] = useState('');
   const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
+  const authorLookupArticles = [
+    ...articles,
+    ...Object.values(loadedCategoryArticlesMap).flat(),
+  ];
   
   // Hero articles slider: strictly OPINION category articles.
   const heroArticles = articles.filter(isOpinionCategoryArticle);
@@ -122,7 +142,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   };
 
   const getAuthorName = (authorId) => {
-    const articleAuthor = articles.find((article) => article.authorId === authorId)?.authorName;
+    const articleAuthor = authorLookupArticles.find((article) => article.authorId === authorId)?.authorName;
     if (articleAuthor) return articleAuthor;
 
     const author = authors.find(auth => auth.id === authorId);

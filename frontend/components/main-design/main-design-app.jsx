@@ -7,6 +7,7 @@ export function MainDesignApp({ feed }) {
       <Home
         initialArticles={feed?.articles}
         initialCategories={feed?.categories}
+        initialCategorySections={feed?.categorySections}
         summary={feed?.summary}
         useMockFallback={!feed || feed.source === 'mock'}
       />

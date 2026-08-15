@@ -11,6 +11,26 @@ import {
 
 const DEFAULT_API_URL = 'http://127.0.0.1:4000';
 const LOCAL_API_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+const HOME_CATEGORY_SECTION_LIMIT = 21;
+const HOME_CATEGORY_PREFETCH_LIMIT = 14;
+const PRIORITY_HOME_CATEGORIES = [
+  'POLITICA',
+  'NACIONALES',
+  'INTERNACIONALES',
+  'ECONOMIA',
+  'DEPORTES',
+  'CLIMA',
+  'TECNOLOGIA',
+  'INVESTIGACION',
+];
+
+function normalizeCategoryName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+}
 
 export class ApiRequestError extends Error {
   constructor(message, { status, path } = {}) {
@@ -136,6 +156,76 @@ export async function fetchProtectedApi(path, accessToken, options = {}) {
   });
 }
 
+function categoryPathParam(category) {
+  return category.fullPath ? String(category.fullPath).replace(/^\/+|\/+$/g, '') : '';
+}
+
+function sectionArticleMapper(category) {
+  const sectionCategory = category.title || category.name || category.slug;
+  const sectionCategoryPath = category.fullPath || null;
+
+  return (post, index) => ({
+    ...mapApiPostToArticle(post, index),
+    category: String(sectionCategory || '').toUpperCase(),
+    categoryPath: sectionCategoryPath,
+  });
+}
+
+async function fetchHomeCategorySection(category) {
+  if (!category?.slug) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    page: '1',
+    limit: String(HOME_CATEGORY_SECTION_LIMIT),
+  });
+  const path = categoryPathParam(category);
+
+  if (path) {
+    params.set('path', path);
+  }
+
+  const response = await fetchApi(`/api/v1/public/categories/${encodeURIComponent(category.slug)}/posts?${params.toString()}`, {
+    next: { revalidate: 60 },
+  });
+
+  return {
+    key: normalizeCategoryName(category.title || category.name || category.slug),
+    category,
+    articles: response.data.posts.map(sectionArticleMapper(category)),
+    meta: response.meta,
+  };
+}
+
+async function getHomeCategorySections({ categories, posts }) {
+  const postCategoryNames = new Set(
+    posts
+      .map((post) => normalizeCategoryName(post.primaryCategory?.name))
+      .filter(Boolean),
+  );
+  const priorityCategoryNames = new Set(PRIORITY_HOME_CATEGORIES);
+  const selected = categories
+    .filter((category) => (
+      category.showOnHome ||
+      postCategoryNames.has(normalizeCategoryName(category.name || category.title || category.slug)) ||
+      priorityCategoryNames.has(normalizeCategoryName(category.name || category.title || category.slug))
+    ))
+    .slice(0, HOME_CATEGORY_PREFETCH_LIMIT);
+
+  const sections = await Promise.all(
+    selected.map(async (category) => {
+      try {
+        return await fetchHomeCategorySection(category);
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return sections.filter((section) => section?.articles?.length > 0);
+}
+
 export async function getHomeFeed() {
   try {
     const [postsResponse, categoriesResponse, summaryResponse] = await Promise.all([
@@ -143,11 +233,17 @@ export async function getHomeFeed() {
       fetchApi('/api/v1/public/categories', { next: { revalidate: 300 } }),
       fetchApi('/api/v1/public/site-summary', { cache: 'no-store' }),
     ]);
+    const categories = categoriesResponse.data.map(mapApiCategory);
+    const categorySections = await getHomeCategorySections({
+      categories,
+      posts: postsResponse.data,
+    });
 
     return {
       source: 'api',
       articles: postsResponse.data.map(mapApiPostToArticle),
-      categories: categoriesResponse.data.map(mapApiCategory),
+      categories,
+      categorySections,
       summary: mapApiSummary(summaryResponse.data),
     };
   } catch (error) {
@@ -159,6 +255,7 @@ export async function getHomeFeed() {
       source: process.env.NODE_ENV === 'production' ? 'fallback' : 'mock',
       articles: process.env.NODE_ENV === 'production' ? [] : mockArticles,
       categories: [],
+      categorySections: [],
       summary: null,
       error: error.message,
     };
