@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
+import { mapApiPostToArticle } from '@/lib/main-design/api-adapters';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import { csrfHeaders } from './client-security';
 import SafeImage from './safe-image';
@@ -22,7 +23,10 @@ export function isOpinionCategoryArticle(article) {
 
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
-  const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
+  const [loadedArticles, setLoadedArticles] = useState(() => initialArticles?.length > 0 ? initialArticles : []);
+  const [categoryMetaMap, setCategoryMetaMap] = useState({});
+  const [loadingCategoryName, setLoadingCategoryName] = useState('');
+  const articles = loadedArticles.length > 0 ? loadedArticles : (useMockFallback ? fallbackArticles : []);
   
   // Hero articles slider: strictly OPINION category articles.
   const heroArticles = articles.filter(isOpinionCategoryArticle);
@@ -89,6 +93,25 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   const allCategoryNames = homeConfig.selectedCategories?.length > 0
     ? homeConfig.selectedCategories
     : defaultCategoryNames;
+
+  const findCategoryConfig = (catName) => {
+    const normalizedName = normalizeCategoryName(catName);
+    return initialCategories.find((category) => (
+      normalizeCategoryName(category.title || category.name || category.slug) === normalizedName
+    ));
+  };
+
+  const mergeArticles = (currentArticles, nextArticles) => {
+    const seen = new Set();
+    return [...currentArticles, ...nextArticles].filter((article) => {
+      const key = article.postId || article.raw?.id || article.id || article.route;
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  };
 
   const getAuthorName = (authorId) => {
     const articleAuthor = articles.find((article) => article.authorId === authorId)?.authorName;
@@ -226,13 +249,87 @@ export default function Home({ initialArticles, initialCategories = [], summary 
   };
 
   const ITEMS_PER_ROW = 7;
+  const CATEGORY_FETCH_LIMIT = 21;
 
-  const handleNextCategoryRow = (catName, maxPages) => {
-    setCategoryPageMap((prev) => {
-      const currentPage = prev[catName] || 0;
-      const nextPage = (currentPage + 1) % maxPages;
-      return { ...prev, [catName]: nextPage };
+  const fetchCategoryArticles = async (catName, page) => {
+    const category = findCategoryConfig(catName);
+    const slug = category?.slug || category?.id;
+
+    if (!slug) {
+      return null;
+    }
+
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(CATEGORY_FETCH_LIMIT),
     });
+
+    if (category.fullPath) {
+      params.set('path', String(category.fullPath).replace(/^\/+|\/+$/g, ''));
+    }
+
+    const response = await fetch(
+      `${getClientApiBaseUrl()}/api/v1/public/categories/${encodeURIComponent(slug)}/posts?${params.toString()}`,
+      { credentials: 'include' },
+    );
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(payload?.message || 'No se pudo cargar la categoria.');
+    }
+
+    return {
+      articles: (payload?.data?.posts || []).map(mapApiPostToArticle),
+      meta: payload?.meta || null,
+    };
+  };
+
+  const handleNextCategoryRow = async (catName) => {
+    const normalizedName = normalizeCategoryName(catName);
+    const currentPage = categoryPageMap[catName] || 0;
+    const currentCategoryArticles = articles.filter((article) => normalizeCategoryName(article.category) === normalizedName);
+    const knownMeta = categoryMetaMap[catName];
+    const knownTotal = Number(knownMeta?.total || currentCategoryArticles.length);
+    const localTotalPages = Math.max(1, Math.ceil(currentCategoryArticles.length / ITEMS_PER_ROW));
+    const remoteTotalPages = Math.max(localTotalPages, Math.ceil(knownTotal / ITEMS_PER_ROW));
+    const hasLocalNextPage = currentPage + 1 < localTotalPages;
+    const hasRemoteNextPage = currentPage + 1 < remoteTotalPages;
+
+    if (hasLocalNextPage) {
+      setCategoryPageMap((prev) => ({ ...prev, [catName]: currentPage + 1 }));
+      return;
+    }
+
+    if (hasRemoteNextPage || !knownMeta) {
+      try {
+        setLoadingCategoryName(catName);
+        const apiPage = Math.floor(currentCategoryArticles.length / CATEGORY_FETCH_LIMIT) + 1;
+        const result = await fetchCategoryArticles(catName, apiPage);
+
+        if (result) {
+          const nextCategoryArticles = mergeArticles(currentCategoryArticles, result.articles);
+          setLoadedArticles((current) => mergeArticles(current, result.articles));
+          setCategoryMetaMap((prev) => ({
+            ...prev,
+            [catName]: result.meta || prev[catName] || null,
+          }));
+
+          const nextTotalPages = Math.max(1, Math.ceil(nextCategoryArticles.length / ITEMS_PER_ROW));
+          const shouldCompleteCurrentRow = currentCategoryArticles.length < ITEMS_PER_ROW;
+          setCategoryPageMap((prev) => ({
+            ...prev,
+            [catName]: shouldCompleteCurrentRow ? 0 : (currentPage + 1 < nextTotalPages ? currentPage + 1 : 0),
+          }));
+          return;
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingCategoryName('');
+      }
+    }
+
+    setCategoryPageMap((prev) => ({ ...prev, [catName]: 0 }));
   };
 
   return (
@@ -494,16 +591,19 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       {/* 4. SECCIONES PRINCIPALES POR CATEGORÍA (7 noticias por categoría en patrones alternados según la secuencia solicitada) */}
       <div className="space-y-16">
         {allCategoryNames.map((catName, catIdx) => {
-          let categoryArticles = articles.filter((a) => a.category?.toUpperCase() === catName);
+          const normalizedCatName = normalizeCategoryName(catName);
+          let categoryArticles = articles.filter((a) => normalizeCategoryName(a.category) === normalizedCatName);
 
           if (categoryArticles.length === 0) {
             return null;
           }
 
-          const totalPages = Math.ceil(categoryArticles.length / ITEMS_PER_ROW);
-          const currentPage = categoryPageMap[catName] || 0;
+          const totalItems = Number(categoryMetaMap[catName]?.total || categoryArticles.length);
+          const totalPages = Math.max(1, Math.ceil(Math.max(totalItems, categoryArticles.length) / ITEMS_PER_ROW));
+          const currentPage = Math.min(categoryPageMap[catName] || 0, Math.max(0, Math.ceil(categoryArticles.length / ITEMS_PER_ROW) - 1));
           const startIndex = currentPage * ITEMS_PER_ROW;
           const visibleCategoryArticles = categoryArticles.slice(startIndex, startIndex + ITEMS_PER_ROW);
+          const isLoadingCategory = loadingCategoryName === catName;
 
           const patternIndex = homeConfig.categoryLayouts && homeConfig.categoryLayouts[catName] !== undefined
             ? Number(homeConfig.categoryLayouts[catName]) % 3
@@ -519,7 +619,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                     {catName}
                   </h3>
                   <span className="bg-surface-container-low border border-terminal-gray text-[10px] font-mono text-on-surface-variant px-2 py-0.5">
-                    {categoryArticles.length} PUBLICACIONES
+                    {totalItems} PUBLICACIONES
                   </span>
                 </div>
 
@@ -531,12 +631,13 @@ export default function Home({ initialArticles, initialCategories = [], summary 
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => handleNextCategoryRow(catName, Math.max(1, totalPages))}
+                      onClick={() => handleNextCategoryRow(catName)}
+                      disabled={isLoadingCategory}
                       title="Mover a la siguiente fila de noticias de esta categoría"
-                      className="px-3 py-1 bg-surface-container border border-terminal-gray hover:border-system-red text-white hover:text-system-red text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1.5 active:scale-95 select-none cursor-pointer"
+                      className="px-3 py-1 bg-surface-container border border-terminal-gray hover:border-system-red text-white hover:text-system-red text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1.5 active:scale-95 select-none cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <span>Cargar Próxima Fila</span>
-                      <span className="material-symbols-outlined text-[14px] text-system-red">autorenew</span>
+                      <span>{isLoadingCategory ? 'Cargando...' : 'Cargar Proxima Fila'}</span>
+                      <span className={`material-symbols-outlined text-[14px] text-system-red ${isLoadingCategory ? 'animate-spin' : ''}`}>autorenew</span>
                     </button>
                   </div>
                 </div>
@@ -861,5 +962,6 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     </div>
   );
 }
+
 
 

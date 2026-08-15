@@ -139,7 +139,7 @@ export async function fetchProtectedApi(path, accessToken, options = {}) {
 export async function getHomeFeed() {
   try {
     const [postsResponse, categoriesResponse, summaryResponse] = await Promise.all([
-      fetchApi('/api/v1/public/posts?limit=24', { next: { revalidate: 60 } }),
+      fetchApi('/api/v1/public/posts?limit=50', { next: { revalidate: 60 } }),
       fetchApi('/api/v1/public/categories', { next: { revalidate: 300 } }),
       fetchApi('/api/v1/public/site-summary', { cache: 'no-store' }),
     ]);

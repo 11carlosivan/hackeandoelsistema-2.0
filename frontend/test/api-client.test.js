@@ -81,7 +81,7 @@ describe('public API client', () => {
       if (requestUrl.includes('/api/v1/public/posts')) {
         return {
           ok: true,
-          json: async () => ({ data: [], meta: { page: 1, limit: 24, total: 0, totalPages: 1 } }),
+          json: async () => ({ data: [], meta: { page: 1, limit: 50, total: 0, totalPages: 1 } }),
         };
       }
 
@@ -109,7 +109,7 @@ describe('public API client', () => {
     await getHomeFeed();
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'https://api.example.test/api/v1/public/posts?limit=24',
+      'https://api.example.test/api/v1/public/posts?limit=50',
       expect.objectContaining({ next: { revalidate: 60 } }),
     );
   });
