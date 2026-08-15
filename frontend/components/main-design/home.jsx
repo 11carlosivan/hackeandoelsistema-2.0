@@ -23,10 +23,10 @@ export function isOpinionCategoryArticle(article) {
 
 export default function Home({ initialArticles, initialCategories = [], summary = null, useMockFallback = true }) {
   const router = useRouter();
-  const [loadedArticles, setLoadedArticles] = useState(() => initialArticles?.length > 0 ? initialArticles : []);
+  const [loadedCategoryArticlesMap, setLoadedCategoryArticlesMap] = useState({});
   const [categoryMetaMap, setCategoryMetaMap] = useState({});
   const [loadingCategoryName, setLoadingCategoryName] = useState('');
-  const articles = loadedArticles.length > 0 ? loadedArticles : (useMockFallback ? fallbackArticles : []);
+  const articles = initialArticles?.length > 0 ? initialArticles : (useMockFallback ? fallbackArticles : []);
   
   // Hero articles slider: strictly OPINION category articles.
   const heroArticles = articles.filter(isOpinionCategoryArticle);
@@ -111,6 +111,14 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       seen.add(key);
       return true;
     });
+  };
+
+  const articlesForCategorySection = (catName) => {
+    const normalizedName = normalizeCategoryName(catName);
+    return mergeArticles(
+      articles.filter((article) => normalizeCategoryName(article.category) === normalizedName),
+      loadedCategoryArticlesMap[normalizedName] || [],
+    );
   };
 
   const getAuthorName = (authorId) => {
@@ -293,9 +301,10 @@ export default function Home({ initialArticles, initialCategories = [], summary 
 
   const handleNextCategoryRow = async (catName) => {
     const normalizedName = normalizeCategoryName(catName);
-    const currentPage = categoryPageMap[catName] || 0;
-    const currentCategoryArticles = articles.filter((article) => normalizeCategoryName(article.category) === normalizedName);
-    const knownMeta = categoryMetaMap[catName];
+    const currentPage = categoryPageMap[normalizedName] || 0;
+    const currentCategoryArticles = articlesForCategorySection(catName);
+    const fetchedCategoryArticles = loadedCategoryArticlesMap[normalizedName] || [];
+    const knownMeta = categoryMetaMap[normalizedName];
     const knownTotal = Number(knownMeta?.total || currentCategoryArticles.length);
     const localTotalPages = Math.max(1, Math.ceil(currentCategoryArticles.length / ITEMS_PER_ROW));
     const remoteTotalPages = Math.max(localTotalPages, Math.ceil(knownTotal / ITEMS_PER_ROW));
@@ -303,29 +312,32 @@ export default function Home({ initialArticles, initialCategories = [], summary 
     const hasRemoteNextPage = currentPage + 1 < remoteTotalPages;
 
     if (hasLocalNextPage) {
-      setCategoryPageMap((prev) => ({ ...prev, [catName]: currentPage + 1 }));
+      setCategoryPageMap((prev) => ({ ...prev, [normalizedName]: currentPage + 1 }));
       return;
     }
 
     if (hasRemoteNextPage || !knownMeta) {
       try {
         setLoadingCategoryName(catName);
-        const apiPage = Math.floor(currentCategoryArticles.length / CATEGORY_FETCH_LIMIT) + 1;
+        const apiPage = Math.floor(fetchedCategoryArticles.length / CATEGORY_FETCH_LIMIT) + 1;
         const result = await fetchCategoryArticles(catName, apiPage);
 
         if (result) {
           const nextCategoryArticles = mergeArticles(currentCategoryArticles, result.articles);
-          setLoadedArticles((current) => mergeArticles(current, result.articles));
+          setLoadedCategoryArticlesMap((prev) => ({
+            ...prev,
+            [normalizedName]: mergeArticles(prev[normalizedName] || [], result.articles),
+          }));
           setCategoryMetaMap((prev) => ({
             ...prev,
-            [catName]: result.meta || prev[catName] || null,
+            [normalizedName]: result.meta || prev[normalizedName] || null,
           }));
 
           const nextTotalPages = Math.max(1, Math.ceil(nextCategoryArticles.length / ITEMS_PER_ROW));
           const shouldCompleteCurrentRow = currentCategoryArticles.length < ITEMS_PER_ROW;
           setCategoryPageMap((prev) => ({
             ...prev,
-            [catName]: shouldCompleteCurrentRow ? 0 : (currentPage + 1 < nextTotalPages ? currentPage + 1 : 0),
+            [normalizedName]: shouldCompleteCurrentRow ? 0 : (currentPage + 1 < nextTotalPages ? currentPage + 1 : 0),
           }));
           return;
         }
@@ -336,7 +348,7 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       }
     }
 
-    setCategoryPageMap((prev) => ({ ...prev, [catName]: 0 }));
+    setCategoryPageMap((prev) => ({ ...prev, [normalizedName]: 0 }));
   };
 
   return (
@@ -599,15 +611,15 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       <div className="space-y-16">
         {allCategoryNames.map((catName, catIdx) => {
           const normalizedCatName = normalizeCategoryName(catName);
-          let categoryArticles = articles.filter((a) => normalizeCategoryName(a.category) === normalizedCatName);
+          let categoryArticles = articlesForCategorySection(catName);
 
           if (categoryArticles.length === 0) {
             return null;
           }
 
-          const totalItems = Number(categoryMetaMap[catName]?.total || categoryArticles.length);
+          const totalItems = Number(categoryMetaMap[normalizedCatName]?.total || categoryArticles.length);
           const totalPages = Math.max(1, Math.ceil(Math.max(totalItems, categoryArticles.length) / ITEMS_PER_ROW));
-          const currentPage = Math.min(categoryPageMap[catName] || 0, Math.max(0, Math.ceil(categoryArticles.length / ITEMS_PER_ROW) - 1));
+          const currentPage = Math.min(categoryPageMap[normalizedCatName] || 0, Math.max(0, Math.ceil(categoryArticles.length / ITEMS_PER_ROW) - 1));
           const startIndex = currentPage * ITEMS_PER_ROW;
           const visibleCategoryArticles = categoryArticles.slice(startIndex, startIndex + ITEMS_PER_ROW);
           const isLoadingCategory = loadingCategoryName === catName;
