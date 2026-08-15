@@ -487,11 +487,9 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       <div className="space-y-16">
         {allCategoryNames.map((catName, catIdx) => {
           let categoryArticles = articles.filter((a) => a.category?.toUpperCase() === catName);
-          
-          // Complete or fallback so every selected category is rendered properly
-          if (categoryArticles.length < ITEMS_PER_ROW) {
-            const extraArticles = articles.filter(a => a.category?.toUpperCase() !== catName && !categoryArticles.some(c => c.id === a.id));
-            categoryArticles = [...categoryArticles, ...extraArticles.slice(0, ITEMS_PER_ROW - categoryArticles.length)];
+
+          if (categoryArticles.length === 0) {
+            return null;
           }
 
           const totalPages = Math.ceil(categoryArticles.length / ITEMS_PER_ROW);
