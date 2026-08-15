@@ -278,8 +278,15 @@ export default function Home({ initialArticles, initialCategories = [], summary 
       throw new Error(payload?.message || 'No se pudo cargar la categoria.');
     }
 
+    const sectionCategory = category?.title || category?.name || catName;
+    const sectionCategoryPath = category?.fullPath || null;
+
     return {
-      articles: (payload?.data?.posts || []).map(mapApiPostToArticle),
+      articles: (payload?.data?.posts || []).map((post) => ({
+        ...mapApiPostToArticle(post),
+        category: String(sectionCategory || catName).toUpperCase(),
+        categoryPath: sectionCategoryPath,
+      })),
       meta: payload?.meta || null,
     };
   };
