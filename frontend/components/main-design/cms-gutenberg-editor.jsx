@@ -399,6 +399,11 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
     }
   };
 
+  const updateBlocks = (newBlocks) => {
+    setBlocks(newBlocks);
+    emitChange(newBlocks);
+  };
+
   const addBlock = (index, type) => {
     const defaultBlockMap = {
       paragraph: { type: 'paragraph', content: '' },
@@ -418,7 +423,7 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
 
     const newBlocks = [...blocks];
     newBlocks.splice(index + 1, 0, newBlock);
-    updateParent(newBlocks);
+    updateBlocks(newBlocks);
     setActiveBlockIndex(index + 1);
 
     if (type === 'related') {
@@ -803,7 +808,7 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
                       type="button"
                       onClick={() => {
                         setActiveBlockIndex(index);
-                        setRelatedModalIndex(index);
+                        setRelatedModalBlockIndex(index);
                       }}
                       className="border border-system-red/60 bg-system-red/10 px-3 py-1 font-label-caps text-[9px] font-bold text-white hover:bg-system-red hover:text-black transition-colors"
                     >
