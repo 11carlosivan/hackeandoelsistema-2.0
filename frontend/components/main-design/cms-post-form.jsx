@@ -759,7 +759,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       ];
     } else {
       primaryActionLabel = 'Publicar';
-      handlePrimaryAction = () => runWorkflowAction('PUBLISH');
+      handlePrimaryAction = () => submit(null, 'PUBLISH');
 
       dropdownOptions.push({
         label: !canEditContent ? 'Guardar SEO y media' : 'Guardar borrador',

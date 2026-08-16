@@ -69,7 +69,6 @@ describe('CmsPostForm scheduling', () => {
     expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/api/v1/cms/posts'))).toBe(true);
 
     fireEvent.click(screen.getByText('Publicar'));
-    fireEvent.click(screen.getByText('Aceptar'));
 
     await act(async () => {});
 
