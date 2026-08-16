@@ -77,6 +77,21 @@ function normalizeHeadingLevel(value) {
   return Math.min(4, Math.max(2, level));
 }
 
+function defaultBlockData(type) {
+  const defaultBlockMap = {
+    paragraph: { type: 'paragraph', content: '' },
+    heading: { type: 'heading', content: '', level: 2 },
+    quote: { type: 'quote', content: '' },
+    image: { type: 'image', url: '', caption: '' },
+    video: { type: 'video', url: '', poster: '', caption: '' },
+    list: { type: 'list', items: [''] },
+    youtube: { type: 'youtube', url: '' },
+    related: { type: 'related', title: '', url: '', image: '', category: '' },
+  };
+
+  return defaultBlockMap[type] || defaultBlockMap.paragraph;
+}
+
 // Convert HTML string to Block Objects
 function htmlToBlocks(html) {
   if (!html) return [{ id: 'b-1', type: 'paragraph', content: '' }];
@@ -404,21 +419,33 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
     emitChange(newBlocks);
   };
 
+  const updateBlockData = (index, data) => {
+    const currentBlock = blocks[index];
+
+    if (!currentBlock) return;
+
+    const nextType = data.type || currentBlock.type;
+    const shouldResetShape = data.type && data.type !== currentBlock.type;
+    const nextBlock = shouldResetShape
+      ? {
+          id: currentBlock.id,
+          ...defaultBlockData(nextType),
+          ...data,
+        }
+      : {
+          ...currentBlock,
+          ...data,
+        };
+
+    const updated = [...blocks];
+    updated[index] = nextBlock;
+    updateBlocks(updated);
+  };
+
   const addBlock = (index, type) => {
-    const defaultBlockMap = {
-      paragraph: { type: 'paragraph', content: '' },
-      heading: { type: 'heading', content: '', level: 2 },
-      quote: { type: 'quote', content: '' },
-      image: { type: 'image', url: '', caption: '' },
-      video: { type: 'video', url: '', poster: '', caption: '' },
-      list: { type: 'list', items: [''] },
-      youtube: { type: 'youtube', url: '' },
-      related: { type: 'related', title: '', url: '', image: '', category: '' }
-    };
-    
     const newBlock = {
       id: `b-added-${Date.now()}`,
-      ...defaultBlockMap[type]
+      ...defaultBlockData(type),
     };
 
     const newBlocks = [...blocks];
@@ -797,81 +824,6 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
                 </div>
               )}
 
-              {block.type === 'related' && (
-                <div className="border border-terminal-gray/40 bg-black/40 p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-terminal-gray/30 pb-2">
-                    <span className="text-[9px] font-mono text-system-red font-bold uppercase flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px]">link</span>
-                      Publicación Relacionada
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBlockIndex(index);
-                        setRelatedModalBlockIndex(index);
-                      }}
-                      className="border border-system-red/60 bg-system-red/10 px-3 py-1 font-label-caps text-[9px] font-bold text-white hover:bg-system-red hover:text-black transition-colors"
-                    >
-                      Buscar / Cambiar Post
-                    </button>
-                  </div>
-
-                  {block.title || block.url ? (
-                    <div className="flex items-center gap-3 bg-black border border-terminal-gray/30 p-2.5">
-                      {block.image && (
-                        <div className="w-16 h-12 shrink-0 border border-terminal-gray overflow-hidden">
-                          <img src={block.image} alt={block.title} className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        {block.category && (
-                          <span className="text-[8px] font-mono text-system-red font-bold uppercase block">{block.category}</span>
-                        )}
-                        <h4 className="font-headline-md text-xs text-white uppercase truncate font-bold">{block.title || 'Sin título'}</h4>
-                        <span className="text-[9px] font-mono text-on-surface-variant truncate block">{block.url}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-xs font-mono text-on-surface-variant border border-dashed border-terminal-gray/40">
-                      Ningún post seleccionado. Haz clic en "Buscar / Cambiar Post" para seleccionar una noticia.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {(block.type === 'youtube' || block.type === 'video') && (
-                <div className="border border-terminal-gray/40 bg-black/40 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-system-red text-base">smart_display</span>
-                    <span className="font-label-caps text-xs text-white font-bold">Video de YouTube</span>
-                  </div>
-                  <label className="block">
-                    <span className="block text-[8px] font-mono text-on-surface-variant uppercase mb-1">URL o Enlace de YouTube</span>
-                    <input
-                      type="text"
-                      value={block.url || ''}
-                      onChange={(e) => updateBlockData(index, { url: e.target.value })}
-                      placeholder="Ej. https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                      className="w-full bg-black border border-terminal-gray/40 text-xs px-2 py-1.5 text-white outline-none focus:border-system-red"
-                    />
-                  </label>
-                  {normalizeSafeUrl(block.url) ? (
-                    <div className="aspect-video w-full max-h-48 overflow-hidden border border-terminal-gray bg-black">
-                      <iframe
-                        src={
-                          block.url.includes('youtube.com/watch?v=')
-                            ? block.url.replace('watch?v=', 'embed/')
-                            : block.url.includes('youtu.be/')
-                            ? block.url.replace('youtu.be/', 'youtube.com/embed/')
-                            : block.url
-                        }
-                        className="w-full h-full border-0 pointer-events-none"
-                        title="YouTube Preview"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              )}
             </div>
 
             {/* Block Insertion Button Trigger (Hover target below each block) */}
