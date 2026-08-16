@@ -482,7 +482,7 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
     if (mediaModalBlockIndex === null) return;
     updateBlockData(mediaModalBlockIndex, {
       url: mediaItem.url,
-      caption: mediaItem.alt || mediaItem.title || '',
+      caption: mediaItem.altText || mediaItem.caption || mediaItem.alt || mediaItem.title || '',
     });
     setActiveBlockIndex(mediaModalBlockIndex);
     setMediaModalBlockIndex(null);
@@ -494,11 +494,29 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
       return;
     }
 
+    const relatedCategory = post.primaryCategory?.name ||
+      post.category?.name ||
+      post.categories?.find((item) => item.isPrimary)?.name ||
+      post.categories?.find((item) => item.isPrimary)?.category?.name ||
+      post.categories?.[0]?.name ||
+      post.categories?.[0]?.category?.name ||
+      'NOTICIA';
+    const relatedImage = post.featuredMedia?.url ||
+      post.featuredMediaUrl ||
+      post.imageUrl ||
+      post.image ||
+      post.media?.url ||
+      '';
+    const relatedUrl = post.canonicalPath ||
+      post.route?.path ||
+      post.path ||
+      (post.slug ? `/${post.slug}/` : '');
+
     updateBlockData(relatedModalBlockIndex, {
       title: post.title || '',
-      url: post.canonicalPath || (post.slug ? `/${post.slug}/` : ''),
-      image: post.featuredMedia?.url || '',
-      category: post.primaryCategory?.name || 'NOTICIA',
+      url: relatedUrl,
+      image: relatedImage,
+      category: relatedCategory,
     });
     setActiveBlockIndex(relatedModalBlockIndex);
     setRelatedModalBlockIndex(null);

@@ -172,6 +172,13 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
     [items, selectedId],
   );
 
+  const confirmMediaItem = useCallback((item) => {
+    if (!item?.url) return;
+
+    onSelect?.(item);
+    onClose?.();
+  }, [onClose, onSelect]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -231,6 +238,16 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
     setItems((current) => [item, ...current.filter((existing) => existing.id !== item.id)]);
     setSelectedId(item.id);
     setTab('library');
+  };
+
+  const handleMediaPick = (item) => {
+    if (!item?.id) return;
+
+    setSelectedId(item.id);
+
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      confirmMediaItem(item);
+    }
   };
 
   if (!isOpen) return null;
@@ -320,7 +337,7 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
                       key={item.id}
                       item={item}
                       selected={item.id === selectedId}
-                      onClick={() => setSelectedId(item.id)}
+                      onClick={() => handleMediaPick(item)}
                     />
                   ))}
                 </div>
@@ -374,10 +391,7 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
                   <div className="border-t border-terminal-gray p-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        onSelect?.(selectedItem);
-                        onClose?.();
-                      }}
+                      onClick={() => confirmMediaItem(selectedItem)}
                       className="w-full bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white"
                     >
                       Usar esta imagen

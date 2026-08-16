@@ -1,44 +1,136 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import SafeImage from './safe-image';
+import { fetchWithCsrfRetry } from './client-security';
+
+function readPosts(payload) {
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.posts)) return payload.data.posts;
+  if (Array.isArray(payload?.posts)) return payload.posts;
+
+  return [];
+}
+
+function readMeta(payload) {
+  return payload?.meta || payload?.data?.meta || {
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1,
+  };
+}
+
+function postCategoryName(post) {
+  return post.primaryCategory?.name ||
+    post.category?.name ||
+    post.categories?.find((item) => item.isPrimary)?.name ||
+    post.categories?.find((item) => item.isPrimary)?.category?.name ||
+    post.categories?.[0]?.name ||
+    post.categories?.[0]?.category?.name ||
+    'NOTICIA';
+}
+
+function postImageUrl(post) {
+  return post.featuredMedia?.url ||
+    post.featuredMediaUrl ||
+    post.imageUrl ||
+    post.image ||
+    post.media?.url ||
+    '/isotipo.png';
+}
+
+function categoryValue(category) {
+  return category.slug || category.id || '';
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+}
 
 export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categories = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [posts, setPosts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const selectedCategoryData = useMemo(
+    () => categories.find((category) => categoryValue(category) === selectedCategory || category.id === selectedCategory) || null,
+    [categories, selectedCategory],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setPage(1);
+    setPosts([]);
+    setError('');
+  }, [isOpen, searchQuery, selectedCategory]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     let cancelled = false;
+    const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       setLoading(true);
       setError('');
 
-      const params = new URLSearchParams();
-      params.set('limit', '20');
-      if (searchQuery.trim()) {
+      const apiBaseUrl = getApiBaseUrl();
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '50',
+      });
+
+      let url = `${apiBaseUrl}/api/v1/cms/posts`;
+      let useCmsAuth = true;
+
+      if (selectedCategory) {
+        const value = selectedCategoryData?.id && isUuid(selectedCategory)
+          ? selectedCategoryData.id
+          : selectedCategory;
+        const encodedValue = encodeURIComponent(value);
+        url = isUuid(value)
+          ? `${apiBaseUrl}/api/v1/public/categories/id/${encodedValue}/posts`
+          : `${apiBaseUrl}/api/v1/public/categories/${encodedValue}/posts`;
+        useCmsAuth = false;
+      } else {
+        params.set('status', 'PUBLISHED');
+      }
+
+      if (searchQuery.trim() && !selectedCategory) {
         params.set('q', searchQuery.trim());
       }
 
-      fetch(`${getApiBaseUrl()}/api/v1/public/posts?${params.toString()}`, {
-        headers: { Accept: 'application/json' },
-      })
+      const request = useCmsAuth
+        ? fetchWithCsrfRetry(apiBaseUrl, `${url}?${params.toString()}`, {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+          })
+        : fetch(`${url}?${params.toString()}`, {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+          });
+
+      request
         .then((response) => {
           if (!response.ok) throw new Error('No se pudieron cargar publicaciones.');
           return response.json();
         })
         .then((payload) => {
           if (!cancelled) {
-            setPosts(payload.data || []);
+            const nextPosts = readPosts(payload);
+            setPosts((current) => page > 1
+              ? [...current, ...nextPosts.filter((post) => !current.some((item) => item.id === post.id))]
+              : nextPosts);
+            setMeta(readMeta(payload));
           }
         })
         .catch((fetchError) => {
-          if (!cancelled) {
+          if (!cancelled && fetchError?.name !== 'AbortError') {
             setError(fetchError.message);
           }
         })
@@ -52,17 +144,17 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, [isOpen, searchQuery]);
+  }, [isOpen, page, searchQuery, selectedCategory, selectedCategoryData]);
 
   if (!isOpen) return null;
 
-  const filteredPosts = posts.filter((post) => {
-    if (!selectedCategory) return true;
-    return post.primaryCategory?.id === selectedCategory ||
-      post.primaryCategory?.slug === selectedCategory ||
-      (post.categories || []).some((item) => item.category?.id === selectedCategory || item.category?.slug === selectedCategory);
-  });
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredPosts = selectedCategory && normalizedQuery
+    ? posts.filter((post) => `${post.title || ''} ${post.slug || ''} ${post.excerpt || ''}`.toLowerCase().includes(normalizedQuery))
+    : posts;
+  const canLoadMore = Number(meta?.page || page) < Number(meta?.totalPages || 1);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
@@ -83,19 +175,25 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
           <input
             type="search"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por titulo..."
             className="w-full border border-terminal-gray bg-black px-3 py-2 text-xs text-white outline-none focus:border-system-red"
           />
 
           <select
             value={selectedCategory}
-            onChange={(event) => setSelectedCategory(event.target.value)}
+            onChange={(event) => {
+              setSelectedCategory(event.target.value);
+              setPage(1);
+            }}
             className="w-full border border-terminal-gray bg-black px-3 py-2 font-mono text-xs text-white outline-none focus:border-system-red"
           >
             <option value="">Todas las categorias</option>
             {categories.map((category) => (
-              <option key={category.id || category.slug} value={category.id || category.slug}>
+              <option key={category.id || category.slug} value={categoryValue(category)}>
                 {category.name || category.title || category.slug}
               </option>
             ))}
@@ -117,8 +215,8 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
             </div>
           ) : (
             filteredPosts.map((post) => {
-              const image = post.featuredMedia?.url || '/isotipo.png';
-              const categoryName = post.primaryCategory?.name || 'NOTICIA';
+              const image = postImageUrl(post);
+              const categoryName = postCategoryName(post);
 
               return (
                 <button
@@ -154,6 +252,15 @@ export default function CmsRelatedPostModal({ isOpen, onClose, onSelect, categor
               );
             })
           )}
+          {!loading && !error && canLoadMore ? (
+            <button
+              type="button"
+              onClick={() => setPage((current) => current + 1)}
+              className="mt-3 w-full border border-system-red/60 bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-white transition-colors hover:bg-system-red hover:text-black"
+            >
+              Cargar mas publicaciones
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

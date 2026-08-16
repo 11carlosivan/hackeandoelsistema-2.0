@@ -947,6 +947,19 @@ function normalizeCmsPost(post) {
           displayName: post.author.displayName,
         }
       : null,
+    featuredMedia: post.featuredMedia
+      ? {
+          id: post.featuredMedia.id,
+          url: post.featuredMedia.url,
+          originalUrl: post.featuredMedia.originalUrl,
+          mimeType: post.featuredMedia.mimeType,
+          fileName: post.featuredMedia.fileName,
+          width: post.featuredMedia.width,
+          height: post.featuredMedia.height,
+          altText: post.featuredMedia.altText,
+          caption: post.featuredMedia.caption,
+        }
+      : null,
     primaryCategory: primaryCategory
       ? {
           id: primaryCategory.id,
@@ -1306,6 +1319,19 @@ export async function registerCmsRoutes(app) {
               id: true,
               username: true,
               displayName: true,
+            },
+          },
+          featuredMedia: {
+            select: {
+              id: true,
+              url: true,
+              originalUrl: true,
+              mimeType: true,
+              fileName: true,
+              width: true,
+              height: true,
+              altText: true,
+              caption: true,
             },
           },
           categories: {
@@ -3011,6 +3037,19 @@ export async function registerCmsRoutes(app) {
               displayName: true,
             },
           },
+          featuredMedia: {
+            select: {
+              id: true,
+              url: true,
+              originalUrl: true,
+              mimeType: true,
+              fileName: true,
+              width: true,
+              height: true,
+              altText: true,
+              caption: true,
+            },
+          },
           categories: {
             include: {
               category: {
@@ -3319,6 +3358,19 @@ export async function registerCmsRoutes(app) {
               id: true,
               username: true,
               displayName: true,
+            },
+          },
+          featuredMedia: {
+            select: {
+              id: true,
+              url: true,
+              originalUrl: true,
+              mimeType: true,
+              fileName: true,
+              width: true,
+              height: true,
+              altText: true,
+              caption: true,
             },
           },
           categories: {
