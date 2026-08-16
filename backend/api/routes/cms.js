@@ -236,25 +236,13 @@ const postTaxonomySchema = z.object({
 const workflowSchema = z.object({
   action: z.enum(['SUBMIT_REVIEW', 'RETURN_TO_DRAFT', 'SCHEDULE', 'PUBLISH', 'ARCHIVE']),
 });
-const seoUpdateSchema = z
-  .object({
-    title: z.string().trim().max(255).nullable().optional(),
-    description: z.string().trim().max(320).nullable().optional(),
-    canonicalUrl: z
-      .string()
-      .trim()
-      .max(500)
-      .refine(isValidCanonicalUrl, {
-        message: 'Canonical must be a valid http(s) URL or an internal path',
-      })
-      .nullable()
-      .optional(),
-    robotsIndex: z.enum(['INDEX', 'NOINDEX']).optional(),
-    robotsFollow: z.enum(['FOLLOW', 'NOFOLLOW']).optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, {
-    message: 'At least one SEO field is required',
-  });
+const seoUpdateSchema = z.object({
+  title: z.any().optional(),
+  description: z.any().optional(),
+  canonicalUrl: z.any().optional(),
+  robotsIndex: z.any().optional(),
+  robotsFollow: z.any().optional(),
+});
 const featuredMediaSchema = z.object({
   mediaId: z.uuid().nullable(),
   remove: z.coerce.boolean().optional(),
@@ -581,6 +569,40 @@ function normalizeStandaloneYoutubeEmbeds(value) {
 
       return youtubeEmbedHtml(text) || match;
     });
+}
+
+function cleanOptionalSeoText(value, maxLength) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const text = String(value).replace(/\s+/g, ' ').trim();
+
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function cleanOptionalCanonicalUrl(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const text = String(value).trim();
+
+  if (!text) return null;
+
+  return isValidCanonicalUrl(text) ? text.slice(0, 768) : null;
+}
+
+function cleanOptionalRobotsPolicy(value, allowedValues) {
+  if (value === undefined || value === null) return undefined;
+
+  const normalized = String(value).trim().toUpperCase();
+
+  return allowedValues.includes(normalized) ? normalized : undefined;
+}
+
+function compactUndefinedValues(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
+  );
 }
 
 const EDITORIAL_HTML_OPTIONS = {
@@ -4180,12 +4202,19 @@ export async function registerCmsRoutes(app) {
       throw app.httpErrors.notFound('Post route not found');
     }
 
-    const seoData = {
-      ...body.data,
+    const seoData = compactUndefinedValues({
+      title: cleanOptionalSeoText(body.data.title, 255),
+      description: cleanOptionalSeoText(body.data.description, 320),
       ...(Object.hasOwn(body.data, 'canonicalUrl')
-        ? { canonicalUrl: body.data.canonicalUrl ? normalizeCanonicalUrl(body.data.canonicalUrl) : null }
+        ? {
+            canonicalUrl: cleanOptionalCanonicalUrl(body.data.canonicalUrl)
+              ? normalizeCanonicalUrl(cleanOptionalCanonicalUrl(body.data.canonicalUrl))
+              : null,
+          }
         : {}),
-    };
+      robotsIndex: cleanOptionalRobotsPolicy(body.data.robotsIndex, ['INDEX', 'NOINDEX']),
+      robotsFollow: cleanOptionalRobotsPolicy(body.data.robotsFollow, ['FOLLOW', 'NOFOLLOW']),
+    });
 
     const seo = await app.prisma.seoMetadata.upsert({
       where: {

@@ -2441,6 +2441,40 @@ describe('cms routes', () => {
     });
   });
 
+  it('sanitizes legacy SEO payloads instead of blocking editorial saves', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/seo',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        title: 'Titulo SEO '.repeat(40),
+        description: 'Descripcion SEO '.repeat(40),
+        canonicalUrl: 'javascript:alert(1)',
+        robotsIndex: 'index,follow',
+        robotsFollow: 'follow',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.seo.title).toHaveLength(255);
+    expect(response.json().data.seo.description).toHaveLength(320);
+    expect(response.json().data.seo.canonicalUrl).toBeNull();
+    expect(response.json().data.seo.robotsIndex).toBe('INDEX');
+    expect(response.json().data.seo.robotsFollow).toBe('FOLLOW');
+  });
+
   it('normalizes internal CMS post canonical paths to the public site URL', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });

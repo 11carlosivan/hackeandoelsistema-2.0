@@ -227,4 +227,47 @@ describe('CmsPostForm featured media', () => {
     const mediaCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/featured-media'));
     expect(JSON.parse(mediaCall[1].body)).toEqual({ mediaId: null, remove: true });
   });
+
+  it('normalizes legacy SEO values before saving an existing post', async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { post: publishedPost } }),
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const longTitle = 'Titulo SEO '.repeat(40);
+    const longDescription = 'Descripcion SEO '.repeat(40);
+    const { container } = render(
+      <CmsPostForm
+        categories={[]}
+        tags={[]}
+        media={[]}
+        post={{
+          ...publishedPost,
+          route: {
+            seo: {
+              title: longTitle,
+              description: longDescription,
+              robotsIndex: 'index, follow',
+              robotsFollow: 'follow',
+            },
+          },
+        }}
+      />,
+    );
+
+    fireEvent.submit(container.querySelector('form'));
+
+    await waitFor(() => {
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/seo'))).toBe(true);
+    });
+
+    const seoCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/seo'));
+    const payload = JSON.parse(seoCall[1].body);
+
+    expect(payload.title).toHaveLength(255);
+    expect(payload.description).toHaveLength(320);
+    expect(payload.robotsIndex).toBe('INDEX');
+    expect(payload.robotsFollow).toBe('FOLLOW');
+  });
 });

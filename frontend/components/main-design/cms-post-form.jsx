@@ -20,6 +20,24 @@ function cleanSeoText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function cleanSeoField(value, maxLength) {
+  const text = cleanSeoText(value);
+
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function normalizeRobotsIndex(value, fallback = 'NOINDEX') {
+  const normalized = String(value || '').trim().toUpperCase();
+
+  return ['INDEX', 'NOINDEX'].includes(normalized) ? normalized : fallback;
+}
+
+function normalizeRobotsFollow(value, fallback = 'FOLLOW') {
+  const normalized = String(value || '').trim().toUpperCase();
+
+  return ['FOLLOW', 'NOFOLLOW'].includes(normalized) ? normalized : fallback;
+}
+
 function resolveSeoTemplate(value, title) {
   const fallbackTitle = cleanSeoText(title) || 'Titulo de la entrada';
 
@@ -112,8 +130,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   const router = useRouter();
   const [postId, setPostId] = useState(post?.id || null);
   const canEditContent = !post || EDITABLE_CONTENT_STATUSES.has(post.status);
-  const currentRobotsIndex = post?.route?.seo?.robotsIndex || (post?.status === 'PUBLISHED' ? 'INDEX' : 'NOINDEX');
-  const currentRobotsFollow = post?.route?.seo?.robotsFollow || 'FOLLOW';
+  const currentRobotsIndex = normalizeRobotsIndex(post?.route?.seo?.robotsIndex, post?.status === 'PUBLISHED' ? 'INDEX' : 'NOINDEX');
+  const currentRobotsFollow = normalizeRobotsFollow(post?.route?.seo?.robotsFollow);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -192,8 +210,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         primaryCategoryId: selectedCategoryIds[0] || null,
         tagIds: selectedTagIds,
         newTagNames: newTags,
-        seoTitle: seoTitleVal.trim() || null,
-        seoDescription: seoDescriptionVal.trim() || null,
+        seoTitle: cleanSeoField(seoTitleVal, 255),
+        seoDescription: cleanSeoField(seoDescriptionVal, 320),
         robotsIndex: 'NOINDEX',
         robotsFollow: 'FOLLOW',
         isFeatured: isFeatured,
@@ -491,8 +509,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
       primaryCategoryId: selectedCategoryIds[0] || null,
       tagIds: selectedTagIds,
       newTagNames: newTags,
-      seoTitle: seoTitleVal.trim() || null,
-      seoDescription: seoDescriptionVal.trim() || null,
+      seoTitle: cleanSeoField(seoTitleVal, 255),
+      seoDescription: cleanSeoField(seoDescriptionVal, 320),
       robotsIndex: 'NOINDEX',
       robotsFollow: 'FOLLOW',
       isFeatured: isFeatured,
@@ -524,8 +542,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
         await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/seo`, {
           method: 'PATCH',
           body: JSON.stringify({
-            title: seoTitleVal.trim() || null,
-            description: seoDescriptionVal.trim() || null,
+            title: cleanSeoField(seoTitleVal, 255),
+            description: cleanSeoField(seoDescriptionVal, 320),
             robotsIndex: currentRobotsIndex,
             robotsFollow: currentRobotsFollow,
           }),
