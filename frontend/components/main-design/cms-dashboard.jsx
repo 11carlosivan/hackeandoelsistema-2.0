@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders, friendlyCmsErrorMessage, getCookieValue } from './client-security';
+import { friendlyCmsErrorMessage, fetchWithCsrfRetry, getCookieValue } from './client-security';
 
 export default function CmsDashboard({ summary, accessToken = null }) {
   const router = useRouter();
@@ -20,13 +20,12 @@ export default function CmsDashboard({ summary, accessToken = null }) {
     setActionLoading(postId);
     try {
       const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${postId}/workflow`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
-          ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'PUBLISH' }),
       });
@@ -61,12 +60,12 @@ export default function CmsDashboard({ summary, accessToken = null }) {
     setRankingPeriod(period);
     setRankingLoading(true);
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/analytics/rankings?period=${period}&limit=10`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/analytics/rankings?period=${period}&limit=10`, {
         credentials: 'include',
         headers: {
           Accept: 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          ...csrfHeaders(),
         },
       });
       if (response.ok) {

@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { csrfHeaders, getCookieValue } from './client-security';
+import { fetchWithCsrfRetry, getCookieValue } from './client-security';
 
 const actionsByStatus = {
   DRAFT: [
@@ -66,13 +66,12 @@ export default function CmsWorkflowActions({ post, accessToken = null }) {
 
     try {
       const activeToken = accessToken || (typeof document !== 'undefined' ? getCookieValue('hes_access_token') : '');
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/posts/${post.id}/workflow`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${post.id}/workflow`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
-          ...csrfHeaders(),
         },
         body: JSON.stringify({ action }),
       });

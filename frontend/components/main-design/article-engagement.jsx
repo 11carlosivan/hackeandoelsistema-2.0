@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import AuthModal from '@/components/user/AuthModal';
-import { csrfHeaders } from './client-security';
+import { fetchWithCsrfRetry } from './client-security';
 import VerifiedBadge from '@/components/user/VerifiedBadge';
 
 function safeCount(value) {
@@ -13,12 +13,11 @@ function safeCount(value) {
 }
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${getClientApiBaseUrl()}${path}`, {
-    credentials: 'include',
+  const apiBaseUrl = getClientApiBaseUrl();
+  const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}${path}`, {
     headers: {
       Accept: 'application/json',
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...csrfHeaders(),
       ...options.headers,
     },
     ...options,

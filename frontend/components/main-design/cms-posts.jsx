@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders, friendlyCmsErrorMessage, getCookieValue } from './client-security';
+import { friendlyCmsErrorMessage, fetchWithCsrfRetry, getCookieValue } from './client-security';
 
 const statusTabs = [
   ['TODOS', ''],
@@ -64,13 +64,12 @@ export default function CmsPosts({ posts, meta, filters, error, accessToken = nu
     setActionLoading(postId);
     try {
       const activeToken = getActiveToken();
-      const response = await fetch(`/api/v1/cms/posts/${postId}/workflow`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
-          ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'RETURN_TO_DRAFT' }),
       });
@@ -95,13 +94,12 @@ export default function CmsPosts({ posts, meta, filters, error, accessToken = nu
     setActionLoading(postId);
     try {
       const activeToken = getActiveToken();
-      const response = await fetch(`/api/v1/cms/posts/${postId}/workflow`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/posts/${postId}/workflow`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
-          ...csrfHeaders(),
         },
         body: JSON.stringify({ action: 'PUBLISH' }),
       });

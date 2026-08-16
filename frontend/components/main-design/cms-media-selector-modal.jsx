@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
+import { fetchWithCsrfRetry } from './client-security';
 
 function formatBytes(bytes) {
   const value = Number(bytes || 0);
@@ -85,10 +85,9 @@ function UploadDropzone({ onUploaded }) {
     formData.append('altText', file.name.replace(/\.[^.]+$/, ''));
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/media`, {
         method: 'POST',
-        credentials: 'include',
-        headers: csrfHeaders(),
         body: formData,
       });
 
@@ -198,11 +197,10 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
       }
 
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/media?${params.toString()}`, {
-          credentials: 'include',
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/media?${params.toString()}`, {
           headers: {
             Accept: 'application/json',
-            ...csrfHeaders(),
           },
           signal: controller.signal,
         });

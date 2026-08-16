@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { csrfHeaders, fetchJsonWithCsrfRetry } from './client-security';
+import { fetchJsonWithCsrfRetry } from './client-security';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsBlockEditor from './cms-gutenberg-editor';
 
@@ -337,24 +337,16 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     if (!newCategoryName.trim()) return;
     setIsSavingCategory(true);
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/cms/categories`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/categories`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...csrfHeaders(),
-        },
         body: JSON.stringify({
           name: newCategoryName.trim(),
           parentId: newCategoryParentId || null,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('No se pudo añadir la categoría.');
-      }
-
-      const data = await response.json();
+      const data = response;
       const createdCategory = data.data?.category || data.category;
       if (createdCategory) {
         setLocalCategories((prev) => [...prev, createdCategory]);
@@ -728,8 +720,6 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   let handlePrimaryAction = () => {};
   let dropdownOptions = [];
 
-  let isPublished = post?.status === 'PUBLISHED';
-
   if (!postId) {
     primaryActionLabel = 'Publicar';
     handlePrimaryAction = () => submit(null, 'PUBLISH');
@@ -751,8 +741,8 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     const currentStatus = post?.status;
 
     if (currentStatus === 'PUBLISHED') {
-      primaryActionLabel = 'Publicado';
-      handlePrimaryAction = () => {};
+      primaryActionLabel = 'Guardar cambios';
+      handlePrimaryAction = () => submit(null, 'DRAFT');
       dropdownOptions = [
         {
           label: 'Pasar a borrador',
@@ -1007,14 +997,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               <button
                 type="button"
                 onClick={handlePrimaryAction}
-                disabled={status === 'loading' || isPublished}
-                className={`flex-1 py-3 px-4 font-label-caps text-[11px] font-bold transition-all rounded-l-sm ${
-                  isPublished
-                    ? 'bg-neutral-800 text-neutral-400 border border-neutral-700 cursor-not-allowed'
-                    : 'bg-system-red text-black hover:bg-white disabled:cursor-not-allowed disabled:opacity-60'
-                }`}
+                disabled={status === 'loading'}
+                className="flex-1 py-3 px-4 font-label-caps text-[11px] font-bold transition-all rounded-l-sm bg-system-red text-black hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {status === 'loading' ? 'Procesando...' : isPublished ? '✓ Publicado' : primaryActionLabel}
+                {status === 'loading' ? 'Procesando...' : primaryActionLabel}
               </button>
               
               <div className="w-[1px] bg-black/20 self-stretch" />
@@ -1024,9 +1010,7 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
                   type="button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   disabled={status === 'loading'}
-                  className={`${
-                    isPublished ? 'bg-neutral-800 text-white hover:bg-neutral-700' : 'bg-system-red text-black hover:bg-white'
-                  } px-3 transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center rounded-r-sm`}
+                  className="bg-system-red text-black hover:bg-white px-3 transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center rounded-r-sm"
                 >
                   <span className="material-symbols-outlined text-base select-none font-bold">
                     {isDropdownOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
