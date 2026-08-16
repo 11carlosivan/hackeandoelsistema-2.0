@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders, getCookieValue } from './client-security';
+import { csrfHeaders, friendlyCmsErrorMessage, getCookieValue } from './client-security';
 
 export default function CmsDashboard({ summary, accessToken = null }) {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function CmsDashboard({ summary, accessToken = null }) {
         router.refresh();
       } else {
         const err = await response.json().catch(() => null);
-        alert(err?.message || 'Error al publicar.');
+        alert(friendlyCmsErrorMessage(err?.message || err?.error || 'Error al publicar.'));
       }
     } catch (err) {
       console.error('Error publicando dashboard:', err);

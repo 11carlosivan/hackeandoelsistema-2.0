@@ -52,6 +52,28 @@ async function readJsonSafe(response) {
   return response.json().catch(() => null);
 }
 
+export function friendlyCmsErrorMessage(message) {
+  const text = String(message || '').trim();
+
+  if (/featured image is required/i.test(text)) {
+    return 'Selecciona una imagen destacada antes de publicar. Esa portada se usa al compartir el enlace en WhatsApp y redes sociales.';
+  }
+
+  if (/future scheduledAt date is required/i.test(text)) {
+    return 'Selecciona una fecha y hora futura antes de programar la publicacion.';
+  }
+
+  if (/missing access token|invalid or expired token/i.test(text)) {
+    return 'La sesion expiro. Inicia sesion de nuevo para continuar.';
+  }
+
+  if (/insufficient permission/i.test(text)) {
+    return 'Tu usuario no tiene permisos para ejecutar esta accion.';
+  }
+
+  return text || 'Error al procesar la solicitud.';
+}
+
 export async function fetchWithCsrfRetry(apiBaseUrl, url, options = {}) {
   const request = async () => fetch(url, {
     ...options,
@@ -91,7 +113,7 @@ export async function fetchJsonWithCsrfRetry(apiBaseUrl, url, options = {}) {
           .map((detail) => `${detail.path || 'payload'}: ${detail.message}`)
           .join(' | ')
       : '';
-    const message = payload?.message || payload?.error || 'Error al procesar la solicitud.';
+    const message = friendlyCmsErrorMessage(payload?.message || payload?.error);
 
     throw new Error(details ? `${message} ${details}` : message);
   }

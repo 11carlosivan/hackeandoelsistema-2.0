@@ -455,6 +455,10 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
     return false;
   };
 
+  const shouldRunWorkflowAfterSave = (actionType) => {
+    return actionType === 'PUBLISH' || actionType === 'SCHEDULE';
+  };
+
   const submit = async (event, actionType = 'DRAFT') => {
     if (event) event.preventDefault();
     setError('');
@@ -541,6 +545,13 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
               mediaId: selectedMedia?.id || null,
               remove: !selectedMedia?.id,
             }),
+          });
+        }
+
+        if (shouldRunWorkflowAfterSave(actionType)) {
+          await requestJson(`${apiBaseUrl}/api/v1/cms/posts/${postId}/workflow`, {
+            method: 'PATCH',
+            body: JSON.stringify({ action: actionType }),
           });
         }
       } else {

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SystemPageHeader } from './content-primitives';
 import CmsSessionActions from './cms-session-actions';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders, getCookieValue } from './client-security';
+import { csrfHeaders, friendlyCmsErrorMessage, getCookieValue } from './client-security';
 
 const statusTabs = [
   ['TODOS', ''],
@@ -78,7 +78,7 @@ export default function CmsPosts({ posts, meta, filters, error, accessToken = nu
         router.refresh();
       } else {
         const err = await response.json().catch(() => null);
-        alert(err?.message || 'Error al cambiar estado.');
+        alert(friendlyCmsErrorMessage(err?.message || err?.error || 'Error al cambiar estado.'));
       }
     } catch (err) {
       console.error('Error cambiando estado:', err);
@@ -110,7 +110,7 @@ export default function CmsPosts({ posts, meta, filters, error, accessToken = nu
         router.refresh();
       } else {
         const err = await response.json().catch(() => null);
-        alert(err?.message || 'Error al publicar.');
+        alert(friendlyCmsErrorMessage(err?.message || err?.error || 'Error al publicar.'));
       }
     } catch (err) {
       console.error('Error publicando:', err);

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CmsPostForm from './cms-post-form';
 
@@ -31,9 +31,51 @@ vi.mock('./cms-media-selector-modal', () => ({
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('CmsPostForm scheduling', () => {
+  it('publishes a new post after autosave has already created the draft', async () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi.fn(async (url) => {
+      const urlText = String(url);
+
+      if (urlText.includes('/workflow')) {
+        return {
+          ok: true,
+          json: async () => ({ data: { post: { id: 'post-autosaved', status: 'PUBLISHED' } } }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ data: { post: { id: 'post-autosaved', status: 'DRAFT' } } }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    render(<CmsPostForm categories={[]} tags={[]} media={[]} />);
+
+    fireEvent.click(screen.getByText('Asignar imagen destacada'));
+    fireEvent.click(screen.getByText('Seleccionar portada mock'));
+    fireEvent.change(screen.getByPlaceholderText(/Escribe un t.tulo/i), {
+      target: { value: 'Articulo listo para publicar' },
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2100);
+    });
+
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/api/v1/cms/posts'))).toBe(true);
+
+    fireEvent.click(screen.getByText('Publicar'));
+    fireEvent.click(screen.getByText('Aceptar'));
+
+    await act(async () => {});
+
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/workflow'))).toBe(true);
+  });
+
   it('shows a scheduling action for new posts and validates a future date before calling the API', () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
