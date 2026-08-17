@@ -52,6 +52,25 @@ async function readJsonSafe(response) {
   return response.json().catch(() => null);
 }
 
+function isNetworkFetchError(error) {
+  const message = String(error?.message || error || '');
+
+  return /failed to fetch|fetch failed|networkerror|load failed/i.test(message);
+}
+
+function redirectToLoginAfterSessionError(url) {
+  if (typeof window === 'undefined' || !String(url || '').includes('/api/v1/cms/')) {
+    return;
+  }
+
+  const next = `${window.location.pathname}${window.location.search}`;
+  const loginUrl = `/iniciar-sesion?next=${encodeURIComponent(next)}`;
+
+  window.setTimeout(() => {
+    window.location.assign(loginUrl);
+  }, 800);
+}
+
 export function friendlyCmsErrorMessage(message) {
   const text = String(message || '').trim();
 
@@ -65,6 +84,10 @@ export function friendlyCmsErrorMessage(message) {
 
   if (/missing access token|invalid or expired token/i.test(text)) {
     return 'La sesion expiro. Inicia sesion de nuevo para continuar.';
+  }
+
+  if (/failed to fetch|fetch failed|networkerror|load failed/i.test(text)) {
+    return 'No se pudo conectar con el servidor. Verifica tu conexion, inicia sesion de nuevo y vuelve a intentar.';
   }
 
   if (/insufficient permission/i.test(text)) {
@@ -84,13 +107,31 @@ export async function fetchWithCsrfRetry(apiBaseUrl, url, options = {}) {
     },
   });
 
-  let response = await request();
+  let response;
+
+  try {
+    response = await request();
+  } catch (error) {
+    if (isNetworkFetchError(error)) {
+      throw new Error(friendlyCmsErrorMessage(error.message));
+    }
+
+    throw error;
+  }
 
   if (response.status === 401 || response.status === 403) {
     const refreshed = await refreshSession(apiBaseUrl);
 
     if (refreshed) {
-      response = await request();
+      try {
+        response = await request();
+      } catch (error) {
+        if (isNetworkFetchError(error)) {
+          throw new Error(friendlyCmsErrorMessage(error.message));
+        }
+
+        throw error;
+      }
     }
   }
 
@@ -114,6 +155,10 @@ export async function fetchJsonWithCsrfRetry(apiBaseUrl, url, options = {}) {
           .join(' | ')
       : '';
     const message = friendlyCmsErrorMessage(payload?.message || payload?.error);
+
+    if (response.status === 401) {
+      redirectToLoginAfterSessionError(url);
+    }
 
     throw new Error(details ? `${message} ${details}` : message);
   }
