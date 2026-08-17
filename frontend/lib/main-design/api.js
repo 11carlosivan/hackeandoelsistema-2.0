@@ -187,7 +187,7 @@ async function fetchHomeCategorySection(category) {
   }
 
   const response = await fetchApi(`/api/v1/public/categories/${encodeURIComponent(category.slug)}/posts?${params.toString()}`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
 
   return {
@@ -229,8 +229,8 @@ async function getHomeCategorySections({ categories, posts }) {
 export async function getHomeFeed() {
   try {
     const [postsResponse, categoriesResponse, summaryResponse] = await Promise.all([
-      fetchApi('/api/v1/public/posts?limit=50', { next: { revalidate: 60 } }),
-      fetchApi('/api/v1/public/categories', { next: { revalidate: 300 } }),
+      fetchApi('/api/v1/public/posts?limit=50', { cache: 'no-store' }),
+      fetchApi('/api/v1/public/categories', { cache: 'no-store' }),
       fetchApi('/api/v1/public/site-summary', { cache: 'no-store' }),
     ]);
     const categories = categoriesResponse.data.map(mapApiCategory);

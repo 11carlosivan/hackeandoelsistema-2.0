@@ -105,7 +105,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     readTime: estimateReadingTime(post.contentText || post.excerpt),
     image: post.featuredMedia?.url || firstImageFromHtml(post.contentHtml) || FALLBACK_IMAGE,
     isHero: index === 0,
-    isFeatured: index > 0 && index < 4,
+    isFeatured: Boolean(post.isFeatured),
     related: (post.relatedPosts || []).map((relatedPost, relatedIndex) =>
       mapApiPostToArticle(relatedPost, relatedIndex + 1),
     ),

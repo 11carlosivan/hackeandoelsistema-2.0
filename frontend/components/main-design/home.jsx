@@ -21,6 +21,14 @@ export function isOpinionCategoryArticle(article) {
   return normalizeCategoryName(article?.category) === 'OPINION';
 }
 
+export function selectHomeHeroArticles(articles = []) {
+  const featuredArticles = articles.filter((article) => article?.isFeatured);
+
+  return featuredArticles.length > 0
+    ? featuredArticles
+    : articles.filter(isOpinionCategoryArticle);
+}
+
 function categorySectionsToArticleMap(sections = []) {
   return Object.fromEntries(
     sections
@@ -48,9 +56,8 @@ export default function Home({ initialArticles, initialCategories = [], initialC
     ...Object.values(loadedCategoryArticlesMap).flat(),
   ];
   
-  // Hero articles slider: strictly OPINION category articles.
-  const heroArticles = articles.filter(isOpinionCategoryArticle);
-  const actualHeroArticles = heroArticles;
+  // Hero articles slider: editorial featured posts first, then opinion fallback.
+  const actualHeroArticles = selectHomeHeroArticles(articles);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const currentHero = actualHeroArticles[currentHeroIndex] || actualHeroArticles[0];
 

@@ -63,6 +63,18 @@ describe('api-adapters', () => {
     });
   });
 
+  it('preserves the editorial featured flag from the public API', () => {
+    expect(
+      mapApiPostToArticle({
+        slug: 'post-demo',
+        title: 'Post demo',
+        isFeatured: true,
+      }),
+    ).toMatchObject({
+      isFeatured: true,
+    });
+  });
+
   it('falls back to the first safe content image for legacy imported posts', () => {
     expect(
       mapApiPostToArticle({

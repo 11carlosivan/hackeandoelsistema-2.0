@@ -733,6 +733,7 @@ function normalizePublicPost(post, options = {}) {
     postType: post.postType,
     publishedAt: post.publishedAt,
     updatedAt: post.updatedAt,
+    isFeatured: Boolean(post.isFeatured),
     viewCount: post.viewCount,
     commentCount: post.commentCount,
     likeCount: post.likeCount || 0,
