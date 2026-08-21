@@ -87,8 +87,12 @@ describe('api-adapters', () => {
     });
 
     expect(firstImageFromHtml('<img src="/uploads/post.jpg">')).toBe('/uploads/post.jpg');
-    expect(firstImageFromHtml('<img src="https://hackeandoelsistema.net/wp-content/uploads/post.jpg">')).toBeNull();
-    expect(firstImageFromHtml('<img src="/wp-content/uploads/post.jpg">')).toBeNull();
+    expect(firstImageFromHtml('<img src="https://hackeandoelsistema.net/wp-content/uploads/2026/08/post.jpg">')).toBe(
+      'https://image.hackeandoelsistema.net/uploads/2026/08/post.jpg',
+    );
+    expect(firstImageFromHtml('<img src="/wp-content/uploads/2026/08/post.jpg">')).toBe(
+      'https://image.hackeandoelsistema.net/uploads/2026/08/post.jpg',
+    );
     expect(firstImageFromHtml('<img src="data:image/png;base64,abc">')).toBeNull();
   });
 });

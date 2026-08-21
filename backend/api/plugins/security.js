@@ -83,7 +83,7 @@ export async function registerSecurityPlugins(app, env) {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net', 'https://image.hackeandoelsistema.net'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
         mediaSrc: ["'self'", 'data:', 'blob:', 'https://hackeandoelsistema.net', 'https://image.hackeandoelsistema.net'],
         frameSrc: ["'self'", 'https://www.youtube.com', 'https://youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com', 'https://www.facebook.com'],
         connectSrc: ["'self'", ...env.corsOrigins],

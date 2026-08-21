@@ -1,4 +1,5 @@
 const FALLBACK_IMAGE = '/isotipo.png';
+const LEGACY_WORDPRESS_UPLOADS_BASE = 'https://image.hackeandoelsistema.net/uploads';
 
 function decodeAttributeEntities(value) {
   return String(value || '')
@@ -20,10 +21,27 @@ export function firstImageFromHtml(html) {
   }
 
   if (imageUrl.includes('/wp-content/uploads/')) {
-    return null;
+    return rewriteWordpressUploadUrl(imageUrl);
   }
 
   return /^(?:https?:\/\/|\/)/i.test(imageUrl) ? imageUrl : null;
+}
+
+function rewriteWordpressUploadUrl(imageUrl) {
+  const marker = '/wp-content/uploads/';
+  const index = imageUrl.indexOf(marker);
+
+  if (index === -1) {
+    return null;
+  }
+
+  const relativePath = imageUrl.slice(index + marker.length).replace(/^\/+/, '');
+
+  if (!relativePath || relativePath.includes('..')) {
+    return null;
+  }
+
+  return `${LEGACY_WORDPRESS_UPLOADS_BASE}/${relativePath}`;
 }
 
 function normalizePublicPath(value) {
