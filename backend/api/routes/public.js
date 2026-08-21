@@ -541,7 +541,7 @@ function rewriteLegacyMediaUrl(config, value) {
     }
 
     const basePath = legacyBase.pathname.replace(/\/+$/g, '');
-    const legacyUploadBasePath = basePath.endsWith('/wp-content/uploads')
+    const legacyUploadBasePath = basePath.endsWith('/wp-content/uploads') || basePath.endsWith('/uploads')
       ? basePath
       : `${basePath}${WP_UPLOADS_PREFIX.slice(0, -1)}`.replace(/\/{2,}/g, '/');
     const uploadPath = url.pathname.slice(WP_UPLOADS_PREFIX.length).replace(/^\/+/g, '');
@@ -708,6 +708,56 @@ function normalizePublicMediaAsset(config, media) {
   };
 }
 
+function firstPublicImageFromHtml(config, html) {
+  const source = String(html || '');
+  const match = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i.exec(source);
+  const rawUrl = match?.[1] || match?.[2] || match?.[3];
+
+  if (!rawUrl || /^(?:data|blob|javascript):/i.test(rawUrl)) {
+    return null;
+  }
+
+  const decodedUrl = rawUrl.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  const rewrittenUrl = publicMediaUrl(config, decodedUrl);
+
+  if (rewrittenUrl && !isBrokenSameSiteWordpressMedia(config, rewrittenUrl)) {
+    return rewrittenUrl;
+  }
+
+  const marker = '/wp-content/uploads/';
+  const markerIndex = decodedUrl.indexOf(marker);
+
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  const relativePath = decodedUrl.slice(markerIndex + marker.length).replace(/^\/+/g, '');
+
+  if (!relativePath || relativePath.includes('..')) {
+    return null;
+  }
+
+  const mediaBase = String(config?.MEDIA_REMOTE_PUBLIC_BASE_URL || 'https://image.hackeandoelsistema.net').replace(/\/+$/g, '');
+
+  return `${mediaBase}/uploads/${relativePath}`;
+}
+
+function legacyFeaturedMediaFromContent(config, post) {
+  const url = firstPublicImageFromHtml(config, post.contentHtml);
+
+  if (!url) {
+    return null;
+  }
+
+  return {
+    id: `legacy-content:${post.id}`,
+    url,
+    altText: post.title,
+    width: null,
+    height: null,
+  };
+}
+
 function normalizePublicSeoMetadata(config, seoMetadata) {
   if (!seoMetadata) {
     return seoMetadata;
@@ -757,7 +807,7 @@ function normalizePublicPost(post, options = {}) {
           fullPath: primaryCategory.fullPath,
         }
       : null,
-    featuredMedia: normalizePublicMediaAsset(config, post.featuredMedia),
+    featuredMedia: normalizePublicMediaAsset(config, post.featuredMedia) || legacyFeaturedMediaFromContent(config, post),
   };
 }
 

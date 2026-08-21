@@ -785,7 +785,7 @@ describe('api app', () => {
     });
   });
 
-  it('does not expose same-site WordPress upload media when the legacy base points to the public domain', async () => {
+  it('does not expose same-site WordPress upload content media when the legacy base points to the public domain', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     const app = await buildApp({
       env: {
@@ -849,9 +849,63 @@ describe('api app', () => {
     await app.close();
 
     expect(response.statusCode, response.body).toBe(200);
-    expect(response.json().data.featuredMedia).toBeNull();
+    expect(response.json().data.featuredMedia).toMatchObject({
+      id: `legacy-content:${postId}`,
+      url: 'https://image.hackeandoelsistema.net/uploads/2026/01/sample.jpg',
+      altText: 'Sample Post',
+    });
     expect(response.json().data.contentHtml).not.toContain('/wp-content/uploads/');
     expect(response.json().data.contentJson.legacyContentHtml).not.toContain('/wp-content/uploads/');
+  });
+
+  it('derives public listing media from embedded legacy WordPress images', async () => {
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        WEB_ORIGIN: 'https://hackeandoelsistema.net',
+        LEGACY_MEDIA_BASE_URL: 'https://image.hackeandoelsistema.net/uploads',
+        MEDIA_REMOTE_PUBLIC_BASE_URL: 'https://image.hackeandoelsistema.net',
+      },
+      prisma: createPrismaStub({
+        post: {
+          findMany: async () => [
+            {
+              id: '22222222-2222-4222-8222-222222222222',
+              slug: 'legacy-image-post',
+              title: 'Legacy Image Post',
+              excerpt: 'Sample excerpt',
+              contentHtml: '<p>Sample content</p><img src="https://hackeandoelsistema.net/wp-content/uploads/2026/01/sample.jpg">',
+              postType: 'NEWS',
+              publishedAt: new Date('2026-01-01T00:00:00Z'),
+              updatedAt: new Date('2026-01-02T00:00:00Z'),
+              viewCount: 12,
+              commentCount: 0,
+              legacyUrl: '/legacy-image-post/',
+              author: null,
+              featuredMedia: null,
+              categories: [],
+            },
+          ],
+          count: async () => 1,
+          findFirst: async () => null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/public/posts?limit=12',
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data[0].featuredMedia).toMatchObject({
+      id: 'legacy-content:22222222-2222-4222-8222-222222222222',
+      url: 'https://image.hackeandoelsistema.net/uploads/2026/01/sample.jpg',
+      altText: 'Legacy Image Post',
+    });
   });
 
   it('prioritizes embedded WordPress post links as public related posts with their own media', async () => {
