@@ -25,8 +25,8 @@ export function selectHomeHeroArticles(articles = []) {
   const featuredArticles = articles.filter((article) => article?.isFeatured);
 
   return featuredArticles.length > 0
-    ? featuredArticles
-    : articles.filter(isOpinionCategoryArticle);
+    ? featuredArticles.slice(0, 5)
+    : articles.filter(isOpinionCategoryArticle).slice(0, 5);
 }
 
 function categorySectionsToArticleMap(sections = []) {
