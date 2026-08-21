@@ -9,57 +9,58 @@ describe('home opinion sections', () => {
     expect(isOpinionCategoryArticle({ category: 'CLIMA RD', postType: 'OPINION' })).toBe(false);
   });
 
-  it('uses editorial featured posts as the home hero even outside opinion', () => {
+  it('uses the latest published feed posts as the home hero even when older posts are featured', () => {
     const articles = [
-      { id: 'opinion-1', category: 'OPINION', isFeatured: false },
-      { id: 'nacional-1', category: 'NACIONALES', isFeatured: true },
-      { id: 'politica-1', category: 'POLITICA', isFeatured: true },
+      { id: 'latest-1', category: 'OPINION', isFeatured: false },
+      { id: 'latest-2', category: 'NACIONALES', isFeatured: false },
+      { id: 'older-featured', category: 'POLITICA', isFeatured: true },
     ];
 
     expect(selectHomeHeroArticles(articles).map((article) => article.id)).toEqual([
-      'nacional-1',
-      'politica-1',
+      'latest-1',
+      'latest-2',
+      'older-featured',
     ]);
   });
 
-  it('limits the home hero to the latest five featured posts', () => {
+  it('limits the home hero to the latest five published posts', () => {
     const articles = Array.from({ length: 8 }, (_, index) => ({
-      id: `featured-${index + 1}`,
+      id: `post-${index + 1}`,
       category: 'POLITICA',
-      isFeatured: true,
+      isFeatured: index > 4,
     }));
 
     expect(selectHomeHeroArticles(articles).map((article) => article.id)).toEqual([
-      'featured-1',
-      'featured-2',
-      'featured-3',
-      'featured-4',
-      'featured-5',
+      'post-1',
+      'post-2',
+      'post-3',
+      'post-4',
+      'post-5',
     ]);
   });
 
-  it('keeps opinion as the home hero fallback when no featured posts exist', () => {
+  it('does not fall back to opinion when newer non-opinion posts exist', () => {
     const articles = [
       { id: 'nacional-1', category: 'NACIONALES', isFeatured: false },
       { id: 'opinion-1', category: 'OPINION', isFeatured: false },
     ];
 
-    expect(selectHomeHeroArticles(articles).map((article) => article.id)).toEqual(['opinion-1']);
+    expect(selectHomeHeroArticles(articles).map((article) => article.id)).toEqual(['nacional-1', 'opinion-1']);
   });
 
-  it('limits the opinion fallback hero to five posts', () => {
+  it('ignores empty items while keeping the latest five valid posts', () => {
     const articles = Array.from({ length: 7 }, (_, index) => ({
-      id: `opinion-${index + 1}`,
-      category: 'OPINION',
+      id: `post-${index + 1}`,
+      category: 'NACIONALES',
       isFeatured: false,
     }));
 
-    expect(selectHomeHeroArticles(articles).map((article) => article.id)).toEqual([
-      'opinion-1',
-      'opinion-2',
-      'opinion-3',
-      'opinion-4',
-      'opinion-5',
+    expect(selectHomeHeroArticles([null, ...articles]).map((article) => article.id)).toEqual([
+      'post-1',
+      'post-2',
+      'post-3',
+      'post-4',
+      'post-5',
     ]);
   });
 });

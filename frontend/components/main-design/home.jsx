@@ -22,11 +22,7 @@ export function isOpinionCategoryArticle(article) {
 }
 
 export function selectHomeHeroArticles(articles = []) {
-  const featuredArticles = articles.filter((article) => article?.isFeatured);
-
-  return featuredArticles.length > 0
-    ? featuredArticles.slice(0, 5)
-    : articles.filter(isOpinionCategoryArticle).slice(0, 5);
+  return articles.filter(Boolean).slice(0, 5);
 }
 
 function categorySectionsToArticleMap(sections = []) {
@@ -56,10 +52,15 @@ export default function Home({ initialArticles, initialCategories = [], initialC
     ...Object.values(loadedCategoryArticlesMap).flat(),
   ];
   
-  // Hero articles slider: editorial featured posts first, then opinion fallback.
+  // Hero articles slider: latest published posts from the public feed.
   const actualHeroArticles = selectHomeHeroArticles(articles);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const currentHero = actualHeroArticles[currentHeroIndex] || actualHeroArticles[0];
+  const firstHeroArticleId = actualHeroArticles[0]?.id || '';
+
+  useEffect(() => {
+    setCurrentHeroIndex(0);
+  }, [firstHeroArticleId]);
 
   // Auto-play hero slider every 20 seconds (20,000 ms)
   useEffect(() => {
