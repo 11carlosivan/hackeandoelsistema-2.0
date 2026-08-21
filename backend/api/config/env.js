@@ -108,6 +108,8 @@ export function loadEnv(overrides = {}) {
   const rawEnv = { ...process.env, ...overrides };
   const mediaRemoteUploadUrl = rawEnv.MEDIA_REMOTE_UPLOAD_URL || rawEnv.BANAHOC_API_URL;
   const mediaRemoteSecret = rawEnv.MEDIA_REMOTE_SECRET || rawEnv.BANAHOC_UPLOAD_TOKEN;
+  const mediaRemotePublicBaseUrl = rawEnv.MEDIA_REMOTE_PUBLIC_BASE_URL?.replace(/\/+$/g, '');
+  const legacyMediaBaseUrl = rawEnv.LEGACY_MEDIA_BASE_URL || (mediaRemotePublicBaseUrl ? `${mediaRemotePublicBaseUrl}/uploads` : undefined);
   const usingBanahostEndpoint = isBanahostUploadEndpoint(mediaRemoteUploadUrl);
   const usingBanahostAlias = Boolean(rawEnv.BANAHOC_API_URL || rawEnv.BANAHOC_UPLOAD_TOKEN || usingBanahostEndpoint);
   const parsed = envSchema.safeParse({
@@ -115,6 +117,7 @@ export function loadEnv(overrides = {}) {
     API_PORT: rawEnv.API_PORT ?? rawEnv.PORT,
     MEDIA_REMOTE_UPLOAD_URL: mediaRemoteUploadUrl,
     MEDIA_REMOTE_SECRET: mediaRemoteSecret,
+    LEGACY_MEDIA_BASE_URL: legacyMediaBaseUrl,
     MEDIA_REMOTE_FILE_FIELD: rawEnv.MEDIA_REMOTE_FILE_FIELD || (usingBanahostAlias ? 'image' : undefined),
     MEDIA_REMOTE_AUTH_MODE: rawEnv.MEDIA_REMOTE_AUTH_MODE || (usingBanahostAlias ? 'bearer' : undefined),
     MEDIA_REMOTE_RESPONSE_MODE: rawEnv.MEDIA_REMOTE_RESPONSE_MODE || (usingBanahostAlias ? 'simple_url' : undefined),
