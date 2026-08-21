@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { signAccessToken } from './services/auth.js';
@@ -98,6 +101,48 @@ const testEnv = {
 };
 
 describe('api app', () => {
+  it('serves local CMS uploads through the backend without exposing paths outside the media root', async () => {
+    const uploadDir = await mkdtemp(path.join(tmpdir(), 'hes-api-media-'));
+    const nestedDir = path.join(uploadDir, '2026', '08');
+
+    await mkdir(nestedDir, { recursive: true });
+    await writeFile(path.join(nestedDir, 'probe.png'), Buffer.from('png-content'));
+
+    const app = await buildApp({
+      env: {
+        ...testEnv,
+        MEDIA_UPLOAD_DIR: uploadDir,
+      },
+      prisma: createPrismaStub(),
+      logger: false,
+    });
+
+    try {
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: '/uploads/cms/2026/08/probe.png',
+      });
+      const headResponse = await app.inject({
+        method: 'HEAD',
+        url: '/uploads/cms/2026/08/probe.png',
+      });
+      const traversalResponse = await app.inject({
+        method: 'GET',
+        url: '/uploads/cms/../secrets.txt',
+      });
+
+      expect(getResponse.statusCode, getResponse.body).toBe(200);
+      expect(getResponse.headers['content-type']).toContain('image/png');
+      expect(getResponse.body).toBe('png-content');
+      expect(headResponse.statusCode, headResponse.body).toBe(200);
+      expect(headResponse.body).toBe('');
+      expect(traversalResponse.statusCode).toBe(404);
+    } finally {
+      await app.close();
+      await rm(uploadDir, { recursive: true, force: true });
+    }
+  });
+
   it('accepts auth preflight from configured alternate origins', async () => {
     const app = await buildApp({
       env: {
