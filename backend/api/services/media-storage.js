@@ -399,10 +399,22 @@ export async function storeRemotePhpMediaUpload({ config, file, fetchImpl = glob
 
 export async function storeMediaUpload({ config, file }) {
   if (config.MEDIA_STORAGE_DRIVER === 'remote_php') {
-    return storeRemotePhpMediaUpload({ config, file });
+    try {
+      return await storeRemotePhpMediaUpload({ config, file });
+    } catch (error) {
+      if (!config.MEDIA_REMOTE_FALLBACK_TO_LOCAL || !isRecoverableRemoteMediaError(error)) {
+        throw error;
+      }
+
+      return storeLocalMediaUpload({ config, file });
+    }
   }
 
   return storeLocalMediaUpload({ config, file });
+}
+
+function isRecoverableRemoteMediaError(error) {
+  return [502, 503, 504].includes(Number(error?.statusCode));
 }
 
 export async function removeLocalMediaFile(localFilePath) {

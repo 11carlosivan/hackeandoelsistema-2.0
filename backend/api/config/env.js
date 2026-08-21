@@ -66,6 +66,7 @@ const envSchema = z.object({
   MEDIA_REMOTE_AUTH_MODE: z.enum(['signed', 'bearer']).default('signed'),
   MEDIA_REMOTE_RESPONSE_MODE: z.enum(['media_object', 'simple_url']).default('media_object'),
   MEDIA_REMOTE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(15000),
+  MEDIA_REMOTE_FALLBACK_TO_LOCAL: booleanEnv.default(false),
   BANAHOC_API_URL: optionalUrlEnv,
   BANAHOC_UPLOAD_TOKEN: optionalStringEnv,
   LEGACY_MEDIA_BASE_URL: optionalUrlEnv,
@@ -107,12 +108,15 @@ export function loadEnv(overrides = {}) {
   const rawEnv = { ...process.env, ...overrides };
   const mediaRemoteUploadUrl = rawEnv.MEDIA_REMOTE_UPLOAD_URL || rawEnv.BANAHOC_API_URL;
   const mediaRemoteSecret = rawEnv.MEDIA_REMOTE_SECRET || rawEnv.BANAHOC_UPLOAD_TOKEN;
-  const usingBanahostAlias = Boolean(rawEnv.BANAHOC_API_URL || rawEnv.BANAHOC_UPLOAD_TOKEN);
+  const usingBanahostEndpoint = isBanahostUploadEndpoint(mediaRemoteUploadUrl);
+  const usingBanahostAlias = Boolean(rawEnv.BANAHOC_API_URL || rawEnv.BANAHOC_UPLOAD_TOKEN || usingBanahostEndpoint);
   const parsed = envSchema.safeParse({
     ...rawEnv,
     API_PORT: rawEnv.API_PORT ?? rawEnv.PORT,
     MEDIA_REMOTE_UPLOAD_URL: mediaRemoteUploadUrl,
     MEDIA_REMOTE_SECRET: mediaRemoteSecret,
+    MEDIA_REMOTE_FILE_FIELD: rawEnv.MEDIA_REMOTE_FILE_FIELD || (usingBanahostAlias ? 'image' : undefined),
+    MEDIA_REMOTE_AUTH_MODE: rawEnv.MEDIA_REMOTE_AUTH_MODE || (usingBanahostAlias ? 'bearer' : undefined),
     MEDIA_REMOTE_RESPONSE_MODE: rawEnv.MEDIA_REMOTE_RESPONSE_MODE || (usingBanahostAlias ? 'simple_url' : undefined),
   });
 
@@ -132,4 +136,17 @@ export function loadEnv(overrides = {}) {
     corsOrigins,
     isProduction: parsed.data.NODE_ENV === 'production',
   };
+}
+
+function isBanahostUploadEndpoint(uploadUrl) {
+  if (!uploadUrl) {
+    return false;
+  }
+
+  try {
+    const url = new URL(uploadUrl);
+    return url.hostname === 'image.hackeandoelsistema.net' && url.pathname.endsWith('/subir.php');
+  } catch {
+    return false;
+  }
 }

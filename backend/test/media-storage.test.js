@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import {
   __mediaStorageTestUtils,
+  storeMediaUpload,
   storeRemotePhpMediaUpload,
 } from '../api/services/media-storage.js';
 
@@ -250,5 +254,45 @@ describe('remote PHP media storage', () => {
       message: 'Remote media upload timed out',
       statusCode: 503,
     });
+  });
+
+  it('falls back to local storage when the remote PHP service is unavailable and fallback is enabled', async () => {
+    const uploadDir = await mkdtemp(path.join(tmpdir(), 'hes-media-fallback-'));
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 503,
+      text: async () => 'Service Unavailable',
+    });
+
+    try {
+      const stored = await storeMediaUpload({
+        config: {
+          ...remoteConfig,
+          MEDIA_STORAGE_DRIVER: 'remote_php',
+          MEDIA_REMOTE_FALLBACK_TO_LOCAL: true,
+          MEDIA_UPLOAD_DIR: uploadDir,
+          MEDIA_PUBLIC_BASE_PATH: '/uploads/cms-test',
+        },
+        file: {
+          filename: 'Fallback CMS.png',
+          mimetype: 'image/png',
+          buffer: PNG_1X1,
+        },
+      });
+
+      expect(stored).toMatchObject({
+        disk: 'local',
+        mimeType: 'image/png',
+        fileSize: PNG_1X1.length,
+        width: 1,
+        height: 1,
+      });
+      expect(stored.url).toMatch(/^\/uploads\/cms-test\/\d{4}\/\d{2}\/fallback-cms-[a-f0-9-]+\.png$/);
+    } finally {
+      globalThis.fetch = originalFetch;
+      await rm(uploadDir, { recursive: true, force: true });
+    }
   });
 });
