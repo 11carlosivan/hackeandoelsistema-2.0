@@ -90,6 +90,17 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
+function firstUsableImageFromHtml(value) {
+  const match = String(value || '').match(/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i);
+  const rawUrl = decodeHtmlEntities(match?.[1] || match?.[2] || match?.[3] || '').trim();
+
+  if (!rawUrl || /^(?:data|blob|javascript):/i.test(rawUrl)) {
+    return '';
+  }
+
+  return /^(?:https?:\/\/|\/)/i.test(rawUrl) ? rawUrl : '';
+}
+
 function dateTimeLocalValue(value) {
   if (!value) return '';
 
@@ -449,8 +460,11 @@ export default function CmsPostForm({ categories = [], tags = [], media = [], po
   };
 
   const requiresSocialCover = (actionType) => {
+    const contentImage = firstUsableImageFromHtml(contentHtml);
+
     return visibility === 'PUBLIC' &&
       !selectedMedia?.id &&
+      !contentImage &&
       (actionType === 'PUBLISH' || actionType === 'SCHEDULE' || post?.status === 'PUBLISHED');
   };
 

@@ -270,4 +270,33 @@ describe('CmsPostForm featured media', () => {
     expect(payload.robotsIndex).toBe('INDEX');
     expect(payload.robotsFollow).toBe('FOLLOW');
   });
+
+  it('allows saving an imported published post that only has a content image', async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { post: { ...publishedPost, featuredMedia: null } } }),
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { container } = render(
+      <CmsPostForm
+        categories={[]}
+        tags={[]}
+        media={[]}
+        post={{
+          ...publishedPost,
+          featuredMedia: null,
+          contentHtml: '<p>Texto</p><img src="https://image.hackeandoelsistema.net/uploads/2026/08/cover.jpg" alt="">',
+        }}
+      />,
+    );
+
+    fireEvent.submit(container.querySelector('form'));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText(/Selecciona una imagen destacada/i)).not.toBeInTheDocument();
+  });
 });
