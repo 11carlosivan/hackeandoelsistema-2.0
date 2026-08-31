@@ -49,4 +49,9 @@ describe('client CMS security helpers', () => {
   it('maps raw Failed to fetch text consistently', () => {
     expect(friendlyCmsErrorMessage('Failed to fetch')).toContain('No se pudo conectar');
   });
+
+  it('maps remote media upload failures to an operator friendly message', () => {
+    expect(friendlyCmsErrorMessage('Remote media upload failed: 503 Service Unavailable'))
+      .toContain('almacenamiento de imagenes no esta disponible');
+  });
 });

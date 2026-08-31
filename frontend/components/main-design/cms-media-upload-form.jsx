@@ -3,7 +3,7 @@
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { fetchWithCsrfRetry } from './client-security';
+import { fetchWithCsrfRetry, friendlyCmsErrorMessage } from './client-security';
 
 export default function CmsMediaUploadForm() {
   const router = useRouter();
@@ -25,7 +25,7 @@ export default function CmsMediaUploadForm() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || 'No se pudo subir el archivo.');
+        throw new Error(friendlyCmsErrorMessage(payload?.message || payload?.error || 'No se pudo subir el archivo.'));
       }
 
       form.reset();

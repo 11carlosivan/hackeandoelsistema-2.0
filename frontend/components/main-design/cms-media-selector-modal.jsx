@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
-import { fetchWithCsrfRetry } from './client-security';
+import { fetchWithCsrfRetry, friendlyCmsErrorMessage } from './client-security';
 
 function formatBytes(bytes) {
   const value = Number(bytes || 0);
@@ -94,7 +94,7 @@ function UploadDropzone({ onUploaded }) {
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(payload?.message || payload?.error || 'No se pudo subir la imagen.');
+        throw new Error(friendlyCmsErrorMessage(payload?.message || payload?.error || 'No se pudo subir la imagen.'));
       }
 
       const item = payload?.data?.media || payload?.media || payload?.data;

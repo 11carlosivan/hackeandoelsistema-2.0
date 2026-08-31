@@ -86,6 +86,10 @@ export function friendlyCmsErrorMessage(message) {
     return 'La sesion expiro. Inicia sesion de nuevo para continuar.';
   }
 
+  if (/remote media upload|remote media storage|media upload timed out|almacenamiento.*media/i.test(text)) {
+    return 'El almacenamiento de imagenes no esta disponible ahora mismo. Intenta nuevamente en unos minutos o avisa para revisar el servidor de imagenes.';
+  }
+
   if (/failed to fetch|fetch failed|networkerror|load failed/i.test(text)) {
     return 'No se pudo conectar con el servidor. Verifica tu conexion, inicia sesion de nuevo y vuelve a intentar.';
   }
