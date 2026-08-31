@@ -1336,6 +1336,7 @@ describe('api app', () => {
     let createdView = null;
     const tx = {
       postView: {
+        findFirst: async () => null,
         create: async ({ data }) => {
           createdView = data;
           return { id: 'view-1' };
@@ -1391,6 +1392,72 @@ describe('api app', () => {
     expect(response.json().data).toMatchObject({
       postId,
       viewCount: 13,
+      counted: true,
+    });
+  });
+
+  it('does not increment public post views repeatedly for the same recent visitor', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let createdView = false;
+    let incrementedViewCount = false;
+    const tx = {
+      postView: {
+        findFirst: async ({ where }) => {
+          expect(where).toMatchObject({
+            postId,
+          });
+          expect(where.viewedAt.gte).toBeInstanceOf(Date);
+          return { id: 'recent-view-1' };
+        },
+        create: async () => {
+          createdView = true;
+          return { id: 'view-2' };
+        },
+      },
+      post: {
+        update: async () => {
+          incrementedViewCount = true;
+          return { viewCount: 13 };
+        },
+      },
+    };
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async (callback) => callback(tx),
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  viewCount: 12,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/view`,
+      headers: {
+        'user-agent': 'vitest',
+        referer: 'https://hackeandoelsistema.net/sample-post/',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(createdView).toBe(false);
+    expect(incrementedViewCount).toBe(false);
+    expect(response.json().data).toMatchObject({
+      postId,
+      viewCount: 12,
+      counted: false,
     });
   });
 

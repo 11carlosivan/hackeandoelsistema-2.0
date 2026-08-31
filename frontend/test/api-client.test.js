@@ -110,7 +110,7 @@ describe('public API client', () => {
 
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://api.example.test/api/v1/public/posts?limit=50',
-      expect.objectContaining({ next: { revalidate: 60 } }),
+      expect.objectContaining({ cache: 'no-store' }),
     );
   });
 

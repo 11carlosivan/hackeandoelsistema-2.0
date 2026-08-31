@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { articles as fallbackArticles, opinions, authors } from '@/lib/main-design/mock-data';
 import { mapApiPostToArticle } from '@/lib/main-design/api-adapters';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from './client-security';
 import SafeImage from './safe-image';
 
 function normalizeCategoryName(value) {
@@ -41,7 +40,7 @@ function categorySectionsToMetaMap(sections = []) {
   );
 }
 
-export default function Home({ initialArticles, initialCategories = [], initialCategorySections = [], summary = null, useMockFallback = true }) {
+export default function Home({ initialArticles, initialCategories = [], initialCategorySections = [], useMockFallback = true }) {
   const router = useRouter();
   const [loadedCategoryArticlesMap, setLoadedCategoryArticlesMap] = useState(() => categorySectionsToArticleMap(initialCategorySections));
   const [categoryMetaMap, setCategoryMetaMap] = useState(() => categorySectionsToMetaMap(initialCategorySections));
@@ -71,10 +70,6 @@ export default function Home({ initialArticles, initialCategories = [], initialC
     return () => clearInterval(interval);
   }, [actualHeroArticles.length]);
 
-  // Likes state map for feed items
-  const [likedArticles, setLikedArticles] = useState({});
-  const [articleLikeCounts, setArticleLikeCounts] = useState({});
-
   // Pagination state per category for the main categories section
   const [categoryPageMap, setCategoryPageMap] = useState({});
 
@@ -89,7 +84,7 @@ export default function Home({ initialArticles, initialCategories = [], initialC
           const parsed = JSON.parse(stored);
           setHomeConfig(parsed);
         }
-      } catch (_) {}
+    } catch {}
     };
 
     loadHomeConfig();
@@ -105,13 +100,19 @@ export default function Home({ initialArticles, initialCategories = [], initialC
   }, []);
 
   // Extract unique categories from articles and initialCategories (excluding OPINIÓN)
+  const configuredHomeCategoryNames = initialCategories
+    .filter((category) => category?.showOnHome)
+    .map((category) => category.title || category.name || category.slug)
+    .filter(Boolean);
   const defaultCategoryNames = [
     ...new Set(
-      [
-        ...(initialCategories.map((c) => c.title || c.name)),
-        ...articles.map((a) => a.category),
-        'POLÍTICA', 'NACIONALES', 'TECNOLOGÍA', 'INTERNACIONAL', 'INVESTIGACIÓN'
-      ]
+      (configuredHomeCategoryNames.length > 0
+        ? configuredHomeCategoryNames
+        : [
+            ...(initialCategories.map((c) => c.title || c.name)),
+            ...articles.map((a) => a.category),
+            'POLÍTICA', 'NACIONALES', 'TECNOLOGÍA', 'INTERNACIONAL', 'INVESTIGACIÓN',
+          ])
         .filter(Boolean)
         .map((c) => c.toUpperCase())
         .filter((c) => c !== 'OPINIÓN' && c !== 'OPINION')
@@ -226,53 +227,6 @@ export default function Home({ initialArticles, initialCategories = [], initialC
   const allOpinions = formattedArticleOpinions.length > 0
     ? formattedArticleOpinions.slice(0, 6)
     : formattedMockOpinions.slice(0, 3);
-
-  const toggleLike = async (article, e) => {
-    e.stopPropagation();
-    const articleKey = article.id;
-    const postId = article.raw?.id;
-    const nextLiked = !likedArticles[articleKey];
-
-    setLikedArticles(prev => ({
-      ...prev,
-      [articleKey]: nextLiked
-    }));
-
-    if (!postId) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`${getClientApiBaseUrl()}/api/v1/public/posts/id/${encodeURIComponent(postId)}/like`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...csrfHeaders(),
-        },
-        body: JSON.stringify({ liked: nextLiked }),
-      });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.message || 'No se pudo registrar el like.');
-      }
-
-      setLikedArticles(prev => ({
-        ...prev,
-        [articleKey]: Boolean(payload.data?.liked),
-      }));
-      setArticleLikeCounts(prev => ({
-        ...prev,
-        [articleKey]: Number(payload.data?.likeCount ?? article.likeCount ?? 0),
-      }));
-    } catch {
-      setLikedArticles(prev => ({
-        ...prev,
-        [articleKey]: !nextLiked,
-      }));
-    }
-  };
 
   const formatRelativeTime = (value) => {
     const publishedAt = value ? new Date(value) : null;

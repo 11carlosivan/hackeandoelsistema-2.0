@@ -3,7 +3,7 @@ import Layout from './layout';
 
 async function loadNavigationCategories() {
   try {
-    return await getPublicCategories();
+    return await getPublicCategories({ menuOnly: true });
   } catch {
     return [];
   }

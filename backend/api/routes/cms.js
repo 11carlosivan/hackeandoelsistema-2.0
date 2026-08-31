@@ -3371,6 +3371,7 @@ export async function registerCmsRoutes(app) {
     }
 
     const post = await app.prisma.$transaction(async (tx) => {
+      const now = new Date();
       const updatedPost = await tx.post.update({
         where: { id },
         data,
@@ -3418,7 +3419,17 @@ export async function registerCmsRoutes(app) {
           },
           data: {
             path: `/${data.slug}/`,
-            lastmodAt: new Date(),
+            lastmodAt: now,
+          },
+        });
+      } else if (existingPost.status === 'PUBLISHED') {
+        await tx.route.updateMany({
+          where: {
+            entityType: 'POST',
+            entityId: id,
+          },
+          data: {
+            lastmodAt: now,
           },
         });
       }

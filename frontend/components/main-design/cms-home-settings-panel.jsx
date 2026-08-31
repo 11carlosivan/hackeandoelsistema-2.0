@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SystemPageHeader } from '@/components/main-design/content-primitives';
-import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
-import { csrfHeaders } from '@/components/main-design/client-security';
 
 const LAYOUT_OPTIONS = [
   {
@@ -30,7 +28,7 @@ const LAYOUT_OPTIONS = [
   }
 ];
 
-export default function CmsHomeSettingsPanel({ allCategories = [], accessToken = null }) {
+export default function CmsHomeSettingsPanel({ allCategories = [] }) {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [categoryLayouts, setCategoryLayouts] = useState({});
   const [savedMessage, setSavedMessage] = useState('');
@@ -54,7 +52,7 @@ export default function CmsHomeSettingsPanel({ allCategories = [], accessToken =
         });
         setCategoryLayouts(initialLayouts);
       }
-    } catch (_) {}
+    } catch {}
   }, []);
 
   const handleToggleCategory = (catName) => {

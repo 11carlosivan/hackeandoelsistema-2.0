@@ -2015,9 +2015,10 @@ describe('cms routes', () => {
   it('allows managers to edit published posts', async () => {
     const user = createAuthUser();
     const access = await signAccessToken({ config: testEnv, user });
+    const routeUpdateManyCalls = [];
     const app = await buildApp({
       env: testEnv,
-      prisma: createPrismaStub(user, { postStatus: 'PUBLISHED' }),
+      prisma: createPrismaStub(user, { postStatus: 'PUBLISHED', routeUpdateManyCalls }),
       logger: false,
     });
 
@@ -2036,6 +2037,17 @@ describe('cms routes', () => {
 
     expect(response.statusCode, response.body).toBe(200);
     expect(response.json().data.post.title).toBe('Published updated');
+    expect(routeUpdateManyCalls).toContainEqual(
+      expect.objectContaining({
+        where: {
+          entityType: 'POST',
+          entityId: '22222222-2222-4222-8222-222222222222',
+        },
+        data: expect.objectContaining({
+          lastmodAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 
   it('submits a draft post to editorial review', async () => {

@@ -20,14 +20,25 @@ function normalizeCategoryPath(category) {
   return '/archivo';
 }
 
-function buildNavigation(categories = []) {
-  const categoryLinks = categories
+export function buildNavigation(categories = []) {
+  const menuCategories = categories.some((category) => category?.showInMenu)
+    ? categories.filter((category) => category?.showInMenu)
+    : categories;
+  const seenPaths = new Set();
+  const categoryLinks = menuCategories
     .filter((category) => category?.slug || category?.fullPath)
-    .slice(0, 8)
     .map((category) => ({
       name: (category.title || category.name || category.slug).toUpperCase(),
       path: normalizeCategoryPath(category),
-    }));
+    }))
+    .filter((category) => {
+      if (seenPaths.has(category.path)) {
+        return false;
+      }
+      seenPaths.add(category.path);
+      return true;
+    })
+    .slice(0, 10);
 
   return [
     { name: 'INICIO', path: '/' },
@@ -100,7 +111,7 @@ export default function Header({ categories = [] }) {
       if (isAuth && storedProfile) {
         setCurrentUser(JSON.parse(storedProfile));
       }
-    } catch (_) {}
+    } catch {}
   }, []);
 
   useEffect(() => {

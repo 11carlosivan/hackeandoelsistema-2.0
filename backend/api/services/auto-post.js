@@ -15,7 +15,7 @@ const IMAGE_MIME_EXTENSIONS = new Map([
   ['image/webp', 'webp'],
   ['image/gif', 'gif'],
 ]);
-const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.6-flash';
+const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.7-flash';
 const DEFAULT_CONFIG = {
   sources: '',
   aiProvider: 'gemini',
@@ -609,7 +609,13 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
       ) || categories[0];
       const imageUrl = await extractImage(article.url, article.rawContent);
       const media = await createAutoPostMedia(app, { imageUrl, slug, title: generated.title });
-      const status = config.postStatus === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
+      const requestedPublished = config.postStatus === 'PUBLISHED';
+      const status = requestedPublished && media?.id ? 'PUBLISHED' : 'DRAFT';
+      const publishedAt = status === 'PUBLISHED' ? new Date() : null;
+
+      if (requestedPublished && !media?.id) {
+        results.errors.push(`"${generated.title}" quedo en borrador porque no tiene portada valida.`);
+      }
 
       const post = await app.prisma.$transaction(async (tx) => {
         const createdPost = await tx.post.create({
@@ -624,17 +630,31 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
             status,
             postType: 'NEWS',
             visibility: 'PUBLIC',
-            publishedAt: status === 'PUBLISHED' ? new Date() : null,
+            publishedAt,
+            publishedGmtAt: publishedAt,
           },
         });
+        const isPublished = status === 'PUBLISHED';
 
-        await tx.route.create({
+        const route = await tx.route.create({
           data: {
             path: `/${slug}/`,
             entityType: 'POST',
             entityId: createdPost.id,
-            status: 'ACTIVE',
+            status: isPublished ? 'ACTIVE' : 'GONE',
+            httpStatus: isPublished ? 200 : 404,
+            includeInSitemap: isPublished,
             lastmodAt: new Date(),
+          },
+        });
+
+        await tx.seoMetadata.create({
+          data: {
+            routeId: route.id,
+            title: generated.title,
+            description: generated.summary || null,
+            robotsIndex: isPublished ? 'INDEX' : 'NOINDEX',
+            robotsFollow: 'FOLLOW',
           },
         });
 
@@ -653,7 +673,7 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
 
       nextProcessedHashes.push(article.hash);
       results.success += 1;
-      results.createdPosts.push({ id: post.id, title: post.title, slug: post.slug });
+      results.createdPosts.push({ id: post.id, title: post.title, slug: post.slug, status: post.status });
     } catch (error) {
       results.errors.push(`Error en "${article.title}": ${error.message}`);
     }

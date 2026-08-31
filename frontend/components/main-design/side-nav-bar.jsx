@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import { systemStats } from '@/lib/main-design/mock-data';
 
+const YOUTUBE_CHANNEL_ID = 'UCPO4ECcCtQNLPe11a0k5n2w';
+const YOUTUBE_UPLOADS_PLAYLIST_ID = `UU${YOUTUBE_CHANNEL_ID.slice(2)}`;
+
 export default function SideNavBar() {
   const router = useRouter();
   const [poll, setPoll] = useState(systemStats.activePoll);
@@ -137,11 +140,10 @@ export default function SideNavBar() {
               </span>
             </div>
 
-            {/* Official YouTube Playlist Auto-Play Player */}
             <div className="relative w-full aspect-video bg-black border border-white/10 overflow-hidden group-hover:border-system-red transition-colors shadow-lg">
               <iframe
-                src="https://www.youtube-nocookie.com/embed/videoseries?list=PLuQz2sA-mNvuo6MF6SND1OtMCqIM598s-&autoplay=1&mute=1&enablejsapi=1"
-                title="HES TV: Reporte - Lista de Reproducción Oficial"
+                src={`https://www.youtube-nocookie.com/embed/videoseries?list=${YOUTUBE_UPLOADS_PLAYLIST_ID}&autoplay=1&mute=1&enablejsapi=1`}
+                title="HES TV: Reporte - Videos recientes"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
                 className="w-full h-full border-0"
@@ -149,12 +151,12 @@ export default function SideNavBar() {
             </div>
 
             <a
-              href="https://youtube.com/playlist?list=PLuQz2sA-mNvuo6MF6SND1OtMCqIM598s-&si=aUYQeY4qvbfZuFKa"
+              href="https://www.youtube.com/@hackeandoelsistemaTV/videos"
               target="_blank"
               rel="noreferrer"
               className="text-[10px] text-system-red font-mono font-bold hover:underline flex items-center justify-between pt-1 uppercase"
             >
-              <span>Ir al canal / lista oficial ↗</span>
+              <span>Ir al canal oficial ↗</span>
               <span className="material-symbols-outlined text-[14px]">open_in_new</span>
             </a>
           </div>

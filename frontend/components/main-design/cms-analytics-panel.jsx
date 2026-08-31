@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SystemPageHeader } from '@/components/main-design/content-primitives';
 import { getApiBaseUrl } from '@/lib/main-design/api';
@@ -41,7 +41,7 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
   const [rankingsData, setRankingsData] = useState(initialSummary?.rankingsData || null);
   const [loading, setLoading] = useState(false);
 
-  const fetchRankings = async (period) => {
+  const fetchRankings = useCallback(async (period) => {
     setActivePeriod(period);
     setLoading(true);
     try {
@@ -62,19 +62,17 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
 
   useEffect(() => {
     if (!initialSummary?.rankingsData) {
       fetchRankings('day');
     }
-  }, []);
+  }, [fetchRankings, initialSummary?.rankingsData]);
 
   const rankings = rankingsData?.rankings || [];
   const totalPeriodVisits = rankings.reduce((sum, r) => sum + Number(r.metrics?.currentPeriodViews || 0), 0);
   const totalAllTimeVisits = rankings.reduce((sum, r) => sum + Number(r.metrics?.totalViewsAllTime || 0), 0);
-
-  const [selectedWeek, setSelectedWeek] = useState('current'); // 'current' | 'previous'
 
   const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 

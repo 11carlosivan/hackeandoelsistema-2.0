@@ -63,6 +63,7 @@ const SITEMAP_EXCLUDED_PATHS = [
 const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const PUBLIC_VISITOR_COOKIE = 'hes_public_visitor';
+const POST_VIEW_DEDUP_WINDOW_MS = 30 * 60 * 1000;
 const WP_UPLOADS_PREFIX = '/wp-content/uploads/';
 const INTERNAL_POST_LINK_EXCLUDED_SEGMENTS = new Set([
   'author',
@@ -157,33 +158,44 @@ function requestHashMeta(request) {
   };
 }
 
-async function recordPostView(app, request, postId) {
-  if (!postId || typeof app.prisma?.postView?.create !== 'function') return;
-
-  try {
-    const user = await getOptionalPublicUser(app, request);
-    const { ipHash, userAgentHash } = requestHashMeta(request);
-    const referrer = String(request.headers.referer || request.headers.referrer || '').slice(0, 768) || null;
-
-    await Promise.all([
-      app.prisma.postView.create({
-        data: {
-          postId,
-          userId: user?.id || null,
-          ipHash,
-          userAgentHash,
-          referrer,
-          viewedAt: new Date(),
-        },
-      }),
-      app.prisma.post.update({
-        where: { id: postId },
-        data: { viewCount: { increment: 1 } },
-      }),
-    ]);
-  } catch (error) {
-    app.log.warn({ error, postId }, 'Failed to record post view');
+function recentPostViewWhere({ postId, user, visitorHash, ipHash, userAgentHash, viewedAfter }) {
+  if (!postId) {
+    return null;
   }
+
+  if (user?.id) {
+    return {
+      postId,
+      userId: user.id,
+      viewedAt: {
+        gte: viewedAfter,
+      },
+    };
+  }
+
+  if (visitorHash && userAgentHash) {
+    return {
+      postId,
+      ipHash: visitorHash,
+      userAgentHash,
+      viewedAt: {
+        gte: viewedAfter,
+      },
+    };
+  }
+
+  if (ipHash && userAgentHash) {
+    return {
+      postId,
+      ipHash,
+      userAgentHash,
+      viewedAt: {
+        gte: viewedAfter,
+      },
+    };
+  }
+
+  return null;
 }
 
 async function findPublicPostForEngagement(app, postId) {
@@ -1519,8 +1531,6 @@ export async function registerPublicRoutes(app) {
       findPublicEntityRoute(app, 'POST', post.id),
     ]);
 
-    recordPostView(app, request, post.id);
-
     return {
       data: {
         ...normalizePublicPost(post, { route, config: app.config }),
@@ -1593,8 +1603,6 @@ export async function registerPublicRoutes(app) {
       findRelatedPosts(app, post),
       findPublicEntityRoute(app, 'POST', post.id),
     ]);
-
-    recordPostView(app, request, post.id);
 
     return {
       data: {
@@ -1689,32 +1697,62 @@ export async function registerPublicRoutes(app) {
     }
 
     const user = await getOptionalPublicUser(app, request);
-    ensurePublicVisitor(request, reply);
+    const visitorId = ensurePublicVisitor(request, reply);
     const { ipHash, userAgentHash } = requestHashMeta(request);
+    const visitorHash = visitorId ? engagementActorHash({ app, user, visitorId }) : null;
+    const storedIpHash = visitorHash || ipHash;
+    const referrer = String(request.headers.referer || request.headers.referrer || '').slice(0, 768) || null;
+    const viewedAfter = new Date(Date.now() - POST_VIEW_DEDUP_WINDOW_MS);
 
     const updatedPost = await app.prisma.$transaction(async (tx) => {
+      const recentViewWhere = recentPostViewWhere({
+        postId: id,
+        user,
+        visitorHash,
+        ipHash,
+        userAgentHash,
+        viewedAfter,
+      });
+
+      if (
+        recentViewWhere &&
+        typeof tx.postView?.findFirst === 'function' &&
+        await tx.postView.findFirst({ where: recentViewWhere, select: { id: true } })
+      ) {
+        return {
+          viewCount: post.viewCount,
+          counted: false,
+        };
+      }
+
       await tx.postView.create({
         data: {
           postId: id,
           userId: user?.id || null,
-          ipHash,
+          ipHash: storedIpHash,
           userAgentHash,
-          referrer: String(request.headers.referer || request.headers.referrer || '').slice(0, 768) || null,
+          referrer,
           viewedAt: new Date(),
         },
       });
 
-      return tx.post.update({
+      const nextPost = await tx.post.update({
         where: { id },
         data: { viewCount: { increment: 1 } },
         select: { viewCount: true },
       });
+
+      return {
+        viewCount: nextPost.viewCount,
+        counted: true,
+      };
     });
 
     return {
       data: {
         postId: id,
         viewCount: updatedPost.viewCount,
+        counted: updatedPost.counted,
       },
     };
   });

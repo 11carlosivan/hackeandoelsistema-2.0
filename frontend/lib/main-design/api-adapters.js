@@ -221,7 +221,6 @@ export function mapApiSummary(summary) {
     latestImportRun: summary.latestImportRun,
     rankingsData: summary.rankingsData || null,
     recentPosts: (summary.recentPosts || []).map(mapApiPostToArticle),
-    rankingsData: summary.rankingsData || null,
   };
 }
 

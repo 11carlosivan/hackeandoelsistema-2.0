@@ -52,40 +52,6 @@ export default function CmsDashboard({ summary, accessToken = null }) {
   const viewer = summary?.viewer;
   const hasError = Boolean(summary?.error);
 
-  const [rankingPeriod, setRankingPeriod] = useState('week');
-  const [rankingsData, setRankingsData] = useState(summary?.rankingsData || null);
-  const [rankingLoading, setRankingLoading] = useState(false);
-
-  const fetchRankings = async (period) => {
-    setRankingPeriod(period);
-    setRankingLoading(true);
-    try {
-      const apiBaseUrl = getApiBaseUrl();
-      const response = await fetchWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}/api/v1/cms/analytics/rankings?period=${period}&limit=10`, {
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-      });
-      if (response.ok) {
-        const payload = await response.json();
-        setRankingsData(payload.data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setRankingLoading(false);
-    }
-  };
-
-  const periodLabels = {
-    day: 'Hoy (24h)',
-    week: 'Esta Semana (7d)',
-    month: 'Este Mes (30d)',
-    year: 'Este Año (365d)',
-  };
-
   return (
     <div className="w-full bg-background text-on-surface">
       <SystemPageHeader

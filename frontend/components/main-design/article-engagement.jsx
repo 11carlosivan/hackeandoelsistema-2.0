@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import AuthModal from '@/components/user/AuthModal';
 import { fetchWithCsrfRetry } from './client-security';
-import VerifiedBadge from '@/components/user/VerifiedBadge';
 
 function safeCount(value) {
   const number = Number(value || 0);
@@ -54,24 +53,6 @@ export default function ArticleEngagement({ article }) {
   const [status, setStatus] = useState('');
   const [commentStatus, setCommentStatus] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-
-  // Lista de comentarios de ejemplo con insignia de verificado
-  const [commentsList, setCommentsList] = useState([
-    {
-      id: 'c1',
-      authorName: 'Carlos Iván',
-      isVerified: true,
-      date: 'Hace 2 horas',
-      body: 'Excelente análisis del tema. Es fundamental mantener informada a la ciudadanía.',
-    },
-    {
-      id: 'c2',
-      authorName: 'Ana María',
-      isVerified: true,
-      date: 'Hace 5 horas',
-      body: 'Totalmente de acuerdo con los puntos planteados en el artículo.',
-    }
-  ]);
 
   useEffect(() => {
     if (!postId) return;
@@ -210,15 +191,10 @@ export default function ArticleEngagement({ article }) {
   const submitComment = async (event) => {
     event.preventDefault();
     if (!postId || submittingComment) return;
-    if (!requireAuth('comentar')) return;
-
     if (!requireAuth('dejar comentarios')) return;
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const commentBody = String(formData.get('body') || '').trim();
-    const authorName = String(formData.get('authorName') || '').trim() || 'Lector Registrado';
-
     const payload = {
       body: String(formData.get('body') || '').trim(),
     };
@@ -231,18 +207,6 @@ export default function ArticleEngagement({ article }) {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-
-      // Agregar comentario a la lista local con badge de verificado
-      setCommentsList((prev) => [
-        {
-          id: `comment-${Date.now()}`,
-          authorName,
-          isVerified: true,
-          date: 'Ahora mismo',
-          body: commentBody,
-        },
-        ...prev,
-      ]);
 
       form.reset();
       setCommentStatus(response.data?.moderation?.message || 'Comentario publicado con éxito.');

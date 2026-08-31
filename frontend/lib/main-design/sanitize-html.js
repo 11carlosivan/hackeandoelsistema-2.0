@@ -37,7 +37,7 @@ const EDITORIAL_HTML_OPTIONS = {
     source: ['http', 'https'],
     iframe: ['http', 'https'],
   },
-  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'player.vimeo.com', 'www.facebook.com'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'youtube-nocookie.com', 'player.vimeo.com', 'www.facebook.com'],
   transformTags: {
     a: (tagName, attribs) => {
       const href = attribs.href || '';

@@ -64,4 +64,12 @@ describe('sanitizeEditorialHtml', () => {
     expect(html).toContain('allowfullscreen');
     expect(html).not.toContain('wp-block-embed__wrapper');
   });
+
+  it('keeps already normalized YouTube no-cookie embeds playable', () => {
+    const html = sanitizeEditorialHtml(`
+      <iframe src="https://youtube-nocookie.com/embed/dQw4w9WgXcQ" title="Video"></iframe>
+    `);
+
+    expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+  });
 });

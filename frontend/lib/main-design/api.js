@@ -205,12 +205,16 @@ async function getHomeCategorySections({ categories, posts }) {
       .filter(Boolean),
   );
   const priorityCategoryNames = new Set(PRIORITY_HOME_CATEGORIES);
-  const selected = categories
-    .filter((category) => (
-      category.showOnHome ||
-      postCategoryNames.has(normalizeCategoryName(category.name || category.title || category.slug)) ||
-      priorityCategoryNames.has(normalizeCategoryName(category.name || category.title || category.slug))
-    ))
+  const configuredHomeCategories = categories.filter((category) => category.showOnHome);
+  const sourceCategories = configuredHomeCategories.length > 0 ? configuredHomeCategories : categories;
+  const selected = sourceCategories
+    .filter((category) => {
+      const normalizedName = normalizeCategoryName(category.name || category.title || category.slug);
+
+      return configuredHomeCategories.length > 0 ||
+        postCategoryNames.has(normalizedName) ||
+        priorityCategoryNames.has(normalizedName);
+    })
     .slice(0, HOME_CATEGORY_PREFETCH_LIMIT);
 
   const sections = await Promise.all(
