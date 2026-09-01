@@ -12,6 +12,7 @@ const MIME_EXTENSIONS = new Map([
   ['image/webp', 'webp'],
   ['image/gif', 'gif'],
 ]);
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
 function argValue(name, fallback = null) {
   const prefix = `--${name}=`;
@@ -120,6 +121,28 @@ function fileNameForMime(sourceUrl, mimeType, fallback) {
   }
 
   return `${path.basename(originalName, path.extname(originalName)) || fallback}.${extension}`;
+}
+
+function isLikelyImageMedia(media) {
+  if (String(media.mimeType || '').toLowerCase().startsWith('image/')) {
+    return true;
+  }
+
+  for (const candidate of [media.originalUrl, media.url, media.legacyGuid, media.path]) {
+    try {
+      const url = String(candidate || '').startsWith('/')
+        ? new URL(String(candidate), DEFAULT_SITE_URL)
+        : new URL(String(candidate || ''));
+
+      if (IMAGE_EXTENSIONS.has(path.extname(url.pathname).toLowerCase())) {
+        return true;
+      }
+    } catch {
+      // Ignore malformed legacy values and keep checking the next candidate.
+    }
+  }
+
+  return false;
 }
 
 function sourceUrlForMedia(media) {
@@ -280,7 +303,6 @@ async function collectFeaturedMedia(prisma, limit) {
   return prisma.mediaAsset.findMany({
     where: {
       disk: { not: 'local' },
-      mimeType: { startsWith: 'image/' },
       featuredPosts: {
         some: {
           status: 'PUBLISHED',
@@ -346,6 +368,7 @@ async function runQueue(items, worker, concurrency) {
 async function main() {
   const apply = hasFlag('apply');
   const includeContentFallbacks = hasFlag('promote-content');
+  const detachMissingFeatured = hasFlag('detach-missing');
   const limit = limitArg();
   const concurrency = numberArg('concurrency', 4);
   const timeoutMs = numberArg('timeout-ms', 20000);
@@ -354,7 +377,7 @@ async function main() {
   const summary = {
     mode: apply ? 'apply' : 'dry-run',
     limit: limit || 'all',
-    featured: { scanned: 0, mirrored: 0, reused: 0, failed: 0 },
+    featured: { scanned: 0, mirrored: 0, reused: 0, detached: 0, failed: 0 },
     promotedContent: { scanned: 0, promoted: 0, reused: 0, failed: 0 },
     failures: [],
   };
@@ -367,12 +390,23 @@ async function main() {
       const sourceUrl = sourceUrlForMedia(media);
 
       if (!sourceUrl) {
+        if (apply && detachMissingFeatured) {
+          const update = await prisma.post.updateMany({
+            where: { featuredMediaId: media.id },
+            data: { featuredMediaId: null },
+          });
+          summary.featured.detached += update.count;
+        }
         summary.featured.failed += 1;
         summary.failures.push({ type: 'featured', id: media.id, error: 'No source URL' });
         return;
       }
 
       try {
+        if (!isLikelyImageMedia(media)) {
+          throw new Error(`Unsupported media type ${media.mimeType || 'unknown'}`);
+        }
+
         const result = apply
           ? await mirrorSourceToLocal(prisma, sourceUrl, {
             config,
@@ -394,6 +428,13 @@ async function main() {
           summary.featured.mirrored += 1;
         }
       } catch (error) {
+        if (apply && detachMissingFeatured) {
+          const update = await prisma.post.updateMany({
+            where: { featuredMediaId: media.id },
+            data: { featuredMediaId: null },
+          });
+          summary.featured.detached += update.count;
+        }
         summary.featured.failed += 1;
         summary.failures.push({ type: 'featured', id: media.id, sourceUrl, error: error.message });
       }
