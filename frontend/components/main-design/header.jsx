@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { getAzuraCastClientConfig } from '@/lib/main-design/azuracast';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 
 function normalizeCategoryPath(category) {
@@ -153,6 +154,8 @@ export default function Header({ categories = [] }) {
   const pathname = usePathname();
   const navigation = buildNavigation(categories);
   const activePath = normalizePath(pathname);
+  const azuraCast = getAzuraCastClientConfig();
+  const liveTransmissionHref = azuraCast.publicPageUrl || azuraCast.streamUrl;
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -211,10 +214,22 @@ export default function Header({ categories = [] }) {
 
           <div className="hidden md:flex items-center gap-6">
             <div className="flex gap-4 text-on-surface-variant font-label-caps text-label-caps tracking-widest">
-              <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-system-red scale-75 animate-pulse">rss_feed</span>
-                TRANSMISION_EN_VIVO
-              </span>
+              {liveTransmissionHref ? (
+                <a
+                  href={liveTransmissionHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 hover:text-system-red transition-colors"
+                >
+                  <span className="material-symbols-outlined text-system-red scale-75 animate-pulse">rss_feed</span>
+                  TRANSMISION_EN_VIVO
+                </a>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-system-red scale-75 animate-pulse">rss_feed</span>
+                  TRANSMISION_EN_VIVO
+                </span>
+              )}
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-system-red scale-75">public</span>
                 RED_GLOBAL_INTEL

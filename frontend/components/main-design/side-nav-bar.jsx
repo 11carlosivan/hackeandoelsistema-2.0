@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AzuraCastLiveCard from './azuracast-live-card';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import { systemStats } from '@/lib/main-design/mock-data';
 
@@ -128,39 +129,43 @@ export default function SideNavBar() {
           </div>
         </div>
 
-        <div className="group px-6 py-2 text-secondary-fixed-dim font-label-caps text-label-caps">
-          <div className="flex flex-col gap-2 w-full">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-system-red text-[20px] animate-pulse">play_circle</span>
-                <span className="text-on-surface text-[11px] tracking-wider uppercase font-bold">HES TV: Reporte</span>
+        <AzuraCastLiveCard
+          fallback={(
+            <div className="group px-6 py-2 text-secondary-fixed-dim font-label-caps text-label-caps">
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-system-red text-[20px] animate-pulse">play_circle</span>
+                    <span className="text-on-surface text-[11px] tracking-wider uppercase font-bold">HES TV: Reporte</span>
+                  </div>
+                  <span className="text-[9px] font-mono bg-system-red text-black px-1.5 py-0.5 font-bold uppercase">
+                    EN VIVO
+                  </span>
+                </div>
+
+                <div className="relative w-full aspect-video bg-black border border-white/10 overflow-hidden group-hover:border-system-red transition-colors shadow-lg">
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/videoseries?list=${YOUTUBE_UPLOADS_PLAYLIST_ID}&autoplay=1&mute=1&enablejsapi=1`}
+                    title="HES TV: Reporte - Videos recientes"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="w-full h-full border-0"
+                  />
+                </div>
+
+                <a
+                  href="https://www.youtube.com/@hackeandoelsistemaTV/videos"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] text-system-red font-mono font-bold hover:underline flex items-center justify-between pt-1 uppercase"
+                >
+                  <span>Ir al canal oficial ↗</span>
+                  <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
               </div>
-              <span className="text-[9px] font-mono bg-system-red text-black px-1.5 py-0.5 font-bold uppercase">
-                EN VIVO
-              </span>
             </div>
-
-            <div className="relative w-full aspect-video bg-black border border-white/10 overflow-hidden group-hover:border-system-red transition-colors shadow-lg">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/videoseries?list=${YOUTUBE_UPLOADS_PLAYLIST_ID}&autoplay=1&mute=1&enablejsapi=1`}
-                title="HES TV: Reporte - Videos recientes"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="w-full h-full border-0"
-              />
-            </div>
-
-            <a
-              href="https://www.youtube.com/@hackeandoelsistemaTV/videos"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[10px] text-system-red font-mono font-bold hover:underline flex items-center justify-between pt-1 uppercase"
-            >
-              <span>Ir al canal oficial ↗</span>
-              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-            </a>
-          </div>
-        </div>
+          )}
+        />
 
         <div className="px-6 py-1">
           <div className="w-full aspect-[300/250] bg-black border border-system-red/30 flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer p-4">
