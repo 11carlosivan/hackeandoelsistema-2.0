@@ -29,7 +29,7 @@ export default function AzuraCastLiveCard({ fallback = null }) {
 
     const loadNowPlaying = async () => {
       try {
-        const response = await fetch('/api/azuracast/now-playing', {
+        const response = await fetch('/azuracast/now-playing', {
           headers: { Accept: 'application/json' },
           cache: 'no-store',
         });
