@@ -29,6 +29,7 @@
     "qa:routes:smoke": "node scripts/qa/public-route-smoke.mjs",
     "ops:preflight": "node scripts/ops/preflight.mjs",
     "auth:seed-admin": "node scripts/auth/seed-admin.mjs",
+    "media:mirror-local": "node scripts/media/mirror-media-to-local.mjs",
     "media:migrate-wp-remote": "node scripts/media/migrate-wordpress-media-to-remote.mjs",
     "media:audit-wp-deps": "node scripts/media/migrate-wordpress-media-to-remote.mjs --audit-only"
   },
