@@ -71,26 +71,12 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
   }, [fetchRankings, initialSummary?.rankingsData]);
 
   const rankings = rankingsData?.rankings || [];
-  const totalPeriodVisits = rankings.reduce((sum, r) => sum + Number(r.metrics?.currentPeriodViews || 0), 0);
-  const totalAllTimeVisits = rankings.reduce((sum, r) => sum + Number(r.metrics?.totalViewsAllTime || 0), 0);
+  const totalPeriodVisits = Number(rankingsData?.totals?.currentPeriodViews || 0);
+  const totalAllTimeVisits = Number(rankingsData?.totals?.allTimeViews || 0);
 
-  const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-
-  // Dynamically map real views per day of week (Lunes - Domingo) from actual posts in database
-  const currentWeekDayVisits = [0, 0, 0, 0, 0, 0, 0];
-  const previousWeekDayVisits = [0, 0, 0, 0, 0, 0, 0];
-
-  rankings.forEach((r, idx) => {
-    const curViews = Number(r.metrics?.currentPeriodViews || 0);
-    const prevViews = Number(r.metrics?.previousPeriodViews || 0);
-    
-    // Distribute actual database views across days based on post date or rank distribution
-    const dayIdx = (idx + (r.post?.publishedAt ? new Date(r.post.publishedAt).getDay() : 0)) % 7;
-    const adjustedDayIdx = dayIdx === 0 ? 6 : dayIdx - 1; // Map JS Sunday (0) to index 6
-
-    currentWeekDayVisits[adjustedDayIdx] += curViews;
-    previousWeekDayVisits[adjustedDayIdx] += prevViews;
-  });
+  const DAYS_OF_WEEK = rankingsData?.dailyViews?.labels || ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+  const currentWeekDayVisits = rankingsData?.dailyViews?.currentWeek || DAYS_OF_WEEK.map(() => 0);
+  const previousWeekDayVisits = rankingsData?.dailyViews?.previousWeek || DAYS_OF_WEEK.map(() => 0);
 
   const daysChartData = {
     labels: DAYS_OF_WEEK,
@@ -205,7 +191,7 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
           ['Artículos Analizados', rankings.length, 'article'],
           ['Visitas Período Seleccionado', totalPeriodVisits, 'monitoring'],
           ['Visitas Históricas Totales', totalAllTimeVisits, 'visibility'],
-          ['Interacciones de Lectores', rankings.reduce((s, r) => s + (r.metrics?.commentsCount || 0), 0), 'forum'],
+          ['Interacciones de Lectores', rankings.reduce((s, r) => s + Number(r.commentsStats?.total || 0), 0), 'forum'],
         ].map(([label, value, icon]) => (
           <div key={label} className="border border-terminal-gray bg-black/30 p-5 hover:border-system-red/50 transition-colors shadow-md">
             <div className="flex items-center justify-between gap-4">
@@ -296,7 +282,7 @@ export default function CmsAnalyticsPanel({ initialSummary, accessToken }) {
                 ? 'Lecturas por noticia en el período seleccionado'
                 : 'Comparativa en paralelo entre el tráfico de la Semana Actual vs Semana Anterior'}
             </span>
-            <span className="text-system-red font-bold">Chart.js Engine Active</span>
+            <span className="text-system-red font-bold">Datos actualizados</span>
           </div>
 
           <div className="h-80 border border-terminal-gray bg-black/60 p-4 rounded-sm">

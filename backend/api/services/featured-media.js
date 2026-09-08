@@ -228,7 +228,11 @@ async function importFeaturedImageToStorage(prisma, post, imageUrl, { config, lo
   }
 }
 
-export async function ensureFeaturedMediaFromPostContent(prisma, post, { siteUrl = DEFAULT_SITE_URL, config = null, log = null } = {}) {
+export async function ensureFeaturedMediaFromPostContent(
+  prisma,
+  post,
+  { siteUrl = DEFAULT_SITE_URL, config = null, log = null, allowExternalImport = true } = {},
+) {
   if (post?.featuredMediaId) {
     return post.featuredMediaId;
   }
@@ -277,6 +281,10 @@ export async function ensureFeaturedMediaFromPostContent(prisma, post, { siteUrl
     });
 
     return media.id;
+  }
+
+  if (!allowExternalImport) {
+    return null;
   }
 
   const importedMediaId = await importFeaturedImageToStorage(prisma, post, imageUrl, { config, log });

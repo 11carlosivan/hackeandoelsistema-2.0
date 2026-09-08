@@ -260,6 +260,7 @@ async function publishDueScheduledPosts(app) {
           siteUrl: app.config.WEB_ORIGIN,
           config: app.config,
           log: app.log,
+          allowExternalImport: false,
         });
 
         if (fallbackMediaId) {

@@ -1146,6 +1146,12 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
   const durationMs = periodDurations[period] || periodDurations.week;
   const currentPeriodStart = new Date(now.getTime() - durationMs);
   const previousPeriodStart = new Date(now.getTime() - 2 * durationMs);
+  const [totalCurrentPeriodViews, totalPreviousPeriodViews, totalAllTimeViews, dailyViews] = await Promise.all([
+    getTotalPostViews(app, currentPeriodStart, now),
+    getTotalPostViews(app, previousPeriodStart, currentPeriodStart),
+    getAllTimePostViews(app),
+    getDailyPostViews(app, now),
+  ]);
 
   let currentViewsByPost = [];
   let previousViewsByPost = [];
@@ -1201,6 +1207,12 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
       period,
       periodStart: currentPeriodStart,
       previousPeriodStart,
+      totals: {
+        currentPeriodViews: totalCurrentPeriodViews,
+        previousPeriodViews: totalPreviousPeriodViews,
+        allTimeViews: totalAllTimeViews,
+      },
+      dailyViews,
       rankings: [],
     };
   }
@@ -1273,8 +1285,147 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
     period,
     periodStart: currentPeriodStart,
     previousPeriodStart,
+    totals: {
+      currentPeriodViews: totalCurrentPeriodViews,
+      previousPeriodViews: totalPreviousPeriodViews,
+      allTimeViews: totalAllTimeViews,
+    },
+    dailyViews,
     rankings,
   };
+}
+
+async function getTotalPostViews(app, start, end) {
+  if (typeof app.prisma.postView?.count !== 'function') {
+    return 0;
+  }
+
+  try {
+    return await app.prisma.postView.count({
+      where: {
+        viewedAt: {
+          gte: start,
+          lt: end,
+        },
+        post: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+      },
+    });
+  } catch (error) {
+    app.log.warn({ err: error }, 'cms total view aggregation failed');
+    return 0;
+  }
+}
+
+async function getAllTimePostViews(app) {
+  if (typeof app.prisma.post?.aggregate !== 'function') {
+    return 0;
+  }
+
+  try {
+    const result = await app.prisma.post.aggregate({
+      where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+      _sum: { viewCount: true },
+    });
+
+    return Number(result?._sum?.viewCount || 0);
+  } catch (error) {
+    app.log.warn({ err: error }, 'cms all-time view aggregation failed');
+    return 0;
+  }
+}
+
+function analyticsUtcOffsetMinutes() {
+  const rawOffset = Number.parseInt(process.env.CMS_ANALYTICS_UTC_OFFSET_MINUTES || '-240', 10);
+
+  if (!Number.isFinite(rawOffset)) {
+    return -240;
+  }
+
+  return Math.max(-720, Math.min(840, rawOffset));
+}
+
+function localWeekStartUtc(now, offsetMinutes) {
+  const offsetMs = offsetMinutes * 60 * 1000;
+  const localNow = new Date(now.getTime() + offsetMs);
+  const localDay = localNow.getUTCDay();
+  const daysSinceMonday = localDay === 0 ? 6 : localDay - 1;
+  const localWeekStartMs = Date.UTC(
+    localNow.getUTCFullYear(),
+    localNow.getUTCMonth(),
+    localNow.getUTCDate() - daysSinceMonday,
+    0,
+    0,
+    0,
+    0,
+  );
+
+  return new Date(localWeekStartMs - offsetMs);
+}
+
+function formatLocalDayKey(date, offsetMinutes) {
+  const localDate = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  const year = localDate.getUTCFullYear();
+  const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getUTCDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+async function getDailyPostViews(app, now) {
+  const labels = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+  const offsetMinutes = analyticsUtcOffsetMinutes();
+  const currentWeekStart = localWeekStartUtc(now, offsetMinutes);
+  const previousWeekStart = new Date(currentWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const nextWeekStart = new Date(currentWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const emptySeries = {
+    labels,
+    currentWeek: labels.map(() => 0),
+    previousWeek: labels.map(() => 0),
+    currentWeekStart,
+    previousWeekStart,
+    timezoneOffsetMinutes: offsetMinutes,
+  };
+
+  if (typeof app.prisma.$queryRawUnsafe !== 'function') {
+    return emptySeries;
+  }
+
+  try {
+    const rows = await app.prisma.$queryRawUnsafe(
+      `
+        SELECT DATE_FORMAT(DATE_ADD(pv.viewed_at, INTERVAL ${offsetMinutes} MINUTE), '%Y-%m-%d') AS viewDay,
+               COUNT(*) AS views
+        FROM post_views pv
+        INNER JOIN posts p ON p.id = pv.post_id
+        WHERE pv.viewed_at >= ?
+          AND pv.viewed_at < ?
+          AND p.status = 'PUBLISHED'
+          AND p.visibility = 'PUBLIC'
+        GROUP BY viewDay
+        ORDER BY viewDay ASC
+      `,
+      previousWeekStart,
+      nextWeekStart,
+    );
+    const viewsByDay = new Map(
+      rows.map((row) => [String(row.viewDay), Number(row.views || 0)]),
+    );
+
+    return {
+      ...emptySeries,
+      currentWeek: labels.map((_, index) => {
+        const date = new Date(currentWeekStart.getTime() + index * 24 * 60 * 60 * 1000);
+        return viewsByDay.get(formatLocalDayKey(date, offsetMinutes)) || 0;
+      }),
+      previousWeek: labels.map((_, index) => {
+        const date = new Date(previousWeekStart.getTime() + index * 24 * 60 * 60 * 1000);
+        return viewsByDay.get(formatLocalDayKey(date, offsetMinutes)) || 0;
+      }),
+    };
+  } catch (error) {
+    app.log.warn({ err: error }, 'cms daily view aggregation failed');
+    return emptySeries;
+  }
 }
 
 export async function registerCmsRoutes(app) {
@@ -3805,6 +3956,7 @@ export async function registerCmsRoutes(app) {
             siteUrl: app.config.WEB_ORIGIN,
             config: app.config,
             log: app.log,
+            allowExternalImport: false,
           })
         : existingPost.featuredMediaId;
 
