@@ -64,6 +64,7 @@ const SITEMAP_EXCLUDED_PREFIXES = [...SITEMAP_EXCLUDED_PATHS];
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const PUBLIC_VISITOR_COOKIE = 'hes_public_visitor';
 const POST_VIEW_DEDUP_WINDOW_MS = 30 * 60 * 1000;
+const AUTOMATED_VIEW_UA_RE = /\b(bot|crawler|spider|crawling|preview|facebookexternalhit|facebot|whatsapp|twitterbot|slackbot|discordbot|telegrambot|linkedinbot|pinterest|googlebot|google-inspectiontool|adsbot-google|mediapartners-google|bingbot|bingpreview|duckduckbot|yandexbot|applebot|ahrefsbot|semrushbot|mj12bot|bytespider|petalbot|claudebot|gptbot|curl|wget|python-requests)\b/i;
 const WP_UPLOADS_PREFIX = '/wp-content/uploads/';
 const INTERNAL_POST_LINK_EXCLUDED_SEGMENTS = new Set([
   'author',
@@ -196,6 +197,19 @@ function recentPostViewWhere({ postId, user, visitorHash, ipHash, userAgentHash,
   }
 
   return null;
+}
+
+function isAutomatedViewRequest(request) {
+  const userAgent = String(request.headers['user-agent'] || '').trim();
+  const purpose = String(request.headers.purpose || request.headers['sec-purpose'] || '').toLowerCase();
+  const fetchMode = String(request.headers['sec-fetch-mode'] || '').toLowerCase();
+  const fetchDest = String(request.headers['sec-fetch-dest'] || '').toLowerCase();
+
+  return !userAgent ||
+    AUTOMATED_VIEW_UA_RE.test(userAgent) ||
+    purpose.includes('prefetch') ||
+    fetchMode === 'prefetch' ||
+    fetchDest === 'empty' && purpose.includes('preview');
 }
 
 async function findPublicPostForEngagement(app, postId) {
@@ -1695,6 +1709,17 @@ export async function registerPublicRoutes(app) {
 
     if (!post) {
       throw app.httpErrors.notFound('Post not found');
+    }
+
+    if (isAutomatedViewRequest(request)) {
+      return {
+        data: {
+          postId: id,
+          viewCount: post.viewCount,
+          counted: false,
+          reason: 'automated_traffic',
+        },
+      };
     }
 
     const user = await getOptionalPublicUser(app, request);

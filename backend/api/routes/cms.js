@@ -1249,7 +1249,7 @@ async function getPostRankingsData(app, period = 'week', limit = 10) {
         return null;
       }
 
-      const currentPeriodViews = currentViews.get(postId) || post.viewCount || 0;
+      const currentPeriodViews = currentViews.get(postId) || 0;
       const previousPeriodViews = previousViews.get(postId) || 0;
       const percentageChange = previousPeriodViews > 0
         ? Math.round(((currentPeriodViews - previousPeriodViews) / previousPeriodViews) * 1000) / 10

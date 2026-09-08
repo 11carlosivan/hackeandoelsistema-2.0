@@ -1461,6 +1461,51 @@ describe('api app', () => {
     });
   });
 
+  it('does not count automated public post view requests', async () => {
+    const postId = '22222222-2222-4222-8222-222222222222';
+    let transactionCalled = false;
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub({
+        $transaction: async () => {
+          transactionCalled = true;
+          throw new Error('Bot traffic should not write views');
+        },
+        post: {
+          findMany: async () => [],
+          count: async () => 0,
+          findFirst: async ({ where }) =>
+            where.id === postId
+              ? {
+                  id: postId,
+                  viewCount: 12,
+                }
+              : null,
+        },
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/public/posts/id/${postId}/view`,
+      headers: {
+        'user-agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(transactionCalled).toBe(false);
+    expect(response.json().data).toMatchObject({
+      postId,
+      viewCount: 12,
+      counted: false,
+      reason: 'automated_traffic',
+    });
+  });
+
   it('requires an active account to create public comments', async () => {
     const postId = '22222222-2222-4222-8222-222222222222';
     const app = await buildApp({
