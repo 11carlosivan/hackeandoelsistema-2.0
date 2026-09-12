@@ -45,7 +45,7 @@ export async function GET() {
         'User-Agent': 'HackeandoElSistemaAzuraCast/1.0 (+https://hackeandoelsistema.net/)',
       },
       signal: controller.signal,
-      next: { revalidate: 20 },
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -63,6 +63,7 @@ export async function GET() {
 
     return jsonResponse({
       data: normalizeAzuraCastNowPlaying(payload, {
+        publicBaseUrl: process.env.NEXT_PUBLIC_AZURACAST_BASE_URL || baseUrl,
         streamUrl,
         publicPageUrl,
       }),

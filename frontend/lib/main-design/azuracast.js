@@ -46,6 +46,31 @@ function cleanPublicUrl(value) {
   }
 }
 
+function normalizeGeneratedPublicUrl(value, publicBaseUrl) {
+  const cleaned = cleanPublicUrl(value);
+  const base = cleanBaseUrl(publicBaseUrl);
+
+  if (!cleaned || !base) {
+    return cleaned;
+  }
+
+  try {
+    const url = new URL(cleaned);
+    const baseUrl = new URL(base);
+    const pointsToAzuraPort = url.port === '10080';
+
+    if (pointsToAzuraPort) {
+      url.protocol = baseUrl.protocol;
+      url.host = baseUrl.host;
+      return url.href;
+    }
+  } catch {
+    return cleaned;
+  }
+
+  return cleaned;
+}
+
 export function isAzuraCastEnabled(env = process.env) {
   return String(env.NEXT_PUBLIC_AZURACAST_ENABLED || '').toLowerCase() === 'true';
 }
@@ -95,9 +120,10 @@ export function normalizeAzuraCastNowPlaying(payload, fallback = {}) {
   const song = nowPlaying.song || {};
   const live = payload?.live || {};
   const listeners = payload?.listeners || {};
+  const publicBaseUrl = fallback.publicBaseUrl || fallback.baseUrl || '';
   const streamUrl = cleanPublicUrl(fallback.streamUrl) ||
-    cleanPublicUrl(station.listen_url) ||
-    cleanPublicUrl(station.listenUrl);
+    normalizeGeneratedPublicUrl(station.listen_url, publicBaseUrl) ||
+    normalizeGeneratedPublicUrl(station.listenUrl, publicBaseUrl);
   const title = String(song.title || '').trim();
   const artist = String(song.artist || '').trim();
   const text = String(song.text || [artist, title].filter(Boolean).join(' - ')).trim();
@@ -107,14 +133,14 @@ export function normalizeAzuraCastNowPlaying(payload, fallback = {}) {
     stationName: String(station.name || fallback.stationName || 'Hackeando el Sistema Radio').trim(),
     streamUrl,
     publicPageUrl: cleanPublicUrl(fallback.publicPageUrl) ||
-      cleanPublicUrl(station.public_player_url) ||
-      cleanPublicUrl(station.publicPlayerUrl),
+      normalizeGeneratedPublicUrl(station.public_player_url, publicBaseUrl) ||
+      normalizeGeneratedPublicUrl(station.publicPlayerUrl, publicBaseUrl),
     isLive: Boolean(live.is_live || live.isLive),
     streamerName: String(live.streamer_name || live.streamerName || '').trim(),
     title,
     artist,
     text,
-    art: cleanPublicUrl(song.art),
+    art: normalizeGeneratedPublicUrl(song.art, publicBaseUrl),
     listeners: {
       current: Number(listeners.current ?? listeners.total ?? 0),
       unique: Number(listeners.unique ?? 0),
