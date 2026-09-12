@@ -21,11 +21,6 @@ export default function RadioPage() {
   const publicPageUrl = nowPlaying?.publicPageUrl || config.publicPageUrl;
 
   useEffect(() => {
-    if (!config.enabled) {
-      setError('La transmision todavia no esta configurada.');
-      return undefined;
-    }
-
     let active = true;
 
     const loadNowPlaying = async () => {
@@ -41,8 +36,8 @@ export default function RadioPage() {
         }
 
         if (active) {
-          setNowPlaying(json.data);
-          setError('');
+          setNowPlaying(json.data.enabled === false ? null : json.data);
+          setError(json.data.enabled === false ? 'La transmision todavia no esta configurada.' : '');
         }
       } catch {
         if (active) {

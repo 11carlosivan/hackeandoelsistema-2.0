@@ -16,15 +16,12 @@ export default function AzuraCastLiveCard({ fallback = null }) {
   const audioRef = useRef(null);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState('');
   const streamUrl = nowPlaying?.streamUrl || config.streamUrl;
   const publicPageUrl = nowPlaying?.publicPageUrl || config.publicPageUrl;
 
   useEffect(() => {
-    if (!config.enabled) {
-      return undefined;
-    }
-
     let active = true;
 
     const loadNowPlaying = async () => {
@@ -36,10 +33,13 @@ export default function AzuraCastLiveCard({ fallback = null }) {
         const json = await response.json();
 
         if (active && json.data) {
-          setNowPlaying(json.data);
+          setNowPlaying(json.data.enabled === false ? null : json.data);
+          setHasLoaded(true);
+          setError(json.data.enabled === false ? 'senal no configurada' : '');
         }
       } catch {
         if (active) {
+          setHasLoaded(true);
           setError('senal no disponible');
         }
       }
@@ -54,7 +54,7 @@ export default function AzuraCastLiveCard({ fallback = null }) {
     };
   }, [config]);
 
-  if (!config.enabled) {
+  if (!config.enabled && hasLoaded && !nowPlaying) {
     return fallback;
   }
 
