@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { getAzuraCastClientConfig } from '@/lib/main-design/azuracast';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 
 function normalizeCategoryPath(category) {
@@ -154,9 +153,7 @@ export default function Header({ categories = [] }) {
   const pathname = usePathname();
   const navigation = buildNavigation(categories);
   const activePath = normalizePath(pathname);
-  const azuraCast = getAzuraCastClientConfig();
-  const liveTransmissionHref = azuraCast.enabled ? '/radio' : (azuraCast.publicPageUrl || azuraCast.streamUrl);
-  const liveTransmissionIsInternal = liveTransmissionHref?.startsWith('/');
+  const liveTransmissionHref = '/radio';
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -218,8 +215,6 @@ export default function Header({ categories = [] }) {
               {liveTransmissionHref ? (
                 <a
                   href={liveTransmissionHref}
-                  target={liveTransmissionIsInternal ? undefined : '_blank'}
-                  rel={liveTransmissionIsInternal ? undefined : 'noreferrer'}
                   className="flex items-center gap-2 hover:text-system-red transition-colors"
                 >
                   <span className="material-symbols-outlined text-system-red scale-75 animate-pulse">rss_feed</span>
@@ -365,8 +360,6 @@ export default function Header({ categories = [] }) {
               {liveTransmissionHref ? (
                 <a
                   href={liveTransmissionHref}
-                  target={liveTransmissionIsInternal ? undefined : '_blank'}
-                  rel={liveTransmissionIsInternal ? undefined : 'noreferrer'}
                   className="flex flex-1 items-center justify-center gap-2 border border-system-red bg-black py-2.5 font-label-caps text-xs font-bold text-system-red"
                 >
                   <span className="material-symbols-outlined text-[18px] animate-pulse">radio</span>
