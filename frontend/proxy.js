@@ -4,7 +4,17 @@ import { NextResponse } from 'next/server';
 const ACCESS_COOKIE = 'hes_access_token';
 const REFRESH_COOKIE = 'hes_refresh_token';
 const CMS_ROLES = new Set(['ADMIN', 'EDITOR']);
-const PUBLIC_ROUTE_SKIP_PREFIXES = ['/api/', '/_next/', '/cms/', '/social-image/'];
+const PUBLIC_ROUTE_SKIP_PREFIXES = [
+  '/api/',
+  '/_next/',
+  '/cms/',
+  '/social-image/',
+  '/azuracast/',
+  '/listen/',
+  '/public/',
+  '/static/vite_dist/',
+];
+const PUBLIC_ROUTE_SKIP_PATHS = new Set(['/radio', '/radio/']);
 
 function redirectToLogin(request) {
   const loginUrl = new URL('/iniciar-sesion', request.url);
@@ -144,12 +154,16 @@ async function authorizeCmsRequest(request) {
   return (await tryRefreshCmsSession(request, secret)) || redirectToLogin(request);
 }
 
-function shouldCheckPublicRoute(request) {
+export function shouldCheckPublicRoute(request) {
   if (!['GET', 'HEAD'].includes(request.method)) {
     return false;
   }
 
   const pathname = request.nextUrl.pathname;
+
+  if (PUBLIC_ROUTE_SKIP_PATHS.has(pathname)) {
+    return false;
+  }
 
   if (PUBLIC_ROUTE_SKIP_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return false;
