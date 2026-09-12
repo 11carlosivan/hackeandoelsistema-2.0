@@ -3,7 +3,7 @@ import RadioPage from '@/components/main-design/radio-page';
 import { buildMetadata } from '@/lib/main-design/seo';
 
 export const metadata = buildMetadata({
-  title: 'HES Radio en vivo',
+  title: 'HES En Vivo',
   description: 'Transmision en vivo de Hackeando el Sistema.',
   path: '/radio',
 });

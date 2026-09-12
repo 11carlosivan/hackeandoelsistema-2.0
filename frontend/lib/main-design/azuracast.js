@@ -126,11 +126,12 @@ export function normalizeAzuraCastNowPlaying(payload, fallback = {}) {
     normalizeGeneratedPublicUrl(station.listenUrl, publicBaseUrl);
   const title = String(song.title || '').trim();
   const artist = String(song.artist || '').trim();
-  const text = String(song.text || [artist, title].filter(Boolean).join(' - ')).trim();
+  const rawText = String(song.text || [artist, title].filter(Boolean).join(' - ')).trim();
+  const text = rawText.toLowerCase() === 'station offline' ? 'Senal en espera' : rawText;
 
   return {
     enabled: true,
-    stationName: String(station.name || fallback.stationName || 'Hackeando el Sistema Radio').trim(),
+    stationName: String(station.name || fallback.stationName || 'Hackeando el Sistema En Vivo').trim(),
     streamUrl,
     publicPageUrl: cleanPublicUrl(fallback.publicPageUrl) ||
       normalizeGeneratedPublicUrl(station.public_player_url, publicBaseUrl) ||

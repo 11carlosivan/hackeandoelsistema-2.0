@@ -8,7 +8,7 @@ function stationLabel(nowPlaying) {
     return `EN VIVO: ${nowPlaying.streamerName}`;
   }
 
-  return nowPlaying?.stationName || 'HES Radio';
+  return nowPlaying?.stationName || 'HES En Vivo';
 }
 
 export default function AzuraCastLiveCard({ fallback = null }) {
@@ -87,11 +87,11 @@ export default function AzuraCastLiveCard({ fallback = null }) {
           <div className="flex items-center gap-2 min-w-0">
             <span className="material-symbols-outlined text-system-red text-[20px] animate-pulse">radio</span>
             <span className="text-on-surface text-[11px] tracking-wider uppercase font-bold truncate">
-              TRANSMISION EN VIVO
+              SENAL EN VIVO
             </span>
           </div>
           <span className="text-[9px] font-mono bg-system-red text-black px-1.5 py-0.5 font-bold uppercase">
-            RADIO
+            AUDIO
           </span>
         </div>
 

@@ -73,4 +73,20 @@ describe('azuracast helpers', () => {
       },
     });
   });
+
+  it('uses public language when AzuraCast reports an offline station', () => {
+    const payload = normalizeAzuraCastNowPlaying({
+      station: {},
+      now_playing: {
+        song: {
+          text: 'Station Offline',
+        },
+      },
+    });
+
+    expect(payload).toMatchObject({
+      stationName: 'Hackeando el Sistema En Vivo',
+      text: 'Senal en espera',
+    });
+  });
 });

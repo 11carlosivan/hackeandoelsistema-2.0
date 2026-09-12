@@ -8,7 +8,7 @@ function getStatusLabel(nowPlaying) {
     return `EN VIVO: ${nowPlaying.streamerName}`;
   }
 
-  return nowPlaying?.stationName || 'Hackeando el Sistema Radio';
+  return nowPlaying?.stationName || 'Hackeando el Sistema En Vivo';
 }
 
 export default function RadioPage() {
@@ -87,10 +87,10 @@ export default function RadioPage() {
           </div>
 
           <h1 className="font-headline-xl text-4xl uppercase leading-none text-white md:text-6xl">
-            HES Radio
+            HES En Vivo
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-7 text-on-surface-variant md:text-base">
-            Escucha la senal oficial de Hackeando el Sistema directamente desde este dominio.
+            Conectate a la senal oficial de Hackeando el Sistema directamente desde este dominio.
           </p>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -103,7 +103,7 @@ export default function RadioPage() {
               <span className="material-symbols-outlined text-[20px]">
                 {isPlaying ? 'pause' : 'play_arrow'}
               </span>
-              {isPlaying ? 'Pausar senal' : 'Escuchar ahora'}
+                {isPlaying ? 'Pausar senal' : 'Escuchar ahora'}
             </button>
 
             {publicPageUrl ? (
@@ -161,8 +161,8 @@ export default function RadioPage() {
                   <div className="mt-1 font-label-caps text-[9px]">Unicos</div>
                 </div>
                 <div className="border border-terminal-gray/70 p-3">
-                  <div className="text-2xl font-bold text-white">{nowPlaying?.isLive ? 'ON' : 'AUTO'}</div>
-                  <div className="mt-1 font-label-caps text-[9px]">Modo</div>
+                  <div className="text-2xl font-bold text-white">{nowPlaying?.isLive ? 'EN VIVO' : '24/7'}</div>
+                  <div className="mt-1 font-label-caps text-[9px]">Senal</div>
                 </div>
               </div>
             </div>
