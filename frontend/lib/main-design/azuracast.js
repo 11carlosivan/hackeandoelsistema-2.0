@@ -71,6 +71,18 @@ function normalizeGeneratedPublicUrl(value, publicBaseUrl) {
   return cleaned;
 }
 
+function normalizeTrackText(value) {
+  const text = String(value || '').trim();
+
+  return text.toLowerCase() === 'station offline' ? 'Senal en espera' : text;
+}
+
+function normalizeArtworkUrl(value, publicBaseUrl) {
+  const art = normalizeGeneratedPublicUrl(value, publicBaseUrl);
+
+  return /\/generic_song[-.]/i.test(art) ? '' : art;
+}
+
 export function isAzuraCastEnabled(env = process.env) {
   return String(env.NEXT_PUBLIC_AZURACAST_ENABLED || '').toLowerCase() === 'true';
 }
@@ -124,10 +136,9 @@ export function normalizeAzuraCastNowPlaying(payload, fallback = {}) {
   const streamUrl = cleanPublicUrl(fallback.streamUrl) ||
     normalizeGeneratedPublicUrl(station.listen_url, publicBaseUrl) ||
     normalizeGeneratedPublicUrl(station.listenUrl, publicBaseUrl);
-  const title = String(song.title || '').trim();
+  const title = normalizeTrackText(song.title);
   const artist = String(song.artist || '').trim();
-  const rawText = String(song.text || [artist, title].filter(Boolean).join(' - ')).trim();
-  const text = rawText.toLowerCase() === 'station offline' ? 'Senal en espera' : rawText;
+  const text = normalizeTrackText(song.text || [artist, title].filter(Boolean).join(' - '));
 
   return {
     enabled: true,
@@ -141,7 +152,7 @@ export function normalizeAzuraCastNowPlaying(payload, fallback = {}) {
     title,
     artist,
     text,
-    art: normalizeGeneratedPublicUrl(song.art, publicBaseUrl),
+    art: normalizeArtworkUrl(song.art, publicBaseUrl),
     listeners: {
       current: Number(listeners.current ?? listeners.total ?? 0),
       unique: Number(listeners.unique ?? 0),

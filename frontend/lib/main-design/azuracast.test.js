@@ -86,7 +86,9 @@ describe('azuracast helpers', () => {
 
     expect(payload).toMatchObject({
       stationName: 'Hackeando el Sistema En Vivo',
+      title: '',
       text: 'Senal en espera',
+      art: '',
     });
   });
 });

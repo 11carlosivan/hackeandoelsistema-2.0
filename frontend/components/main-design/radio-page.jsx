@@ -140,7 +140,7 @@ export default function RadioPage() {
               />
             ) : (
               <div className="flex h-20 w-20 shrink-0 items-center justify-center border border-system-red/50 bg-system-red/10 md:h-28 md:w-28">
-                <span className="material-symbols-outlined text-4xl text-system-red">graphic_eq</span>
+                <span className="material-symbols-outlined text-4xl text-system-red">record_voice_over</span>
               </div>
             )}
 

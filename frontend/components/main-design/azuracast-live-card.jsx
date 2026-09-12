@@ -105,7 +105,7 @@ export default function AzuraCastLiveCard({ fallback = null }) {
             />
           ) : (
             <div className="flex h-14 w-14 shrink-0 items-center justify-center border border-system-red/40 bg-system-red/10">
-              <span className="material-symbols-outlined text-system-red">graphic_eq</span>
+              <span className="material-symbols-outlined text-system-red">record_voice_over</span>
             </div>
           )}
 
