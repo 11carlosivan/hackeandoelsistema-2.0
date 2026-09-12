@@ -155,7 +155,8 @@ export default function Header({ categories = [] }) {
   const navigation = buildNavigation(categories);
   const activePath = normalizePath(pathname);
   const azuraCast = getAzuraCastClientConfig();
-  const liveTransmissionHref = azuraCast.publicPageUrl || azuraCast.streamUrl;
+  const liveTransmissionHref = azuraCast.enabled ? '/radio' : (azuraCast.publicPageUrl || azuraCast.streamUrl);
+  const liveTransmissionIsInternal = liveTransmissionHref?.startsWith('/');
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -217,8 +218,8 @@ export default function Header({ categories = [] }) {
               {liveTransmissionHref ? (
                 <a
                   href={liveTransmissionHref}
-                  target="_blank"
-                  rel="noreferrer"
+                  target={liveTransmissionIsInternal ? undefined : '_blank'}
+                  rel={liveTransmissionIsInternal ? undefined : 'noreferrer'}
                   className="flex items-center gap-2 hover:text-system-red transition-colors"
                 >
                   <span className="material-symbols-outlined text-system-red scale-75 animate-pulse">rss_feed</span>
@@ -361,6 +362,18 @@ export default function Header({ categories = [] }) {
             </form>
 
             <div className="flex gap-2">
+              {liveTransmissionHref ? (
+                <a
+                  href={liveTransmissionHref}
+                  target={liveTransmissionIsInternal ? undefined : '_blank'}
+                  rel={liveTransmissionIsInternal ? undefined : 'noreferrer'}
+                  className="flex flex-1 items-center justify-center gap-2 border border-system-red bg-black py-2.5 font-label-caps text-xs font-bold text-system-red"
+                >
+                  <span className="material-symbols-outlined text-[18px] animate-pulse">radio</span>
+                  RADIO EN VIVO
+                </a>
+              ) : null}
+
               <button
                 type="button"
                 className="flex flex-1 items-center justify-center gap-2 bg-system-red py-2.5 font-label-caps text-xs font-bold text-black"
