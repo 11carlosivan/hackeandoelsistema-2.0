@@ -327,7 +327,7 @@ export async function getWebStoryById(id) {
 
 export async function resolvePublicRoute(path) {
   const response = await fetchApi(`/api/v1/public/route?path=${encodeURIComponent(path)}`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
 
   return response.data;

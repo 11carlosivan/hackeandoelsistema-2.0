@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchApi, getCmsSummary, getHomeFeed, isApiNotFound } from '../lib/main-design/api.js';
+import { fetchApi, getCmsSummary, getHomeFeed, isApiNotFound, resolvePublicRoute } from '../lib/main-design/api.js';
 
 describe('public API client', () => {
   afterEach(() => {
@@ -112,6 +112,35 @@ describe('public API client', () => {
       'https://api.example.test/api/v1/public/posts?limit=50',
       expect.objectContaining({ cache: 'no-store' }),
     );
+  });
+
+  it('does not cache public route lookups so newly published posts open immediately', async () => {
+    vi.stubEnv('API_INTERNAL_URL', 'https://api.example.test');
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          path: '/post-nuevo/',
+          entityType: 'POST',
+          entityId: 'post-1',
+          status: 'ACTIVE',
+          httpStatus: 200,
+        },
+      }),
+    }));
+
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(resolvePublicRoute('/post-nuevo/')).resolves.toMatchObject({
+      path: '/post-nuevo/',
+      status: 'ACTIVE',
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/public/route?path=%2Fpost-nuevo%2F',
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchSpy.mock.calls[0][1]).not.toHaveProperty('next');
   });
 
   it('fails API requests with a 504 error when the timeout is reached', async () => {
