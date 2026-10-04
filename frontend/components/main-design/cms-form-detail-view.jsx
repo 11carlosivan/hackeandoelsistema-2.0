@@ -10,6 +10,15 @@ export default function CmsFormDetailView({ form, error = null }) {
   const [isActive, setIsActive] = useState(form?.isActive ?? true);
   const [filterQuery, setFilterQuery] = useState('');
   const [isDeleting, setIsDeleting] = useState(null);
+  const [submissionToDelete, setSubmissionToDelete] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+
+  const showFeedback = (type, message) => {
+    setFeedback({ type, message });
+    setTimeout(() => {
+      setFeedback(null);
+    }, 4500);
+  };
 
   if (error || !form) {
     return (
@@ -37,14 +46,18 @@ export default function CmsFormDetailView({ form, error = null }) {
       });
       if (res.ok) {
         setIsActive(!isActive);
+        showFeedback('success', `Convocatoria ${!isActive ? 'reanudada' : 'pausada'} con éxito.`);
+      } else {
+        showFeedback('error', 'No se pudo cambiar el estado de la convocatoria.');
       }
     } catch {
-      alert('Error cambiando estado del formulario');
+      showFeedback('error', 'Error de conexión al cambiar el estado del formulario.');
     }
   };
 
-  const handleDeleteSubmission = async (subId) => {
-    if (!window.confirm('¿Seguro que deseas eliminar esta respuesta?')) return;
+  const confirmDeleteSubmission = async () => {
+    if (!submissionToDelete) return;
+    const subId = submissionToDelete.id;
 
     setIsDeleting(subId);
     try {
@@ -61,9 +74,13 @@ export default function CmsFormDetailView({ form, error = null }) {
       );
       if (res.ok) {
         setSubmissions((prev) => prev.filter((s) => s.id !== subId));
+        setSubmissionToDelete(null);
+        showFeedback('success', 'La postulación fue eliminada correctamente.');
+      } else {
+        showFeedback('error', 'No se pudo eliminar la postulación. Intenta nuevamente.');
       }
     } catch {
-      alert('Error eliminando respuesta');
+      showFeedback('error', 'Error de comunicación con el servidor al eliminar.');
     } finally {
       setIsDeleting(null);
     }
@@ -133,6 +150,31 @@ export default function CmsFormDetailView({ form, error = null }) {
           </button>
         </div>
       </div>
+
+      {/* In-page Feedback Banner */}
+      {feedback && (
+        <div
+          className={`border p-3.5 text-xs font-mono flex items-center justify-between gap-3 shadow-lg ${
+            feedback.type === 'success'
+              ? 'border-green-500/60 bg-green-500/10 text-green-300'
+              : 'border-system-red bg-system-red/10 text-white'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-base">
+              {feedback.type === 'success' ? 'check_circle' : 'error'}
+            </span>
+            <span>{feedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            className="text-on-surface-variant hover:text-white text-xs px-2 py-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Header Info Card */}
       <div className="border border-terminal-gray bg-black/60 p-6 space-y-4 relative overflow-hidden">
@@ -272,9 +314,9 @@ export default function CmsFormDetailView({ form, error = null }) {
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <button
                             type="button"
-                            onClick={() => handleDeleteSubmission(sub.id)}
+                            onClick={() => setSubmissionToDelete(sub)}
                             disabled={isDeleting === sub.id}
-                            className="text-system-red/60 hover:text-system-red hover:underline text-[10px] transition-colors uppercase"
+                            className="text-system-red/70 hover:text-system-red hover:underline text-[10px] transition-colors uppercase font-mono tracking-wider cursor-pointer"
                             title="Eliminar respuesta"
                           >
                             {isDeleting === sub.id ? 'Borrando...' : 'Eliminar'}
@@ -289,6 +331,130 @@ export default function CmsFormDetailView({ form, error = null }) {
           </div>
         </div>
       </div>
+
+      {/* Custom Tactical Cyberpunk Confirm Modal */}
+      {submissionToDelete && (
+        <div
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-delete-title"
+        >
+          <div className="border-2 border-system-red bg-[#0c0d10] max-w-md w-full p-6 space-y-5 shadow-[0_0_50px_rgba(255,0,51,0.35)] relative overflow-hidden">
+            {/* Top decorative hazard red stripe */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-system-red via-white/50 to-system-red" />
+
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-system-red text-2xl animate-pulse">
+                  warning
+                </span>
+                <div>
+                  <div className="font-label-caps text-system-red text-[10px] font-bold tracking-widest">
+                    [ ACCIÓN DESTRUCTIVA ]
+                  </div>
+                  <h3 id="confirm-delete-title" className="font-headline text-lg font-bold text-white tracking-wide">
+                    ELIMINAR REGISTRO
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isDeleting && setSubmissionToDelete(null)}
+                disabled={Boolean(isDeleting)}
+                className="text-on-surface-variant hover:text-white transition-colors text-sm p-1 cursor-pointer disabled:opacity-50"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Description */}
+            <p className="text-xs text-on-surface-variant font-mono leading-relaxed">
+              ¿Estás seguro de que deseas eliminar permanentemente esta postulación? Esta acción purgará los datos de la base de datos y no se puede deshacer.
+            </p>
+
+            {/* Target submission preview card */}
+            <div className="border border-terminal-gray/80 bg-black/80 p-3.5 space-y-2 font-mono text-xs">
+              <div className="flex items-center justify-between text-on-surface-variant border-b border-terminal-gray/40 pb-1.5 mb-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-system-red">
+                  Ficha de Postulación
+                </span>
+                <span className="text-[10px] text-on-surface-variant font-bold">
+                  ID #{submissionToDelete.id}
+                </span>
+              </div>
+              {submissionToDelete.data?.name && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-on-surface-variant text-[11px]">Nombre:</span>
+                  <span className="text-white font-bold truncate max-w-[220px] text-[11px]">
+                    {submissionToDelete.data.name}
+                  </span>
+                </div>
+              )}
+              {submissionToDelete.data?.email && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-on-surface-variant text-[11px]">Email:</span>
+                  <span className="text-white truncate max-w-[220px] text-[11px]">
+                    {submissionToDelete.data.email}
+                  </span>
+                </div>
+              )}
+              {submissionToDelete.data?.phone && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-on-surface-variant text-[11px]">Teléfono:</span>
+                  <span className="text-white text-[11px] font-mono">
+                    {submissionToDelete.data.phone}
+                  </span>
+                </div>
+              )}
+              {submissionToDelete.data?.device && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-on-surface-variant text-[11px]">Dispositivo:</span>
+                  <span className="text-white text-[11px]">
+                    {submissionToDelete.data.device}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between gap-2 text-on-surface-variant text-[10px] pt-1 border-t border-terminal-gray/20">
+                <span>Fecha de envío:</span>
+                <span>{new Date(submissionToDelete.createdAt).toLocaleString('es-DO')}</span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSubmissionToDelete(null)}
+                disabled={Boolean(isDeleting)}
+                className="border border-terminal-gray bg-black/40 hover:bg-white/10 hover:border-white px-4 py-2 font-label-caps text-[10px] font-bold text-white transition-all cursor-pointer disabled:opacity-50"
+              >
+                [ CANCELAR ]
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteSubmission}
+                disabled={Boolean(isDeleting)}
+                className="bg-system-red hover:bg-white hover:text-black text-black px-5 py-2 font-label-caps text-[10px] font-bold transition-all shadow-[0_0_20px_rgba(255,0,51,0.4)] flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                    <span>ELIMINANDO...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-xs">delete_forever</span>
+                    <span>CONFIRMAR ELIMINACIÓN</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
