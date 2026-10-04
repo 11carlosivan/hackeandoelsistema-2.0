@@ -131,7 +131,8 @@ export async function registerAutoPostRoutes(app) {
     }
 
     const result = await processAndPublishAutoPost(app, parsed.data);
-    return { data: result };
+    const settings = await getAutoPostConfig(app);
+    return { data: { ...result, settings } };
   });
 }
 

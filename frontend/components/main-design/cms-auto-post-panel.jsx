@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { fetchJsonWithCsrfRetry } from './client-security';
@@ -121,6 +121,32 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     }
   };
 
+  useEffect(() => {
+    if (!settings.lastRunStatus?.includes('reintento en 1 minuto')) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const apiBaseUrl = getApiBaseUrl();
+        const res = await fetch(`${apiBaseUrl}/api/v1/cms/auto-post/settings`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data?.settings) {
+            setSettings(json.data.settings);
+            setIsEnabled(Boolean(json.data.settings.isEnabled));
+          }
+        }
+      } catch {
+        // Polling silencioso
+      }
+    }, 12000);
+
+    return () => clearInterval(intervalId);
+  }, [settings.lastRunStatus]);
+
   const runNow = async () => {
     setRunning(true);
     setRunResults(null);
@@ -129,6 +155,10 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     try {
       const payload = await requestJson('/api/v1/cms/auto-post/run', { limit: runLimit });
       setRunResults(payload.data);
+      if (payload?.data?.settings) {
+        setSettings(payload.data.settings);
+        setIsEnabled(Boolean(payload.data.settings.isEnabled));
+      }
     } catch (error) {
       setRunResults({ ok: false, message: error.message, errors: [error.message] });
     } finally {
@@ -185,12 +215,30 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
             </p>
 
             {settings.lastRunAt ? (
-              <div className="flex items-center gap-2 pt-1 font-mono text-[11px] text-zinc-400">
+              <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px] text-zinc-400">
                 <span className="material-symbols-outlined text-[14px]">history</span>
                 <span>Último ciclo: {new Date(settings.lastRunAt).toLocaleString()}</span>
                 {settings.lastRunStatus ? (
-                  <span className="text-zinc-300">({settings.lastRunStatus})</span>
+                  <span className={settings.lastRunStatus.includes('reintento en 1 minuto') ? 'text-amber-400 font-bold' : 'text-zinc-300'}>
+                    ({settings.lastRunStatus})
+                  </span>
                 ) : null}
+              </div>
+            ) : null}
+
+            {settings.lastRunStatus?.includes('reintento en 1 minuto') ? (
+              <div className="mt-3 flex items-start gap-3 rounded border border-amber-500/60 bg-amber-950/40 p-3 font-mono text-xs text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                <span className="material-symbols-outlined text-[18px] text-amber-400 animate-spin">
+                  hourglass_top
+                </span>
+                <div className="space-y-0.5">
+                  <div className="font-bold uppercase tracking-wider text-amber-300">
+                    Tarea en cola de espera (Reintento automático en 1 minuto)
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                    Google Gemini experimentó una sobrecarga momentánea en sus servidores. Las noticias siguen en cola y el motor las volverá a procesar de forma automática sin perder nada.
+                  </p>
+                </div>
               </div>
             ) : null}
           </div>
@@ -293,6 +341,20 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
             <p className="text-on-surface-variant">
               Procesadas: {runResults.processed || 0} / Creadas: {runResults.success || 0}
             </p>
+
+            {(runResults.isQueued || (runResults.errors || []).some((e) => /alta demanda|reintento en 1 minuto|spikes in demand|overloaded/i.test(e))) ? (
+              <div className="flex items-start gap-3 rounded border border-amber-500/60 bg-amber-950/40 p-3 text-amber-200">
+                <span className="material-symbols-outlined text-[18px] text-amber-400">
+                  schedule
+                </span>
+                <div className="space-y-1">
+                  <div className="font-bold text-amber-300">Generación retenida en cola por demanda de Gemini</div>
+                  <p className="text-[11px] text-amber-200/90">
+                    Google Gemini está experimentando picos temporales de uso. La noticia no se ha descartado: el planificador automático la reintentará en 1 minuto. Puedes seguir trabajando con normalidad.
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             {(runResults.createdPosts || []).map((post) => (
               <div key={post.id} className="flex items-center justify-between gap-3 border border-terminal-gray/40 bg-surface-container-low/20 p-2">

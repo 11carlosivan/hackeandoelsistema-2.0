@@ -186,29 +186,16 @@ export async function checkAndRunAutoPost(app, { force = false } = {}) {
     const lastRunTime = config.lastRunAt ? new Date(config.lastRunAt).getTime() : 0;
     const elapsed = Date.now() - lastRunTime;
 
-    if (!force && elapsed < intervalMs) {
+    // Si la última ejecución quedó en cola por alta demanda de la IA, reintentar a los 60 segundos
+    const isQueuedHighDemand = config.lastRunStatus?.includes('reintento en 1 minuto');
+    const effectiveIntervalMs = isQueuedHighDemand ? 60 * 1000 : intervalMs;
+
+    if (!force && elapsed < effectiveIntervalMs) {
       return null;
     }
 
     isJobRunning = true;
     const result = await processAndPublishAutoPost(app, { limit: 2 });
-
-    const refreshed = await getAutoPostConfig(app, { includeSecret: true });
-    const toSave = {
-      ...DEFAULT_CONFIG,
-      ...refreshed,
-      lastRunAt: new Date().toISOString(),
-      lastRunStatus: result.success > 0 ? `Éxito: ${result.success} creados` : result.errors?.[0] || 'Sin noticias nuevas',
-    };
-    delete toSave.apiKey;
-    delete toSave.apiKeyDecryptFailed;
-
-    await app.prisma.siteSetting.upsert({
-      where: { settingKey: SETTINGS_KEY },
-      create: { settingKey: SETTINGS_KEY, value: toSave },
-      update: { value: toSave },
-    });
-
     return result;
   } catch (err) {
     app.log.warn({ err }, 'Error checking or running auto-post');
@@ -810,61 +797,74 @@ const CANDIDATE_GEMINI_MODELS = [
 ];
 
 async function callGemini(apiKey, prompt) {
+  const envModel = (process.env.AUTO_POST_GEMINI_MODEL || '').trim();
   const models = [
-    process.env.AUTO_POST_GEMINI_MODEL,
+    envModel && envModel !== 'gemini-3.7-flash' ? envModel : 'gemini-2.0-flash',
     ...CANDIDATE_GEMINI_MODELS,
+    envModel,
   ].filter(Boolean);
 
   const uniqueModels = [...new Set(models)];
   let lastError = null;
 
   for (const model of uniqueModels) {
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.65, responseMimeType: 'application/json' },
-        }),
-        signal: AbortSignal.timeout(45000),
-      });
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.65, responseMimeType: 'application/json' },
+          }),
+          signal: AbortSignal.timeout(45000),
+        });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => null);
-        const errMsg = error?.error?.message || `HTTP ${response.status}`;
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          const errMsg = error?.error?.message || `HTTP ${response.status}`;
 
-        if (response.status === 404 || response.status === 400) {
-          lastError = new Error(`Gemini (${model}): ${errMsg}`);
-          continue;
+          const isHighDemand = response.status === 503 ||
+            response.status === 429 ||
+            /high demand|overloaded|spikes in demand/i.test(errMsg);
+
+          if (isHighDemand) {
+            lastError = new Error(
+              `Alta demanda en Google Gemini (${model}): "${errMsg}". Conmutando a modelo alternativo o quedando en cola para reintento en 1 minuto.`
+            );
+            if (attempt === 1) {
+              await new Promise((resolve) => setTimeout(resolve, 3000));
+              continue;
+            }
+            break; // Try next model candidate
+          }
+
+          if (response.status === 404 || response.status === 400) {
+            lastError = new Error(`Gemini (${model}): ${errMsg}`);
+            break;
+          }
+
+          throw new Error(`Gemini (${model}): ${errMsg}`);
         }
 
-        if (response.status === 429) {
-          throw new Error(
-            `Gemini (${model}) indicó cuota excedida: "${errMsg}". ` +
-            'Si usas una clave gratuita de Google AI Studio, asegúrate de crearla en aistudio.google.com con la opción "Create API key in new project" (sin asociar facturación de Google Cloud).'
-          );
+        const json = await response.json();
+        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) throw new Error(`Gemini (${model}) no devolvió contenido.`);
+
+        return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
+      } catch (err) {
+        lastError = err;
+        if (err.message.includes('404') || err.message.includes('not found') || err.message.includes('Alta demanda')) {
+          break;
         }
-
-        throw new Error(`Gemini (${model}): ${errMsg}`);
+        throw err;
       }
-
-      const json = await response.json();
-      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error(`Gemini (${model}) no devolvió contenido.`);
-
-      return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
-    } catch (err) {
-      lastError = err;
-      if (err.message.includes('404') || err.message.includes('not found') || err.message.includes('not supported')) {
-        continue;
-      }
-      throw err;
     }
   }
 
-  throw lastError || new Error('No se pudo comunicar con los modelos de Gemini disponibles.');
+  throw lastError || new Error('Alta demanda temporal en los servidores de Google Gemini. La tarea ha quedado en cola y el motor volverá a intentar automáticamente en 1 minuto.');
 }
+
 
 async function callOpenAi(apiKey, prompt) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1100,9 +1100,21 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
     }
   }
 
+  const hadHighDemand = (results.errors || []).some((e) => /alta demanda|high demand|overloaded|spikes in demand|503/i.test(e));
+  let runStatus = '';
+  if (results.success > 0) {
+    runStatus = `Éxito: ${results.success} creados`;
+  } else if (hadHighDemand) {
+    runStatus = 'En cola (reintento en 1 minuto): Alta demanda temporal en servidores de IA. Reintentando automáticamente.';
+  } else {
+    runStatus = results.errors?.[0] || 'Sin noticias nuevas';
+  }
+
   const updatedConfig = {
     ...DEFAULT_CONFIG,
     ...config,
+    lastRunAt: new Date().toISOString(),
+    lastRunStatus: runStatus,
     processedHashes: [...new Set(nextProcessedHashes)].slice(-2000),
   };
   delete updatedConfig.apiKey;
@@ -1117,6 +1129,11 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
   return {
     ok: true,
     ...results,
-    message: results.success ? 'Auto-Post finalizado.' : 'No se crearon publicaciones nuevas.',
+    isQueued: hadHighDemand,
+    message: results.success
+      ? `Auto-Post finalizado: ${results.success} artículo(s) procesado(s).`
+      : hadHighDemand
+      ? 'Alta demanda temporal en los servidores de Google Gemini. La tarea ha quedado en cola y el motor volverá a intentar automáticamente en 1 minuto.'
+      : 'No se crearon publicaciones nuevas.',
   };
 }
