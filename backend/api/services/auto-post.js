@@ -16,7 +16,7 @@ const IMAGE_MIME_EXTENSIONS = new Map([
   ['image/webp', 'webp'],
   ['image/gif', 'gif'],
 ]);
-const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-2.0-flash';
+const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.5-flash';
 const DEFAULT_CONFIG = {
   isEnabled: false,
   intervalMinutes: 30,
@@ -791,21 +791,31 @@ Formato:
 }
 
 const CANDIDATE_GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-8b',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3.8-flash',
 ];
 
 async function callGemini(apiKey, prompt) {
   const envModel = (process.env.AUTO_POST_GEMINI_MODEL || '').trim();
+  const deprecatedOrSpiking = [
+    'gemini-3.7-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+  ];
+
   const models = [
-    envModel && envModel !== 'gemini-3.7-flash' ? envModel : 'gemini-2.0-flash',
+    envModel && !deprecatedOrSpiking.includes(envModel) ? envModel : 'gemini-3.5-flash',
     ...CANDIDATE_GEMINI_MODELS,
-    envModel,
   ].filter(Boolean);
 
   const uniqueModels = [...new Set(models)];
   let lastError = null;
+  let encounteredHighDemand = false;
 
   for (const model of uniqueModels) {
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -829,6 +839,7 @@ async function callGemini(apiKey, prompt) {
             /high demand|overloaded|spikes in demand/i.test(errMsg);
 
           if (isHighDemand) {
+            encounteredHighDemand = true;
             lastError = new Error(
               `Alta demanda en Google Gemini (${model}): "${errMsg}". Conmutando a modelo alternativo o quedando en cola para reintento en 1 minuto.`
             );
@@ -840,7 +851,9 @@ async function callGemini(apiKey, prompt) {
           }
 
           if (response.status === 404 || response.status === 400) {
-            lastError = new Error(`Gemini (${model}): ${errMsg}`);
+            if (!encounteredHighDemand) {
+              lastError = new Error(`Gemini (${model}): ${errMsg}`);
+            }
             break;
           }
 
@@ -853,7 +866,9 @@ async function callGemini(apiKey, prompt) {
 
         return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
       } catch (err) {
-        lastError = err;
+        if (!encounteredHighDemand) {
+          lastError = err;
+        }
         if (err.message.includes('404') || err.message.includes('not found') || err.message.includes('Alta demanda')) {
           break;
         }
@@ -862,7 +877,11 @@ async function callGemini(apiKey, prompt) {
     }
   }
 
-  throw lastError || new Error('Alta demanda temporal en los servidores de Google Gemini. La tarea ha quedado en cola y el motor volverá a intentar automáticamente en 1 minuto.');
+  if (encounteredHighDemand) {
+    throw new Error('Alta demanda temporal en los servidores de Google Gemini. La tarea ha quedado en cola y el motor volverá a intentar automáticamente en 1 minuto.');
+  }
+
+  throw lastError || new Error('No se pudo comunicar con los modelos de Gemini disponibles.');
 }
 
 
