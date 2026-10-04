@@ -3,6 +3,8 @@ import {
   getAutoPostConfig,
   processAndPublishAutoPost,
   saveAutoPostConfig,
+  toggleAutoPostEnabled,
+  startAutoPostScheduler,
 } from '../services/auto-post.js';
 import { noStoreHeaders } from '../utils/http.js';
 
@@ -44,6 +46,8 @@ function validationDetails(error) {
 }
 
 const autoPostSettingsSchema = z.object({
+  isEnabled: z.coerce.boolean().optional(),
+  intervalMinutes: z.coerce.number().int().min(5).max(1440).optional(),
   sources: z.preprocess(normalizeOptionalString, z.string().max(20000)).default(''),
   aiProvider: z.preprocess((value) => normalizeOptionalString(value) || 'gemini', z.enum(['gemini', 'openai'])),
   apiKey: z.preprocess(normalizeOptionalString, z.string().max(4096)).default(''),
@@ -55,11 +59,18 @@ const autoPostSettingsSchema = z.object({
   ).default([]),
 });
 
+const toggleSchema = z.object({
+  isEnabled: z.coerce.boolean().optional(),
+});
+
 const runSchema = z.object({
   limit: z.coerce.number().int().min(1).max(5).default(2),
 });
 
 export async function registerAutoPostRoutes(app) {
+  // Start background auto-post scheduler loop
+  startAutoPostScheduler(app);
+
   app.get('/api/v1/cms/auto-post/settings', {
     preHandler: app.requirePermission('posts:manage'),
   }, async (request, reply) => {
@@ -88,6 +99,27 @@ export async function registerAutoPostRoutes(app) {
     return { data: { settings, message: 'Configuracion guardada.' } };
   });
 
+  app.post('/api/v1/cms/auto-post/toggle', {
+    preHandler: app.requirePermission('posts:manage'),
+  }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const parsed = toggleSchema.safeParse(request.body || {});
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Payload de toggle invalido.');
+    }
+
+    const settings = await toggleAutoPostEnabled(app, parsed.data.isEnabled);
+    return {
+      data: {
+        settings,
+        message: settings.isEnabled
+          ? 'Auto-Post encendido: la IA buscará y publicará noticias automáticamente.'
+          : 'Auto-Post apagado: la automatización se ha pausado.',
+      },
+    };
+  });
+
   app.post('/api/v1/cms/auto-post/run', {
     preHandler: app.requirePermission('posts:manage'),
   }, async (request, reply) => {
@@ -102,3 +134,4 @@ export async function registerAutoPostRoutes(app) {
     return { data: result };
   });
 }
+

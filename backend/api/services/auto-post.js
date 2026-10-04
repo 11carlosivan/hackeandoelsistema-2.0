@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
+import { readFile } from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import * as cheerio from 'cheerio';
@@ -17,12 +18,16 @@ const IMAGE_MIME_EXTENSIONS = new Map([
 ]);
 const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.7-flash';
 const DEFAULT_CONFIG = {
+  isEnabled: false,
+  intervalMinutes: 30,
   sources: '',
   aiProvider: 'gemini',
   apiKeyEncrypted: '',
   postStatus: 'DRAFT',
   categoryIds: [],
   processedHashes: [],
+  lastRunAt: null,
+  lastRunStatus: null,
 };
 
 const parser = new RssParser();
@@ -64,6 +69,8 @@ function decryptSecret(app, value) {
 
 function publicConfig(config) {
   return {
+    isEnabled: Boolean(config.isEnabled),
+    intervalMinutes: Number(config.intervalMinutes) || 30,
     sources: config.sources || '',
     aiProvider: config.aiProvider || 'gemini',
     apiKeyConfigured: Boolean(config.apiKeyEncrypted),
@@ -71,6 +78,8 @@ function publicConfig(config) {
     postStatus: config.postStatus || 'DRAFT',
     categoryIds: Array.isArray(config.categoryIds) ? config.categoryIds : [],
     processedCount: Array.isArray(config.processedHashes) ? config.processedHashes.length : 0,
+    lastRunAt: config.lastRunAt || null,
+    lastRunStatus: config.lastRunStatus || null,
   };
 }
 
@@ -101,15 +110,17 @@ export async function saveAutoPostConfig(app, input) {
   const next = {
     ...DEFAULT_CONFIG,
     ...current,
+    isEnabled: input.isEnabled !== undefined ? Boolean(input.isEnabled) : current.isEnabled,
+    intervalMinutes: Number(input.intervalMinutes) || current.intervalMinutes || 30,
     sources: String(input.sources || '')
       .split(/\r?\n/)
       .map((source) => source.trim())
       .filter((source) => source && !source.startsWith('#'))
       .filter(Boolean)
       .join('\n'),
-    aiProvider: input.aiProvider,
-    postStatus: input.postStatus,
-    categoryIds: [...new Set(input.categoryIds || [])],
+    aiProvider: input.aiProvider || current.aiProvider,
+    postStatus: input.postStatus || current.postStatus,
+    categoryIds: [...new Set(input.categoryIds || current.categoryIds || [])],
   };
 
   if (input.clearApiKey) {
@@ -128,6 +139,110 @@ export async function saveAutoPostConfig(app, input) {
   });
 
   return publicConfig(next);
+}
+
+export async function toggleAutoPostEnabled(app, forceState) {
+  const current = await getAutoPostConfig(app, { includeSecret: true });
+  const nextState = forceState !== undefined ? Boolean(forceState) : !current.isEnabled;
+
+  const next = {
+    ...DEFAULT_CONFIG,
+    ...current,
+    isEnabled: nextState,
+  };
+
+  delete next.apiKey;
+  delete next.apiKeyDecryptFailed;
+
+  await app.prisma.siteSetting.upsert({
+    where: { settingKey: SETTINGS_KEY },
+    create: { settingKey: SETTINGS_KEY, value: next },
+    update: { value: next },
+  });
+
+  if (nextState) {
+    setImmediate(() => {
+      checkAndRunAutoPost(app, { force: true }).catch((err) => {
+        app.log.warn({ err }, 'Auto-post background execution failed after enabling');
+      });
+    });
+  }
+
+  return publicConfig(next);
+}
+
+let schedulerInterval = null;
+let isJobRunning = false;
+
+export async function checkAndRunAutoPost(app, { force = false } = {}) {
+  if (isJobRunning) return null;
+
+  try {
+    const config = await getAutoPostConfig(app, { includeSecret: true });
+    if (!config.isEnabled && !force) return null;
+
+    const intervalMinutes = Number(config.intervalMinutes) || 30;
+    const intervalMs = intervalMinutes * 60 * 1000;
+    const lastRunTime = config.lastRunAt ? new Date(config.lastRunAt).getTime() : 0;
+    const elapsed = Date.now() - lastRunTime;
+
+    if (!force && elapsed < intervalMs) {
+      return null;
+    }
+
+    isJobRunning = true;
+    const result = await processAndPublishAutoPost(app, { limit: 2 });
+
+    const refreshed = await getAutoPostConfig(app, { includeSecret: true });
+    const toSave = {
+      ...DEFAULT_CONFIG,
+      ...refreshed,
+      lastRunAt: new Date().toISOString(),
+      lastRunStatus: result.success > 0 ? `Éxito: ${result.success} creados` : result.errors?.[0] || 'Sin noticias nuevas',
+    };
+    delete toSave.apiKey;
+    delete toSave.apiKeyDecryptFailed;
+
+    await app.prisma.siteSetting.upsert({
+      where: { settingKey: SETTINGS_KEY },
+      create: { settingKey: SETTINGS_KEY, value: toSave },
+      update: { value: toSave },
+    });
+
+    return result;
+  } catch (err) {
+    app.log.warn({ err }, 'Error checking or running auto-post');
+    return null;
+  } finally {
+    isJobRunning = false;
+  }
+}
+
+export function startAutoPostScheduler(app) {
+  if (schedulerInterval) {
+    clearInterval(schedulerInterval);
+  }
+
+  // Check every 60 seconds if scheduled auto-post is due
+  schedulerInterval = setInterval(() => {
+    checkAndRunAutoPost(app).catch((err) => {
+      app.log.warn({ err }, 'Error in auto-post scheduler loop');
+    });
+  }, 60 * 1000);
+
+  if (schedulerInterval.unref) {
+    schedulerInterval.unref();
+  }
+
+  if (typeof app.addHook === 'function') {
+    app.addHook('onClose', (_instance, done) => {
+      if (schedulerInterval) {
+        clearInterval(schedulerInterval);
+        schedulerInterval = null;
+      }
+      done();
+    });
+  }
 }
 
 function isPrivateIp(address) {
@@ -322,6 +437,190 @@ async function createAutoPostMedia(app, { imageUrl, slug, title }) {
   }
 }
 
+const LOGO_WATERMARK_PATTERNS = [
+  /logo/i,
+  /logotipo/i,
+  /watermark/i,
+  /marca[-_]?de[-_]?agua/i,
+  /banner/i,
+  /header/i,
+  /brand/i,
+  /marca/i,
+  /favicon/i,
+  /icon/i,
+  /placeholder/i,
+  /default[-_]?(image|post|thumb)/i,
+  /avatar/i,
+  /profile/i,
+  /autor/i,
+  /author/i,
+  /sponsor/i,
+  /publicidad/i,
+  /site[-_]?logo/i,
+  /header[-_]?logo/i,
+  /footer[-_]?logo/i,
+  /compartir/i,
+  /share/i,
+  /social[-_]?card/i,
+];
+
+export function isLikelyLogoOrWatermarked(imageUrl, sourceUrl = '') {
+  if (!imageUrl) return true;
+
+  try {
+    const parsedImg = new URL(imageUrl);
+    const pathname = parsedImg.pathname.toLowerCase();
+    const filename = path.basename(pathname);
+
+    for (const pattern of LOGO_WATERMARK_PATTERNS) {
+      if (pattern.test(filename) || pattern.test(pathname)) {
+        return true;
+      }
+    }
+
+    if (sourceUrl) {
+      try {
+        const sourceHost = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, '');
+        const hostParts = sourceHost.split('.')[0];
+        if (hostParts.length > 2) {
+          if (
+            filename.includes(hostParts) &&
+            (filename.includes('logo') || filename.includes('icon') || filename.includes('main') || filename.length < hostParts.length + 8)
+          ) {
+            return true;
+          }
+        }
+      } catch {
+        // Ignore domain parsing errors
+      }
+    }
+  } catch {
+    return true;
+  }
+
+  return false;
+}
+
+export async function searchCleanInternetPhoto(searchQuery) {
+  if (!searchQuery || typeof searchQuery !== 'string') return null;
+  const cleanQuery = searchQuery.trim().slice(0, 80);
+  if (cleanQuery.length < 3) return null;
+
+  const apis = [
+    `https://es.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&generator=search&gsrsearch=${encodeURIComponent(cleanQuery)}&gsrlimit=3&pithumbsize=1200`,
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&generator=search&gsrsearch=${encodeURIComponent(cleanQuery)}&gsrlimit=3&pithumbsize=1200`,
+  ];
+
+  for (const apiUrl of apis) {
+    try {
+      const response = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'HackeandoElSistemaBot/1.0 (+https://hackeandoelsistema.net/)',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      const pages = data?.query?.pages;
+      if (!pages) continue;
+
+      for (const pageId of Object.keys(pages)) {
+        const page = pages[pageId];
+        const thumbUrl = page?.thumbnail?.source;
+        if (thumbUrl && !thumbUrl.endsWith('.svg')) {
+          if (!page.thumbnail?.width || page.thumbnail.width >= 400) {
+            return thumbUrl;
+          }
+        }
+      }
+    } catch {
+      // Try next
+    }
+  }
+
+  return null;
+}
+
+export async function getOrCreateHesBrandMedia(app, articleTitle = '') {
+  try {
+    const existing = await app.prisma.mediaAsset.findFirst({
+      where: { originalUrl: 'hes://official-brand-cover' },
+      select: {
+        id: true,
+        url: true,
+        width: true,
+        height: true,
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    let buffer = null;
+    const possiblePaths = [
+      path.resolve(process.cwd(), '../frontend/public/logo.png'),
+      path.resolve(process.cwd(), 'frontend/public/logo.png'),
+      path.resolve(process.cwd(), '../frontend/public/logo_texto.png'),
+      path.resolve(process.cwd(), 'public/logo.png'),
+    ];
+
+    for (const p of possiblePaths) {
+      try {
+        const fileBuf = await readFile(p);
+        if (fileBuf && fileBuf.length > 0) {
+          buffer = fileBuf;
+          break;
+        }
+      } catch {
+        // Try next candidate
+      }
+    }
+
+    if (!buffer) {
+      try {
+        const res = await fetch('https://hackeandoelsistema.net/logo.png', {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          buffer = Buffer.from(await res.arrayBuffer());
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    if (!buffer) {
+      return null;
+    }
+
+    const storedMedia = await storeMediaUpload({
+      config: app.config,
+      file: {
+        buffer,
+        filename: 'portada-oficial-hackeandoelsistema.png',
+        mimetype: 'image/png',
+      },
+    });
+
+    return await app.prisma.mediaAsset.create({
+      data: {
+        ...storedMedia,
+        uploadedById: null,
+        originalUrl: 'hes://official-brand-cover',
+        altText: 'Hackeando el Sistema - Información Oficial',
+        caption: articleTitle ? `Hackeando el Sistema | ${articleTitle}` : 'Hackeando el Sistema',
+      },
+    });
+  } catch (err) {
+    app.log.warn({ err }, 'Failed to create official HES brand media cover');
+    return null;
+  }
+}
+
 function stripTags(html) {
   return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -432,7 +731,7 @@ function buildPrompt({ title, content, allowedCategories }) {
     ? `Elige exactamente una categoria de esta lista: ${allowedCategories.join(', ')}.`
     : 'Elige una categoria periodistica breve en espanol.';
 
-  return `Redacta una noticia original en espanol neutro, con enfoque periodistico, basada en esta fuente. No copies frases literales largas. Devuelve JSON valido sin markdown.
+  return `Redacta una noticia original en espanol neutro, con enfoque periodistico, basada en esta fuente. No copies frases literales largas ni menciones el nombre del medio fuente original. Devuelve JSON valido sin markdown.
 
 Titulo fuente: ${title}
 Texto fuente:
@@ -443,9 +742,10 @@ Requisitos:
 - Resumen de 1 a 2 oraciones.
 - Contenido HTML con parrafos <p>, subtitulos <h2> y listas <ul><li> si aporta valor.
 - ${categoryInstruction}
+- imageSearchTerm: 1 a 3 palabras clave del tema o persona principal (ej: "Luis Abinader", "Policia Nacional", "Android 15", "Banco Central") para buscar una fotografia periodistica limpia y sin marcas de agua en internet.
 
 Formato:
-{"title":"...","summary":"...","category":"...","content":"<p>...</p>"}`;
+{"title":"...","summary":"...","category":"...","content":"<p>...</p>","imageSearchTerm":"..."}`;
 }
 
 async function callGemini(apiKey, prompt) {
@@ -607,15 +907,44 @@ export async function processAndPublishAutoPost(app, { limit = 2 } = {}) {
       const matchedCategory = categories.find((category) =>
         category.name.toLowerCase() === String(generated.category || '').toLowerCase()
       ) || categories[0];
-      const imageUrl = await extractImage(article.url, article.rawContent);
-      const media = await createAutoPostMedia(app, { imageUrl, slug, title: generated.title });
+
+      // 1. Try to search internet for clean, related photo without watermark
+      const searchTerm = generated.imageSearchTerm || generated.title;
+      let cleanImageUrl = await searchCleanInternetPhoto(searchTerm);
+      let media = null;
+
+      if (cleanImageUrl) {
+        media = await createAutoPostMedia(app, {
+          imageUrl: cleanImageUrl,
+          slug,
+          title: generated.title,
+        });
+      }
+
+      // 2. If no clean photo from search, evaluate source article image
+      if (!media) {
+        const sourceImageUrl = await extractImage(article.url, article.rawContent);
+        const isBranded = isLikelyLogoOrWatermarked(sourceImageUrl, article.url);
+
+        if (sourceImageUrl && !isBranded) {
+          media = await createAutoPostMedia(app, {
+            imageUrl: sourceImageUrl,
+            slug,
+            title: generated.title,
+          });
+        } else if (sourceImageUrl && isBranded) {
+          app.log.info({ sourceImageUrl }, 'Imagen de la fuente descartada por contener logotipo o marca de agua.');
+        }
+      }
+
+      // 3. If still no media, fallback to Hackeando el Sistema official brand cover
+      if (!media) {
+        media = await getOrCreateHesBrandMedia(app, generated.title);
+      }
+
       const requestedPublished = config.postStatus === 'PUBLISHED';
       const status = requestedPublished && media?.id ? 'PUBLISHED' : 'DRAFT';
       const publishedAt = status === 'PUBLISHED' ? new Date() : null;
-
-      if (requestedPublished && !media?.id) {
-        results.errors.push(`"${generated.title}" quedo en borrador porque no tiene portada valida.`);
-      }
 
       const post = await app.prisma.$transaction(async (tx) => {
         const createdPost = await tx.post.create({
