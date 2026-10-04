@@ -400,7 +400,7 @@ async function createAutoPostMedia(app, { imageUrl, slug, title }) {
 
   try {
     const image = await downloadExternalImage(imageUrl);
-    const storedMedia = await storeMediaUpload({
+    const stored = await storeMediaUpload({
       config: app.config,
       file: {
         buffer: image.buffer,
@@ -408,6 +408,7 @@ async function createAutoPostMedia(app, { imageUrl, slug, title }) {
         mimetype: image.mimeType,
       },
     });
+    const { localFilePath, ...storedMedia } = stored;
 
     return app.prisma.mediaAsset.create({
       data: {
@@ -584,7 +585,7 @@ export async function getOrCreateHesBrandMedia(app, articleTitle = '') {
       return null;
     }
 
-    const storedMedia = await storeMediaUpload({
+    const stored = await storeMediaUpload({
       config: app.config,
       file: {
         buffer,
@@ -592,6 +593,7 @@ export async function getOrCreateHesBrandMedia(app, articleTitle = '') {
         mimetype: 'image/png',
       },
     });
+    const { localFilePath, ...storedMedia } = stored;
 
     return await app.prisma.mediaAsset.create({
       data: {

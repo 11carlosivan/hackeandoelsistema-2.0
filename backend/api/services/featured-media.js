@@ -200,7 +200,7 @@ async function importFeaturedImageToStorage(prisma, post, imageUrl, { config, lo
 
   try {
     const image = await downloadImageForStorage(imageUrl);
-    const storedMedia = await storeMediaUpload({
+    const stored = await storeMediaUpload({
       config,
       file: {
         buffer: image.buffer,
@@ -208,6 +208,7 @@ async function importFeaturedImageToStorage(prisma, post, imageUrl, { config, lo
         mimetype: image.mimeType,
       },
     });
+    const { localFilePath, ...storedMedia } = stored;
     const media = await prisma.mediaAsset.create({
       data: {
         ...storedMedia,
