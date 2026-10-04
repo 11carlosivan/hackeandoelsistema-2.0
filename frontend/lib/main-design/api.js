@@ -792,6 +792,34 @@ export async function getCmsAutoPostSettings(accessToken) {
   }
 }
 
+export async function getCmsForms(accessToken) {
+  try {
+    const response = await fetchProtectedApi('/api/v1/cms/forms', accessToken);
+    return {
+      forms: response.data || [],
+    };
+  } catch (error) {
+    return {
+      forms: [],
+      error: error.message,
+    };
+  }
+}
+
+export async function getCmsFormDetail(accessToken, id) {
+  try {
+    const response = await fetchProtectedApi(`/api/v1/cms/forms/${encodeURIComponent(id)}`, accessToken);
+    return {
+      form: response.data || null,
+    };
+  } catch (error) {
+    return {
+      form: null,
+      error: error.message,
+    };
+  }
+}
+
 export async function getSitemapRoutes() {
   const response = await fetchApi('/api/v1/public/sitemap-routes', { next: { revalidate: 300 } });
 

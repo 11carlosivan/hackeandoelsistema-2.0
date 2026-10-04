@@ -74,6 +74,7 @@ const envSchema = z.object({
   EXCHANGE_RATE_SOURCE_URL: optionalUrlEnv,
   PUBLIC_STATS_CACHE_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   PUBLIC_STATS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(15000).default(5000),
+  RECAPTCHA_SECRET_KEY: optionalStringEnv,
 }).superRefine((env, ctx) => {
   if (env.MEDIA_STORAGE_DRIVER !== 'remote_php') {
     return;

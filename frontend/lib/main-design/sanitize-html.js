@@ -23,7 +23,7 @@ const EDITORIAL_HTML_OPTIONS = {
   nonTextTags: ['script', 'style', 'textarea', 'option'],
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
-    '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby'],
+    '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby', 'data-type', 'data-form-config', 'data-form-id'],
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
     video: ['src', 'poster', 'width', 'height', 'controls', 'preload', 'playsinline', 'muted', 'loop'],

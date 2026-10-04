@@ -99,6 +99,13 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Comentarios
           </Link>
           <Link
+            href="/cms/formularios"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px]">assignment</span>
+            Formularios
+          </Link>
+          <Link
             href="/cms/paginas"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors"
           >

@@ -466,6 +466,8 @@ model Post {
   likes         PostLike[]
   savedByUsers  SavedPost[]
   shares        PostShare[]
+  forms         Form[]
+  formSubmissions FormSubmission[]
 
   @@index([slug])
   @@index([legacyWordpressId])
@@ -1175,3 +1177,41 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+model Form {
+  id               String           @id @default(uuid()) @db.VarChar(36)
+  postId           String?          @map("post_id") @db.VarChar(36)
+  title            String           @db.VarChar(255)
+  description      String?          @db.Text
+  fieldsJson       Json             @map("fields_json")
+  maxResponses     Int?             @map("max_responses")
+  submitButtonText String?          @default("Enviar Postulación") @map("submit_button_text") @db.VarChar(120)
+  successMessage   String?          @default("¡Tu información ha sido enviada con éxito!") @map("success_message") @db.Text
+  isActive         Boolean          @default(true) @map("is_active")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.DateTime(6)
+
+  post             Post?            @relation(fields: [postId], references: [id], onDelete: SetNull)
+  submissions      FormSubmission[]
+
+  @@index([postId])
+  @@map("forms")
+}
+
+model FormSubmission {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  formId    String   @map("form_id") @db.VarChar(36)
+  postId    String?  @map("post_id") @db.VarChar(36)
+  dataJson  Json     @map("data_json")
+  ipAddress String?  @map("ip_address") @db.VarChar(80)
+  userAgent String?  @map("user_agent") @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(6)
+
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([formId, createdAt])
+  @@index([postId])
+  @@map("form_submissions")
+}
+

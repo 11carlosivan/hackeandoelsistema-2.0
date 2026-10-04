@@ -7,6 +7,7 @@ import ArticleEngagement from './article-engagement';
 import ArticleAudioPlayer from './article-audio-player';
 import ArticleViewTracker from './article-view-tracker';
 import SafeImage from './safe-image';
+import EditorialForm from './editorial-form';
 
 function renderBlock(block, index) {
   if (block.type === 'blockquote') {
@@ -41,6 +42,54 @@ function renderBlock(block, index) {
     <p key={index} className="text-on-surface-variant text-body-md leading-relaxed">
       {block.text}
     </p>
+  );
+}
+
+function ArticleEditorialContent({ html, postId }) {
+  if (!html) return null;
+
+  const formRegex = /<div class="wp-block-hes-form"[^>]*data-form-config="([^"]+)"[^>]*>[\s\S]*?<\/div>/i;
+  const match = formRegex.exec(html);
+
+  if (!match) {
+    return (
+      <div
+        className="editorial-content"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+
+  const [fullMatch, encodedConfig] = match;
+  const splitIndex = match.index;
+  const beforeHtml = html.slice(0, splitIndex);
+  const afterHtml = html.slice(splitIndex + fullMatch.length);
+
+  let formConfig = {};
+  try {
+    formConfig = JSON.parse(decodeURIComponent(encodedConfig));
+  } catch (err) {
+    console.error('Error decoding form config in article', err);
+  }
+
+  return (
+    <>
+      {beforeHtml ? (
+        <div
+          className="editorial-content"
+          dangerouslySetInnerHTML={{ __html: beforeHtml }}
+        />
+      ) : null}
+
+      <EditorialForm config={formConfig} postId={postId} />
+
+      {afterHtml ? (
+        <div
+          className="editorial-content"
+          dangerouslySetInnerHTML={{ __html: afterHtml }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -131,10 +180,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
               />
 
               {safeContentHtml ? (
-                <div
-                  className="editorial-content"
-                  dangerouslySetInnerHTML={{ __html: safeContentHtml }}
-                />
+                <ArticleEditorialContent html={safeContentHtml} postId={trackedPostId} />
               ) : (
                 (article.content || []).map(renderBlock)
               )}

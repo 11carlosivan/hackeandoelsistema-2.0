@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import CmsMediaSelectorModal from './cms-media-selector-modal';
 import CmsRelatedPostModal from './cms-related-post-modal';
+import CmsFormModal from './cms-form-modal';
 
 // Helper to escape HTML characters for attributes
 function escapeHtml(text) {
@@ -87,6 +88,25 @@ function defaultBlockData(type) {
     list: { type: 'list', items: [''] },
     youtube: { type: 'youtube', url: '' },
     related: { type: 'related', title: '', url: '', image: '', category: '' },
+    form: {
+      type: 'form',
+      formId: '',
+      title: 'Convocatoria: 15 Voluntarios Android',
+      description: 'Completa tus datos para ser uno de los 15 testers exclusivos de la nueva app de Hackeando el Sistema.',
+      fields: [
+        { id: 'name', label: 'Nombre completo', type: 'text', enabled: true, required: true },
+        { id: 'email', label: 'Correo electrónico', type: 'email', enabled: true, required: true },
+        { id: 'phone', label: 'Teléfono / WhatsApp', type: 'tel', enabled: true, required: true },
+        { id: 'device', label: 'Dispositivo / Versión de Android', type: 'text', enabled: true, required: true },
+        { id: 'city', label: 'Ciudad / Ubicación', type: 'text', enabled: false, required: false },
+        { id: 'message', label: 'Comentarios o mensaje', type: 'textarea', enabled: false, required: false },
+        { id: 'custom_question', label: 'Pregunta personalizada', customLabel: '¿Por qué te gustaría ser voluntario?', type: 'text', enabled: false, required: false },
+        { id: 'terms', label: 'Acepto participar como voluntario y probar la aplicación', type: 'checkbox', enabled: true, required: true },
+      ],
+      maxResponses: 15,
+      submitButtonText: 'Enviar Postulación',
+      successMessage: '¡Gracias por postularte! Nos pondremos en contacto contigo.',
+    },
   };
 
   return defaultBlockMap[type] || defaultBlockMap.paragraph;
@@ -109,7 +129,21 @@ function htmlToBlocks(html) {
     doc.body.childNodes.forEach((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const tagName = node.tagName.toLowerCase();
-        if (node.classList?.contains('wp-block-hes-related') || node.getAttribute('data-type') === 'related') {
+        if (node.classList?.contains('wp-block-hes-form') || node.getAttribute('data-type') === 'form') {
+          let formConfig = {};
+          try {
+            const raw = node.getAttribute('data-form-config');
+            if (raw) formConfig = JSON.parse(decodeURIComponent(raw));
+          } catch (e) {
+            console.error('Error parsing form config in htmlToBlocks', e);
+          }
+          blocks.push({
+            id: `b-${idCounter++}-${Date.now()}`,
+            ...defaultBlockData('form'),
+            ...formConfig,
+            type: 'form',
+          });
+        } else if (node.classList?.contains('wp-block-hes-related') || node.getAttribute('data-type') === 'related') {
           const link = node.querySelector('a');
           const img = node.querySelector('img');
           blocks.push({
@@ -254,6 +288,18 @@ function blocksToHtml(blocks) {
 
         return `<div class="wp-block-hes-related" data-type="related">${safeImage ? `<img src="${escapeHtml(safeImage)}" alt="${escapeHtml(title)}" loading="lazy" />` : ''}<div>${b.category ? `<span class="related-category">${escapeHtml(b.category)}</span>` : ''}<a class="related-title" href="${escapeHtml(safeUrl)}">${escapeHtml(title)}</a></div></div>`;
       }
+      case 'form': {
+        const formPayload = encodeURIComponent(JSON.stringify({
+          formId: b.formId || `form-${Date.now()}`,
+          title: b.title || 'Formulario',
+          description: b.description || '',
+          fields: (b.fields || []).filter(f => f.enabled),
+          maxResponses: b.maxResponses ? Number(b.maxResponses) : null,
+          submitButtonText: b.submitButtonText || 'Enviar Postulación',
+          successMessage: b.successMessage || '¡Información enviada con éxito!',
+        }));
+        return `<div class="wp-block-hes-form" data-type="form" data-form-config="${formPayload}"><div class="hes-form-placeholder">[FORMULARIO: ${escapeHtml(b.title || 'Formulario')}]</div></div>`;
+      }
       default:
         return '';
     }
@@ -281,6 +327,9 @@ function blocksToText(blocks) {
     }
     if (b.type === 'related') {
       return stripHtml(`${b.title || ''} ${b.url || ''}`);
+    }
+    if (b.type === 'form') {
+      return stripHtml(`[FORMULARIO: ${b.title || ''}] ${b.description || ''}`);
     }
     if (b.type === 'youtube') {
       return stripHtml(b.url || '');
@@ -396,6 +445,7 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [mediaModalBlockIndex, setMediaModalBlockIndex] = useState(null);
   const [relatedModalBlockIndex, setRelatedModalBlockIndex] = useState(null);
+  const [formModalBlockIndex, setFormModalBlockIndex] = useState(null);
 
   // Parse HTML string to Block Objects on initial load
   useEffect(() => {
@@ -455,6 +505,9 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
 
     if (type === 'related') {
       setRelatedModalBlockIndex(index + 1);
+    }
+    if (type === 'form') {
+      setFormModalBlockIndex(index + 1);
     }
   };
 
@@ -576,6 +629,7 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
                 <option value="list">Lista</option>
                 <option value="youtube">YouTube</option>
                 <option value="related">Relacionado</option>
+                <option value="form">Formulario</option>
               </select>
               <button 
                 type="button"
@@ -799,6 +853,62 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
                 </div>
               )}
 
+              {block.type === 'form' && (
+                <div className="space-y-3 border border-terminal-gray/40 bg-black/40 p-4">
+                  <div className="flex items-center justify-between gap-3 border-b border-terminal-gray/30 pb-2">
+                    <span className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase text-system-red">
+                      <span className="material-symbols-outlined text-[14px]">assignment</span>
+                      Formulario Interactivo (Anti-Bot)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBlockIndex(index);
+                        setFormModalBlockIndex(index);
+                      }}
+                      className="border border-system-red/60 bg-system-red/10 px-3 py-1 font-label-caps text-[9px] font-bold text-white transition-colors hover:bg-system-red hover:text-black flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-[12px]">tune</span>
+                      Configurar Campos
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 border border-terminal-gray/30 bg-black p-3 font-mono">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-headline-md text-xs font-bold uppercase text-white">
+                        {block.title || 'Formulario de Convocatoria'}
+                      </h4>
+                      {block.maxResponses ? (
+                        <span className="text-[9px] bg-system-red/20 text-system-red px-2 py-0.5 border border-system-red/40 font-bold">
+                          LÍMITE: {block.maxResponses} CUPOS
+                        </span>
+                      ) : null}
+                    </div>
+                    {block.description ? (
+                      <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                        {block.description}
+                      </p>
+                    ) : null}
+
+                    <div className="pt-2 border-t border-terminal-gray/20">
+                      <span className="text-[9px] text-on-surface-variant block mb-1 uppercase font-bold">
+                        Campos activos:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(block.fields || []).filter(f => f.enabled).map((f) => (
+                          <span
+                            key={f.id}
+                            className="bg-surface-container-low border border-terminal-gray/40 px-2 py-0.5 text-[9px] text-white flex items-center gap-1"
+                          >
+                            <span className="text-system-red">✓</span> {f.label} {f.required && <span className="text-system-red font-bold">*</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {block.type === 'list' && (
                 <div className="space-y-2">
                   <ul className="list-disc list-inside space-y-1.5">
@@ -857,6 +967,7 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
                 <button type="button" onClick={() => addBlock(index, 'list')} className="hover:text-white px-1">Lista</button>
                 <button type="button" onClick={() => addBlock(index, 'youtube')} className="hover:text-white px-1 text-system-red">YouTube</button>
                 <button type="button" onClick={() => addBlock(index, 'related')} className="hover:text-white px-1 text-system-red">Relacionado</button>
+                <button type="button" onClick={() => addBlock(index, 'form')} className="hover:text-white px-1 text-system-red">Formulario</button>
               </div>
             </div>
 
@@ -924,6 +1035,13 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
           >
             + Relacionado
           </button>
+          <button
+            type="button"
+            onClick={() => addBlock(blocks.length - 1, 'form')}
+            className="border border-system-red/60 text-system-red hover:bg-system-red hover:text-black px-3 py-1.5 transition-all"
+          >
+            + Formulario
+          </button>
         </div>
       </div>
     </div>
@@ -939,6 +1057,17 @@ export default function CmsBlockEditor({ initialHtml = '', initialMedia = [], ca
       onClose={() => setRelatedModalBlockIndex(null)}
       onSelect={selectRelatedPost}
       categories={categories}
+    />
+    <CmsFormModal
+      isOpen={formModalBlockIndex !== null}
+      onClose={() => setFormModalBlockIndex(null)}
+      initialData={formModalBlockIndex !== null ? blocks[formModalBlockIndex] : null}
+      onSave={(formData) => {
+        if (formModalBlockIndex !== null) {
+          updateBlockData(formModalBlockIndex, formData);
+          setFormModalBlockIndex(null);
+        }
+      }}
     />
     </>
   );
