@@ -5,6 +5,17 @@ import Link from 'next/link';
 import { getClientApiBaseUrl as getApiBaseUrl } from '@/lib/main-design/client-api';
 import { fetchJsonWithCsrfRetry } from './client-security';
 
+const VERIFIED_DOMINICAN_FEEDS = [
+  'https://listindiario.com/rss/noticias.xml',
+  'https://www.diariolibre.com/rss/portada.xml',
+  'https://elnacional.com.do/rss/home.xml',
+  'https://eldia.com.do/feed/',
+  'https://hoy.com.do/rss/home.xml',
+  'https://elnuevodiario.com.do/feed/',
+  'https://noticiassin.com/feed/',
+  'https://remolacha.net/feed/',
+].join('\n');
+
 export default function CmsAutoPostPanel({ initialSettings = {}, categories = [] }) {
   const [settings, setSettings] = useState(initialSettings);
   const [isEnabled, setIsEnabled] = useState(Boolean(initialSettings.isEnabled));
@@ -28,6 +39,15 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
     return fetchJsonWithCsrfRetry(apiBaseUrl, `${apiBaseUrl}${path}`, {
       method: 'POST',
       body: JSON.stringify(body),
+    });
+  };
+
+  const handleInsertRecommendedFeeds = () => {
+    setSources((current) => {
+      if (!current.trim()) return VERIFIED_DOMINICAN_FEEDS;
+      const existing = current.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      const toAdd = VERIFIED_DOMINICAN_FEEDS.split('\n').filter((f) => !existing.includes(f));
+      return [...existing, ...toAdd].join('\n');
     });
   };
 
@@ -294,14 +314,35 @@ export default function CmsAutoPostPanel({ initialSettings = {}, categories = []
       <form onSubmit={saveSettings} className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-7">
           <section className="space-y-4 border border-terminal-gray bg-surface-container-low/30 p-6">
-            <div className="font-label-caps text-[10px] font-bold text-system-red">Fuentes RSS</div>
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+              <div className="font-label-caps text-[10px] font-bold text-system-red">Fuentes RSS / Canales de Noticias</div>
+              <button
+                type="button"
+                onClick={handleInsertRecommendedFeeds}
+                className="inline-flex items-center gap-1.5 border border-emerald-500/60 bg-emerald-950/40 px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-400 transition-colors hover:bg-emerald-500 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[14px]">rss_feed</span>
+                <span>Cargar Feeds Dominicanos Verificados</span>
+              </button>
+            </div>
+
+            <p className="font-mono text-[11px] text-on-surface-variant">
+              Ingresa una URL por línea. Deben ser enlaces XML de sindicación (ej. <code className="text-white">/rss/noticias.xml</code> o <code className="text-white">/feed/</code>). Si ingresas la portada de un diario principal, el sistema intentará auto-detectar su feed RSS.
+            </p>
+
             <textarea
-              rows={7}
+              rows={8}
               value={sources}
               onChange={(event) => setSources(event.target.value)}
-              placeholder="https://ejemplo.com/feed/"
+              placeholder="https://listindiario.com/rss/noticias.xml&#10;https://www.diariolibre.com/rss/portada.xml&#10;https://elnacional.com.do/rss/home.xml&#10;https://hoy.com.do/rss/home.xml"
               className="w-full resize-y border border-terminal-gray bg-black p-3 font-mono text-xs text-white outline-none focus:border-system-red"
             />
+
+            <div className="border border-terminal-gray/40 bg-black/40 p-3 font-mono text-[11px] text-zinc-400">
+              <span className="font-bold text-system-red">Estado de medios dominicanos: </span>
+              Listín Diario, Diario Libre, Hoy, El Nacional, El Día, El Nuevo Diario, Noticias SIN y Remolacha están verificados y funcionando.
+              Medios como <span className="text-zinc-300">El Caribe</span>, <span className="text-zinc-300">Acento</span> y <span className="text-zinc-300">CDN</span> tienen sus feeds cerrados o bloqueados.
+            </div>
           </section>
 
           <section className="space-y-4 border border-terminal-gray bg-surface-container-low/30 p-6">

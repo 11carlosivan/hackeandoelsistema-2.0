@@ -681,6 +681,61 @@ async function extractImage(url, rawHtml = '') {
   }
 }
 
+export async function resolveFeedXml(sourceUrl) {
+  const initialText = await fetchExternalText(sourceUrl);
+  const isHtml = /<!doctype\s+html/i.test(initialText) || /<html[\s>]/i.test(initialText);
+
+  if (!isHtml) {
+    return { xml: initialText, resolvedUrl: sourceUrl };
+  }
+
+  // 1. Look for <link rel="alternate" type="application/rss+xml" href="..."> in HTML
+  try {
+    const $ = cheerio.load(initialText);
+    const linkRss = $('link[type*="rss+xml"], link[type*="atom+xml"]').first().attr('href');
+    if (linkRss) {
+      const feedUrl = new URL(linkRss, sourceUrl).href;
+      const testXml = await fetchExternalText(feedUrl);
+      if (!/<!doctype\s+html/i.test(testXml) && !/<html[\s>]/i.test(testXml)) {
+        return { xml: testXml, resolvedUrl: feedUrl };
+      }
+    }
+  } catch {
+    // Continue to standard candidates
+  }
+
+  // 2. Try common Dominican and standard news feed patterns
+  try {
+    const parsed = new URL(sourceUrl);
+    const origin = parsed.origin;
+    const candidates = [
+      `${origin}/rss/portada.xml`,
+      `${origin}/rss/noticias.xml`,
+      `${origin}/rss/home.xml`,
+      `${origin}/feed/`,
+      `${origin}/rss/`,
+    ];
+
+    for (const candidate of candidates) {
+      if (candidate === sourceUrl) continue;
+      try {
+        const testXml = await fetchExternalText(candidate, { timeoutMs: 6000 });
+        if (!/<!doctype\s+html/i.test(testXml) && !/<html[\s>]/i.test(testXml)) {
+          return { xml: testXml, resolvedUrl: candidate };
+        }
+      } catch {
+        // try next candidate
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  throw new Error(
+    'Es una página web HTML y no tiene un canal RSS público disponible. Usa un feed RSS directo (ej. /rss/portada.xml o /feed/).'
+  );
+}
+
 async function getUnprocessedRssArticles({ sources, processedHashes, limit }) {
   const articles = [];
 
@@ -688,7 +743,7 @@ async function getUnprocessedRssArticles({ sources, processedHashes, limit }) {
     if (articles.length >= limit) break;
 
     try {
-      const xml = await fetchExternalText(source);
+      const { xml } = await resolveFeedXml(source);
       const feed = await parser.parseString(xml);
 
       for (const item of (feed.items || []).slice(0, 8)) {
