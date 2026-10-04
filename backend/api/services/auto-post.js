@@ -16,7 +16,7 @@ const IMAGE_MIME_EXTENSIONS = new Map([
   ['image/webp', 'webp'],
   ['image/gif', 'gif'],
 ]);
-const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-3.7-flash';
+const GEMINI_MODEL = process.env.AUTO_POST_GEMINI_MODEL || 'gemini-2.0-flash';
 const DEFAULT_CONFIG = {
   isEnabled: false,
   intervalMinutes: 30,
@@ -803,30 +803,67 @@ Formato:
 {"title":"...","summary":"...","category":"...","content":"<p>...</p>","imageSearchTerm":"..."}`;
 }
 
-async function callGemini(apiKey, prompt) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.65, responseMimeType: 'application/json' },
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
+const CANDIDATE_GEMINI_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+];
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => null);
-    if (response.status === 429) {
-      throw new Error('Gemini rechazo la solicitud por cuota o facturacion. Revisa el limite/billing de la API key en Google AI Studio.');
+async function callGemini(apiKey, prompt) {
+  const models = [
+    process.env.AUTO_POST_GEMINI_MODEL,
+    ...CANDIDATE_GEMINI_MODELS,
+  ].filter(Boolean);
+
+  const uniqueModels = [...new Set(models)];
+  let lastError = null;
+
+  for (const model of uniqueModels) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.65, responseMimeType: 'application/json' },
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        const errMsg = error?.error?.message || `HTTP ${response.status}`;
+
+        if (response.status === 404 || response.status === 400) {
+          lastError = new Error(`Gemini (${model}): ${errMsg}`);
+          continue;
+        }
+
+        if (response.status === 429) {
+          throw new Error(
+            `Gemini (${model}) indicó cuota excedida: "${errMsg}". ` +
+            'Si usas una clave gratuita de Google AI Studio, asegúrate de crearla en aistudio.google.com con la opción "Create API key in new project" (sin asociar facturación de Google Cloud).'
+          );
+        }
+
+        throw new Error(`Gemini (${model}): ${errMsg}`);
+      }
+
+      const json = await response.json();
+      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error(`Gemini (${model}) no devolvió contenido.`);
+
+      return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
+    } catch (err) {
+      lastError = err;
+      if (err.message.includes('404') || err.message.includes('not found') || err.message.includes('not supported')) {
+        continue;
+      }
+      throw err;
     }
-    throw new Error(error?.error?.message || `Gemini ${GEMINI_MODEL} HTTP ${response.status}`);
   }
 
-  const json = await response.json();
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini no devolvio contenido.');
-
-  return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
+  throw lastError || new Error('No se pudo comunicar con los modelos de Gemini disponibles.');
 }
 
 async function callOpenAi(apiKey, prompt) {
