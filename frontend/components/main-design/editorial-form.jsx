@@ -169,11 +169,22 @@ export default function EditorialForm({ config = {}, postId = null }) {
         renderedAt: renderedAtRef.current,
       };
 
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (typeof document !== 'undefined') {
+        const csrfMatch = document.cookie
+          .split(';')
+          .map((c) => c.trim())
+          .find((c) => c.startsWith('hes_csrf_token='));
+        if (csrfMatch) {
+          headers['x-csrf-token'] = csrfMatch.slice('hes_csrf_token='.length);
+        }
+      }
+
       const res = await fetch(`${apiBaseUrl}/api/v1/public/forms/submit`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 

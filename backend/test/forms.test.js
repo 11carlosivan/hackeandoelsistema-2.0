@@ -142,6 +142,32 @@ describe('Forms API', () => {
     expect(json.message).toBe('¡Gracias por postularte!');
   });
 
+  it('allows submissions from users with cookies without CSRF errors', async () => {
+    const prisma = createFormsPrismaStub();
+    const app = await buildApp({ prisma });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/public/forms/submit',
+      headers: {
+        cookie: 'hes_access_token=some-token; hes_refresh_token=some-refresh-token',
+      },
+      payload: {
+        formId: 'form-voluntarios-1',
+        postId: 'post-1',
+        data: {
+          name: 'Admin Tester',
+          email: 'admin@hackeandoelsistema.net',
+          phone: '+18290000000',
+        },
+        renderedAt: Date.now() - 3000,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().ok).toBe(true);
+  });
+
   it('drops spam submissions silently when honeypot is triggered', async () => {
     const prisma = createFormsPrismaStub();
     const app = await buildApp({ prisma });

@@ -5,7 +5,11 @@ import sensible from '@fastify/sensible';
 import { AUTH_COOKIE_NAMES } from '../services/auth.js';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const CSRF_EXEMPT_PATHS = new Set(['/api/v1/auth/login', '/api/v1/auth/refresh']);
+const CSRF_EXEMPT_PATHS = new Set([
+  '/api/v1/auth/login',
+  '/api/v1/auth/refresh',
+  '/api/v1/public/forms/submit',
+]);
 const INTERNAL_HOSTS = new Set(['backend', 'localhost', '127.0.0.1', '::1']);
 
 function getCookieValue(cookieHeader, name) {
