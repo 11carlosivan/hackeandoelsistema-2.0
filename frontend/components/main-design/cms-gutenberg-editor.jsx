@@ -141,6 +141,9 @@ function htmlToBlocks(html) {
             id: `b-${idCounter++}-${Date.now()}`,
             ...defaultBlockData('form'),
             ...formConfig,
+            maxResponses: formConfig.maxResponses !== undefined
+              ? (formConfig.maxResponses !== null ? Number(formConfig.maxResponses) : null)
+              : defaultBlockData('form').maxResponses,
             type: 'form',
           });
         } else if (node.classList?.contains('wp-block-hes-related') || node.getAttribute('data-type') === 'related') {

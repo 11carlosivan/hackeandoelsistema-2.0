@@ -14,18 +14,22 @@ const DEFAULT_AVAILABLE_FIELDS = [
 ];
 
 export default function CmsFormModal({ isOpen, onClose, initialData = null, onSave }) {
-  const [title, setTitle] = useState('Convocatoria: 15 Voluntarios Android');
-  const [description, setDescription] = useState('Completa tus datos para ser uno de los 15 testers exclusivos de la nueva app de Hackeando el Sistema.');
-  const [maxResponses, setMaxResponses] = useState(15);
+  const [title, setTitle] = useState('Convocatoria de Voluntarios');
+  const [description, setDescription] = useState('');
+  const [maxResponses, setMaxResponses] = useState('');
   const [submitButtonText, setSubmitButtonText] = useState('Enviar Postulación');
   const [successMessage, setSuccessMessage] = useState('¡Gracias por postularte! Nos pondremos en contacto contigo.');
   const [fields, setFields] = useState(DEFAULT_AVAILABLE_FIELDS);
 
   useEffect(() => {
     if (initialData && isOpen) {
-      setTitle(initialData.title || 'Convocatoria: 15 Voluntarios Android');
+      setTitle(initialData.title || 'Convocatoria de Voluntarios');
       setDescription(initialData.description || '');
-      setMaxResponses(initialData.maxResponses !== undefined && initialData.maxResponses !== null ? initialData.maxResponses : 15);
+      setMaxResponses(
+        initialData.maxResponses !== undefined && initialData.maxResponses !== null
+          ? String(initialData.maxResponses)
+          : ''
+      );
       setSubmitButtonText(initialData.submitButtonText || 'Enviar Postulación');
       setSuccessMessage(initialData.successMessage || '¡Gracias por postularte! Nos pondremos en contacto contigo.');
       
@@ -74,11 +78,16 @@ export default function CmsFormModal({ isOpen, onClose, initialData = null, onSa
       return;
     }
 
+    const parsedLimit =
+      maxResponses !== '' && !isNaN(Number(maxResponses)) && Number(maxResponses) > 0
+        ? Number(maxResponses)
+        : null;
+
     onSave({
       formId: initialData?.formId || `form-${Date.now()}`,
       title: title.trim(),
       description: description.trim(),
-      maxResponses: Number(maxResponses) > 0 ? Number(maxResponses) : null,
+      maxResponses: parsedLimit,
       submitButtonText: submitButtonText.trim() || 'Enviar Postulación',
       successMessage: successMessage.trim() || '¡Información enviada con éxito!',
       fields,

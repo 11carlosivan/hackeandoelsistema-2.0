@@ -8,6 +8,12 @@ import { getCookieValue } from './client-security';
 export default function CmsFormDetailView({ form, error = null }) {
   const [submissions, setSubmissions] = useState(form?.submissions || []);
   const [isActive, setIsActive] = useState(form?.isActive ?? true);
+  const [maxResponses, setMaxResponses] = useState(form?.maxResponses ?? null);
+  const [isEditingLimit, setIsEditingLimit] = useState(false);
+  const [limitInput, setLimitInput] = useState(
+    form?.maxResponses !== null && form?.maxResponses !== undefined ? String(form.maxResponses) : ''
+  );
+  const [isSavingLimit, setIsSavingLimit] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   const [isDeleting, setIsDeleting] = useState(null);
   const [submissionToDelete, setSubmissionToDelete] = useState(null);
@@ -52,6 +58,48 @@ export default function CmsFormDetailView({ form, error = null }) {
       }
     } catch {
       showFeedback('error', 'Error de conexión al cambiar el estado del formulario.');
+    }
+  };
+
+  const handleSaveLimit = async (e) => {
+    e.preventDefault();
+    setIsSavingLimit(true);
+    try {
+      const parsed = limitInput.trim() === '' ? 0 : Number(limitInput);
+      if (isNaN(parsed) || parsed < 0) {
+        showFeedback('error', 'El límite debe ser un número entero mayor o igual a 0.');
+        setIsSavingLimit(false);
+        return;
+      }
+      const apiBaseUrl = getClientApiBaseUrl();
+      const token = getCookieValue('hes_access_token');
+      const res = await fetch(`${apiBaseUrl}/api/v1/cms/forms/${encodeURIComponent(form.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          maxResponses: parsed,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const updatedLimit = json.data?.maxResponses ?? (parsed === 0 ? null : parsed);
+        setMaxResponses(updatedLimit);
+        setIsEditingLimit(false);
+        showFeedback(
+          'success',
+          `Límite de cupos actualizado a ${updatedLimit !== null ? `${updatedLimit} voluntarios` : 'ilimitado'} con éxito.`
+        );
+      } else {
+        showFeedback('error', 'No se pudo actualizar el cupo límite.');
+      }
+    } catch {
+      showFeedback('error', 'Error de conexión al actualizar el cupo límite.');
+    } finally {
+      setIsSavingLimit(false);
     }
   };
 
@@ -109,7 +157,7 @@ export default function CmsFormDetailView({ form, error = null }) {
   });
 
   const count = submissions.length;
-  const isFull = Boolean(form.maxResponses && count >= form.maxResponses);
+  const isFull = Boolean(maxResponses && count >= maxResponses);
 
   return (
     <div className="w-full bg-background text-on-surface space-y-6">
@@ -216,12 +264,61 @@ export default function CmsFormDetailView({ form, error = null }) {
               <span className="font-headline-md text-2xl text-white font-bold">{count}</span>
             </div>
 
-            <div className="border border-terminal-gray bg-surface-container-low/40 p-4 text-center min-w-[120px]">
-              <span className="block text-[9px] font-mono text-on-surface-variant uppercase">CUPOS LÍMITE</span>
-              <span className="font-headline-md text-2xl text-system-red font-bold">
-                {form.maxResponses || '∞'}
-              </span>
-            </div>
+            {isEditingLimit ? (
+              <div className="border border-system-red bg-surface-container-low/60 p-3 text-center min-w-[160px] relative">
+                <span className="block text-[9px] font-mono text-system-red uppercase font-bold mb-1">EDITAR CUPOS</span>
+                <form onSubmit={handleSaveLimit} className="space-y-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100000"
+                    value={limitInput}
+                    onChange={(e) => setLimitInput(e.target.value)}
+                    placeholder="0 = ∞"
+                    className="w-full bg-black border border-terminal-gray text-white text-center font-headline text-lg font-bold outline-none focus:border-system-red py-0.5"
+                    autoFocus
+                  />
+                  <div className="flex gap-1.5 justify-center">
+                    <button
+                      type="submit"
+                      disabled={isSavingLimit}
+                      className="bg-system-red text-black font-label-caps text-[9px] font-bold px-2.5 py-1 hover:bg-white transition-colors cursor-pointer"
+                    >
+                      {isSavingLimit ? '...' : 'Guardar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLimitInput(maxResponses !== null ? String(maxResponses) : '');
+                        setIsEditingLimit(false);
+                      }}
+                      className="border border-terminal-gray text-white font-label-caps text-[9px] px-2 py-1 hover:border-white transition-colors cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="border border-terminal-gray bg-surface-container-low/40 p-4 text-center min-w-[120px] group relative">
+                <span className="block text-[9px] font-mono text-on-surface-variant uppercase">CUPOS LÍMITE</span>
+                <span className="font-headline-md text-2xl text-system-red font-bold block">
+                  {maxResponses || '∞'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLimitInput(maxResponses !== null ? String(maxResponses) : '');
+                    setIsEditingLimit(true);
+                  }}
+                  className="mt-1 text-[9px] font-mono text-on-surface-variant hover:text-system-red transition-colors inline-flex items-center gap-0.5 cursor-pointer underline"
+                  title="Cambiar límite de cupos"
+                >
+                  <span className="material-symbols-outlined text-[11px]">edit</span>
+                  Cambiar cupo
+                </button>
+              </div>
+            )}
 
             <div className="border border-terminal-gray bg-surface-container-low/40 p-4 text-center min-w-[120px]">
               <span className="block text-[9px] font-mono text-on-surface-variant uppercase">ESTADO</span>
@@ -242,7 +339,7 @@ export default function CmsFormDetailView({ form, error = null }) {
             </h3>
             {isFull && (
               <span className="text-[9px] font-mono bg-system-red/10 text-system-red border border-system-red/30 px-2 py-0.5 uppercase font-bold">
-                Límite de 15 voluntarios completado
+                Límite de {maxResponses || 15} voluntarios completado
               </span>
             )}
           </div>

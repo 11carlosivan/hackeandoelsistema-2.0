@@ -86,4 +86,49 @@ describe('CmsFormDetailView', () => {
       expect(screen.getByText(/La postulación fue eliminada correctamente/i)).toBeDefined();
     });
   });
+
+  it('allows editing cupos límite dynamically', async () => {
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (options?.method === 'PATCH') {
+        const body = JSON.parse(options.body || '{}');
+        return jsonResponse({
+          ok: true,
+          data: {
+            id: 'FORM-1791084920131',
+            maxResponses: body.maxResponses,
+          },
+        });
+      }
+      return jsonResponse({ ok: true });
+    });
+
+    render(<CmsFormDetailView form={mockForm} />);
+
+    // Initially displays 15
+    expect(screen.getByText('15')).toBeDefined();
+
+    // Click "Cambiar cupo"
+    const editLimitBtn = screen.getByTitle('Cambiar límite de cupos');
+    fireEvent.click(editLimitBtn);
+
+    // Form appears with input
+    const input = screen.getByDisplayValue('15');
+    fireEvent.change(input, { target: { value: '25' } });
+
+    // Submit form
+    const saveBtn = screen.getByText('Guardar');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/cms/forms/FORM-1791084920131'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ maxResponses: 25 }),
+        })
+      );
+      expect(screen.getByText('25')).toBeDefined();
+      expect(screen.getByText(/Límite de cupos actualizado a 25 voluntarios con éxito/i)).toBeDefined();
+    });
+  });
 });

@@ -330,4 +330,50 @@ const testEnv = {
     expect(response.body).toContain('Carlos');
     expect(response.body).toContain('carlos@example.com');
   });
+
+  it('updates form configuration (maxResponses, title) via CMS PATCH endpoint', async () => {
+    const user = createAuthUser();
+    const prisma = createFormsPrismaStub({
+      user: {
+        findUnique: async () => user,
+        findFirst: async () => user,
+      },
+    });
+    const app = await buildApp({ env: testEnv, prisma });
+    const access = await signAccessToken({ config: testEnv, user });
+
+    // Update cupos limite to 25
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/forms/form-voluntarios-1',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        maxResponses: 25,
+        title: 'Convocatoria: 25 Voluntarios Android',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const json = response.json();
+    expect(json.data.maxResponses).toBe(25);
+    expect(json.data.title).toBe('Convocatoria: 25 Voluntarios Android');
+
+    // Also verify setting to 0 sets it to null (unlimited)
+    const unlimitedResponse = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/forms/form-voluntarios-1',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        maxResponses: 0,
+      },
+    });
+
+    expect(unlimitedResponse.statusCode).toBe(200);
+    const unlimitedJson = unlimitedResponse.json();
+    expect(unlimitedJson.data.maxResponses).toBeNull();
+  });
 });

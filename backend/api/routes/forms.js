@@ -6,7 +6,7 @@ const submitFormSchema = z.object({
   postId: z.string().trim().max(36).optional().nullable(),
   formTitle: z.string().trim().max(255).optional().nullable(),
   formDescription: z.string().trim().max(1000).optional().nullable(),
-  maxResponses: z.coerce.number().int().min(1).max(10000).optional().nullable(),
+  maxResponses: z.coerce.number().int().min(0).max(100000).optional().nullable(),
   data: z.record(z.any()).refine((obj) => Object.keys(obj).length > 0, {
     message: 'Debes completar los campos del formulario',
   }),
@@ -22,6 +22,13 @@ const formIdParamSchema = z.object({
 const submissionParamSchema = z.object({
   formId: z.string().trim().min(1).max(120),
   submissionId: z.string().trim().min(1).max(120),
+});
+
+const updateFormSchema = z.object({
+  title: z.string().trim().min(1).max(255).optional(),
+  description: z.string().trim().max(1000).nullable().optional(),
+  maxResponses: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function registerFormRoutes(app) {
@@ -110,8 +117,19 @@ export async function registerFormRoutes(app) {
           title: formTitle || 'Formulario de Convocatoria',
           description: formDescription || null,
           fieldsJson: Object.keys(data).map((k) => ({ id: k, label: k })),
-          maxResponses: maxResponses || 15,
+          maxResponses: maxResponses !== undefined && maxResponses !== null && Number(maxResponses) > 0 ? Number(maxResponses) : null,
           isActive: true,
+        },
+        include: { _count: { select: { submissions: true } } },
+      });
+    } else if (maxResponses !== undefined && (maxResponses ? Number(maxResponses) : null) !== form.maxResponses) {
+      const nextMax = maxResponses ? Number(maxResponses) : null;
+      form = await app.prisma.form.update({
+        where: { id: formId },
+        data: {
+          maxResponses: nextMax,
+          ...(formTitle ? { title: formTitle } : {}),
+          ...(formDescription !== undefined ? { description: formDescription } : {}),
         },
         include: { _count: { select: { submissions: true } } },
       });
@@ -153,7 +171,7 @@ export async function registerFormRoutes(app) {
     const { id } = formIdParamSchema.parse(request.params);
 
     if (typeof app.prisma?.form?.findUnique !== 'function') {
-      return { data: { exists: false, active: true, count: 0, isFull: false, maxResponses: 15 } };
+      return { data: { exists: false, active: true, count: 0, isFull: false, maxResponses: null } };
     }
 
     const form = await app.prisma.form.findUnique({
@@ -162,7 +180,7 @@ export async function registerFormRoutes(app) {
     });
 
     if (!form) {
-      return { data: { exists: false, active: true, count: 0, isFull: false, maxResponses: 15 } };
+      return { data: { exists: false, active: true, count: 0, isFull: false, maxResponses: null } };
     }
 
     const count = form._count?.submissions || 0;
@@ -390,6 +408,63 @@ export async function registerFormRoutes(app) {
       });
 
       return { ok: true, data: updated };
+    },
+  );
+
+  // 8. CMS: Update form configuration (cupos límite, título, descripción, estado)
+  app.patch(
+    '/api/v1/cms/forms/:id',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request) => {
+      const { id } = formIdParamSchema.parse(request.params);
+      const body = updateFormSchema.parse(request.body);
+
+      if (typeof app.prisma?.form?.findUnique !== 'function') {
+        return { ok: true, data: { id, ...body } };
+      }
+
+      const form = await app.prisma.form.findUnique({
+        where: { id },
+        include: { _count: { select: { submissions: true } } },
+      });
+
+      if (!form) {
+        throw app.httpErrors.notFound('Formulario no encontrado');
+      }
+
+      const nextMaxResponses =
+        body.maxResponses !== undefined
+          ? body.maxResponses === 0 || body.maxResponses === null
+            ? null
+            : Number(body.maxResponses)
+          : form.maxResponses;
+
+      const updated = await app.prisma.form.update({
+        where: { id },
+        data: {
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.description !== undefined ? { description: body.description } : {}),
+          maxResponses: nextMaxResponses,
+          ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+        },
+        include: { _count: { select: { submissions: true } } },
+      });
+
+      const count = updated._count?.submissions || 0;
+      const isFull = Boolean(updated.maxResponses && count >= updated.maxResponses);
+
+      return {
+        ok: true,
+        data: {
+          id: updated.id,
+          title: updated.title,
+          description: updated.description,
+          maxResponses: updated.maxResponses,
+          isActive: updated.isActive,
+          submissionsCount: count,
+          isFull,
+        },
+      };
     },
   );
 }

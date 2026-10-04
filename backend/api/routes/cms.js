@@ -684,6 +684,49 @@ function buildEditorialContent({ contentText, contentHtml }) {
   };
 }
 
+async function syncFormsFromContentHtml(tx, postId, contentHtml) {
+  if (!contentHtml || typeof tx?.form?.upsert !== 'function') return;
+
+  const formRegex = /<div class="wp-block-hes-form"[^>]*data-form-config="([^"]+)"[^>]*>/gi;
+  let formMatch;
+  while ((formMatch = formRegex.exec(contentHtml)) !== null) {
+    try {
+      const formConfig = JSON.parse(decodeURIComponent(formMatch[1]));
+      if (!formConfig.formId) continue;
+
+      const maxResponses =
+        formConfig.maxResponses !== undefined && formConfig.maxResponses !== null && Number(formConfig.maxResponses) > 0
+          ? Number(formConfig.maxResponses)
+          : null;
+
+      await tx.form.upsert({
+        where: { id: formConfig.formId },
+        create: {
+          id: formConfig.formId,
+          postId: postId || null,
+          title: formConfig.title || 'Formulario de Convocatoria',
+          description: formConfig.description || null,
+          fieldsJson: formConfig.fields || [],
+          maxResponses,
+          isActive: true,
+          submitButtonText: formConfig.submitButtonText || 'Enviar Postulación',
+          successMessage: formConfig.successMessage || '¡Información enviada con éxito!',
+        },
+        update: {
+          postId: postId || undefined,
+          ...(formConfig.title ? { title: formConfig.title } : {}),
+          ...(formConfig.description !== undefined ? { description: formConfig.description } : {}),
+          maxResponses,
+          ...(formConfig.submitButtonText ? { submitButtonText: formConfig.submitButtonText } : {}),
+          ...(formConfig.successMessage ? { successMessage: formConfig.successMessage } : {}),
+        },
+      });
+    } catch {
+      // Ignore parse errors in non-standard content
+    }
+  }
+}
+
 function textToHtml(value) {
   const paragraphs = String(value || '')
     .split(/\n{2,}/)
@@ -3432,6 +3475,8 @@ export async function registerCmsRoutes(app) {
         },
       });
 
+      await syncFormsFromContentHtml(tx, post.id, contentHtml);
+
       await tx.auditLog.create({
         data: {
           actorId: request.auth.user.id,
@@ -3583,6 +3628,10 @@ export async function registerCmsRoutes(app) {
             lastmodAt: now,
           },
         });
+      }
+
+      if (data.contentHtml) {
+        await syncFormsFromContentHtml(tx, id, data.contentHtml);
       }
 
       await tx.auditLog.create({
