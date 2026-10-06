@@ -248,6 +248,7 @@ function createPrismaStub(user, options = {}) {
         featuredMedia: data.featuredMediaId === media.id ? media : post.featuredMedia,
         updatedAt: new Date('2026-01-03T00:00:00Z'),
       }),
+      delete: async () => post,
     },
     page: {
       count,
@@ -325,6 +326,7 @@ function createPrismaStub(user, options = {}) {
         routeUpdateManyCalls.push(args);
         return { count: 1 };
       },
+      deleteMany: async () => ({ count: 1 }),
     },
     redirect: {
       count,
@@ -519,6 +521,7 @@ function createPrismaStub(user, options = {}) {
         checksum: 'checksum',
         createdAt: new Date('2026-01-01T00:00:00Z'),
       }),
+      deleteMany: async () => ({ count: 1 }),
     },
     seoMetadata: {
       create: async ({ data }) => ({
@@ -2322,6 +2325,123 @@ describe('cms routes', () => {
     await app.close();
 
     expect(response.statusCode).toBe(409);
+  });
+
+  it('returns a published post to draft and unpublishes the route', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { postStatus: 'PUBLISHED' }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222/workflow',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'RETURN_TO_DRAFT',
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.post.status).toBe('DRAFT');
+    expect(response.json().data.route).toMatchObject({
+      status: 'GONE',
+      httpStatus: 404,
+      includeInSitemap: false,
+    });
+    expect(response.json().data.seo).toMatchObject({
+      robotsIndex: 'NOINDEX',
+      robotsFollow: 'NOFOLLOW',
+    });
+  });
+
+  it('deletes a post and cleans up route and mapping', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/cms/posts/22222222-2222-4222-8222-222222222222',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+    });
+
+    await app.close();
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.success).toBe(true);
+    expect(response.json().data.post.id).toBe('22222222-2222-4222-8222-222222222222');
+  });
+
+  it('performs bulk operations on posts', async () => {
+    const user = createAuthUser();
+    const access = await signAccessToken({ config: testEnv, user });
+    const app = await buildApp({
+      env: testEnv,
+      prisma: createPrismaStub(user, { featuredMediaId: '55555555-5555-4555-8555-555555555555' }),
+      logger: false,
+    });
+
+    // Test bulk publish
+    const publishRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts/bulk',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'PUBLISH',
+        postIds: ['22222222-2222-4222-8222-222222222222'],
+      },
+    });
+    expect(publishRes.statusCode, publishRes.body).toBe(200);
+    expect(publishRes.json().data.successCount).toBe(1);
+    expect(publishRes.json().data.failureCount).toBe(0);
+
+    // Test bulk draft
+    const draftRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts/bulk',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'DRAFT',
+        postIds: ['22222222-2222-4222-8222-222222222222'],
+      },
+    });
+    expect(draftRes.statusCode, draftRes.body).toBe(200);
+    expect(draftRes.json().data.successCount).toBe(1);
+
+    // Test bulk delete
+    const deleteRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/cms/posts/bulk',
+      headers: {
+        authorization: `Bearer ${access.token}`,
+      },
+      payload: {
+        action: 'DELETE',
+        postIds: ['22222222-2222-4222-8222-222222222222'],
+      },
+    });
+    expect(deleteRes.statusCode, deleteRes.body).toBe(200);
+    expect(deleteRes.json().data.successCount).toBe(1);
+
+    await app.close();
   });
 
   it('updates a post featured media using an existing image', async () => {

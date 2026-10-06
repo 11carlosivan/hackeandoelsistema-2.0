@@ -248,11 +248,15 @@ const featuredMediaSchema = z.object({
   remove: z.coerce.boolean().optional(),
 });
 const EDITABLE_CONTENT_STATUSES = new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED']);
+const postBulkActionSchema = z.object({
+  action: z.enum(['DRAFT', 'RETURN_TO_DRAFT', 'PUBLISH', 'ARCHIVE', 'DELETE']),
+  postIds: z.array(z.uuid()).min(1).max(100),
+});
 const workflowTransitions = {
   SUBMIT_REVIEW: new Set(['DRAFT', 'NEEDS_CHANGES', 'REJECTED']),
-  RETURN_TO_DRAFT: new Set(['PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED']),
-  SCHEDULE: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED']),
-  PUBLISH: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'SCHEDULED']),
+  RETURN_TO_DRAFT: new Set(['PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'PUBLISHED', 'SCHEDULED', 'ARCHIVED']),
+  SCHEDULE: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'ARCHIVED']),
+  PUBLISH: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'SCHEDULED', 'ARCHIVED']),
   ARCHIVE: new Set(['DRAFT', 'PENDING_REVIEW', 'NEEDS_CHANGES', 'REJECTED', 'SCHEDULED', 'PUBLISHED']),
 };
 
@@ -3891,192 +3895,257 @@ export async function registerCmsRoutes(app) {
     },
   );
 
-  app.patch(
-    '/api/v1/cms/posts/:id/workflow',
-    { preHandler: app.requirePermission('posts:manage') },
-    async (request, reply) => {
-      const params = postParamsSchema.safeParse(request.params);
-      const body = workflowSchema.safeParse(request.body);
-
-      if (!params.success || !body.success) {
-        throw app.httpErrors.badRequest('Invalid CMS workflow payload');
-      }
-
-      noStoreHeaders(reply);
-
-      const { id } = params.data;
-      const { action } = body.data;
-      const existingPost = await app.prisma.post.findUnique({
-        where: { id },
+  async function deletePostById(prisma, postId, actorId) {
+    return await prisma.$transaction(async (tx) => {
+      const existingPost = await tx.post.findUnique({
+        where: { id: postId },
         select: {
           id: true,
-          status: true,
-          visibility: true,
-          publishedAt: true,
-          scheduledAt: true,
-          featuredMediaId: true,
           title: true,
-          contentHtml: true,
+          slug: true,
+          status: true,
         },
       });
 
       if (!existingPost) {
-        throw app.httpErrors.notFound('CMS post not found');
+        return null;
       }
 
-      if (!workflowTransitions[action].has(existingPost.status)) {
-        throw app.httpErrors.conflict(`Cannot apply ${action} from ${existingPost.status}`);
-      }
+      await tx.importMapping.deleteMany({
+        where: {
+          newEntityType: 'POST',
+          newEntityId: postId,
+        },
+      });
 
-      const now = new Date();
-      const hasFutureSchedule = existingPost.scheduledAt && existingPost.scheduledAt > now;
-      const shouldSchedule = action === 'SCHEDULE' || (action === 'PUBLISH' && hasFutureSchedule);
-      const isPubliclyVisible = existingPost.visibility === 'PUBLIC';
+      await tx.route.deleteMany({
+        where: {
+          entityType: 'POST',
+          entityId: postId,
+        },
+      });
 
-      if (action === 'SCHEDULE' && !hasFutureSchedule) {
-        throw app.httpErrors.badRequest('A future scheduledAt date is required before scheduling a post');
-      }
+      await tx.post.delete({
+        where: { id: postId },
+      });
 
-      const postDataByAction = {
-        SUBMIT_REVIEW: {
-          status: 'PENDING_REVIEW',
-          submittedAt: now,
-        },
-        RETURN_TO_DRAFT: {
-          status: 'DRAFT',
-        },
-        SCHEDULE: {
-          status: 'SCHEDULED',
-        },
-        PUBLISH: {
-          status: shouldSchedule ? 'SCHEDULED' : 'PUBLISHED',
-          ...(shouldSchedule
-            ? {}
-            : {
-                publishedAt: existingPost.publishedAt || now,
-                publishedGmtAt: existingPost.publishedAt || now,
-              }),
-        },
-        ARCHIVE: {
-          status: 'ARCHIVED',
-        },
-      };
-      const routeDataByAction = {
-        SUBMIT_REVIEW: {},
-        RETURN_TO_DRAFT: {},
-        SCHEDULE: {
-          status: isPubliclyVisible ? 'ACTIVE' : 'GONE',
-          httpStatus: isPubliclyVisible ? 200 : 404,
-          includeInSitemap: false,
-          lastmodAt: now,
-        },
-        PUBLISH: {
-          status: isPubliclyVisible ? 'ACTIVE' : 'GONE',
-          httpStatus: isPubliclyVisible ? 200 : 404,
-          includeInSitemap: isPubliclyVisible && !shouldSchedule,
-          lastmodAt: now,
-        },
-        ARCHIVE: {
-          status: 'GONE',
-          httpStatus: 410,
-          includeInSitemap: false,
-          lastmodAt: now,
-        },
-      };
-      const seoDataByAction = {
-        SUBMIT_REVIEW: {},
-        RETURN_TO_DRAFT: {},
-        SCHEDULE: {
-          robotsIndex: 'NOINDEX',
-          robotsFollow: 'FOLLOW',
-        },
-        PUBLISH: {
-          robotsIndex: isPubliclyVisible && !shouldSchedule ? 'INDEX' : 'NOINDEX',
-          robotsFollow: 'FOLLOW',
-        },
-        ARCHIVE: {
-          robotsIndex: 'NOINDEX',
-          robotsFollow: 'NOFOLLOW',
-        },
-      };
-
-      const workflowFeaturedMediaId = (action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible
-        ? await ensureFeaturedMediaFromPostContent(app.prisma, existingPost, {
-            siteUrl: app.config.WEB_ORIGIN,
-            config: app.config,
-            log: app.log,
-            allowExternalImport: false,
-          })
-        : existingPost.featuredMediaId;
-
-      if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !workflowFeaturedMediaId) {
-        throw app.httpErrors.badRequest('A featured image is required before publishing a public post');
-      }
-
-      const result = await app.prisma.$transaction(async (tx) => {
-        const post = await tx.post.update({
-          where: { id },
+      if (actorId) {
+        await tx.auditLog.create({
           data: {
-            ...postDataByAction[action],
-            ...(!existingPost.featuredMediaId && workflowFeaturedMediaId
-              ? { featuredMediaId: workflowFeaturedMediaId }
-              : {}),
-          },
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                displayName: true,
-              },
+            actorId,
+            action: 'POST_DELETED',
+            entityType: 'POST',
+            entityId: postId,
+            metadata: {
+              title: existingPost.title,
+              slug: existingPost.slug,
+              status: existingPost.status,
             },
-            categories: {
-              include: {
-                category: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    fullPath: true,
-                  },
+          },
+        });
+      }
+
+      return existingPost;
+    });
+  }
+
+  async function executePostWorkflowTransition(prisma, config, { id, action, actorId, log }) {
+    const existingPost = await prisma.post.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        visibility: true,
+        publishedAt: true,
+        scheduledAt: true,
+        featuredMediaId: true,
+        title: true,
+        contentHtml: true,
+      },
+    });
+
+    if (!existingPost) {
+      const error = new Error('CMS post not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (
+      (action === 'RETURN_TO_DRAFT' && existingPost.status === 'DRAFT') ||
+      (action === 'PUBLISH' && existingPost.status === 'PUBLISHED') ||
+      (action === 'ARCHIVE' && existingPost.status === 'ARCHIVED')
+    ) {
+      return { post: existingPost, route: null, seo: null, noop: true };
+    }
+
+    if (!workflowTransitions[action]?.has(existingPost.status)) {
+      const error = new Error(`Cannot apply ${action} from ${existingPost.status}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const now = new Date();
+    const hasFutureSchedule = existingPost.scheduledAt && existingPost.scheduledAt > now;
+    const shouldSchedule = action === 'SCHEDULE' || (action === 'PUBLISH' && hasFutureSchedule);
+    const isPubliclyVisible = existingPost.visibility === 'PUBLIC';
+
+    if (action === 'SCHEDULE' && !hasFutureSchedule) {
+      const error = new Error('A future scheduledAt date is required before scheduling a post');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const postDataByAction = {
+      SUBMIT_REVIEW: {
+        status: 'PENDING_REVIEW',
+        submittedAt: now,
+      },
+      RETURN_TO_DRAFT: {
+        status: 'DRAFT',
+      },
+      SCHEDULE: {
+        status: 'SCHEDULED',
+      },
+      PUBLISH: {
+        status: shouldSchedule ? 'SCHEDULED' : 'PUBLISHED',
+        ...(shouldSchedule
+          ? {}
+          : {
+              publishedAt: existingPost.publishedAt || now,
+              publishedGmtAt: existingPost.publishedAt || now,
+            }),
+      },
+      ARCHIVE: {
+        status: 'ARCHIVED',
+      },
+    };
+    const routeDataByAction = {
+      SUBMIT_REVIEW: {},
+      RETURN_TO_DRAFT: {
+        status: 'GONE',
+        httpStatus: 404,
+        includeInSitemap: false,
+        lastmodAt: now,
+      },
+      SCHEDULE: {
+        status: isPubliclyVisible ? 'ACTIVE' : 'GONE',
+        httpStatus: isPubliclyVisible ? 200 : 404,
+        includeInSitemap: false,
+        lastmodAt: now,
+      },
+      PUBLISH: {
+        status: isPubliclyVisible ? 'ACTIVE' : 'GONE',
+        httpStatus: isPubliclyVisible ? 200 : 404,
+        includeInSitemap: isPubliclyVisible && !shouldSchedule,
+        lastmodAt: now,
+      },
+      ARCHIVE: {
+        status: 'GONE',
+        httpStatus: 410,
+        includeInSitemap: false,
+        lastmodAt: now,
+      },
+    };
+    const seoDataByAction = {
+      SUBMIT_REVIEW: {},
+      RETURN_TO_DRAFT: {
+        robotsIndex: 'NOINDEX',
+        robotsFollow: 'NOFOLLOW',
+      },
+      SCHEDULE: {
+        robotsIndex: 'NOINDEX',
+        robotsFollow: 'FOLLOW',
+      },
+      PUBLISH: {
+        robotsIndex: isPubliclyVisible && !shouldSchedule ? 'INDEX' : 'NOINDEX',
+        robotsFollow: 'FOLLOW',
+      },
+      ARCHIVE: {
+        robotsIndex: 'NOINDEX',
+        robotsFollow: 'NOFOLLOW',
+      },
+    };
+
+    const workflowFeaturedMediaId = (action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible
+      ? await ensureFeaturedMediaFromPostContent(prisma, existingPost, {
+          siteUrl: config.WEB_ORIGIN,
+          config,
+          log: log || console,
+          allowExternalImport: false,
+        })
+      : existingPost.featuredMediaId;
+
+    if ((action === 'SCHEDULE' || action === 'PUBLISH') && isPubliclyVisible && !workflowFeaturedMediaId) {
+      const error = new Error('A featured image is required before publishing a public post');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const post = await tx.post.update({
+        where: { id },
+        data: {
+          ...postDataByAction[action],
+          ...(!existingPost.featuredMediaId && workflowFeaturedMediaId
+            ? { featuredMediaId: workflowFeaturedMediaId }
+            : {}),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  fullPath: true,
                 },
               },
             },
           },
+        },
+      });
+      const route = await tx.route.findFirst({
+        where: {
+          entityType: 'POST',
+          entityId: id,
+        },
+        select: {
+          id: true,
+        },
+      });
+      let updatedRoute = null;
+      let updatedSeo = null;
+
+      if (route && Object.keys(routeDataByAction[action]).length > 0) {
+        updatedRoute = await tx.route.update({
+          where: { id: route.id },
+          data: routeDataByAction[action],
         });
-        const route = await tx.route.findFirst({
-          where: {
-            entityType: 'POST',
-            entityId: id,
+      }
+
+      if (route && Object.keys(seoDataByAction[action]).length > 0) {
+        updatedSeo = await tx.seoMetadata.upsert({
+          where: { routeId: route.id },
+          create: {
+            routeId: route.id,
+            ...seoDataByAction[action],
           },
-          select: {
-            id: true,
-          },
+          update: seoDataByAction[action],
         });
-        let updatedRoute = null;
-        let updatedSeo = null;
+      }
 
-        if (route && Object.keys(routeDataByAction[action]).length > 0) {
-          updatedRoute = await tx.route.update({
-            where: { id: route.id },
-            data: routeDataByAction[action],
-          });
-        }
-
-        if (route && Object.keys(seoDataByAction[action]).length > 0) {
-          updatedSeo = await tx.seoMetadata.upsert({
-            where: { routeId: route.id },
-            create: {
-              routeId: route.id,
-              ...seoDataByAction[action],
-            },
-            update: seoDataByAction[action],
-          });
-        }
-
+      if (actorId) {
         await tx.auditLog.create({
           data: {
-            actorId: request.auth.user.id,
+            actorId,
             action: `POST_${action}`,
             entityType: 'POST',
             entityId: id,
@@ -4092,15 +4161,138 @@ export async function registerCmsRoutes(app) {
             },
           },
         });
+      }
 
-        return { post, route: updatedRoute, seo: updatedSeo };
-      });
+      return { post, route: updatedRoute, seo: updatedSeo };
+    });
+
+    return result;
+  }
+
+  app.patch(
+    '/api/v1/cms/posts/:id/workflow',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request, reply) => {
+      const params = postParamsSchema.safeParse(request.params);
+      const body = workflowSchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        throw app.httpErrors.badRequest('Invalid CMS workflow payload');
+      }
+
+      noStoreHeaders(reply);
+
+      const { id } = params.data;
+      const { action } = body.data;
+
+      try {
+        const result = await executePostWorkflowTransition(app.prisma, app.config, {
+          id,
+          action,
+          actorId: request.auth.user.id,
+          log: app.log,
+        });
+
+        return {
+          data: {
+            post: normalizeCmsPost(result.post),
+            route: result.route,
+            seo: result.seo,
+          },
+        };
+      } catch (error) {
+        if (error.statusCode === 404) {
+          throw app.httpErrors.notFound(error.message);
+        }
+        if (error.statusCode === 409) {
+          throw app.httpErrors.conflict(error.message);
+        }
+        if (error.statusCode === 400) {
+          throw app.httpErrors.badRequest(error.message);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/cms/posts/bulk',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request, reply) => {
+      const parsed = postBulkActionSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        throw app.httpErrors.badRequest('Invalid CMS posts bulk action payload');
+      }
+
+      noStoreHeaders(reply);
+
+      const { action: rawAction, postIds } = parsed.data;
+      const action = rawAction === 'DRAFT' ? 'RETURN_TO_DRAFT' : rawAction;
+      const successes = [];
+      const failures = [];
+
+      for (const id of postIds) {
+        try {
+          if (action === 'DELETE') {
+            const deleted = await deletePostById(app.prisma, id, request.auth.user.id);
+            if (!deleted) {
+              failures.push({ id, reason: 'Publicación no encontrada' });
+            } else {
+              successes.push({ id, title: deleted.title });
+            }
+          } else {
+            const result = await executePostWorkflowTransition(app.prisma, app.config, {
+              id,
+              action,
+              actorId: request.auth.user.id,
+              log: app.log,
+            });
+            successes.push({ id, title: result.post.title, status: result.post.status });
+          }
+        } catch (error) {
+          failures.push({
+            id,
+            reason: error.message || 'Error al procesar la publicación',
+          });
+        }
+      }
 
       return {
         data: {
-          post: normalizeCmsPost(result.post),
-          route: result.route,
-          seo: result.seo,
+          action: rawAction,
+          total: postIds.length,
+          successCount: successes.length,
+          failureCount: failures.length,
+          successes,
+          failures,
+        },
+      };
+    },
+  );
+
+  app.delete(
+    '/api/v1/cms/posts/:id',
+    { preHandler: app.requirePermission('posts:manage') },
+    async (request, reply) => {
+      const params = postParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        throw app.httpErrors.badRequest('Invalid CMS post ID');
+      }
+
+      noStoreHeaders(reply);
+
+      const deleted = await deletePostById(app.prisma, params.data.id, request.auth.user.id);
+
+      if (!deleted) {
+        throw app.httpErrors.notFound('CMS post not found');
+      }
+
+      return {
+        data: {
+          success: true,
+          post: deleted,
         },
       };
     },
