@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { useTheme } from '@/context/ThemeContext';
@@ -48,6 +48,31 @@ export default function JobsScreen() {
   const handleSearchSubmit = () => {
     setLoading(true);
     loadJobs();
+  };
+
+  const handlePublishPress = () => {
+    if (user) {
+      router.push('/job/create' as any);
+    } else {
+      Alert.alert(
+        'Publicar Oferta de Empleo',
+        'Para publicar vacantes laborales y recibir postulaciones con currículum, debes registrar tu empresa o iniciar sesión.',
+        [
+          {
+            text: 'Registrar Empresa',
+            onPress: () => router.push({ pathname: '/register', params: { redirect: '/job/create' } } as any),
+          },
+          {
+            text: 'Iniciar Sesión',
+            onPress: () => router.push({ pathname: '/login', params: { redirect: '/job/create' } } as any),
+          },
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+        ]
+      );
+    }
   };
 
   const formatSalary = (job: Job) => {
@@ -115,13 +140,7 @@ export default function JobsScreen() {
 
           <TouchableOpacity
             style={[styles.postJobBtn, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              if (user) {
-                router.push('/job/create' as any);
-              } else {
-                router.push('/login');
-              }
-            }}
+            onPress={handlePublishPress}
             activeOpacity={0.8}
           >
             <PlusCircle size={14} color="#FFFFFF" style={{ marginRight: 4 }} />

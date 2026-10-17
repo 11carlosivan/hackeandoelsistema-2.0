@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowLeft, Lock, Mail } from 'lucide-react-native';
@@ -10,7 +10,9 @@ export default function LoginScreen() {
   const { colors } = useTheme();
   const { login } = useAuth();
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -24,8 +26,11 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Bienvenido', 'Has iniciado sesión correctamente.');
-      router.back();
+      if (redirect) {
+        router.replace(redirect as any);
+      } else {
+        router.back();
+      }
     } else {
       Alert.alert('Error de inicio de sesión', result.error || 'Credenciales no válidas.');
     }
@@ -79,7 +84,7 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={styles.registerLink}
-          onPress={() => router.replace('/register')}
+          onPress={() => router.replace(redirect ? { pathname: '/register', params: { redirect } } as any : '/register')}
           activeOpacity={0.7}
         >
           <Text style={[styles.registerText, { color: colors.textMuted }]}>

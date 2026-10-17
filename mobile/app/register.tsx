@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowLeft, User, Mail, Lock } from 'lucide-react-native';
@@ -10,6 +10,7 @@ export default function RegisterScreen() {
   const { colors } = useTheme();
   const { register } = useAuth();
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,8 +32,11 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Cuenta Creada', 'Bienvenido a Hackeando El Sistema.');
-      router.back();
+      if (redirect) {
+        router.replace(redirect as any);
+      } else {
+        router.back();
+      }
     } else {
       Alert.alert('Error de registro', result.error || 'No se pudo crear la cuenta.');
     }
@@ -98,7 +102,7 @@ export default function RegisterScreen() {
 
         <TouchableOpacity
           style={styles.loginLink}
-          onPress={() => router.replace('/login')}
+          onPress={() => router.replace(redirect ? { pathname: '/login', params: { redirect } } as any : '/login')}
           activeOpacity={0.7}
         >
           <Text style={[styles.loginText, { color: colors.textMuted }]}>
