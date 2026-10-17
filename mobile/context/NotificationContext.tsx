@@ -64,7 +64,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [toastData, setToastData] = useState<ToastConfig | null>(null);
   const toastAnim = useRef(new Animated.Value(-120)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Modal dialog state
   const [modalConfig, setModalConfig] = useState<ModalConfig | null>(null);

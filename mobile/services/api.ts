@@ -1,4 +1,6 @@
 import { API_BASE_URL } from '@/constants/Config';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 export interface PostComment {
   id: string;
@@ -395,17 +397,53 @@ export async function uploadResumeFile(
   fileName: string,
   mimeType: string = 'application/pdf'
 ): Promise<{ resumeUrl: string; resumeFileName: string } | null> {
-  try {
-    const formData = new FormData();
-    const cleanFileName = fileName || 'curriculum.pdf';
+  const uploadUrl = `${API_BASE_URL}/api/v1/jobs/upload-resume`;
+  const cleanFileName = fileName || 'curriculum.pdf';
+  const cleanMime = mimeType || 'application/pdf';
 
+  try {
+    // 1. En iOS / Android nativo: FileSystem.uploadAsync delega la petición a NSURLSession / OkHttp
+    // Esto evita el fallo 'Network request failed' de la capa JS/Blob de React Native al leer URIs locales
+    if (Platform.OS !== 'web' && FileSystem && typeof (FileSystem as any).uploadAsync === 'function') {
+      const response = await (FileSystem as any).uploadAsync(uploadUrl, uri, {
+        httpMethod: 'POST',
+        uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 1,
+        fieldName: 'file',
+        mimeType: cleanMime,
+        parameters: {
+          name: cleanFileName,
+        },
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        let errMessage = `Error al subir el currículum (${response.status})`;
+        try {
+          const parsed = JSON.parse(response.body);
+          if (parsed?.message) errMessage = parsed.message;
+        } catch (_) {}
+        throw new Error(errMessage);
+      }
+
+      const json = JSON.parse(response.body);
+      if (!json?.data) {
+        throw new Error('Respuesta no válida del servidor al subir currículum.');
+      }
+
+      return json.data;
+    }
+
+    // 2. Fallback para Web: FormData tradicional
+    const formData = new FormData();
     formData.append('file', {
       uri,
       name: cleanFileName,
-      type: mimeType || 'application/pdf',
+      type: cleanMime,
     } as any);
 
-    const res = await fetch(`${API_BASE_URL}/api/v1/jobs/upload-resume`, {
+    const res = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
         Accept: 'application/json',

@@ -158,8 +158,13 @@ export async function registerJobRoutes(app) {
 
     noStoreHeaders(reply);
 
-    const job = await app.prisma.job.findUnique({
-      where: { id },
+    const job = await app.prisma.job.findFirst({
+      where: {
+        OR: [
+          { id },
+          { slug: id },
+        ],
+      },
       select: { id: true, status: true },
     });
 
@@ -183,7 +188,7 @@ export async function registerJobRoutes(app) {
     const application = await app.prisma.$transaction(async (tx) => {
       const created = await tx.jobApplication.create({
         data: {
-          jobId: id,
+          jobId: job.id,
           applicantUserId,
           fullName: body.data.fullName,
           email: body.data.email.toLowerCase(),
@@ -196,7 +201,7 @@ export async function registerJobRoutes(app) {
       });
 
       await tx.job.update({
-        where: { id },
+        where: { id: job.id },
         data: { applicantCount: { increment: 1 } },
       });
 
@@ -226,12 +231,20 @@ export async function registerJobRoutes(app) {
       throw app.httpErrors.badRequest('No se adjuntó ningún archivo');
     }
 
-    const rawExt = file.filename?.split('.').pop()?.toLowerCase();
-    const extension = rawExt || 'pdf';
+    let extension = file.filename?.includes('.')
+      ? file.filename.split('.').pop()?.toLowerCase()
+      : null;
+
     const allowed = ['pdf', 'doc', 'docx', 'txt', 'rtf'];
 
-    if (!allowed.includes(extension)) {
-      throw app.httpErrors.badRequest('Formato no permitido. Solo se aceptan archivos PDF, DOC, DOCX o TXT.');
+    if (!extension || !allowed.includes(extension)) {
+      const mime = (file.mimetype || '').toLowerCase();
+      if (mime.includes('pdf')) extension = 'pdf';
+      else if (mime.includes('wordprocessingml') || mime.includes('docx')) extension = 'docx';
+      else if (mime.includes('msword') || mime.includes('doc')) extension = 'doc';
+      else if (mime.includes('rtf')) extension = 'rtf';
+      else if (mime.includes('text/plain') || mime.includes('txt')) extension = 'txt';
+      else extension = 'pdf';
     }
 
     try {
@@ -251,7 +264,8 @@ export async function registerJobRoutes(app) {
       const targetDir = path.join(uploadRoot, 'resumes', year, month);
       await mkdir(targetDir, { recursive: true });
 
-      const stem = String(file.filename || 'cv')
+      const originalName = file.fields?.name?.value || file.filename || `curriculum.${extension}`;
+      const stem = String(originalName)
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .slice(0, 50);
       const uniqueFileName = `${stem}-${randomUUID().slice(0, 8)}.${extension}`;
@@ -265,7 +279,7 @@ export async function registerJobRoutes(app) {
       return {
         data: {
           resumeUrl,
-          resumeFileName: file.filename || uniqueFileName,
+          resumeFileName: originalName,
         },
       };
     } catch (err) {
