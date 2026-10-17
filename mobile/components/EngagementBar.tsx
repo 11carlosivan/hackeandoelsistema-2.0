@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Share, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { fetchPostEngagement, togglePostLike, registerPostShare } from '@/services/api';
 import { Heart, MessageSquare, Share2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -27,6 +28,7 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
 }) => {
   const { colors } = useTheme();
   const { user, token } = useAuth();
+  const { showModal } = useNotification();
   const router = useRouter();
 
   const [liked, setLiked] = useState(false);
@@ -52,16 +54,18 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
     if (loadingLike) return;
 
     if (!user || !token) {
-      Alert.alert(
-        'Iniciar Sesión',
-        'Debes iniciar sesión con tu cuenta para dar Me Gusta.',
-        [
+      showModal({
+        icon: 'question',
+        title: 'Iniciar Sesión',
+        message: 'Debes iniciar sesión con tu cuenta para dar Me Gusta.',
+        buttons: [
+          { text: 'Iniciar Sesión', style: 'primary', onPress: () => router.push('/login') },
           { text: 'Cancelar', style: 'cancel' },
-          { text: 'Iniciar Sesión', onPress: () => router.push('/login') },
-        ]
-      );
+        ],
+      });
       return;
     }
+
 
     const nextLiked = !liked;
     setLiked(nextLiked);

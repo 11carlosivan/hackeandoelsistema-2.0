@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { ArrowLeft, Lock, Mail } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const { colors } = useTheme();
   const { login } = useAuth();
+  const { toast } = useNotification();
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const [email, setEmail] = useState('');
@@ -17,7 +19,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Campos requeridos', 'Por favor ingresa tu correo y contraseña.');
+      toast.warning('Campos requeridos', 'Por favor ingresa tu correo y contraseña.');
       return;
     }
 
@@ -26,15 +28,17 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (result.success) {
+      toast.success('¡Bienvenido de nuevo!', 'Has iniciado sesión correctamente.');
       if (redirect) {
         router.replace(redirect as any);
       } else {
         router.back();
       }
     } else {
-      Alert.alert('Error de inicio de sesión', result.error || 'Credenciales no válidas.');
+      toast.error('Error de inicio de sesión', result.error || 'Credenciales no válidas.');
     }
   };
+
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

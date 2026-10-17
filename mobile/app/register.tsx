@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { ArrowLeft, User, Mail, Lock } from 'lucide-react-native';
 
 export default function RegisterScreen() {
   const { colors } = useTheme();
   const { register } = useAuth();
+  const { toast } = useNotification();
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const [name, setName] = useState('');
@@ -19,17 +21,17 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
-      Alert.alert('Campos requeridos', 'Por favor completa todos los campos.');
+      toast.warning('Campos requeridos', 'Por favor completa todos los campos.');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Contraseña débil', 'La contraseña debe tener al menos 8 caracteres.');
+      toast.warning('Contraseña débil', 'La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Contraseñas no coinciden', 'La confirmación no coincide con la contraseña.');
+      toast.warning('Contraseñas no coinciden', 'La confirmación no coincide con la contraseña.');
       return;
     }
 
@@ -38,16 +40,17 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Cuenta Creada', '¡Bienvenido a Hackeando El Sistema!');
+      toast.success('Cuenta Creada', '¡Bienvenido a Hackeando El Sistema!');
       if (redirect) {
         router.replace(redirect as any);
       } else {
         router.back();
       }
     } else {
-      Alert.alert('Error de registro', result.error || 'No se pudo crear la cuenta.');
+      toast.error('Error de registro', result.error || 'No se pudo crear la cuenta.');
     }
   };
+
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

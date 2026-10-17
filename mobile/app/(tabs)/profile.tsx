@@ -1,24 +1,46 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { useRouter } from 'expo-router';
 import { User, Sun, Moon, Monitor, Trash2, LogOut, ShieldCheck, FileText, Briefcase, Users } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { colors, themeMode, setThemeMode } = useTheme();
   const { user, logout, deleteAccount } = useAuth();
+  const { toast, showModal } = useNotification();
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Eliminar Mi Cuenta',
-      '¿Estás seguro de que deseas eliminar permanentemente tu cuenta y todos tus datos guardados? Esta acción es irreversible según las políticas de privacidad.',
-      [
+  const handleLogout = () => {
+    showModal({
+      icon: 'question',
+      title: 'Cerrar Sesión',
+      message: '¿Estás seguro de que deseas salir de tu cuenta?',
+      buttons: [
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            toast.info('Sesión cerrada', 'Has cerrado sesión exitosamente.');
+          },
+        },
         { text: 'Cancelar', style: 'cancel' },
+      ],
+    });
+  };
+
+  const handleDeleteAccount = () => {
+    showModal({
+      icon: 'error',
+      title: 'Eliminar Mi Cuenta',
+      message:
+        '¿Estás seguro de que deseas eliminar permanentemente tu cuenta y todos tus datos guardados? Esta acción es irreversible.',
+      buttons: [
         {
           text: 'Eliminar Definitivamente',
           style: 'destructive',
@@ -26,12 +48,14 @@ export default function ProfileScreen() {
             setDeleting(true);
             await deleteAccount();
             setDeleting(false);
-            Alert.alert('Cuenta Eliminada', 'Tu cuenta y datos asociados han sido eliminados.');
+            toast.success('Cuenta Eliminada', 'Tu cuenta y datos asociados han sido eliminados.');
           },
         },
-      ]
-    );
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    });
   };
+
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -157,12 +181,13 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>GESTIÓN DE CUENTA</Text>
             <View style={[styles.optionsGroup, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-              <TouchableOpacity style={styles.optionRow} onPress={logout}>
+              <TouchableOpacity style={styles.optionRow} onPress={handleLogout}>
                 <View style={styles.optionLeft}>
                   <LogOut size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
                   <Text style={[styles.optionText, { color: colors.text }]}>Cerrar Sesión</Text>
                 </View>
               </TouchableOpacity>
+
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
 

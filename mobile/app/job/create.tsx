@@ -7,13 +7,13 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { createCompanyJob } from '@/services/api';
 import {
   ArrowLeft,
@@ -43,6 +43,7 @@ const EMPLOYMENT_OPTIONS = [
 export default function CreateJobScreen() {
   const { colors } = useTheme();
   const { user, token } = useAuth();
+  const { toast, showModal } = useNotification();
   const router = useRouter();
 
   const [title, setTitle] = useState('');
@@ -63,15 +64,23 @@ export default function CreateJobScreen() {
 
   const handleSubmit = async () => {
     if (!token) {
-      Alert.alert('Sesión requerida', 'Debes iniciar sesión para publicar una vacante.', [
-        { text: 'Iniciar Sesión', onPress: () => router.push('/login') },
-        { text: 'Cancelar', style: 'cancel' },
-      ]);
+      showModal({
+        icon: 'info',
+        title: 'Sesión requerida',
+        message: 'Debes iniciar sesión para publicar una vacante.',
+        buttons: [
+          { text: 'Iniciar Sesión', style: 'primary', onPress: () => router.push('/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ],
+      });
       return;
     }
 
     if (!title.trim() || !companyName.trim() || !location.trim() || !description.trim()) {
-      Alert.alert('Campos requeridos', 'Por favor completa el título, nombre de empresa, ubicación y descripción de la vacante.');
+      toast.warning(
+        'Campos requeridos',
+        'Por favor completa el título, nombre de empresa, ubicación y descripción.'
+      );
       return;
     }
 
@@ -97,25 +106,27 @@ export default function CreateJobScreen() {
 
       const res = await createCompanyJob(payload, token);
       if (res.success && res.job) {
-        Alert.alert(
-          '¡Vacante Publicada!',
-          'Tu empleo ha sido publicado exitosamente y ya está visible en la bolsa de trabajo.',
-          [
+        showModal({
+          icon: 'success',
+          title: '¡Vacante Publicada!',
+          message: 'Tu empleo ha sido publicado exitosamente y ya está visible en la bolsa de trabajo.',
+          buttons: [
             {
               text: 'Ver Vacante',
+              style: 'primary',
               onPress: () => router.replace(`/job/${res.job?.slug}` as any),
             },
             {
               text: 'Volver a Empleos',
               onPress: () => router.replace('/(tabs)/jobs' as any),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', res.error || 'No se pudo publicar la vacante. Intenta nuevamente.');
+        toast.error('Error al publicar', res.error || 'No se pudo publicar la vacante. Intenta nuevamente.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Ocurrió un error inesperado');
+      toast.error('Error inesperado', err.message || 'Ocurrió un error inesperado');
     } finally {
       setSubmitting(false);
     }

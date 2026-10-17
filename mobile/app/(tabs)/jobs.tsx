@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { fetchPublicJobs, Job } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { Briefcase, Search, MapPin, Building2, PlusCircle, Users, Clock } from 'lucide-react-native';
@@ -18,6 +19,7 @@ const WORKPLACE_FILTERS = [
 export default function JobsScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { showModal } = useNotification();
   const router = useRouter();
 
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -54,12 +56,14 @@ export default function JobsScreen() {
     if (user) {
       router.push('/job/create' as any);
     } else {
-      Alert.alert(
-        'Publicar Oferta de Empleo',
-        'Para publicar vacantes laborales y recibir postulaciones con currículum, debes registrar tu empresa o iniciar sesión.',
-        [
+      showModal({
+        icon: 'question',
+        title: 'Publicar Oferta de Empleo',
+        message: 'Para publicar vacantes laborales y recibir postulaciones con currículum, debes registrar tu empresa o iniciar sesión.',
+        buttons: [
           {
             text: 'Registrar Empresa',
+            style: 'primary',
             onPress: () => router.push({ pathname: '/register', params: { redirect: '/job/create' } } as any),
           },
           {
@@ -70,10 +74,11 @@ export default function JobsScreen() {
             text: 'Cancelar',
             style: 'cancel',
           },
-        ]
-      );
+        ],
+      });
     }
   };
+
 
   const formatSalary = (job: Job) => {
     try {

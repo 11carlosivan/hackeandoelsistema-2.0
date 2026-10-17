@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { submitPostComment, PostComment } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { MessageSquare, Send, UserCheck, Lock } from 'lucide-react-native';
@@ -19,6 +20,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 }) => {
   const { colors } = useTheme();
   const { user, token } = useAuth();
+  const { toast, showModal } = useNotification();
   const router = useRouter();
 
   const [comments, setComments] = useState<PostComment[]>(initialComments);
@@ -30,19 +32,20 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     if (!trimmed) return;
 
     if (!user || !token) {
-      Alert.alert(
-        'Iniciar Sesión',
-        'Debes iniciar sesión con tu cuenta para dejar un comentario.',
-        [
+      showModal({
+        icon: 'question',
+        title: 'Iniciar Sesión',
+        message: 'Debes iniciar sesión con tu cuenta para dejar un comentario.',
+        buttons: [
+          { text: 'Entrar', style: 'primary', onPress: () => router.push('/login') },
           { text: 'Cancelar', style: 'cancel' },
-          { text: 'Entrar', onPress: () => router.push('/login') },
-        ]
-      );
+        ],
+      });
       return;
     }
 
     if (trimmed.length < 3) {
-      Alert.alert('Comentario muy corto', 'Por favor escribe al menos 3 caracteres.');
+      toast.warning('Comentario muy corto', 'Por favor escribe al menos 3 caracteres.');
       return;
     }
 
@@ -60,12 +63,13 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
       setComments((prev) => [newComment, ...prev]);
       setCommentText('');
-      Alert.alert('Comentario Enviado', 'Tu comentario ha sido publicado en la red.');
+      toast.success('Comentario Enviado', 'Tu comentario ha sido publicado en la red.');
       if (onCommentAdded) onCommentAdded();
     } else {
-      Alert.alert('Error', result.error || 'No se pudo publicar el comentario.');
+      toast.error('Error al comentar', result.error || 'No se pudo publicar el comentario.');
     }
   };
+
 
   return (
     <View style={styles.container}>

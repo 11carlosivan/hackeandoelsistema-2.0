@@ -9,12 +9,12 @@ import {
   Modal,
   ScrollView,
   Linking,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { fetchCompanyJobs, fetchJobApplicants, Job, JobApplicationItem } from '@/services/api';
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import {
 export default function MyJobsScreen() {
   const { colors } = useTheme();
   const { user, token } = useAuth();
+  const { toast } = useNotification();
   const router = useRouter();
 
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -81,12 +82,13 @@ export default function MyJobsScreen() {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('Enlace no soportado', 'No se puede abrir el archivo directamente en este dispositivo.');
+        toast.warning('Enlace no soportado', 'No se puede abrir el archivo directamente en este dispositivo.');
       }
     } catch {
-      Alert.alert('Error', 'No se pudo abrir el currículum.');
+      toast.error('Error al abrir', 'No se pudo abrir el currículum.');
     }
   };
+
 
   const renderStatusBadge = (status: string) => {
     let bg = '#FEF3C7';

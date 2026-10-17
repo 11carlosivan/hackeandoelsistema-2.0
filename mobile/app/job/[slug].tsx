@@ -8,12 +8,12 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
 import { fetchJobBySlug, uploadResumeFile, applyToJob, Job } from '@/services/api';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -34,7 +34,9 @@ export default function JobDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { colors } = useTheme();
   const { user, token } = useAuth();
+  const { toast, showModal } = useNotification();
   const router = useRouter();
+
 
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,7 @@ export default function JobDetailScreen() {
         });
       }
     } catch (err) {
-      Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+      toast.error('Error', 'No se pudo seleccionar el archivo.');
     }
   };
 
@@ -88,12 +90,12 @@ export default function JobDetailScreen() {
     if (!job) return;
 
     if (!fullName.trim() || !email.trim() || !phone.trim()) {
-      Alert.alert('Campos obligatorios', 'Por favor ingresa tu nombre, correo y número de teléfono.');
+      toast.warning('Campos obligatorios', 'Por favor ingresa tu nombre, correo y número de teléfono.');
       return;
     }
 
     if (!selectedFile) {
-      Alert.alert('Curriculum requerido', 'Debes adjuntar tu curriculum en formato PDF o Word.');
+      toast.warning('Curriculum requerido', 'Debes adjuntar tu curriculum en formato PDF o Word.');
       return;
     }
 
@@ -124,19 +126,21 @@ export default function JobDetailScreen() {
 
       if (applyRes.success) {
         setModalVisible(false);
-        Alert.alert(
-          '¡Postulación exitosa!',
-          'Tu curriculum ha sido enviado a la empresa. Se pondrán en contacto contigo si tu perfil coincide con la vacante.',
-          [{ text: 'Aceptar', onPress: () => router.back() }]
-        );
+        showModal({
+          icon: 'success',
+          title: '¡Postulación exitosa!',
+          message: 'Tu currículum ha sido enviado a la empresa. Se pondrán en contacto contigo si tu perfil coincide con la vacante.',
+          buttons: [{ text: 'Aceptar', style: 'primary', onPress: () => router.back() }],
+        });
       } else {
-        Alert.alert('Error', applyRes.error || 'No se pudo procesar la postulación.');
+        toast.error('Error', applyRes.error || 'No se pudo procesar la postulación.');
       }
     } catch (err: any) {
       setSubmitting(false);
-      Alert.alert('Error', err.message || 'Ocurrió un error al enviar tu postulación.');
+      toast.error('Error', err.message || 'Ocurrió un error al enviar tu postulación.');
     }
   };
+
 
   const formatSalary = () => {
     if (!job) return '';
