@@ -395,11 +395,19 @@ export async function fetchJobBySlug(slug: string): Promise<Job | null> {
 export async function uploadResumeFile(
   uri: string,
   fileName: string,
-  mimeType: string = 'application/pdf'
+  mimeType: string = 'application/pdf',
+  token?: string | null
 ): Promise<{ resumeUrl: string; resumeFileName: string } | null> {
   const uploadUrl = `${API_BASE_URL}/api/v1/jobs/upload-resume`;
   const cleanFileName = fileName || 'curriculum.pdf';
   const cleanMime = mimeType || 'application/pdf';
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     // 1. En iOS / Android nativo: FileSystem.uploadAsync delega la petición a NSURLSession / OkHttp
@@ -413,9 +421,7 @@ export async function uploadResumeFile(
         parameters: {
           name: cleanFileName,
         },
-        headers: {
-          Accept: 'application/json',
-        },
+        headers,
       });
 
       if (response.status < 200 || response.status >= 300) {
@@ -445,9 +451,7 @@ export async function uploadResumeFile(
 
     const res = await fetch(uploadUrl, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers,
       body: formData,
     });
 

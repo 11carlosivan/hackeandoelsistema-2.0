@@ -8,8 +8,18 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CSRF_EXEMPT_PATHS = new Set([
   '/api/v1/auth/login',
   '/api/v1/auth/refresh',
+  '/api/v1/auth/register',
   '/api/v1/public/forms/submit',
+  '/api/v1/jobs/upload-resume',
 ]);
+
+function isCsrfExempt(url) {
+  const path = String(url || '').split('?')[0];
+  if (CSRF_EXEMPT_PATHS.has(path)) return true;
+  if (path.startsWith('/api/v1/public/')) return true;
+  if (path === '/api/v1/jobs/upload-resume') return true;
+  return false;
+}
 const INTERNAL_HOSTS = new Set(['backend', 'localhost', '127.0.0.1', '::1']);
 
 function getCookieValue(cookieHeader, name) {
@@ -120,7 +130,7 @@ export async function registerSecurityPlugins(app, env) {
   });
 
   app.addHook('preHandler', async (request) => {
-    if (!UNSAFE_METHODS.has(request.method) || CSRF_EXEMPT_PATHS.has(request.url.split('?')[0])) {
+    if (!UNSAFE_METHODS.has(request.method) || isCsrfExempt(request.url)) {
       return;
     }
 

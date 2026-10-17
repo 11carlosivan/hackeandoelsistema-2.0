@@ -119,7 +119,7 @@ export default function JobDetailScreen() {
 
     try {
       // 1. Subir CV
-      const uploaded = await uploadResumeFile(selectedFile.uri, selectedFile.name, selectedFile.mimeType);
+      const uploaded = await uploadResumeFile(selectedFile.uri, selectedFile.name, selectedFile.mimeType, token);
       if (!uploaded) {
         throw new Error('Error al subir el curriculum.');
       }
