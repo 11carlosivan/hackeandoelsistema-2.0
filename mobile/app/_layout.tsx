@@ -19,6 +19,9 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="article/[slug]" options={{ headerShown: false, presentation: 'card' }} />
         <Stack.Screen name="category/[slug]" options={{ headerShown: false }} />
+        <Stack.Screen name="job/[slug]" options={{ headerShown: false }} />
+        <Stack.Screen name="job/create" options={{ headerShown: false }} />
+        <Stack.Screen name="job/my-jobs" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="register" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>

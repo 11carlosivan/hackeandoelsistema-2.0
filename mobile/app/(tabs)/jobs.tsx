@@ -51,19 +51,35 @@ export default function JobsScreen() {
   };
 
   const formatSalary = (job: Job) => {
-    if (job.salaryMin && job.salaryMax) {
-      return `RD$ ${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()}`;
+    try {
+      if (job.salaryMin && job.salaryMax) {
+        return `RD$ ${Number(job.salaryMin).toLocaleString('en-US')} - ${Number(job.salaryMax).toLocaleString('en-US')}`;
+      }
+      if (job.salaryMin) {
+        return `Desde RD$ ${Number(job.salaryMin).toLocaleString('en-US')}`;
+      }
+      if (job.isSalaryNegotiable) {
+        return 'Salario a convenir';
+      }
+      return 'Salario confidencial';
+    } catch {
+      return 'Salario confidencial';
     }
-    if (job.salaryMin) {
-      return `Desde RD$ ${job.salaryMin.toLocaleString()}`;
-    }
-    if (job.isSalaryNegotiable) {
-      return 'Salario a convenir';
-    }
-    return 'Salario confidencial';
   };
 
-  const getWorkplaceBadgeColor = (type: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '';
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      return `${d.getDate()} ${months[d.getMonth()]}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const getWorkplaceBadgeColor = (type?: string) => {
     switch (type) {
       case 'REMOTE':
         return '#10B981'; // green
@@ -89,7 +105,7 @@ export default function JobsScreen() {
           {user ? (
             <TouchableOpacity
               style={[styles.myJobsBtn, { borderColor: colors.primary, backgroundColor: colors.primary + '15' }]}
-              onPress={() => router.push('/jobs/my-jobs' as any)}
+              onPress={() => router.push('/job/my-jobs' as any)}
               activeOpacity={0.8}
             >
               <Users size={13} color={colors.primary} style={{ marginRight: 4 }} />
@@ -101,7 +117,7 @@ export default function JobsScreen() {
             style={[styles.postJobBtn, { backgroundColor: colors.primary }]}
             onPress={() => {
               if (user) {
-                router.push('/jobs/create' as any);
+                router.push('/job/create' as any);
               } else {
                 router.push('/login');
               }
@@ -177,7 +193,7 @@ export default function JobsScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.jobCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-              onPress={() => router.push(`/jobs/${item.slug}` as any)}
+              onPress={() => router.push(`/job/${item.slug}` as any)}
               activeOpacity={0.85}
             >
               <View style={styles.cardHeader}>
@@ -220,7 +236,7 @@ export default function JobsScreen() {
                 <View style={styles.dateBox}>
                   <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
                   <Text style={[styles.dateText, { color: colors.textMuted }]}>
-                    {new Date(item.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })}
+                    {formatDate(item.createdAt)}
                   </Text>
                 </View>
               </View>

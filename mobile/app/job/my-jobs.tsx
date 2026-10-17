@@ -128,7 +128,7 @@ export default function MyJobsScreen() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Mis Vacantes Publicadas</Text>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => router.push('/jobs/create' as any)}
+          onPress={() => router.push('/job/create' as any)}
           activeOpacity={0.7}
         >
           <PlusCircle size={22} color={colors.primary} />
@@ -164,7 +164,7 @@ export default function MyJobsScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/jobs/create' as any)}
+            onPress={() => router.push('/job/create' as any)}
           >
             <Text style={styles.primaryBtnText}>Publicar Vacante</Text>
           </TouchableOpacity>

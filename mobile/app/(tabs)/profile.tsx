@@ -131,7 +131,7 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>GESTIÓN DE EMPLEOS Y EMPRESAS</Text>
             <View style={[styles.optionsGroup, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-              <TouchableOpacity style={styles.optionRow} onPress={() => router.push('/jobs/create' as any)}>
+              <TouchableOpacity style={styles.optionRow} onPress={() => router.push('/job/create' as any)}>
                 <View style={styles.optionLeft}>
                   <Briefcase size={18} color={colors.primary} style={{ marginRight: 10 }} />
                   <Text style={[styles.optionText, { color: colors.text }]}>Publicar Nueva Vacante</Text>
@@ -141,7 +141,7 @@ export default function ProfileScreen() {
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-              <TouchableOpacity style={styles.optionRow} onPress={() => router.push('/jobs/my-jobs' as any)}>
+              <TouchableOpacity style={styles.optionRow} onPress={() => router.push('/job/my-jobs' as any)}>
                 <View style={styles.optionLeft}>
                   <Users size={18} color={colors.primary} style={{ marginRight: 10 }} />
                   <Text style={[styles.optionText, { color: colors.text }]}>Mis Vacantes y Candidatos</Text>

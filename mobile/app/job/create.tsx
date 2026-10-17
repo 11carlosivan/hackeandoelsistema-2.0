@@ -103,7 +103,7 @@ export default function CreateJobScreen() {
           [
             {
               text: 'Ver Vacante',
-              onPress: () => router.replace(`/jobs/${res.job?.slug}` as any),
+              onPress: () => router.replace(`/job/${res.job?.slug}` as any),
             },
             {
               text: 'Volver a Empleos',
