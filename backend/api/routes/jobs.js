@@ -1,6 +1,10 @@
+import path from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { noStoreHeaders } from '../utils/http.js';
 import { storeMediaUpload } from '../services/media-storage.js';
+
 
 const publicJobsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -222,26 +226,57 @@ export async function registerJobRoutes(app) {
       throw app.httpErrors.badRequest('No se adjuntó ningún archivo');
     }
 
-    const extension = file.filename?.split('.').pop()?.toLowerCase();
-    const allowed = ['pdf', 'doc', 'docx', 'txt'];
+    const rawExt = file.filename?.split('.').pop()?.toLowerCase();
+    const extension = rawExt || 'pdf';
+    const allowed = ['pdf', 'doc', 'docx', 'txt', 'rtf'];
 
     if (!allowed.includes(extension)) {
       throw app.httpErrors.badRequest('Formato no permitido. Solo se aceptan archivos PDF, DOC, DOCX o TXT.');
     }
 
     try {
-      const stored = await storeMediaUpload({ config: app.config, file });
+      const buffer = await file.toBuffer();
+      const maxSize = app.config.MEDIA_MAX_FILE_SIZE_BYTES || 10 * 1024 * 1024;
+      if (buffer.length > maxSize) {
+        throw app.httpErrors.badRequest('El archivo excede el tamaño máximo permitido (10MB)');
+      }
+
+      const uploadRoot = path.isAbsolute(app.config.MEDIA_UPLOAD_DIR || '../frontend/public/uploads/cms')
+        ? (app.config.MEDIA_UPLOAD_DIR || '../frontend/public/uploads/cms')
+        : path.resolve(process.cwd(), app.config.MEDIA_UPLOAD_DIR || '../frontend/public/uploads/cms');
+
+      const now = new Date();
+      const year = String(now.getUTCFullYear());
+      const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const targetDir = path.join(uploadRoot, 'resumes', year, month);
+      await mkdir(targetDir, { recursive: true });
+
+      const stem = String(file.filename || 'cv')
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .slice(0, 50);
+      const uniqueFileName = `${stem}-${randomUUID().slice(0, 8)}.${extension}`;
+      const targetPath = path.join(targetDir, uniqueFileName);
+
+      await writeFile(targetPath, buffer);
+
+      const basePath = (app.config.MEDIA_PUBLIC_BASE_PATH || '/uploads/cms').replace(/\/+$/, '');
+      const resumeUrl = `${basePath}/resumes/${year}/${month}/${uniqueFileName}`;
+
       return {
         data: {
-          resumeUrl: stored.url,
-          resumeFileName: file.filename,
+          resumeUrl,
+          resumeFileName: file.filename || uniqueFileName,
         },
       };
     } catch (err) {
       request.log.error(err, 'Error storing resume upload');
+      if (err.statusCode && err.statusCode < 500) {
+        throw err;
+      }
       throw app.httpErrors.internalServerError('Error al guardar el currículum');
     }
   });
+
 
   // 5. Empresa: Publicar nueva vacante (autenticado)
   app.post('/api/v1/company/jobs', { preHandler: app.authenticate }, async (request, reply) => {

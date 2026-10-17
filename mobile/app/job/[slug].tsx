@@ -69,22 +69,38 @@ export default function JobDetailScreen() {
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain',
+        ],
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
+        const ext = file.name?.split('.').pop()?.toLowerCase();
+        let mime = file.mimeType;
+
+        if (!mime || mime === 'application/octet-stream') {
+          if (ext === 'docx') mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (ext === 'doc') mime = 'application/msword';
+          else if (ext === 'txt') mime = 'text/plain';
+          else mime = 'application/pdf';
+        }
+
         setSelectedFile({
           uri: file.uri,
           name: file.name,
-          mimeType: file.mimeType || 'application/pdf',
+          mimeType: mime,
         });
       }
     } catch (err) {
       toast.error('Error', 'No se pudo seleccionar el archivo.');
     }
   };
+
 
   const handleApplySubmit = async () => {
     if (!job) return;

@@ -397,10 +397,12 @@ export async function uploadResumeFile(
 ): Promise<{ resumeUrl: string; resumeFileName: string } | null> {
   try {
     const formData = new FormData();
+    const cleanFileName = fileName || 'curriculum.pdf';
+
     formData.append('file', {
       uri,
-      name: fileName,
-      type: mimeType,
+      name: cleanFileName,
+      type: mimeType || 'application/pdf',
     } as any);
 
     const res = await fetch(`${API_BASE_URL}/api/v1/jobs/upload-resume`, {
@@ -411,18 +413,19 @@ export async function uploadResumeFile(
       body: formData,
     });
 
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => null);
-      throw new Error(errJson?.message || 'Error al subir el currículum');
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok || !json?.data) {
+      throw new Error(json?.message || `Error al subir el currículum (${res.status})`);
     }
 
-    const json = await res.json();
     return json.data;
   } catch (error: any) {
     console.warn('[Resume Upload Error]:', error);
     throw error;
   }
 }
+
 
 export async function applyToJob(
   jobId: string,

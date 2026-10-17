@@ -13,8 +13,12 @@ const MIME_TYPES = new Map([
   ['.mp3', 'audio/mpeg'],
   ['.wav', 'audio/wav'],
   ['.pdf', 'application/pdf'],
+  ['.doc', 'application/msword'],
+  ['.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['.rtf', 'application/rtf'],
   ['.txt', 'text/plain; charset=utf-8'],
 ]);
+
 
 function resolveMediaFilePath(config, rawPath) {
   const uploadRoot = path.resolve(config.MEDIA_UPLOAD_DIR);
