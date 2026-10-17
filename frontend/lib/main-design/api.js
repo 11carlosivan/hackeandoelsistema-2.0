@@ -825,3 +825,43 @@ export async function getSitemapRoutes() {
 
   return response.data;
 }
+
+export async function getPublicJobs(options = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (options.page) params.set('page', String(options.page));
+    if (options.limit) params.set('limit', String(options.limit));
+    if (options.q) params.set('q', options.q);
+    if (options.location) params.set('location', options.location);
+    if (options.workplaceType) params.set('workplaceType', options.workplaceType);
+    if (options.employmentType) params.set('employmentType', options.employmentType);
+
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetchApi(`/api/v1/public/jobs${queryStr}`, {
+      next: { revalidate: 30 },
+    });
+
+    return {
+      jobs: response?.data || [],
+      total: response?.meta?.total || 0,
+    };
+  } catch (error) {
+    return {
+      jobs: [],
+      total: 0,
+      error: error.message,
+    };
+  }
+}
+
+export async function getJobBySlug(slug) {
+  try {
+    const response = await fetchApi(`/api/v1/public/jobs/${encodeURIComponent(slug)}`, {
+      next: { revalidate: 30 },
+    });
+
+    return response?.data || null;
+  } catch {
+    return null;
+  }
+}

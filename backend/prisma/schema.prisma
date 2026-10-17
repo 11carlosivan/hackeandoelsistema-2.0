@@ -249,6 +249,8 @@ model User {
   securityEvents          SecurityEvent[]
   mfaRecoveryCodes        MfaRecoveryCode[]
   apiKeys                 ApiKey[]
+  companyJobs             Job[]                    @relation("CompanyJobs")
+  jobApplications         JobApplication[]         @relation("ApplicantApplications")
 
   @@index([legacyAuthorSlug])
   @@index([status])
@@ -1213,5 +1215,103 @@ model FormSubmission {
   @@index([formId, createdAt])
   @@index([postId])
   @@map("form_submissions")
+}
+
+enum JobWorkplaceType {
+  ONSITE
+  REMOTE
+  HYBRID
+
+  @@map("job_workplace_type")
+}
+
+enum JobEmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  INTERNSHIP
+
+  @@map("job_employment_type")
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+
+  @@map("job_status")
+}
+
+enum JobApplicationStatus {
+  PENDING
+  REVIEWING
+  SHORTLISTED
+  REJECTED
+  HIRED
+
+  @@map("job_application_status")
+}
+
+model Job {
+  id                  String            @id @default(uuid()) @db.VarChar(36)
+  companyId           String            @map("company_id") @db.VarChar(36)
+  title               String            @db.VarChar(255)
+  slug                String            @unique @db.VarChar(280)
+  companyName         String            @map("company_name") @db.VarChar(200)
+  companyLogoUrl      String?           @map("company_logo_url") @db.VarChar(768)
+  companyWebsite      String?           @map("company_website") @db.VarChar(768)
+  location            String            @db.VarChar(200)
+  workplaceType       JobWorkplaceType  @default(ONSITE) @map("workplace_type")
+  employmentType      JobEmploymentType @default(FULL_TIME) @map("employment_type")
+  category            String?           @db.VarChar(120)
+  salaryMin           Int?              @map("salary_min")
+  salaryMax           Int?              @map("salary_max")
+  salaryCurrency      String            @default("DOP") @map("salary_currency") @db.VarChar(10)
+  salaryPeriod        String            @default("MONTHLY") @map("salary_period") @db.VarChar(20)
+  isSalaryNegotiable  Boolean           @default(false) @map("is_salary_negotiable")
+  description         String            @db.LongText
+  requirements        String?           @db.Text
+  benefits            String?           @db.Text
+  status              JobStatus         @default(PUBLISHED)
+  applicationDeadline DateTime?         @map("application_deadline") @db.DateTime(6)
+  applicantCount      Int               @default(0) @map("applicant_count")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.DateTime(6)
+
+  company             User              @relation("CompanyJobs", fields: [companyId], references: [id], onDelete: Cascade)
+  applications        JobApplication[]
+
+  @@index([status, createdAt])
+  @@index([companyId])
+  @@index([workplaceType])
+  @@index([employmentType])
+  @@index([location])
+  @@map("jobs")
+}
+
+model JobApplication {
+  id              String               @id @default(uuid()) @db.VarChar(36)
+  jobId           String               @map("job_id") @db.VarChar(36)
+  applicantUserId String?              @map("applicant_user_id") @db.VarChar(36)
+  fullName        String               @map("full_name") @db.VarChar(200)
+  email           String               @db.VarChar(255)
+  phone           String               @db.VarChar(50)
+  resumeUrl       String               @map("resume_url") @db.VarChar(768)
+  resumeFileName  String               @map("resume_file_name") @db.VarChar(255)
+  coverLetter     String?              @map("cover_letter") @db.Text
+  status          JobApplicationStatus @default(PENDING)
+  notes           String?              @db.Text
+  createdAt       DateTime             @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.DateTime(6)
+
+  job             Job                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicantUser   User?                @relation("ApplicantApplications", fields: [applicantUserId], references: [id], onDelete: SetNull)
+
+  @@index([jobId, createdAt])
+  @@index([applicantUserId])
+  @@index([status])
+  @@map("job_applications")
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { Home, Quote, Search, Grid, User } from 'lucide-react-native';
+import { Home, Quote, Search, Grid, User, Briefcase } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -20,7 +20,7 @@ export default function TabLayout() {
           paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '700',
         },
       }}
@@ -40,6 +40,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="jobs"
+        options={{
+          title: 'Empleos',
+          tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="search"
         options={{
           title: 'Buscar',
@@ -49,7 +56,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="categories"
         options={{
-          title: 'Categorías',
+          title: 'Secciones',
           tabBarIcon: ({ color, size }) => <Grid size={size} color={color} />,
         }}
       />

@@ -5,7 +5,7 @@ import { HeaderBar } from '@/components/HeaderBar';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
-import { User, Sun, Moon, Monitor, Trash2, LogOut, ShieldCheck, FileText } from 'lucide-react-native';
+import { User, Sun, Moon, Monitor, Trash2, LogOut, ShieldCheck, FileText, Briefcase, Users } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { colors, themeMode, setThemeMode } = useTheme();
@@ -125,6 +125,32 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {/* Jobs Management Section */}
+        {user ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>GESTIÓN DE EMPLEOS Y EMPRESAS</Text>
+            <View style={[styles.optionsGroup, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <TouchableOpacity style={styles.optionRow} onPress={() => router.push('/jobs/create' as any)}>
+                <View style={styles.optionLeft}>
+                  <Briefcase size={18} color={colors.primary} style={{ marginRight: 10 }} />
+                  <Text style={[styles.optionText, { color: colors.text }]}>Publicar Nueva Vacante</Text>
+                </View>
+                <Text style={{ color: colors.textMuted, fontSize: 16 }}>›</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+              <TouchableOpacity style={styles.optionRow} onPress={() => router.push('/jobs/my-jobs' as any)}>
+                <View style={styles.optionLeft}>
+                  <Users size={18} color={colors.primary} style={{ marginRight: 10 }} />
+                  <Text style={[styles.optionText, { color: colors.text }]}>Mis Vacantes y Candidatos</Text>
+                </View>
+                <Text style={{ color: colors.textMuted, fontSize: 16 }}>›</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         {/* Account Deletion & Logout (Store Policy Mandatory Rule) */}
         {user ? (

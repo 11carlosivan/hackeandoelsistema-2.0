@@ -8,21 +8,34 @@ import { ArrowLeft, User, Mail, Lock } from 'lucide-react-native';
 
 export default function RegisterScreen() {
   const { colors } = useTheme();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos.');
+      Alert.alert('Campos requeridos', 'Por favor completa todos los campos.');
       return;
     }
 
-    await login(email, password);
-    Alert.alert('Cuenta Creada', 'Bienvenido a Hackeando El Sistema.');
-    router.back();
+    if (password.length < 8) {
+      Alert.alert('Contraseña débil', 'La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    setLoading(true);
+    const result = await register(name, email, password);
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('Cuenta Creada', 'Bienvenido a Hackeando El Sistema.');
+      router.back();
+    } else {
+      Alert.alert('Error de registro', result.error || 'No se pudo crear la cuenta.');
+    }
   };
 
   return (

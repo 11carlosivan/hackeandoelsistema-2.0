@@ -43,6 +43,7 @@ export function buildNavigation(categories = []) {
   return [
     { name: 'INICIO', path: '/' },
     ...categoryLinks,
+    { name: 'EMPLEOS', path: '/empleos/' },
     { name: 'ARCHIVO', path: '/archivo' },
   ];
 }

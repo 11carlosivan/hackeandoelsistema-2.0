@@ -11,17 +11,23 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor ingresa correo y contraseña.');
+      Alert.alert('Campos requeridos', 'Por favor ingresa tu correo y contraseña.');
       return;
     }
 
-    const success = await login(email, password);
-    if (success) {
+    setLoading(true);
+    const result = await login(email, password);
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('Bienvenido', 'Has iniciado sesión correctamente.');
       router.back();
+    } else {
+      Alert.alert('Error de inicio de sesión', result.error || 'Credenciales no válidas.');
     }
   };
 

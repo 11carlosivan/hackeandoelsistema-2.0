@@ -5,6 +5,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { fetchPostBySlug, Post } from '@/services/api';
 import { GutenbergRenderer } from '@/components/GutenbergRenderer';
+import { EngagementBar } from '@/components/EngagementBar';
+import { CommentSection } from '@/components/CommentSection';
 import { ArrowLeft, Share2, Clock, User, Quote } from 'lucide-react-native';
 
 export default function ArticleDetailScreen() {
@@ -99,6 +101,22 @@ export default function ArticleDetailScreen() {
 
           {/* Article Body Content */}
           <GutenbergRenderer content={post.content || post.excerpt || ''} />
+
+          {/* Barra de interacción social: Likes, Comentarios, Compartir */}
+          <EngagementBar
+            postId={post.id}
+            postTitle={post.title}
+            postSlug={post.slug}
+            initialLikeCount={post.likeCount || 0}
+            initialCommentCount={post.commentCount || (post.comments?.length ?? 0)}
+            initialShareCount={post.shareCount || 0}
+          />
+
+          {/* Sección de comentarios bidireccionales con la web */}
+          <CommentSection
+            postId={post.id}
+            initialComments={post.comments || []}
+          />
         </ScrollView>
       ) : (
         <View style={styles.loadingBox}>

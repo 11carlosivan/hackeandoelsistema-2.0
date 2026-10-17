@@ -38,10 +38,18 @@
         {
           "origin": "https://hackeandoelsistema.net"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "owner": "hes_dev",
+    "extra": {
+      "eas": {
+        "projectId": "06876c67-366e-40ba-8d8d-c2fa5d9a3eea"
+      }
     }
   }
 }
