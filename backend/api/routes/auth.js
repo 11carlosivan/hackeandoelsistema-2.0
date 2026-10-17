@@ -24,9 +24,9 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  displayName: z.string().trim().min(2).max(160),
-  email: z.string().email().max(255),
-  password: z.string().min(12).max(200),
+  displayName: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres').max(160),
+  email: z.string().email('El correo no es válido').max(255),
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(200),
   tokenResponse: z.boolean().optional(),
 });
 
@@ -175,7 +175,9 @@ export async function registerAuthRoutes(app) {
 
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw app.httpErrors.badRequest('Invalid register payload');
+      const firstIssue = parsed.error.issues?.[0];
+      const message = firstIssue?.message || 'Datos de registro incompletos o inválidos';
+      throw app.httpErrors.badRequest(message);
     }
 
     const email = normalizeEmail(parsed.data.email);
@@ -185,7 +187,7 @@ export async function registerAuthRoutes(app) {
     });
 
     if (existingUser) {
-      throw app.httpErrors.conflict('Email already registered');
+      throw app.httpErrors.conflict('Este correo ya está registrado. Por favor inicia sesión.');
     }
 
     const passwordHash = await hashPassword(parsed.data.password);

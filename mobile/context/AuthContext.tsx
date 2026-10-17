@@ -4,6 +4,7 @@ import { API_BASE_URL } from '@/constants/Config';
 export interface User {
   id: string;
   email: string;
+  name?: string;
   displayName?: string;
   username?: string;
   roles?: string[];
@@ -68,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const appUser: User = {
         id: receivedUser.id,
         email: receivedUser.email,
+        name: receivedUser.displayName || receivedUser.username || receivedUser.email,
         displayName: receivedUser.displayName,
         username: receivedUser.username,
         roles,
@@ -120,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const appUser: User = {
         id: receivedUser.id,
         email: receivedUser.email,
+        name: receivedUser.displayName || receivedUser.username || receivedUser.email,
         displayName: receivedUser.displayName,
         username: receivedUser.username,
         roles,

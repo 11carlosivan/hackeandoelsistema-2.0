@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -14,10 +14,11 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
+    if (!name.trim() || !email.trim() || !password) {
       Alert.alert('Campos requeridos', 'Por favor completa todos los campos.');
       return;
     }
@@ -27,11 +28,17 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (password !== confirmPassword) {
+      Alert.alert('Contraseñas no coinciden', 'La confirmación no coincide con la contraseña.');
+      return;
+    }
+
     setLoading(true);
     const result = await register(name, email, password);
     setLoading(false);
 
     if (result.success) {
+      Alert.alert('Cuenta Creada', '¡Bienvenido a Hackeando El Sistema!');
       if (redirect) {
         router.replace(redirect as any);
       } else {
@@ -53,12 +60,12 @@ export default function RegisterScreen() {
       </View>
 
       <View style={styles.form}>
-        <Text style={[styles.label, { color: colors.textMuted }]}>Nombre Completo</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Nombre o Empresa</Text>
         <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
           <User size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
-            placeholder="Tu Nombre"
+            placeholder="Tu Nombre o Razón Social"
             placeholderTextColor={colors.textMuted}
             value={name}
             onChangeText={setName}
@@ -79,7 +86,7 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <Text style={[styles.label, { color: colors.textMuted }]}>Contraseña</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Contraseña (mínimo 8 caracteres)</Text>
         <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
           <Lock size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
           <TextInput
@@ -92,12 +99,30 @@ export default function RegisterScreen() {
           />
         </View>
 
+        <Text style={[styles.label, { color: colors.textMuted }]}>Confirmar Contraseña</Text>
+        <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+          <Lock size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="••••••••"
+            placeholderTextColor={colors.textMuted}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+        </View>
+
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: colors.primary }]}
           onPress={handleRegister}
+          disabled={loading}
           activeOpacity={0.85}
         >
-          <Text style={styles.submitBtnText}>Registrarme</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitBtnText}>Registrarme</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
