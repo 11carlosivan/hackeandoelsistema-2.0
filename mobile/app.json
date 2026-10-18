@@ -16,8 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "net.hackeandoelsistema.app",
+      "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Hackeando El Sistema necesita acceso a tu galería para seleccionar y actualizar tu foto de perfil.",
+        "NSCameraUsageDescription": "Hackeando El Sistema necesita acceso a la cámara para tomar tu foto de perfil.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
