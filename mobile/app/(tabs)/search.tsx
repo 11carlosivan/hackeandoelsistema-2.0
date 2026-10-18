@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HeaderBar } from '@/components/HeaderBar';
 import { ArticleCard } from '@/components/ArticleCard';
 import { useTheme } from '@/context/ThemeContext';
@@ -38,8 +38,9 @@ export default function SearchScreen() {
   const { colors } = useTheme();
   const { token } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams<{ q?: string }>();
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(params.q || '');
   const [activeTab, setActiveTab] = useState<'all' | 'news' | 'users' | 'topics'>('all');
   const [postResults, setPostResults] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +91,12 @@ export default function SearchScreen() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (params.q !== undefined) {
+      setQuery(params.q);
+    }
+  }, [params.q]);
 
   useEffect(() => {
     if (!query.trim()) {

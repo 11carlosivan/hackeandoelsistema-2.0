@@ -3,16 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { Sun, Moon, Bell, Search, Menu } from 'lucide-react-native';
+import { Bell } from 'lucide-react-native';
 import { fetchNotifications } from '@/services/api';
-import { HamburgerMenuModal } from './HamburgerMenuModal';
 
 export const HeaderBar: React.FC = () => {
-  const { colors, isDark, setThemeMode } = useTheme();
+  const { colors } = useTheme();
   const { user, token } = useAuth();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState<number>(user?.unreadNotificationsCount || 0);
-  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     if (user?.unreadNotificationsCount !== undefined) {
@@ -64,16 +62,6 @@ export const HeaderBar: React.FC = () => {
         </TouchableOpacity>
 
         <View style={styles.actionsRow}>
-          {/* Search Button */}
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
-            onPress={() => router.push('/(tabs)/search')}
-            activeOpacity={0.7}
-            accessibilityLabel="Buscar"
-          >
-            <Search size={18} color={colors.text} />
-          </TouchableOpacity>
-
           {/* Notification Bell */}
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
@@ -87,7 +75,7 @@ export const HeaderBar: React.FC = () => {
             activeOpacity={0.7}
             accessibilityLabel="Notificaciones"
           >
-            <Bell size={18} color={colors.text} />
+            <Bell size={19} color={colors.text} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -96,20 +84,8 @@ export const HeaderBar: React.FC = () => {
               </View>
             )}
           </TouchableOpacity>
-
-          {/* Hamburger Menu Toggle */}
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
-            onPress={() => setMenuVisible(true)}
-            activeOpacity={0.7}
-            accessibilityLabel="Menú de opciones"
-          >
-            <Menu size={18} color={colors.text} />
-          </TouchableOpacity>
         </View>
       </View>
-
-      <HamburgerMenuModal visible={menuVisible} onClose={() => setMenuVisible(false)} />
     </>
   );
 };

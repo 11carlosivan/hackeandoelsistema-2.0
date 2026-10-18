@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -9,55 +9,60 @@ import {
   Home,
   Users,
   Tv,
-  Radio,
   BarChart3,
   TrendingUp,
   Bookmark,
   Bell,
   User,
   Briefcase,
-  HeartHandshake,
   Sun,
   Moon,
   ChevronRight,
   ShieldCheck,
   Grid,
+  Search,
+  Flame,
+  ArrowRight,
 } from 'lucide-react-native';
 
 export default function MenuScreen() {
   const { colors, isDark, setThemeMode } = useTheme();
   const { user, token } = useAuth();
   const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleSearchSubmit = () => {
+    router.push('/(tabs)/search' as any);
+  };
 
   const menuSections = [
     {
-      title: 'Principal',
+      title: 'Comunidad y Redes',
       items: [
-        { label: 'Portada / Noticias', icon: Home, path: '/(tabs)' },
-        { label: 'Feed Comunitario', icon: Users, path: '/(tabs)/community' },
-        { label: 'HES Live (En Vivo)', icon: Tv, path: '/(tabs)/live' },
+        { label: 'Feed Comunitario', icon: Users, path: '/(tabs)/community', desc: 'Publicaciones y opiniones de usuarios' },
+        { label: 'Buscador y Tendencias', icon: Search, path: '/(tabs)/search', desc: 'Explorar noticias, temas y usuarios' },
       ],
     },
     {
       title: 'Servicios e Información',
       items: [
-        { label: 'Información Clave (Clima, Divisas, Petróleo)', icon: TrendingUp, path: '/info' },
-        { label: 'Encuestas', icon: BarChart3, path: '/polls' },
-        { label: 'Artículos Guardados', icon: Bookmark, path: '/saved' },
-        { label: 'Notificaciones', icon: Bell, path: '/notifications' },
+        { label: 'Información Clave (Clima, Divisas, Petróleo)', icon: TrendingUp, path: '/(tabs)/info', desc: 'Indicadores en tiempo real' },
+        { label: 'Encuestas de Opinión', icon: BarChart3, path: '/polls', desc: 'Participa y revisa resultados' },
+        { label: 'Artículos Guardados', icon: Bookmark, path: '/saved', desc: 'Tus noticias archivadas' },
+        { label: 'Notificaciones', icon: Bell, path: '/notifications', desc: 'Alertas de actividad y editoriales' },
       ],
     },
     {
-      title: 'Comunidad y Oportunidades',
+      title: 'Oportunidades y Categorías',
       items: [
-        { label: 'Bolsa de Empleos', icon: Briefcase, path: '/(tabs)/jobs' },
-        { label: 'Secciones y Categorías', icon: Grid, path: '/(tabs)/categories' },
+        { label: 'Bolsa de Empleos', icon: Briefcase, path: '/(tabs)/jobs', desc: 'Ofertas de trabajo y vacantes' },
+        { label: 'Secciones del Periódico', icon: Grid, path: '/(tabs)/categories', desc: 'Nacional, Política, Economía y más' },
       ],
     },
     {
       title: 'Cuenta y Ajustes',
       items: [
-        { label: token ? 'Mi Perfil' : 'Iniciar Sesión / Registro', icon: User, path: token ? '/(tabs)/profile' : '/login' },
+        { label: token ? 'Mi Perfil' : 'Iniciar Sesión / Registro', icon: User, path: token ? '/(tabs)/profile' : '/login', desc: token ? `@${user?.username || 'usuario'}` : 'Accede a tu cuenta' },
       ],
     },
   ];
@@ -67,11 +72,60 @@ export default function MenuScreen() {
       <HeaderBar />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.headerTitleRow}>
-          <Grid size={22} color="#DC2626" style={{ marginRight: 8 }} />
-          <Text style={[styles.pageTitle, { color: colors.text }]}>Más Opciones</Text>
+        {/* Prominent Search Bar in "Más" */}
+        <View
+          style={[styles.searchBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+        >
+          <Search size={19} color="#DC2626" style={{ marginRight: 10 }} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Buscar noticias, usuarios o temas..."
+            placeholderTextColor={colors.textMuted}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            onSubmitEditing={() => {
+              if (searchTerm.trim()) {
+                router.push({ pathname: '/(tabs)/search', params: { q: searchTerm.trim() } } as any);
+              } else {
+                router.push('/(tabs)/search' as any);
+              }
+            }}
+            returnKeyType="search"
+          />
+          <TouchableOpacity
+            style={[styles.searchGoBadge, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              if (searchTerm.trim()) {
+                router.push({ pathname: '/(tabs)/search', params: { q: searchTerm.trim() } } as any);
+              } else {
+                router.push('/(tabs)/search' as any);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <ArrowRight size={14} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
+        {/* Quick Trending Chips */}
+        <View style={styles.quickTrendsRow}>
+          <Flame size={14} color="#DC2626" style={{ marginRight: 5 }} />
+          <Text style={[styles.quickTrendLabel, { color: colors.textMuted }]}>Tendencias:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trendChipsScroll}>
+            {['#Arroz', '#PRM', '#Haití', '#PuntaCatalina', '#Elecciones2028'].map((tag, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={[styles.trendChip, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => router.push({ pathname: '/(tabs)/search', params: { q: tag.replace('#', '') } } as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.trendChipText, { color: colors.text }]}>{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Menu Sections List */}
         {menuSections.map((section, sIdx) => (
           <View key={sIdx} style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{section.title}</Text>
@@ -89,10 +143,15 @@ export default function MenuScreen() {
                     onPress={() => router.push(item.path as any)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.iconContainer}>
+                    <View style={[styles.iconContainer, { backgroundColor: colors.inputBackground }]}>
                       <Icon size={18} color={colors.primary} />
                     </View>
-                    <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+                    <View style={styles.menuTextContainer}>
+                      <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+                      {item.desc ? (
+                        <Text style={[styles.menuDesc, { color: colors.textMuted }]}>{item.desc}</Text>
+                      ) : null}
+                    </View>
                     <ChevronRight size={16} color={colors.textMuted} />
                   </TouchableOpacity>
                 );
@@ -108,12 +167,17 @@ export default function MenuScreen() {
             onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
             activeOpacity={0.7}
           >
-            <View style={styles.iconContainer}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.inputBackground }]}>
               {isDark ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#6366F1" />}
             </View>
-            <Text style={[styles.menuLabel, { color: colors.text }]}>
-              Tema {isDark ? 'Oscuro (Tocar para Claro)' : 'Claro (Tocar para Oscuro)'}
-            </Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuLabel, { color: colors.text }]}>
+                Tema {isDark ? 'Oscuro' : 'Claro'}
+              </Text>
+              <Text style={[styles.menuDesc, { color: colors.textMuted }]}>
+                Tocar para cambiar a modo {isDark ? 'claro' : 'oscuro'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -136,15 +200,51 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  headerTitleRow: {
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 14,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginBottom: 10,
   },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  searchGoBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickTrendsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  quickTrendLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  trendChipsScroll: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  trendChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  trendChipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   sectionBlock: {
     marginBottom: 18,
@@ -165,18 +265,27 @@ const styles = StyleSheet.create({
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 14,
   },
   iconContainer: {
-    width: 30,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    marginRight: 10,
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  menuTextContainer: {
+    flex: 1,
   },
   menuLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  menuDesc: {
+    fontSize: 11,
+    marginTop: 1,
   },
   footerNote: {
     flexDirection: 'row',

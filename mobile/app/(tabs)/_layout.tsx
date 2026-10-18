@@ -33,10 +33,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="community"
+        name="jobs"
         options={{
-          title: 'Comunidad',
-          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+          title: 'Empleos',
+          tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -63,13 +63,13 @@ export default function TabLayout() {
 
       {/* Hidden from bottom bar but accessible via navigation */}
       <Tabs.Screen
-        name="profile"
+        name="community"
         options={{
           href: null,
         }}
       />
       <Tabs.Screen
-        name="jobs"
+        name="profile"
         options={{
           href: null,
         }}
