@@ -49,7 +49,7 @@ export const HamburgerMenuModal: React.FC<Props> = ({ visible, onClose }) => {
     {
       title: 'Servicios e Información',
       items: [
-        { label: 'Información Clave (Clima, Divisas, Petróleo)', icon: TrendingUp, path: '/info' },
+        { label: 'Información Clave (Clima, Divisas, Petróleo)', icon: TrendingUp, path: '/(tabs)/info' },
         { label: 'Encuestas', icon: BarChart3, path: '/polls' },
         { label: 'Artículos Guardados', icon: Bookmark, path: '/saved' },
         { label: 'Notificaciones', icon: Bell, path: '/notifications' },

@@ -47,10 +47,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="info"
+        name="profile"
         options={{
-          title: 'Info',
-          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -63,13 +63,13 @@ export default function TabLayout() {
 
       {/* Hidden from bottom bar but accessible via navigation */}
       <Tabs.Screen
-        name="community"
+        name="info"
         options={{
           href: null,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="community"
         options={{
           href: null,
         }}

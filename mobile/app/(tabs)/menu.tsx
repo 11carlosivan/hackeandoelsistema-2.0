@@ -37,19 +37,19 @@ export default function MenuScreen() {
 
   const menuSections = [
     {
+      title: 'Servicios e Información',
+      items: [
+        { label: 'Info (Clima, Divisas y Petróleo)', icon: TrendingUp, path: '/(tabs)/info', desc: 'Indicadores económicos y tiempo meteorológico en tiempo real' },
+        { label: 'Encuestas de Opinión', icon: BarChart3, path: '/polls', desc: 'Participa y revisa resultados' },
+        { label: 'Artículos Guardados', icon: Bookmark, path: '/saved', desc: 'Tus noticias archivadas' },
+        { label: 'Notificaciones', icon: Bell, path: '/notifications', desc: 'Alertas de actividad y editoriales' },
+      ],
+    },
+    {
       title: 'Comunidad y Redes',
       items: [
         { label: 'Feed Comunitario', icon: Users, path: '/(tabs)/community', desc: 'Publicaciones y opiniones de usuarios' },
         { label: 'Buscador y Tendencias', icon: Search, path: '/(tabs)/search', desc: 'Explorar noticias, temas y usuarios' },
-      ],
-    },
-    {
-      title: 'Servicios e Información',
-      items: [
-        { label: 'Información Clave (Clima, Divisas, Petróleo)', icon: TrendingUp, path: '/(tabs)/info', desc: 'Indicadores en tiempo real' },
-        { label: 'Encuestas de Opinión', icon: BarChart3, path: '/polls', desc: 'Participa y revisa resultados' },
-        { label: 'Artículos Guardados', icon: Bookmark, path: '/saved', desc: 'Tus noticias archivadas' },
-        { label: 'Notificaciones', icon: Bell, path: '/notifications', desc: 'Alertas de actividad y editoriales' },
       ],
     },
     {
@@ -62,7 +62,7 @@ export default function MenuScreen() {
     {
       title: 'Cuenta y Ajustes',
       items: [
-        { label: token ? 'Mi Perfil' : 'Iniciar Sesión / Registro', icon: User, path: token ? '/(tabs)/profile' : '/login', desc: token ? `@${user?.username || 'usuario'}` : 'Accede a tu cuenta' },
+        { label: token ? 'Mi Perfil' : 'Iniciar Sesión / Registro', icon: User, path: '/(tabs)/profile', desc: token ? `@${user?.username || 'usuario'}` : 'Accede a tu cuenta' },
       ],
     },
   ];
@@ -124,6 +124,26 @@ export default function MenuScreen() {
             ))}
           </ScrollView>
         </View>
+
+        {/* Quick Info Feature Card */}
+        <TouchableOpacity
+          style={[styles.infoBanner, { backgroundColor: isDark ? '#1C212D' : '#FEF2F2', borderColor: isDark ? '#2D3748' : '#FECACA' }]}
+          onPress={() => router.push('/(tabs)/info' as any)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.infoIconBox, { backgroundColor: '#DC2626' }]}>
+            <TrendingUp size={18} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={[styles.infoBannerTitle, { color: colors.text }]}>
+              Info: Clima, Divisas y Petróleo
+            </Text>
+            <Text style={[styles.infoBannerSubtitle, { color: colors.textMuted }]}>
+              Consulta indicadores clave en vivo y pronósticos
+            </Text>
+          </View>
+          <ChevronRight size={18} color="#DC2626" />
+        </TouchableOpacity>
 
         {/* Menu Sections List */}
         {menuSections.map((section, sIdx) => (
@@ -245,6 +265,30 @@ const styles = StyleSheet.create({
   trendChipText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  infoIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  infoBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  infoBannerSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
   },
   sectionBlock: {
     marginBottom: 18,
