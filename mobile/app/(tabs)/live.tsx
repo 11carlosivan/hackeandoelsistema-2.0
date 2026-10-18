@@ -100,14 +100,14 @@ export default function HESLiveScreen() {
 
         {/* Video Player Box */}
         <View style={styles.videoPlayerBox}>
-          {Platform.OS === 'web' || !WebViewComponent ? (
+          {Platform.OS === 'web' ? (
             <iframe
               src={embedUrl}
               style={{ width: '100%', height: '100%', border: 'none' } as any}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
-          ) : (
+          ) : WebViewComponent ? (
             <WebViewComponent
               source={{ uri: embedUrl }}
               style={styles.webView}
@@ -115,6 +115,11 @@ export default function HESLiveScreen() {
               mediaPlaybackRequiresUserAction={false}
               javaScriptEnabled
             />
+          ) : (
+            <View style={[styles.webView, { alignItems: 'center', justifyContent: 'center' }]}>
+              <Tv size={48} color="#DC2626" />
+              <Text style={{ color: '#FFFFFF', marginTop: 10, fontWeight: '700' }}>HES Live Streaming</Text>
+            </View>
           )}
 
           {/* Live Overlay Badge */}
