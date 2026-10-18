@@ -1,6 +1,11 @@
 import { authors } from './mock-data';
 const productionUrl = 'https://hackeandoelsistema.net';
-const socialImageProxyHosts = new Set(['image.hackeandoelsistema.net']);
+const socialImageProxyHosts = new Set([
+  'hackeandoelsistema.net',
+  'image.hackeandoelsistema.net',
+  'localhost',
+  '127.0.0.1',
+]);
 
 export const siteConfig = {
   name: 'Hackeando el Sistema',
@@ -50,6 +55,10 @@ function imageMimeType(imageUrl) {
 export function socialPreviewImageUrl(imageUrl, versionSeed) {
   try {
     const url = new URL(imageUrl);
+
+    if (url.pathname.endsWith('/isotipo.png') || url.pathname === '/isotipo.png') {
+      return imageUrl;
+    }
 
     if (!socialImageProxyHosts.has(url.hostname)) {
       return imageUrl;

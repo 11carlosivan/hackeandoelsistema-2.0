@@ -83,10 +83,10 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
 
   const handleShare = async () => {
     try {
-      const shareUrl = `https://hackeandoelsistema.net/${postSlug}`;
+      const shareUrl = `https://hackeandoelsistema.net/${postSlug}/`;
       const result = await Share.share({
         title: postTitle,
-        message: `${postTitle}\n\n${shareUrl}`,
+        message: Platform.OS === 'android' ? `${postTitle}\n\n${shareUrl}` : postTitle,
         url: shareUrl,
       });
 

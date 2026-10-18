@@ -67,10 +67,10 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ post }) => {
 
   const handleShare = async () => {
     try {
-      const shareUrl = `https://hackeandoelsistema.net/${post.slug}`;
+      const shareUrl = `https://hackeandoelsistema.net/${post.slug}/`;
       const result = await Share.share({
         title: post.title,
-        message: `${post.title}\n\n${shareUrl}`,
+        message: Platform.OS === 'android' ? `${post.title}\n\n${shareUrl}` : post.title,
         url: shareUrl,
       });
 

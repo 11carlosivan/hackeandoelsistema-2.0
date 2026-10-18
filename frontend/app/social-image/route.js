@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const ALLOWED_IMAGE_HOSTS = new Set(['image.hackeandoelsistema.net']);
+const ALLOWED_IMAGE_HOSTS = new Set([
+  'hackeandoelsistema.net',
+  'image.hackeandoelsistema.net',
+  'localhost',
+  '127.0.0.1',
+]);
 const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 const SOCIAL_WIDTH = 1200;
 const SOCIAL_HEIGHT = 630;

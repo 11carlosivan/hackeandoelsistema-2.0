@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -30,9 +30,11 @@ export default function ArticleDetailScreen() {
   const handleShare = async () => {
     if (post) {
       try {
+        const shareUrl = `https://hackeandoelsistema.net/${post.slug}/`;
         await Share.share({
           title: post.title,
-          message: `${post.title}\n\nhttps://hackeandoelsistema.net/${post.slug}`,
+          message: Platform.OS === 'android' ? `${post.title}\n\n${shareUrl}` : post.title,
+          url: shareUrl,
         });
       } catch (err) {
         // Share dismissed
