@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +15,8 @@ export default function ArticleDetailScreen() {
   const router = useRouter();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const commentsLayoutY = useRef(0);
 
   useEffect(() => {
     if (slug) {
@@ -30,7 +32,7 @@ export default function ArticleDetailScreen() {
       try {
         await Share.share({
           title: post.title,
-          message: `${post.title}\n\nhttps://hackeandoelsistema.net/noticia/${post.slug}`,
+          message: `${post.title}\n\nhttps://hackeandoelsistema.net/${post.slug}`,
         });
       } catch (err) {
         // Share dismissed
@@ -59,7 +61,7 @@ export default function ArticleDetailScreen() {
           <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando artículo...</Text>
         </View>
       ) : post ? (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content}>
           {/* Category Badge */}
           <View style={[styles.categoryBadge, { backgroundColor: post.isOpinion ? colors.badgeOpinionBg : colors.inputBackground }]}>
             {post.isOpinion ? <Quote size={12} color={colors.primary} style={{ marginRight: 4 }} /> : null}
@@ -110,13 +112,20 @@ export default function ArticleDetailScreen() {
             initialLikeCount={post.likeCount || 0}
             initialCommentCount={post.commentCount || (post.comments?.length ?? 0)}
             initialShareCount={post.shareCount || 0}
+            onCommentsPress={() => {
+              if (commentsLayoutY.current > 0) {
+                scrollViewRef.current?.scrollTo({ y: commentsLayoutY.current, animated: true });
+              }
+            }}
           />
 
           {/* Sección de comentarios bidireccionales con la web */}
-          <CommentSection
-            postId={post.id}
-            initialComments={post.comments || []}
-          />
+          <View onLayout={(e) => { commentsLayoutY.current = e.nativeEvent.layout.y; }}>
+            <CommentSection
+              postId={post.id}
+              initialComments={post.comments || []}
+            />
+          </View>
         </ScrollView>
       ) : (
         <View style={styles.loadingBox}>

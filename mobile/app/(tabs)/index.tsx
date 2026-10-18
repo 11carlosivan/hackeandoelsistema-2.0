@@ -1,13 +1,135 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Image, TouchableOpacity, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { OpinionSlider } from '@/components/OpinionSlider';
 import { CategorySection } from '@/components/CategorySection';
 import { useTheme } from '@/context/ThemeContext';
-import { fetchPublicPosts, fetchCategories, Post, Category } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
+import { fetchPublicPosts, fetchCategories, Post, Category, togglePostLike, registerPostShare } from '@/services/api';
 import { useRouter } from 'expo-router';
-import { Flame, Clock } from 'lucide-react-native';
+import { Flame, Clock, Heart, MessageSquare, Share2 } from 'lucide-react-native';
+
+const HeroArticleCard: React.FC<{ post: Post }> = ({ post }) => {
+  const { colors } = useTheme();
+  const { user, token } = useAuth();
+  const { showModal } = useNotification();
+  const router = useRouter();
+
+  const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(post.likeCount || 0);
+  const [comments] = useState(post.commentCount || (post.comments?.length ?? 0));
+  const [shares, setShares] = useState(post.shareCount || 0);
+  const [loadingLike, setLoadingLike] = useState(false);
+
+  const handleLike = async () => {
+    if (loadingLike) return;
+
+    if (!user || !token) {
+      showModal({
+        icon: 'question',
+        title: 'Iniciar Sesión',
+        message: 'Debes iniciar sesión con tu cuenta para dar Me Gusta.',
+        buttons: [
+          { text: 'Iniciar Sesión', style: 'primary', onPress: () => router.push('/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ],
+      });
+      return;
+    }
+
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setLikes((prev) => Math.max(0, prev + (nextLiked ? 1 : -1)));
+    setLoadingLike(true);
+
+    const res = await togglePostLike(post.id, nextLiked, token);
+    setLoadingLike(false);
+
+    if (res) {
+      setLiked(res.liked);
+      setLikes(res.likeCount);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const shareUrl = `https://hackeandoelsistema.net/${post.slug}`;
+      const result = await Share.share({
+        title: post.title,
+        message: `${post.title}\n\n${shareUrl}`,
+        url: shareUrl,
+      });
+
+      if (result.action === Share.sharedAction) {
+        setShares((prev) => prev + 1);
+        registerPostShare(post.id, 'native');
+      }
+    } catch (err) {
+      // Ignored
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={[styles.heroCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+      onPress={() => router.push(`/article/${post.slug}` as any)}
+      activeOpacity={0.85}
+    >
+      {post.featuredImage ? (
+        <Image source={{ uri: post.featuredImage }} style={styles.heroImage} resizeMode="cover" />
+      ) : null}
+
+      <View style={styles.heroBody}>
+        <View style={styles.heroMetaRow}>
+          <View style={[styles.heroCategoryBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.heroCategoryText}>{post.category?.toUpperCase()}</Text>
+          </View>
+
+          {post.publishedAt ? (
+            <View style={styles.heroDateRow}>
+              <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+              <Text style={[styles.heroDateText, { color: colors.textMuted }]}>
+                {new Date(post.publishedAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text style={[styles.heroTitle, { color: colors.text }]}>{post.title}</Text>
+
+        {post.excerpt ? (
+          <Text style={[styles.heroExcerpt, { color: colors.textMuted }]} numberOfLines={3}>
+            {post.excerpt}
+          </Text>
+        ) : null}
+
+        <Text style={[styles.heroAuthor, { color: colors.textMuted }]}>
+          Por <Text style={{ color: colors.text, fontWeight: '700' }}>{post.author?.name || 'Redacción HES'}</Text>
+        </Text>
+
+        {/* Barra de interacción social sincronizada */}
+        <View style={[styles.heroEngagementRow, { borderTopColor: colors.border }]}>
+          <TouchableOpacity style={styles.heroEngagementBtn} onPress={handleLike} activeOpacity={0.7}>
+            <Heart size={16} color={liked ? '#EF4444' : colors.textMuted} fill={liked ? '#EF4444' : 'transparent'} />
+            <Text style={[styles.heroEngagementText, { color: liked ? '#EF4444' : colors.text }]}>{likes}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.heroEngagementBtn} onPress={() => router.push(`/article/${post.slug}` as any)} activeOpacity={0.7}>
+            <MessageSquare size={16} color={colors.textMuted} />
+            <Text style={[styles.heroEngagementText, { color: colors.text }]}>{comments}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.heroEngagementBtn} onPress={handleShare} activeOpacity={0.7}>
+            <Share2 size={16} color={colors.textMuted} />
+            <Text style={[styles.heroEngagementText, { color: colors.text }]}>{shares}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -87,44 +209,7 @@ export default function HomeScreen() {
                 <Text style={[styles.heroHeaderTitle, { color: colors.text }]}>PORTADA Y TITULAR</Text>
               </View>
 
-              <TouchableOpacity
-                style={[styles.heroCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-                onPress={() => router.push(`/article/${heroPost.slug}` as any)}
-                activeOpacity={0.85}
-              >
-                {heroPost.featuredImage ? (
-                  <Image source={{ uri: heroPost.featuredImage }} style={styles.heroImage} resizeMode="cover" />
-                ) : null}
-
-                <View style={styles.heroBody}>
-                  <View style={styles.heroMetaRow}>
-                    <View style={[styles.heroCategoryBadge, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.heroCategoryText}>{heroPost.category?.toUpperCase()}</Text>
-                    </View>
-
-                    {heroPost.publishedAt ? (
-                      <View style={styles.heroDateRow}>
-                        <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
-                        <Text style={[styles.heroDateText, { color: colors.textMuted }]}>
-                          {new Date(heroPost.publishedAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <Text style={[styles.heroTitle, { color: colors.text }]}>{heroPost.title}</Text>
-
-                  {heroPost.excerpt ? (
-                    <Text style={[styles.heroExcerpt, { color: colors.textMuted }]} numberOfLines={3}>
-                      {heroPost.excerpt}
-                    </Text>
-                  ) : null}
-
-                  <Text style={[styles.heroAuthor, { color: colors.textMuted }]}>
-                    Por <Text style={{ color: colors.text, fontWeight: '700' }}>{heroPost.author?.name || 'Redacción HES'}</Text>
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              <HeroArticleCard post={heroPost} />
             </View>
           ) : null}
 
@@ -230,6 +315,26 @@ const styles = StyleSheet.create({
   },
   heroAuthor: {
     fontSize: 12,
+  },
+  heroEngagementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    marginTop: 14,
+    paddingTop: 10,
+  },
+  heroEngagementBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  heroEngagementText: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   categoriesWrapper: {
     paddingHorizontal: 16,

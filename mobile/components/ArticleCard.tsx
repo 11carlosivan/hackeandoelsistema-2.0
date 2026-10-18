@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Share } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { Post } from '@/services/api';
-import { Clock } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/context/NotificationContext';
+import { Post, togglePostLike, registerPostShare } from '@/services/api';
+import { Clock, Heart, MessageSquare, Share2 } from 'lucide-react-native';
 
 interface ArticleCardProps {
   post: Post;
@@ -11,16 +13,80 @@ interface ArticleCardProps {
 
 export const ArticleCard: React.FC<ArticleCardProps> = ({ post }) => {
   const { colors } = useTheme();
+  const { user, token } = useAuth();
+  const { showModal } = useNotification();
   const router = useRouter();
+
+  const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(post.likeCount || 0);
+  const [comments] = useState(post.commentCount || (post.comments?.length ?? 0));
+  const [shares, setShares] = useState(post.shareCount || 0);
+  const [loadingLike, setLoadingLike] = useState(false);
 
   const formattedDate = post.publishedAt
     ? new Date(post.publishedAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })
     : '';
 
+  const handleCardPress = () => {
+    router.push(`/article/${post.slug}` as any);
+  };
+
+  const handleLike = async () => {
+    if (loadingLike) return;
+
+    if (!user || !token) {
+      showModal({
+        icon: 'question',
+        title: 'Iniciar Sesión',
+        message: 'Debes iniciar sesión con tu cuenta para dar Me Gusta.',
+        buttons: [
+          { text: 'Iniciar Sesión', style: 'primary', onPress: () => router.push('/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ],
+      });
+      return;
+    }
+
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setLikes((prev) => Math.max(0, prev + (nextLiked ? 1 : -1)));
+    setLoadingLike(true);
+
+    const res = await togglePostLike(post.id, nextLiked, token);
+    setLoadingLike(false);
+
+    if (res) {
+      setLiked(res.liked);
+      setLikes(res.likeCount);
+    }
+  };
+
+  const handleCommentPress = () => {
+    router.push(`/article/${post.slug}` as any);
+  };
+
+  const handleShare = async () => {
+    try {
+      const shareUrl = `https://hackeandoelsistema.net/${post.slug}`;
+      const result = await Share.share({
+        title: post.title,
+        message: `${post.title}\n\n${shareUrl}`,
+        url: shareUrl,
+      });
+
+      if (result.action === Share.sharedAction) {
+        setShares((prev) => prev + 1);
+        registerPostShare(post.id, 'native');
+      }
+    } catch (err) {
+      // Ignored
+    }
+  };
+
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-      onPress={() => router.push(`/article/${post.slug}` as any)}
+      onPress={handleCardPress}
       activeOpacity={0.85}
     >
       {post.featuredImage ? (
@@ -59,6 +125,46 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ post }) => {
           <Text style={[styles.authorName, { color: colors.textMuted }]}>
             Por <Text style={{ fontWeight: '700', color: colors.text }}>{post.author?.name || 'Redacción HES'}</Text>
           </Text>
+        </View>
+
+        {/* Barra de interacción social sincronizada con la web */}
+        <View style={[styles.engagementRow, { borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            style={styles.engagementBtn}
+            onPress={handleLike}
+            activeOpacity={0.7}
+          >
+            <Heart
+              size={16}
+              color={liked ? '#EF4444' : colors.textMuted}
+              fill={liked ? '#EF4444' : 'transparent'}
+            />
+            <Text style={[styles.engagementText, { color: liked ? '#EF4444' : colors.text }]}>
+              {likes}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.engagementBtn}
+            onPress={handleCommentPress}
+            activeOpacity={0.7}
+          >
+            <MessageSquare size={16} color={colors.textMuted} />
+            <Text style={[styles.engagementText, { color: colors.text }]}>
+              {comments}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.engagementBtn}
+            onPress={handleShare}
+            activeOpacity={0.7}
+          >
+            <Share2 size={16} color={colors.textMuted} />
+            <Text style={[styles.engagementText, { color: colors.text }]}>
+              {shares}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -122,8 +228,29 @@ const styles = StyleSheet.create({
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 2,
   },
   authorName: {
     fontSize: 12,
+  },
+  engagementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    marginTop: 12,
+    paddingTop: 10,
+  },
+  engagementBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  engagementText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
   },
 });

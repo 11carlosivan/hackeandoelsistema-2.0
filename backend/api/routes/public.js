@@ -31,7 +31,7 @@ const slugParamSchema = z.object({
 });
 
 const idParamSchema = z.object({
-  id: z.uuid(),
+  id: z.string().trim().min(1).max(280),
 });
 const publicCommentSchema = z.object({
   body: z.string().trim().min(3).max(2000),
@@ -215,7 +215,10 @@ function isAutomatedViewRequest(request) {
 async function findPublicPostForEngagement(app, postId) {
   return app.prisma.post.findFirst({
     where: {
-      id: postId,
+      OR: [
+        { id: postId },
+        { slug: postId },
+      ],
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
     },
@@ -1655,7 +1658,7 @@ export async function registerPublicRoutes(app) {
         ? app.prisma.postLike.findUnique({
             where: {
               postId_actorHash: {
-                postId: id,
+                postId: post.id,
                 actorHash,
               },
             },
@@ -1666,7 +1669,7 @@ export async function registerPublicRoutes(app) {
         ? app.prisma.savedPost.findUnique({
             where: {
               postId_userId: {
-                postId: id,
+                postId: post.id,
                 userId: user.id,
               },
             },
@@ -1677,7 +1680,7 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: {
-        postId: id,
+        postId: post.id,
         liked: Boolean(like),
         saved: Boolean(saved),
         authenticated: Boolean(user),
@@ -1807,7 +1810,7 @@ export async function registerPublicRoutes(app) {
       const existing = await tx.postLike.findUnique({
         where: {
           postId_actorHash: {
-            postId: id,
+            postId: post.id,
             actorHash,
           },
         },
@@ -1817,13 +1820,13 @@ export async function registerPublicRoutes(app) {
       if (shouldLike && !existing) {
         await tx.postLike.create({
           data: {
-            postId: id,
+            postId: post.id,
             userId: user?.id || null,
             actorHash,
           },
         });
         const updatedPost = await tx.post.update({
-          where: { id },
+          where: { id: post.id },
           data: { likeCount: { increment: 1 } },
           select: { likeCount: true },
         });
@@ -1835,13 +1838,13 @@ export async function registerPublicRoutes(app) {
         await tx.postLike.delete({ where: { id: existing.id } });
         await tx.post.updateMany({
           where: {
-            id,
+            id: post.id,
             likeCount: { gt: 0 },
           },
           data: { likeCount: { decrement: 1 } },
         });
         const updatedPost = await tx.post.findUnique({
-          where: { id },
+          where: { id: post.id },
           select: { likeCount: true },
         });
 
@@ -1853,7 +1856,7 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: {
-        postId: id,
+        postId: post.id,
         ...result,
       },
     };
@@ -1951,14 +1954,14 @@ export async function registerPublicRoutes(app) {
     const result = await app.prisma.$transaction(async (tx) => {
       await tx.postShare.create({
         data: {
-          postId: id,
+          postId: post.id,
           userId: user?.id || null,
           actorHash,
           channel: body.data.channel,
         },
       });
       const updatedPost = await tx.post.update({
-        where: { id },
+        where: { id: post.id },
         data: { shareCount: { increment: 1 } },
         select: { shareCount: true },
       });
@@ -1968,7 +1971,7 @@ export async function registerPublicRoutes(app) {
 
     return {
       data: {
-        postId: id,
+        postId: post.id,
         channel: body.data.channel,
         ...result,
       },
@@ -1994,7 +1997,7 @@ export async function registerPublicRoutes(app) {
       const parentComment = await app.prisma.comment.findFirst({
         where: {
           id: body.data.parentId,
-          postId: id,
+          postId: post.id,
           status: 'APPROVED',
         },
         select: { id: true },
@@ -2008,7 +2011,7 @@ export async function registerPublicRoutes(app) {
     const { ipHash, userAgentHash } = requestHashMeta(request);
     const comment = await app.prisma.comment.create({
       data: {
-        postId: id,
+        postId: post.id,
         userId: request.auth.user.id,
         parentId: body.data.parentId || null,
         authorName: request.auth.user.displayName,
