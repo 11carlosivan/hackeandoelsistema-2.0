@@ -22,6 +22,7 @@ export default function EditProfileForm({ initialData = {}, onSave }) {
   });
 
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
 
   // Perfil se considera verificado si los campos requeridos y datos clave estan completos
