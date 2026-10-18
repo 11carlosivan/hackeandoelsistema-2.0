@@ -32,6 +32,12 @@
         "backgroundColor": "#0F172A"
       },
       "package": "com.hackeandoelsistema.app",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
