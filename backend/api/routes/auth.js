@@ -27,6 +27,8 @@ const registerSchema = z.object({
   displayName: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres').max(160),
   email: z.string().email('El correo no es válido').max(255),
   password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(200),
+  age: z.coerce.number().int().min(14, 'Debes tener al menos 14 años').max(120, 'Edad no válida').optional(),
+  termsAccepted: z.boolean().optional(),
   tokenResponse: z.boolean().optional(),
 });
 
@@ -224,7 +226,11 @@ export async function registerAuthRoutes(app) {
         request,
         userId: user.id,
         eventType: 'LOGIN_SUCCESS',
-        metadata: { source: 'register' },
+        metadata: {
+          source: 'register',
+          age: parsed.data.age ?? null,
+          termsAccepted: Boolean(parsed.data.termsAccepted),
+        },
       }),
     ]);
 
@@ -377,4 +383,44 @@ export async function registerAuthRoutes(app) {
       },
     };
   });
+
+  // Apartado para que las personas registradas se puedan dar de baja (Eliminación de cuenta)
+  const handleAccountDeletion = async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    // Revocar todas las sesiones activas
+    await app.prisma.userSession.deleteMany({
+      where: { userId },
+    });
+
+    // Marcar usuario como DELETED y limpiar datos sensibles
+    await app.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'DELETED',
+        passwordHash: null,
+      },
+    });
+
+    await recordSecurityEvent({
+      prisma: app.prisma,
+      request,
+      userId,
+      eventType: 'SESSION_REVOKED',
+      metadata: { action: 'account_deletion_self' },
+    });
+
+    clearAuthCookies(reply, app);
+    reply.code(200);
+    return {
+      data: {
+        ok: true,
+        message: 'Tu cuenta ha sido dada de baja exitosamente.',
+      },
+    };
+  };
+
+  app.delete('/api/v1/auth/me', { preHandler: app.authenticate }, handleAccountDeletion);
+  app.post('/api/v1/auth/delete-account', { preHandler: app.authenticate }, handleAccountDeletion);
 }

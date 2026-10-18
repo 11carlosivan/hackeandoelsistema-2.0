@@ -16,7 +16,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, pass: string, isCompany?: boolean) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, pass: string, age?: number, isCompany?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<boolean>;
 }
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, pass: string, isCompany = false) => {
+  const register = async (name: string, email: string, pass: string, age = 18, isCompany = false) => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
@@ -102,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: name.trim(),
           email: email.trim().toLowerCase(),
           password: pass,
+          age,
+          termsAccepted: true,
           tokenResponse: true,
         }),
       });
@@ -148,6 +150,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteAccount = async () => {
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        });
+      } catch (err) {
+        console.warn('Error deleting account on backend:', err);
+      }
+    }
     setUser(null);
     setToken(null);
     return true;

@@ -34,6 +34,8 @@ describe('RegisterForm', () => {
       expect(JSON.parse(options.body)).toEqual({
         displayName: 'Lector HES',
         email: 'lector@example.com',
+        age: 28,
+        termsAccepted: true,
         password: 'CorrectHorse123!',
       });
 
@@ -50,9 +52,11 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Lector HES' } });
+    fireEvent.change(screen.getByLabelText('Edad (Años)'), { target: { value: '28' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'lector@example.com' } });
     fireEvent.change(screen.getByLabelText('Clave'), { target: { value: 'CorrectHorse123!' } });
     fireEvent.change(screen.getByLabelText('Confirmar clave'), { target: { value: 'CorrectHorse123!' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/perfil/reader-1/'));
@@ -65,9 +69,11 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Lector HES' } });
+    fireEvent.change(screen.getByLabelText('Edad (Años)'), { target: { value: '28' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'lector@example.com' } });
     fireEvent.change(screen.getByLabelText('Clave'), { target: { value: 'CorrectHorse123!' } });
     fireEvent.change(screen.getByLabelText('Confirmar clave'), { target: { value: 'DifferentHorse123!' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(screen.getByText('Las claves no coinciden.')).toBeInTheDocument();

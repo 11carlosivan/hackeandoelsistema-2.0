@@ -35,7 +35,21 @@ const documents = {
         ],
       },
       {
-        title: 'Solicitudes',
+        title: 'Responsabilidad sobre imagenes, contenidos y registros',
+        body: [
+          'Cada usuario, colaborador o anunciante es unica y exclusivamente responsable de las imagenes, fotografias, textos, enlaces y registros de informacion que cargue, transmita o publique en el sistema o a traves de la aplicacion movil.',
+          'Hackeando el Sistema no asume responsabilidad civil, penal ni administrativa por los materiales graficos o de informacion provistos por terceros o usuarios de la comunidad, reservandose el derecho de moderar, suspender o retirar inmediatamente cualquier contenido que infrinja derechos de autor, privacidad o la legislacion aplicable.',
+        ],
+      },
+      {
+        title: 'Baja y eliminacion de cuenta (Darse de baja)',
+        body: [
+          'Todo usuario registrado tiene derecho a darse de baja y solicitar la eliminacion definitiva de su cuenta y sus datos personales asociados en cualquier momento.',
+          'La baja puede gestionarse directamente desde la seccion de edicion de perfil en la plataforma web o desde la pantalla de perfil en la aplicacion movil, asi como mediante comunicacion a nuestros canales oficiales.',
+        ],
+      },
+      {
+        title: 'Solicitudes y contacto',
         body: [
           'Las personas pueden comunicarse con el equipo para solicitar revision, actualizacion o eliminacion de informacion vinculada a su cuenta, segun corresponda al funcionamiento del servicio.',
           'Las solicitudes se atienden desde los canales oficiales publicados en el sitio.',
@@ -46,7 +60,7 @@ const documents = {
   terms: {
     title: 'Terminos de Uso',
     description: 'Condiciones generales para usar el sitio, publicar comentarios y acceder a funciones de cuenta.',
-    updatedAt: '04 AGO 2026',
+    updatedAt: '17 OCT 2026',
     sections: [
       {
         title: 'Uso del sitio',
@@ -56,10 +70,18 @@ const documents = {
         ],
       },
       {
-        title: 'Cuentas',
+        title: 'Cuentas y mayoria de edad',
         body: [
-          'Algunas funciones requieren una cuenta activa. El usuario es responsable de mantener sus credenciales seguras y de la actividad realizada desde su cuenta.',
+          'Para crear una cuenta en el sitio o la aplicacion, el usuario debe tener al menos 14 anos cumplidos (o contar con autorizacion legal de sus tutores en caso de menores de edad segun la jurisdiccion aplicable).',
+          'El usuario es responsable de mantener sus credenciales seguras y de toda actividad realizada desde su cuenta.',
           'El equipo puede limitar, suspender o cerrar accesos cuando detecte abuso, spam, suplantacion, ataques o incumplimiento de estas condiciones.',
+        ],
+      },
+      {
+        title: 'Responsabilidad del usuario sobre imagenes y registros aportados',
+        body: [
+          'Al registrarse, comentar, enviar postulaciones o publicar ofertas de empleo, el usuario declara bajo juramento ser titular legitimo o poseer autorizacion expresa para el uso de cualquier imagen, archivo, curriculum o texto que adjunte.',
+          'Las imagenes y registros cargados por usuarios son de exclusiva y total responsabilidad del usuario emisor. Hackeando el Sistema queda exento de cualquier reclamo de terceros derivado del uso no autorizado de contenidos aportados por los usuarios.',
         ],
       },
       {
@@ -74,6 +96,12 @@ const documents = {
         body: [
           'Los textos, marcas, imagenes, diseno y recursos del sitio pertenecen a sus respectivos titulares o se usan conforme a las autorizaciones aplicables.',
           'No se permite copiar, automatizar extracciones masivas, explotar comercialmente o alterar contenido sin autorizacion previa cuando corresponda.',
+        ],
+      },
+      {
+        title: 'Cancelacion y baja de la cuenta',
+        body: [
+          'El usuario puede solicitar o ejecutar la baja de su registro en cualquier momento a traves de las herramientas de autoservicio de su perfil en la web y en la app movil.',
         ],
       },
       {

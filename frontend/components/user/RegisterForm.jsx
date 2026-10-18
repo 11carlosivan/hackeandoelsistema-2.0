@@ -13,14 +13,27 @@ export default function RegisterForm() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [age, setAge] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
   const submit = async (event) => {
     event.preventDefault();
     setError('');
+
+    const parsedAge = parseInt(age, 10);
+    if (isNaN(parsedAge) || parsedAge < 14) {
+      setError('Debes ingresar una edad válida (mínimo 14 años).');
+      return;
+    }
+
+    if (!termsAccepted) {
+      setError('Debes aceptar los Términos y Condiciones y la Política de Privacidad.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Las claves no coinciden.');
@@ -39,6 +52,8 @@ export default function RegisterForm() {
         body: JSON.stringify({
           displayName,
           email,
+          age: parsedAge,
+          termsAccepted: true,
           password,
         }),
       });
@@ -71,21 +86,40 @@ export default function RegisterForm() {
       </div>
 
       <div className="mt-6 grid gap-5">
-        <label className="block">
-          <span className="mb-2 block font-label-caps text-[10px] font-bold text-on-surface-variant">
-            Nombre
-          </span>
-          <input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            type="text"
-            autoComplete="name"
-            required
-            minLength={2}
-            maxLength={160}
-            className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
-          />
-        </label>
+        <div className="grid gap-5 md:grid-cols-3">
+          <label className="block md:col-span-2">
+            <span className="mb-2 block font-label-caps text-[10px] font-bold text-on-surface-variant">
+              Nombre
+            </span>
+            <input
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              type="text"
+              autoComplete="name"
+              placeholder="Tu nombre o razón social"
+              required
+              minLength={2}
+              maxLength={160}
+              className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block font-label-caps text-[10px] font-bold text-on-surface-variant">
+              Edad (Años)
+            </span>
+            <input
+              value={age}
+              onChange={(event) => setAge(event.target.value)}
+              type="number"
+              min={14}
+              max={120}
+              required
+              placeholder="Ej. 25"
+              className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
+            />
+          </label>
+        </div>
 
         <label className="block">
           <span className="mb-2 block font-label-caps text-[10px] font-bold text-on-surface-variant">
@@ -113,7 +147,7 @@ export default function RegisterForm() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={12}
+              minLength={8}
               maxLength={200}
               className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
             />
@@ -129,10 +163,34 @@ export default function RegisterForm() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={12}
+              minLength={8}
               maxLength={200}
               className="w-full border border-terminal-gray bg-black px-4 py-3 text-white outline-none focus:border-system-red"
             />
+          </label>
+        </div>
+
+        {/* Checkbox de Términos, Privacidad y Responsabilidad de Contenido */}
+        <div className="mt-2 border border-terminal-gray/60 bg-black/40 p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              required
+              className="mt-1 h-4 w-4 shrink-0 rounded border-terminal-gray bg-black text-system-red focus:ring-system-red"
+            />
+            <span className="text-xs text-on-surface-variant leading-relaxed">
+              He leído y acepto los{' '}
+              <Link href="/terminos-de-uso" target="_blank" className="font-bold text-system-red underline hover:text-white">
+                Términos y Condiciones
+              </Link>{' '}
+              y la{' '}
+              <Link href="/politica-de-privacidad" target="_blank" className="font-bold text-system-red underline hover:text-white">
+                Política de Privacidad
+              </Link>
+              . Reconozco que las imágenes, archivos y registros que publique son bajo mi exclusiva responsabilidad.
+            </span>
           </label>
         </div>
       </div>

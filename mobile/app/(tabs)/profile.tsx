@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
 import { useRouter } from 'expo-router';
-import { User, Sun, Moon, Monitor, Trash2, LogOut, ShieldCheck, FileText, Briefcase, Users } from 'lucide-react-native';
+import { User, Sun, Moon, Monitor, Trash2, LogOut, ShieldCheck, FileText, Briefcase, Users, ExternalLink } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { colors, themeMode, setThemeMode } = useTheme();
@@ -134,19 +134,31 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>ACERCA DE LA APP</Text>
           <View style={[styles.optionsGroup, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <View style={styles.optionRow}>
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => Linking.openURL('https://hackeandoelsistema.net/politica-de-privacidad')}
+              activeOpacity={0.7}
+            >
               <View style={styles.optionLeft}>
                 <ShieldCheck size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
                 <Text style={[styles.optionText, { color: colors.text }]}>Política de Privacidad</Text>
               </View>
-            </View>
+              <ExternalLink size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.optionRow}>
+
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => Linking.openURL('https://hackeandoelsistema.net/terminos-de-uso')}
+              activeOpacity={0.7}
+            >
               <View style={styles.optionLeft}>
                 <FileText size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
                 <Text style={[styles.optionText, { color: colors.text }]}>Términos y Condiciones</Text>
               </View>
-            </View>
+              <ExternalLink size={14} color={colors.textMuted} />
+            </TouchableOpacity>
           </View>
         </View>
 
