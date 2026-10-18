@@ -870,3 +870,230 @@ export async function fetchUserFollowing(id: string): Promise<FollowUserItem[]> 
   }
 }
 
+// ==================== TIPOS Y SERVICIOS COMUNIDAD & FEED ====================
+export interface PollOptionItem {
+  id: string;
+  text: string;
+  votesCount: number;
+  percentage: number;
+}
+
+export interface PollItem {
+  id: string;
+  question: string;
+  totalVotes: number;
+  options: PollOptionItem[];
+  daysRemaining?: string;
+  expiresAt?: string;
+}
+
+export interface CommunityPostItem {
+  id: string;
+  content: string;
+  mediaUrl?: string | null;
+  likesCount: number;
+  commentsCount: number;
+  repostsCount: number;
+  isLiked?: boolean;
+  createdAt: string;
+  user: {
+    id: string;
+    displayName: string;
+    username?: string | null;
+    avatarUrl?: string | null;
+    bio?: string | null;
+    isFollowing?: boolean;
+    isNucleo?: boolean;
+  };
+  poll?: PollItem | null;
+}
+
+export interface SponsoredPostItem {
+  id: string;
+  sponsorName: string;
+  sponsorHandle?: string | null;
+  sponsorLogo?: string | null;
+  title: string;
+  content: string;
+  mediaUrl?: string | null;
+  ctaText: string;
+  ctaUrl: string;
+  likesCount: number;
+  commentsCount: number;
+  sharesCount: number;
+  isSponsored: boolean;
+}
+
+export async function fetchCommunityPosts(token?: string | null): Promise<CommunityPostItem[]> {
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts`, { headers });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.posts || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createCommunityPost(
+  data: {
+    content: string;
+    mediaUrl?: string | null;
+    poll?: { question: string; options: string[]; expiresDays?: number } | null;
+  },
+  token: string
+): Promise<{ success: boolean; post?: CommunityPostItem; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, error: json?.message || 'Error al publicar' };
+    }
+    return { success: true, post: json.data };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error de conexión' };
+  }
+}
+
+export async function toggleCommunityPostLike(
+  postId: string,
+  token: string
+): Promise<{ success: boolean; liked?: boolean; likesCount?: number }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}/like`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return { success: false };
+    const json = await res.json();
+    return { success: true, liked: json.data?.liked, likesCount: json.data?.likesCount };
+  } catch {
+    return { success: false };
+  }
+}
+
+export async function fetchCommunityComments(postId: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}/comments`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.comments || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function submitCommunityComment(
+  postId: string,
+  content: string,
+  token: string
+): Promise<{ success: boolean; comment?: any; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ content }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) return { success: false, error: json?.message || 'Error al comentar' };
+    return { success: true, comment: json.data?.comment };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchPolls(): Promise<PollItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/polls`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.polls || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function submitPollVote(pollId: string, optionId: string): Promise<{ success: boolean; poll?: PollItem }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/polls/${encodeURIComponent(pollId)}/vote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ optionId }),
+    });
+    if (!res.ok) return { success: false };
+    const json = await res.json();
+    return { success: true, poll: json.data?.poll };
+  } catch {
+    return { success: false };
+  }
+}
+
+export async function fetchSponsoredPosts(): Promise<SponsoredPostItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/sponsored-posts`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.ads || [];
+  } catch {
+    return [];
+  }
+}
+
+export interface SearchOverviewData {
+  trends: Array<{ id: string; tag: string; topic: string; postsCount: string; category: string }>;
+  users: Array<{ id: string; displayName: string; username?: string | null; bio?: string | null; avatarUrl?: string | null }>;
+}
+
+export async function fetchSearchOverview(q?: string): Promise<SearchOverviewData> {
+  try {
+    const url = q ? `${API_BASE_URL}/api/v1/public/search/overview?q=${encodeURIComponent(q)}` : `${API_BASE_URL}/api/v1/public/search/overview`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return { trends: [], users: [] };
+    const json = await res.json();
+    return json.data || { trends: [], users: [] };
+  } catch {
+    return { trends: [], users: [] };
+  }
+}
+
+export async function fetchSystemStats(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/system-stats`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}
+

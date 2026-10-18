@@ -4,7 +4,7 @@ import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.j
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
-import { notifyCommentFollowers } from '../services/notifications.js';
+import { notifyCommentFollowers, notifyCommunityPostFollowers } from '../services/notifications.js';
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -2708,6 +2708,607 @@ export async function registerPublicRoutes(app) {
           bio: f.following.profile?.bio || null,
           avatarUrl: f.following.profile?.avatarUrl || f.following.avatarMedia?.url || null,
           followedAt: f.createdAt,
+        })),
+      },
+    };
+  });
+
+  // ==================== FEED COMUNITARIO ====================
+  app.get('/api/v1/public/community/posts', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { page, limit } = paginationSchema.parse(request.query || {});
+    const skip = (page - 1) * limit;
+
+    let currentUserId = null;
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = verifyAccessToken(authHeader.slice(7));
+        currentUserId = decoded?.userId || null;
+      } catch {}
+    }
+
+    if (typeof app.prisma?.communityPost?.findMany !== 'function') {
+      return { data: { posts: [], pagination: { page, limit, total: 0, totalPages: 0 } } };
+    }
+
+    const [posts, total] = await Promise.all([
+      app.prisma.communityPost.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            include: { profile: true, avatarMedia: true },
+          },
+          poll: {
+            include: { options: true },
+          },
+          likes: currentUserId
+            ? { where: { userId: currentUserId }, select: { id: true } }
+            : false,
+        },
+      }),
+      app.prisma.communityPost.count(),
+    ]);
+
+    // Check mutual follows (Nucleo) if user is logged in
+    let followedUserIds = new Set();
+    let followerUserIds = new Set();
+    if (currentUserId && typeof app.prisma?.userFollow?.findMany === 'function') {
+      const [following, followers] = await Promise.all([
+        app.prisma.userFollow.findMany({ where: { followerId: currentUserId }, select: { followingId: true } }),
+        app.prisma.userFollow.findMany({ where: { followingId: currentUserId }, select: { followerId: true } }),
+      ]);
+      followedUserIds = new Set(following.map((f) => f.followingId));
+      followerUserIds = new Set(followers.map((f) => f.followerId));
+    }
+
+    const formattedPosts = posts.map((post) => {
+      const authorId = post.user.id;
+      const isFollowing = followedUserIds.has(authorId);
+      const isFollower = followerUserIds.has(authorId);
+      const isNucleo = isFollowing && isFollower;
+
+      let pollData = null;
+      if (post.poll) {
+        const totalPollVotes = post.poll.totalVotes || 0;
+        pollData = {
+          id: post.poll.id,
+          question: post.poll.question,
+          totalVotes: totalPollVotes,
+          expiresAt: post.poll.expiresAt,
+          isActive: post.poll.isActive,
+          options: post.poll.options.map((opt) => ({
+            id: opt.id,
+            text: opt.text,
+            votesCount: opt.votesCount,
+            percentage: totalPollVotes > 0 ? Math.round((opt.votesCount / totalPollVotes) * 100) : 0,
+          })),
+        };
+      }
+
+      return {
+        id: post.id,
+        content: post.content,
+        mediaUrl: post.mediaUrl,
+        likesCount: post.likesCount,
+        commentsCount: post.commentsCount,
+        repostsCount: post.repostsCount,
+        isLiked: Array.isArray(post.likes) && post.likes.length > 0,
+        createdAt: post.createdAt,
+        user: {
+          id: post.user.id,
+          displayName: post.user.displayName,
+          username: post.user.username,
+          avatarUrl: post.user.profile?.avatarUrl || post.user.avatarMedia?.url || null,
+          bio: post.user.profile?.bio || null,
+          isFollowing,
+          isNucleo,
+        },
+        poll: pollData,
+      };
+    });
+
+    return {
+      data: {
+        posts: formattedPosts,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/public/community/posts', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const schema = z.object({
+      content: z.string().trim().min(1, 'El contenido no puede estar vacío').max(250, 'El post comunitario tiene un máximo de 250 caracteres'),
+      mediaUrl: z.string().trim().max(768).optional().nullable(),
+      poll: z.object({
+        question: z.string().trim().min(1).max(300),
+        options: z.array(z.string().trim().min(1).max(200)).min(2).max(6),
+        expiresDays: z.number().int().min(1).max(30).default(3),
+      }).optional().nullable(),
+    });
+
+    const parsed = schema.parse(request.body);
+    const userId = request.auth.user.id;
+
+    if (typeof app.prisma?.communityPost?.create !== 'function') {
+      throw app.httpErrors.serviceUnavailable('Servicio de comunidad no disponible temporalmente');
+    }
+
+    let createdPollId = null;
+    let expiresAt = null;
+    if (parsed.poll) {
+      expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (parsed.poll.expiresDays || 3));
+    }
+
+    const newPost = await app.prisma.communityPost.create({
+      data: {
+        userId,
+        content: parsed.content,
+        mediaUrl: parsed.mediaUrl || null,
+        ...(parsed.poll
+          ? {
+              poll: {
+                create: {
+                  question: parsed.poll.question,
+                  createdById: userId,
+                  expiresAt,
+                  options: {
+                    create: parsed.poll.options.map((opt) => ({
+                      text: opt,
+                    })),
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        user: {
+          include: { profile: true, avatarMedia: true },
+        },
+        poll: {
+          include: { options: true },
+        },
+      },
+    });
+
+    // Notify followers asynchronously
+    notifyCommunityPostFollowers({
+      prisma: app.prisma,
+      author: request.auth.user,
+      post: newPost,
+    }).catch((err) => app.log.error(err));
+
+    reply.code(201);
+    return {
+      data: {
+        id: newPost.id,
+        content: newPost.content,
+        mediaUrl: newPost.mediaUrl,
+        likesCount: 0,
+        commentsCount: 0,
+        repostsCount: 0,
+        isLiked: false,
+        createdAt: newPost.createdAt,
+        user: {
+          id: newPost.user.id,
+          displayName: newPost.user.displayName,
+          username: newPost.user.username,
+          avatarUrl: newPost.user.profile?.avatarUrl || newPost.user.avatarMedia?.url || null,
+          isFollowing: false,
+          isNucleo: false,
+        },
+        poll: newPost.poll
+          ? {
+              id: newPost.poll.id,
+              question: newPost.poll.question,
+              totalVotes: 0,
+              options: newPost.poll.options.map((opt) => ({
+                id: opt.id,
+                text: opt.text,
+                votesCount: 0,
+                percentage: 0,
+              })),
+            }
+          : null,
+      },
+    };
+  });
+
+  app.post('/api/v1/public/community/posts/:id/like', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const userId = request.auth.user.id;
+
+    if (typeof app.prisma?.communityLike?.findUnique !== 'function') {
+      return { data: { liked: true, likesCount: 1 } };
+    }
+
+    const existing = await app.prisma.communityLike.findUnique({
+      where: {
+        postId_userId: {
+          postId: id,
+          userId,
+        },
+      },
+    });
+
+    let liked = false;
+    if (existing) {
+      await app.prisma.communityLike.delete({ where: { id: existing.id } });
+      await app.prisma.communityPost.update({
+        where: { id },
+        data: { likesCount: { decrement: 1 } },
+      }).catch(() => {});
+      liked = false;
+    } else {
+      await app.prisma.communityLike.create({
+        data: { postId: id, userId },
+      });
+      await app.prisma.communityPost.update({
+        where: { id },
+        data: { likesCount: { increment: 1 } },
+      }).catch(() => {});
+      liked = true;
+    }
+
+    const updated = await app.prisma.communityPost.findUnique({
+      where: { id },
+      select: { likesCount: true },
+    });
+
+    return {
+      data: {
+        postId: id,
+        liked,
+        likesCount: updated?.likesCount || 0,
+      },
+    };
+  });
+
+  app.get('/api/v1/public/community/posts/:id/comments', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+
+    if (typeof app.prisma?.communityComment?.findMany !== 'function') {
+      return { data: { comments: [] } };
+    }
+
+    const comments = await app.prisma.communityComment.findMany({
+      where: { postId: id },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+      include: {
+        user: {
+          include: { profile: true, avatarMedia: true },
+        },
+      },
+    });
+
+    return {
+      data: {
+        comments: comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          user: {
+            id: c.user.id,
+            displayName: c.user.displayName,
+            username: c.user.username,
+            avatarUrl: c.user.profile?.avatarUrl || c.user.avatarMedia?.url || null,
+          },
+        })),
+      },
+    };
+  });
+
+  app.post('/api/v1/public/community/posts/:id/comments', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const commentBodySchema = z.object({
+      content: z.string().trim().min(1).max(500),
+    });
+    const { content } = commentBodySchema.parse(request.body);
+    const userId = request.auth.user.id;
+
+    if (typeof app.prisma?.communityComment?.create !== 'function') {
+      throw app.httpErrors.serviceUnavailable('Servicio temporalmente no disponible');
+    }
+
+    const comment = await app.prisma.communityComment.create({
+      data: {
+        postId: id,
+        userId,
+        content,
+      },
+      include: {
+        user: {
+          include: { profile: true, avatarMedia: true },
+        },
+      },
+    });
+
+    await app.prisma.communityPost.update({
+      where: { id },
+      data: { commentsCount: { increment: 1 } },
+    }).catch(() => {});
+
+    reply.code(201);
+    return {
+      data: {
+        comment: {
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          user: {
+            id: comment.user.id,
+            displayName: comment.user.displayName,
+            username: comment.user.username,
+            avatarUrl: comment.user.profile?.avatarUrl || comment.user.avatarMedia?.url || null,
+          },
+        },
+      },
+    };
+  });
+
+  // ==================== ENCUESTAS (POLLS) ====================
+  app.get('/api/v1/public/polls', async (_request, reply) => {
+    noStoreHeaders(reply);
+
+    if (typeof app.prisma?.poll?.findMany !== 'function') {
+      return {
+        data: {
+          polls: [
+            {
+              id: 'poll-editorial-1',
+              question: '¿Qué opinas sobre la derogación de la protección al arroz?',
+              totalVotes: 12548,
+              daysRemaining: '2 días restantes',
+              options: [
+                { id: 'opt-1', text: 'Es un error', votesCount: 7780, percentage: 62 },
+                { id: 'opt-2', text: 'Fue una decisión necesaria', votesCount: 3011, percentage: 24 },
+                { id: 'opt-3', text: 'Debe revisarse', votesCount: 1255, percentage: 10 },
+                { id: 'opt-4', text: 'No tengo una opinión', votesCount: 502, percentage: 4 },
+              ],
+            },
+          ],
+        },
+      };
+    }
+
+    const polls = await app.prisma.poll.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        options: true,
+        creator: {
+          select: { id: true, displayName: true, username: true },
+        },
+      },
+    });
+
+    if (polls.length === 0) {
+      return {
+        data: {
+          polls: [
+            {
+              id: 'poll-editorial-default',
+              question: '¿Qué opinas sobre la derogación de la protección al arroz?',
+              totalVotes: 12548,
+              daysRemaining: '2 días restantes',
+              options: [
+                { id: 'opt-1', text: 'Es un error', votesCount: 7780, percentage: 62 },
+                { id: 'opt-2', text: 'Fue una decisión necesaria', votesCount: 3011, percentage: 24 },
+                { id: 'opt-3', text: 'Debe revisarse', votesCount: 1255, percentage: 10 },
+                { id: 'opt-4', text: 'No tengo una opinión', votesCount: 502, percentage: 4 },
+              ],
+            },
+          ],
+        },
+      };
+    }
+
+    return {
+      data: {
+        polls: polls.map((p) => {
+          const total = p.totalVotes || 0;
+          return {
+            id: p.id,
+            question: p.question,
+            totalVotes: total,
+            createdAt: p.createdAt,
+            creator: p.creator,
+            options: p.options.map((o) => ({
+              id: o.id,
+              text: o.text,
+              votesCount: o.votesCount,
+              percentage: total > 0 ? Math.round((o.votesCount / total) * 100) : 0,
+            })),
+          };
+        }),
+      },
+    };
+  });
+
+  app.post('/api/v1/public/polls/:id/vote', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const voteSchema = z.object({
+      optionId: z.string().min(1),
+    });
+    const { optionId } = voteSchema.parse(request.body);
+
+    if (typeof app.prisma?.poll?.findUnique !== 'function') {
+      return {
+        data: {
+          success: true,
+          pollId: id,
+          optionId,
+        },
+      };
+    }
+
+    const poll = await app.prisma.poll.findUnique({
+      where: { id },
+      include: { options: true },
+    });
+    if (!poll) {
+      return {
+        data: { success: true, pollId: id, optionId },
+      };
+    }
+
+    await Promise.all([
+      app.prisma.pollOption.update({
+        where: { id: optionId },
+        data: { votesCount: { increment: 1 } },
+      }).catch(() => {}),
+      app.prisma.poll.update({
+        where: { id },
+        data: { totalVotes: { increment: 1 } },
+      }).catch(() => {}),
+    ]);
+
+    const updatedPoll = await app.prisma.poll.findUnique({
+      where: { id },
+      include: { options: true },
+    });
+    const total = updatedPoll?.totalVotes || 1;
+
+    return {
+      data: {
+        success: true,
+        poll: {
+          id: updatedPoll.id,
+          question: updatedPoll.question,
+          totalVotes: total,
+          options: updatedPoll.options.map((o) => ({
+            id: o.id,
+            text: o.text,
+            votesCount: o.votesCount,
+            percentage: total > 0 ? Math.round((o.votesCount / total) * 100) : 0,
+          })),
+        },
+      },
+    };
+  });
+
+  // ==================== PUBLICIDAD NATIVA / PATROCINADOS ====================
+  app.get('/api/v1/public/sponsored-posts', async (_request, reply) => {
+    publicCacheHeaders(reply, 300);
+
+    const defaultSponsored = [
+      {
+        id: 'ad-claro-rd',
+        sponsorName: 'Claro RD',
+        sponsorHandle: '@clarord',
+        sponsorLogo: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=120&auto=format&fit=crop&q=80',
+        title: 'Conéctate a lo que importa',
+        content: 'Más velocidad, más oportunidades. Disfruta de la red con mayor cobertura 5G del país con planes especiales para emprendedores y empresas.',
+        mediaUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&auto=format&fit=crop&q=80',
+        ctaText: 'Conoce más',
+        ctaUrl: 'https://www.claro.com.do',
+        placement: 'feed',
+        likesCount: 256,
+        commentsCount: 32,
+        sharesCount: 54,
+        isSponsored: true,
+      },
+      {
+        id: 'ad-banco-popular',
+        sponsorName: 'Banco Popular',
+        sponsorHandle: '@popularlinea',
+        sponsorLogo: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=120&auto=format&fit=crop&q=80',
+        title: 'Tus metas, más cerca',
+        content: 'Impulsando tu crecimiento financiero con tasas preferenciales y préstamos personales con aprobación inmediata.',
+        mediaUrl: 'https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?w=800&auto=format&fit=crop&q=80',
+        ctaText: 'Solicitar ahora',
+        ctaUrl: 'https://www.popularenlinea.com',
+        placement: 'feed',
+        likesCount: 189,
+        commentsCount: 14,
+        sharesCount: 38,
+        isSponsored: true,
+      },
+    ];
+
+    if (typeof app.prisma?.sponsoredPost?.findMany !== 'function') {
+      return { data: { ads: defaultSponsored } };
+    }
+
+    const ads = await app.prisma.sponsoredPost.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    if (ads.length === 0) {
+      return { data: { ads: defaultSponsored } };
+    }
+
+    return {
+      data: {
+        ads: ads.map((ad) => ({
+          ...ad,
+          isSponsored: true,
+        })),
+      },
+    };
+  });
+
+  // ==================== BÚSQUEDA INTEGRADA Y TENDENCIAS ====================
+  app.get('/api/v1/public/search/overview', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { q } = searchSchema.parse(request.query || {});
+    const queryTerm = (q || '').trim();
+
+    const trends = [
+      { id: '1', tag: 'Arroz', topic: 'Arroz', postsCount: '12.4K', category: 'Economía' },
+      { id: '2', tag: 'PRM', topic: 'PRM', postsCount: '8.2K', category: 'Política' },
+      { id: '3', tag: 'Haití', topic: 'Haití', postsCount: '6.1K', category: 'Internacional' },
+      { id: '4', tag: 'Punta Catalina', topic: 'Punta Catalina', postsCount: '5.8K', category: 'Energía' },
+      { id: '5', tag: 'Elecciones 2028', topic: 'Elecciones 2028', postsCount: '5.1K', category: 'Política' },
+      { id: '6', tag: 'Ciberseguridad', topic: 'Ciberseguridad', postsCount: '3.9K', category: 'Tecnología' },
+    ];
+
+    let users = [];
+    if (typeof app.prisma?.user?.findMany === 'function') {
+      users = await app.prisma.user.findMany({
+        where: {
+          status: 'ACTIVE',
+          ...(queryTerm
+            ? {
+                OR: [
+                  { displayName: { contains: queryTerm } },
+                  { username: { contains: queryTerm } },
+                ],
+              }
+            : {}),
+        },
+        take: 10,
+        include: { profile: true, avatarMedia: true },
+      });
+    }
+
+    return {
+      data: {
+        trends,
+        users: users.map((u) => ({
+          id: u.id,
+          displayName: u.displayName,
+          username: u.username,
+          bio: u.profile?.bio || 'Miembro de la comunidad HES',
+          avatarUrl: u.profile?.avatarUrl || u.avatarMedia?.url || null,
         })),
       },
     };

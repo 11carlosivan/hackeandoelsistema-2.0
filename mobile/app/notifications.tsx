@@ -86,6 +86,8 @@ export default function NotificationsScreen() {
     refreshUser();
   }
 
+  const [activeTab, setActiveTab] = useState<'all' | 'news' | 'following' | 'nucleo' | 'system'>('all');
+
   function getNotificationIcon(type: string) {
     switch (type) {
       case 'EDITORIAL_POST':
@@ -93,6 +95,8 @@ export default function NotificationsScreen() {
       case 'FOLLOWED_COMMENT':
       case 'COMMENT_REPLY':
         return <MessageSquare size={20} color="#2563EB" />;
+      case 'COMMUNITY_POST':
+        return <MessageSquare size={20} color="#8B5CF6" />;
       case 'NEW_FOLLOWER':
         return <UserCheck size={20} color="#059669" />;
       default:
@@ -115,6 +119,15 @@ export default function NotificationsScreen() {
       return '';
     }
   }
+
+  const filteredNotifications = notifications.filter((item) => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'news') return item.type === 'EDITORIAL_POST';
+    if (activeTab === 'following') return item.type === 'FOLLOWED_COMMENT' || item.type === 'COMMUNITY_POST';
+    if (activeTab === 'nucleo') return item.type === 'COMMENT_REPLY' || item.type === 'NEW_FOLLOWER';
+    if (activeTab === 'system') return item.type === 'SYSTEM' || item.type === 'EDITORIAL_POST';
+    return true;
+  });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -141,6 +154,36 @@ export default function NotificationsScreen() {
         )}
       </View>
 
+      {/* Filter Tabs */}
+      <View style={[styles.tabsRow, { borderBottomColor: colors.border, backgroundColor: colors.headerBackground }]}>
+        {[
+          { key: 'all', label: 'Todas' },
+          { key: 'news', label: 'Noticias' },
+          { key: 'following', label: 'Siguiendo' },
+          { key: 'nucleo', label: 'Núcleo' },
+          { key: 'system', label: 'Sistema' },
+        ].map((tab) => {
+          const isSelected = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tabBtn, isSelected && styles.activeTabBtn]}
+              onPress={() => setActiveTab(tab.key as any)}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: isSelected ? '#DC2626' : colors.textMuted },
+                  isSelected && styles.activeTabLabel,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {isLoading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator color="#D32F2F" size="large" />
@@ -159,7 +202,7 @@ export default function NotificationsScreen() {
             <Text style={styles.loginBtnText}>Iniciar Sesión</Text>
           </TouchableOpacity>
         </View>
-      ) : notifications.length === 0 ? (
+      ) : filteredNotifications.length === 0 ? (
         <View style={styles.centerContainer}>
           <Bell size={56} color={colors.textMuted} style={{ marginBottom: 16 }} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No tienes notificaciones</Text>
@@ -169,7 +212,7 @@ export default function NotificationsScreen() {
         </View>
       ) : (
         <FlatList
-          data={notifications}
+          data={filteredNotifications}
           keyExtractor={(item) => item.id}
           refreshControl={
             <RefreshControl
@@ -338,5 +381,26 @@ const styles = StyleSheet.create({
   itemTime: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+  },
+  tabBtn: {
+    paddingVertical: 10,
+    marginRight: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTabBtn: {
+    borderBottomColor: '#DC2626',
+  },
+  tabLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  activeTabLabel: {
+    fontWeight: '900',
   },
 });

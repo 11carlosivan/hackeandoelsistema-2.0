@@ -255,6 +255,11 @@ model User {
   followers               UserFollow[]             @relation("UserFollowing")
   notifications           InAppNotification[]      @relation("UserNotifications")
   triggeredNotifications  InAppNotification[]      @relation("NotificationActor")
+  communityPosts          CommunityPost[]
+  communityComments       CommunityComment[]
+  communityLikes          CommunityLike[]
+  createdPolls            Poll[]
+  pollVotes               PollVote[]
 
   @@index([legacyAuthorSlug])
   @@index([status])
@@ -1354,6 +1359,130 @@ model InAppNotification {
   @@index([userId, isRead, createdAt])
   @@index([actorId])
   @@map("in_app_notifications")
+}
+
+model CommunityPost {
+  id            String             @id @default(uuid()) @db.VarChar(36)
+  userId        String             @map("user_id") @db.VarChar(36)
+  content       String             @db.VarChar(250)
+  mediaUrl      String?            @map("media_url") @db.VarChar(768)
+  likesCount    Int                @default(0) @map("likes_count")
+  commentsCount Int                @default(0) @map("comments_count")
+  repostsCount  Int                @default(0) @map("reposts_count")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.DateTime(6)
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  poll          Poll?
+  comments      CommunityComment[]
+  likes         CommunityLike[]
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id        String        @id @default(uuid()) @db.VarChar(36)
+  postId    String        @map("post_id") @db.VarChar(36)
+  userId    String        @map("user_id") @db.VarChar(36)
+  content   String        @db.VarChar(500)
+  createdAt DateTime      @default(now()) @map("created_at") @db.DateTime(6)
+
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId])
+  @@map("community_comments")
+}
+
+model CommunityLike {
+  id        String        @id @default(uuid()) @db.VarChar(36)
+  postId    String        @map("post_id") @db.VarChar(36)
+  userId    String        @map("user_id") @db.VarChar(36)
+  createdAt DateTime      @default(now()) @map("created_at") @db.DateTime(6)
+
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("community_likes")
+}
+
+model Poll {
+  id              String         @id @default(uuid()) @db.VarChar(36)
+  question        String         @db.VarChar(300)
+  createdById     String?        @map("created_by_id") @db.VarChar(36)
+  editorialPostId String?        @map("editorial_post_id") @db.VarChar(36)
+  communityPostId String?        @unique @map("community_post_id") @db.VarChar(36)
+  totalVotes      Int            @default(0) @map("total_votes")
+  expiresAt       DateTime?      @map("expires_at") @db.DateTime(6)
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.DateTime(6)
+
+  creator         User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  communityPost   CommunityPost? @relation(fields: [communityPostId], references: [id], onDelete: Cascade)
+  options         PollOption[]
+  votes           PollVote[]
+
+  @@index([createdById])
+  @@index([editorialPostId])
+  @@index([isActive, createdAt])
+  @@map("polls")
+}
+
+model PollOption {
+  id         String     @id @default(uuid()) @db.VarChar(36)
+  pollId     String     @map("poll_id") @db.VarChar(36)
+  text       String     @db.VarChar(200)
+  votesCount Int        @default(0) @map("votes_count")
+
+  poll       Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes      PollVote[]
+
+  @@index([pollId])
+  @@map("poll_options")
+}
+
+model PollVote {
+  id        String     @id @default(uuid()) @db.VarChar(36)
+  pollId    String     @map("poll_id") @db.VarChar(36)
+  optionId  String     @map("option_id") @db.VarChar(36)
+  userId    String?    @map("user_id") @db.VarChar(36)
+  ipAddress String?    @map("ip_address") @db.VarChar(64)
+  createdAt DateTime   @default(now()) @map("created_at") @db.DateTime(6)
+
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([pollId, userId])
+  @@index([pollId, ipAddress])
+  @@map("poll_votes")
+}
+
+model SponsoredPost {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  sponsorName   String   @map("sponsor_name") @db.VarChar(120)
+  sponsorHandle String?  @map("sponsor_handle") @db.VarChar(80)
+  sponsorLogo   String?  @map("sponsor_logo") @db.VarChar(768)
+  title         String   @db.VarChar(200)
+  content       String   @db.Text
+  mediaUrl      String?  @map("media_url") @db.VarChar(768)
+  ctaText       String   @default("Conoce más") @map("cta_text") @db.VarChar(60)
+  ctaUrl        String   @map("cta_url") @db.VarChar(768)
+  placement     String   @default("feed") @db.VarChar(40)
+  isActive      Boolean  @default(true) @map("is_active")
+  likesCount    Int      @default(0) @map("likes_count")
+  sharesCount   Int      @default(0) @map("shares_count")
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTime(6)
+
+  @@index([isActive, placement, createdAt])
+  @@map("sponsored_posts")
 }
 
 

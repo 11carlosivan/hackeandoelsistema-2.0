@@ -123,3 +123,44 @@ export async function notifyCommentFollowers({ prisma, commenter, post, comment,
     console.error('[notifyCommentFollowers] Error creating notifications:', err);
   }
 }
+
+export async function notifyCommunityPostFollowers({ prisma, author, post }) {
+  try {
+    if (
+      !author?.id ||
+      !post?.id ||
+      typeof prisma?.userFollow?.findMany !== 'function' ||
+      typeof prisma?.inAppNotification?.createMany !== 'function'
+    ) {
+      return;
+    }
+
+    const followers = await prisma.userFollow.findMany({
+      where: { followingId: author.id },
+      select: { followerId: true },
+    });
+
+    if (followers.length === 0) return;
+
+    const snippet = (post.content || '').length > 100
+      ? `${(post.content || '').slice(0, 97)}...`
+      : (post.content || '');
+
+    const notifications = followers.map((f) => ({
+      userId: f.followerId,
+      actorId: author.id,
+      type: 'COMMUNITY_POST',
+      title: `${author.displayName || 'Un usuario que sigues'} publicó en la comunidad`,
+      message: `"${snippet}"`,
+      postSlug: null,
+      postId: post.id,
+      isRead: false,
+    }));
+
+    await prisma.inAppNotification.createMany({
+      data: notifications,
+    });
+  } catch (err) {
+    console.error('[notifyCommunityPostFollowers] Error creating notifications:', err);
+  }
+}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { Home, Quote, Search, Grid, User, Briefcase, Radio } from 'lucide-react-native';
+import { Home, Users, Tv, Radio, Menu, Quote, Briefcase, Search, Grid, User } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -10,7 +10,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.tabIconSelected,
+        tabBarActiveTintColor: '#DC2626',
         tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarStyle: {
           backgroundColor: colors.headerBackground,
@@ -33,6 +33,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="community"
+        options={{
+          title: 'Comunidad',
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="live"
+        options={{
+          title: 'Live',
+          tabBarIcon: ({ color, size }) => <Tv size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="radio"
         options={{
           title: 'Radio',
@@ -40,38 +54,42 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="opinion"
+        name="menu"
         options={{
-          title: 'Opinión',
-          tabBarIcon: ({ color, size }) => <Quote size={size} color={color} />,
+          title: 'Más',
+          tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
+        }}
+      />
+
+      {/* Hidden from bottom bar but accessible via navigation */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
         name="jobs"
         options={{
-          title: 'Empleos',
-          tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="opinion"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Buscar',
-          tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="categories"
         options={{
-          title: 'Secciones',
-          tabBarIcon: ({ color, size }) => <Grid size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          href: null,
         }}
       />
     </Tabs>
