@@ -1,14 +1,50 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { Sun, Moon } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
+import { Sun, Moon, Bell } from 'lucide-react-native';
+import { fetchNotifications } from '@/services/api';
 
 export const HeaderBar: React.FC = () => {
   const { colors, isDark, setThemeMode } = useTheme();
+  const { user, token } = useAuth();
+  const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState<number>(user?.unreadNotificationsCount || 0);
+
+  useEffect(() => {
+    if (user?.unreadNotificationsCount !== undefined) {
+      setUnreadCount(user.unreadNotificationsCount);
+    }
+  }, [user?.unreadNotificationsCount]);
+
+  useEffect(() => {
+    if (!token) {
+      setUnreadCount(0);
+      return;
+    }
+    let isMounted = true;
+    const checkNotifications = async () => {
+      const res = await fetchNotifications(token);
+      if (isMounted) {
+        setUnreadCount(res.unreadCount || 0);
+      }
+    };
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [token]);
 
   return (
     <View style={[styles.header, { backgroundColor: colors.headerBackground, borderBottomColor: colors.border }]}>
-      <View style={styles.logoRow}>
+      <TouchableOpacity
+        style={styles.logoRow}
+        onPress={() => router.push('/(tabs)')}
+        activeOpacity={0.8}
+      >
         <Image
           source={require('@/assets/images/isotipo.png')}
           style={styles.isotipoImage}
@@ -22,22 +58,51 @@ export const HeaderBar: React.FC = () => {
             PERIODISMO DIGITAL INDEPENDIENTE
           </Text>
         </View>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.themeBtn, { backgroundColor: colors.inputBackground }]}
-        onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
-        activeOpacity={0.7}
-      >
-        {isDark ? (
-          <Sun size={18} color="#F59E0B" />
-        ) : (
-          <Moon size={18} color="#6366F1" />
-        )}
       </TouchableOpacity>
+
+      <View style={styles.actionsRow}>
+        {/* Notification Bell */}
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
+          onPress={() => {
+            if (token) {
+              router.push('/notifications');
+            } else {
+              router.push('/login');
+            }
+          }}
+          activeOpacity={0.7}
+          accessibilityLabel="Notificaciones"
+        >
+          <Bell size={18} color={colors.text} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Theme Toggle */}
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
+          onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
+          activeOpacity={0.7}
+          accessibilityLabel="Cambiar tema"
+        >
+          {isDark ? (
+            <Sun size={18} color="#F59E0B" />
+          ) : (
+            <Moon size={18} color="#6366F1" />
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
+
+export default HeaderBar;
 
 const styles = StyleSheet.create({
   header: {
@@ -73,12 +138,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: 1,
   },
-  themeBtn: {
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
   },
 });

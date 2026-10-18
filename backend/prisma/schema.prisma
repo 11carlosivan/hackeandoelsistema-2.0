@@ -251,6 +251,10 @@ model User {
   apiKeys                 ApiKey[]
   companyJobs             Job[]                    @relation("CompanyJobs")
   jobApplications         JobApplication[]         @relation("ApplicantApplications")
+  following               UserFollow[]             @relation("UserFollowers")
+  followers               UserFollow[]             @relation("UserFollowing")
+  notifications           InAppNotification[]      @relation("UserNotifications")
+  triggeredNotifications  InAppNotification[]      @relation("NotificationActor")
 
   @@index([legacyAuthorSlug])
   @@index([status])
@@ -264,6 +268,7 @@ model UserProfile {
   lastName     String?  @map("last_name") @db.VarChar(120)
   phone        String?  @db.VarChar(40)
   bio          String?  @db.Text
+  avatarUrl    String?  @map("avatar_url") @db.VarChar(768)
   websiteUrl   String?  @map("website_url") @db.VarChar(768)
   facebookUrl  String?  @map("facebook_url") @db.VarChar(768)
   instagramUrl String?  @map("instagram_url") @db.VarChar(768)
@@ -1314,4 +1319,41 @@ model JobApplication {
   @@index([status])
   @@map("job_applications")
 }
+
+model UserFollow {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  followerId  String   @map("follower_id") @db.VarChar(36)
+  followingId String   @map("following_id") @db.VarChar(36)
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(6)
+
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("user_follows")
+}
+
+model InAppNotification {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  actorId   String?  @map("actor_id") @db.VarChar(36)
+  type      String   @db.VarChar(40)
+  title     String   @db.VarChar(200)
+  message   String   @db.Text
+  postSlug  String?  @map("post_slug") @db.VarChar(200)
+  postId    String?  @map("post_id") @db.VarChar(36)
+  commentId String?  @map("comment_id") @db.VarChar(36)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(6)
+
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@index([actorId])
+  @@map("in_app_notifications")
+}
+
 

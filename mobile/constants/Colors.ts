@@ -2,6 +2,7 @@ export type StatusBarStyle = 'light' | 'dark';
 
 export interface ThemeColors {
   text: string;
+  textSecondary: string;
   textMuted: string;
   background: string;
   cardBackground: string;
@@ -22,6 +23,7 @@ export interface ThemeColors {
 export const Colors: { light: ThemeColors; dark: ThemeColors } = {
   light: {
     text: '#0F172A',
+    textSecondary: '#475569',
     textMuted: '#64748B',
     background: '#F8FAFC',
     cardBackground: '#FFFFFF',
@@ -40,6 +42,7 @@ export const Colors: { light: ThemeColors; dark: ThemeColors } = {
   },
   dark: {
     text: '#F8FAFC',
+    textSecondary: '#CBD5E1',
     textMuted: '#94A3B8',
     background: '#090D16', // Sleek dark
     cardBackground: '#1E293B',

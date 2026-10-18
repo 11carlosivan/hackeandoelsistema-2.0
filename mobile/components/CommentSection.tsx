@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
@@ -191,7 +191,27 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                 style={[styles.commentCard, { backgroundColor: colors.cardBackground, borderColor: colors.border, borderLeftColor: colors.primary }]}
               >
                 <View style={styles.commentHeader}>
-                  <Text style={[styles.commentAuthor, { color: colors.primary }]}>{item.user}</Text>
+                  <TouchableOpacity
+                    style={styles.authorRow}
+                    onPress={() => {
+                      if (item.userId) {
+                        router.push(`/user/${encodeURIComponent(item.userId)}` as any);
+                      }
+                    }}
+                    disabled={!item.userId}
+                    activeOpacity={0.7}
+                  >
+                    {item.avatarUrl ? (
+                      <Image source={{ uri: item.avatarUrl }} style={styles.commentAvatar} />
+                    ) : (
+                      <View style={[styles.commentAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.commentAvatarInitials}>
+                          {(item.user || 'U').slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={[styles.commentAuthor, { color: colors.primary }]}>{item.user}</Text>
+                  </TouchableOpacity>
                   {item.date ? (
                     <Text style={[styles.commentDate, { color: colors.textMuted }]}>{item.date}</Text>
                   ) : null}
@@ -218,12 +238,30 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                         style={[styles.replyCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                       >
                         <View style={styles.commentHeader}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <TouchableOpacity
+                            style={styles.authorRow}
+                            onPress={() => {
+                              if (reply.userId) {
+                                router.push(`/user/${encodeURIComponent(reply.userId)}` as any);
+                              }
+                            }}
+                            disabled={!reply.userId}
+                            activeOpacity={0.7}
+                          >
+                            {reply.avatarUrl ? (
+                              <Image source={{ uri: reply.avatarUrl }} style={styles.commentAvatarSmall} />
+                            ) : (
+                              <View style={[styles.commentAvatarPlaceholderSmall, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.commentAvatarInitialsSmall}>
+                                  {(reply.user || 'U').slice(0, 1).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
                             <Text style={[styles.commentAuthor, { color: colors.text }]}>{reply.user}</Text>
                             <Text style={[styles.replyTag, { color: colors.primary, backgroundColor: `${colors.primary}15` }]}>
                               @{item.user}
                             </Text>
-                          </View>
+                          </TouchableOpacity>
                           {reply.date ? (
                             <Text style={[styles.commentDate, { color: colors.textMuted }]}>{reply.date}</Text>
                           ) : null}
@@ -338,6 +376,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+  },
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  commentAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  commentAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarInitials: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  commentAvatarSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  commentAvatarPlaceholderSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarInitialsSmall: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   commentAuthor: {
     fontSize: 12,

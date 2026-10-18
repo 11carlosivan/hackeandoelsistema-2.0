@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/constants/Config';
 
 export interface User {
@@ -7,8 +7,15 @@ export interface User {
   name?: string;
   displayName?: string;
   username?: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  phone?: string | null;
   roles?: string[];
   isCompany?: boolean;
+  followersCount?: number;
+  followingCount?: number;
+  savedPostsCount?: number;
+  unreadNotificationsCount?: number;
 }
 
 interface AuthContextType {
@@ -19,6 +26,8 @@ interface AuthContextType {
   register: (name: string, email: string, pass: string, age?: number, isCompany?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<boolean>;
+  refreshUser: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,12 +38,52 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => ({ success: false }),
   logout: async () => {},
   deleteAccount: async () => false,
+  refreshUser: async () => {},
+  updateUser: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const received = json.data?.user;
+      if (received) {
+        setUser((prev) => ({
+          ...prev,
+          id: received.id,
+          email: received.email,
+          name: received.displayName || received.username || received.email,
+          displayName: received.displayName,
+          username: received.username,
+          avatarUrl: received.avatarUrl,
+          bio: received.bio,
+          phone: received.phone,
+          roles: received.roles || [],
+          isCompany: received.roles?.includes('COMPANY') || received.roles?.includes('EMPRESA'),
+          followersCount: received.followersCount || 0,
+          followingCount: received.followingCount || 0,
+          savedPostsCount: received.savedPostsCount || 0,
+          unreadNotificationsCount: received.unreadNotificationsCount || 0,
+        }));
+      }
+    } catch {}
+  }, [token]);
+
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : null));
+  }, []);
 
   const login = async (email: string, pass: string) => {
     setIsLoading(true);
@@ -72,8 +121,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: receivedUser.displayName || receivedUser.username || receivedUser.email,
         displayName: receivedUser.displayName,
         username: receivedUser.username,
+        avatarUrl: receivedUser.avatarUrl || null,
+        bio: receivedUser.bio || null,
+        phone: receivedUser.phone || null,
         roles,
         isCompany,
+        followersCount: receivedUser.followersCount || 0,
+        followingCount: receivedUser.followingCount || 0,
+        savedPostsCount: receivedUser.savedPostsCount || 0,
+        unreadNotificationsCount: receivedUser.unreadNotificationsCount || 0,
       };
 
       setUser(appUser);
@@ -127,8 +183,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: receivedUser.displayName || receivedUser.username || receivedUser.email,
         displayName: receivedUser.displayName,
         username: receivedUser.username,
+        avatarUrl: receivedUser.avatarUrl || null,
+        bio: receivedUser.bio || null,
+        phone: receivedUser.phone || null,
         roles,
         isCompany,
+        followersCount: 0,
+        followingCount: 0,
+        savedPostsCount: 0,
+        unreadNotificationsCount: 0,
       };
 
       setUser(appUser);
@@ -169,7 +232,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, deleteAccount }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isLoading,
+        login,
+        register,
+        logout,
+        deleteAccount,
+        refreshUser,
+        updateUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -4,6 +4,7 @@ import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.j
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
+import { notifyCommentFollowers } from '../services/notifications.js';
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -215,15 +216,14 @@ function isAutomatedViewRequest(request) {
 async function findPublicPostForEngagement(app, postId) {
   return app.prisma.post.findFirst({
     where: {
-      OR: [
-        { id: postId },
-        { slug: postId },
-      ],
+      id: postId,
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
     },
     select: {
       id: true,
+      title: true,
+      slug: true,
       likeCount: true,
       saveCount: true,
       shareCount: true,
@@ -869,10 +869,13 @@ async function findPublicEntityRoute(app, entityType, entityId) {
 }
 
 function normalizePublicComment(comment) {
+  const avatarUrl = comment.user?.profile?.avatarUrl || comment.user?.avatarMedia?.url || null;
   return {
     id: comment.id,
+    userId: comment.userId || comment.user?.id || null,
     parentId: comment.parentId || null,
     user: comment.authorName || comment.user?.displayName || 'Visitante',
+    avatarUrl,
     text: comment.body,
     date: comment.createdAt,
   };
@@ -2020,7 +2023,7 @@ export async function registerPublicRoutes(app) {
         authorName: request.auth.user.displayName,
         authorEmail: request.auth.user.email,
         body: body.data.body,
-        status: 'APPROVED',
+        status: 'PENDING',
         ipHash,
         userAgentHash,
       },
@@ -2034,10 +2037,20 @@ export async function registerPublicRoutes(app) {
       },
     });
 
-    await app.prisma.post.update({
-      where: { id: post.id },
-      data: { commentCount: { increment: 1 } },
-    });
+    if (typeof app.prisma.post?.update === 'function') {
+      await app.prisma.post.update({
+        where: { id: post.id },
+        data: { commentCount: { increment: 1 } },
+      });
+    }
+
+    notifyCommentFollowers({
+      prisma: app.prisma,
+      commenter: request.auth.user,
+      post,
+      comment,
+      parentId: body.data.parentId,
+    }).catch((err) => app.log.error(err));
 
     reply.code(201);
 
@@ -2052,8 +2065,8 @@ export async function registerPublicRoutes(app) {
           date: comment.createdAt,
         },
         moderation: {
-          status: 'APPROVED',
-          message: 'Comentario publicado con éxito.',
+          status: 'PENDING',
+          message: 'Comentario recibido. Se publicará tras moderación.',
         },
       },
     };
@@ -2079,13 +2092,17 @@ export async function registerPublicRoutes(app) {
       take: 100,
       select: {
         id: true,
+        userId: true,
         parentId: true,
         authorName: true,
         body: true,
         createdAt: true,
         user: {
           select: {
+            id: true,
             displayName: true,
+            avatarMedia: { select: { url: true } },
+            profile: { select: { avatarUrl: true } },
           },
         },
       },
@@ -2492,5 +2509,207 @@ export async function registerPublicRoutes(app) {
     });
 
     return { data: routes.filter((route) => isSitemapRouteAllowed(route.path)) };
+  });
+
+  app.get('/api/v1/public/users/:id', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const targetUser = await app.prisma.user.findFirst({
+      where: {
+        OR: [{ id }, { username: id }],
+        status: 'ACTIVE',
+      },
+      include: {
+        profile: true,
+        avatarMedia: true,
+      },
+    });
+
+    if (!targetUser) {
+      throw app.httpErrors.notFound('Usuario no encontrado');
+    }
+
+    const currentAuthUser = await getOptionalPublicUser(app, request);
+
+    const [followersCount, followingCount, isFollowing] = await Promise.all([
+      app.prisma.userFollow.count({ where: { followingId: targetUser.id } }),
+      app.prisma.userFollow.count({ where: { followerId: targetUser.id } }),
+      currentAuthUser
+        ? app.prisma.userFollow.findUnique({
+            where: {
+              followerId_followingId: {
+                followerId: currentAuthUser.id,
+                followingId: targetUser.id,
+              },
+            },
+          }).then(Boolean)
+        : false,
+    ]);
+
+    const avatarUrl = targetUser.profile?.avatarUrl || targetUser.avatarMedia?.url || null;
+
+    return {
+      data: {
+        user: {
+          id: targetUser.id,
+          displayName: targetUser.displayName,
+          username: targetUser.username,
+          bio: targetUser.profile?.bio || null,
+          avatarUrl,
+          websiteUrl: targetUser.profile?.websiteUrl || null,
+          createdAt: targetUser.createdAt,
+          followersCount,
+          followingCount,
+          isFollowing,
+        },
+      },
+    };
+  });
+
+  app.post('/api/v1/public/users/:id/follow', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+    const followerId = request.auth.user.id;
+
+    const targetUser = await app.prisma.user.findFirst({
+      where: {
+        OR: [{ id }, { username: id }],
+        status: 'ACTIVE',
+      },
+      select: { id: true, displayName: true },
+    });
+
+    if (!targetUser) {
+      throw app.httpErrors.notFound('Usuario no encontrado');
+    }
+
+    if (targetUser.id === followerId) {
+      throw app.httpErrors.badRequest('No puedes seguirte a ti mismo');
+    }
+
+    const followingId = targetUser.id;
+
+    const existing = await app.prisma.userFollow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+    });
+
+    let following = false;
+    if (existing) {
+      await app.prisma.userFollow.delete({
+        where: { id: existing.id },
+      });
+      following = false;
+    } else {
+      await app.prisma.userFollow.create({
+        data: {
+          followerId,
+          followingId,
+        },
+      });
+      following = true;
+
+      await app.prisma.inAppNotification.create({
+        data: {
+          userId: followingId,
+          actorId: followerId,
+          type: 'NEW_FOLLOWER',
+          title: 'Nuevo seguidor',
+          message: `${request.auth.user.displayName} ha comenzado a seguirte.`,
+          isRead: false,
+        },
+      }).catch((err) => app.log.error(err));
+    }
+
+    const followersCount = await app.prisma.userFollow.count({
+      where: { followingId },
+    });
+
+    return {
+      data: {
+        userId: followingId,
+        following,
+        followersCount,
+      },
+    };
+  });
+
+  app.get('/api/v1/public/users/:id/followers', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const targetUser = await app.prisma.user.findFirst({
+      where: { OR: [{ id }, { username: id }], status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!targetUser) {
+      throw app.httpErrors.notFound('Usuario no encontrado');
+    }
+
+    const follows = await app.prisma.userFollow.findMany({
+      where: { followingId: targetUser.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        follower: {
+          include: { profile: true, avatarMedia: true },
+        },
+      },
+    });
+
+    return {
+      data: {
+        users: follows.map((f) => ({
+          id: f.follower.id,
+          displayName: f.follower.displayName,
+          username: f.follower.username,
+          bio: f.follower.profile?.bio || null,
+          avatarUrl: f.follower.profile?.avatarUrl || f.follower.avatarMedia?.url || null,
+          followedAt: f.createdAt,
+        })),
+      },
+    };
+  });
+
+  app.get('/api/v1/public/users/:id/following', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const targetUser = await app.prisma.user.findFirst({
+      where: { OR: [{ id }, { username: id }], status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!targetUser) {
+      throw app.httpErrors.notFound('Usuario no encontrado');
+    }
+
+    const follows = await app.prisma.userFollow.findMany({
+      where: { followerId: targetUser.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        following: {
+          include: { profile: true, avatarMedia: true },
+        },
+      },
+    });
+
+    return {
+      data: {
+        users: follows.map((f) => ({
+          id: f.following.id,
+          displayName: f.following.displayName,
+          username: f.following.username,
+          bio: f.following.profile?.bio || null,
+          avatarUrl: f.following.profile?.avatarUrl || f.following.avatarMedia?.url || null,
+          followedAt: f.createdAt,
+        })),
+      },
+    };
   });
 }

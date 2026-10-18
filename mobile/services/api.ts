@@ -4,8 +4,10 @@ import { Platform } from 'react-native';
 
 export interface PostComment {
   id: string;
+  userId?: string | null;
   parentId?: string | null;
   user: string;
+  avatarUrl?: string | null;
   text: string;
   date: string;
 }
@@ -250,6 +252,29 @@ export async function submitPostComment(
   }
 }
 
+export async function togglePostSave(
+  postId: string,
+  saved: boolean,
+  token: string
+): Promise<{ saved: boolean; saveCount: number } | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/posts/id/${encodeURIComponent(postId)}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ saved }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function fetchPostComments(postId: string): Promise<PostComment[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/public/posts/id/${encodeURIComponent(postId)}/comments`, {
@@ -260,8 +285,10 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
     if (!json?.data || !Array.isArray(json.data)) return [];
     return json.data.map((c: any) => ({
       id: c.id,
+      userId: c.userId || null,
       parentId: c.parentId || null,
       user: c.user || c.authorName || 'Lector HES',
+      avatarUrl: c.avatarUrl || null,
       text: c.text || c.body,
       date: c.date ? new Date(c.date).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Reciente',
     }));
@@ -631,3 +658,215 @@ function getFallbackJobs(): Job[] {
     },
   ];
 }
+
+export interface UserProfileData {
+  id: string;
+  displayName: string;
+  username?: string | null;
+  email?: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  phone?: string | null;
+  websiteUrl?: string | null;
+  createdAt?: string;
+  followersCount: number;
+  followingCount: number;
+  savedPostsCount?: number;
+  unreadNotificationsCount?: number;
+  isFollowing?: boolean;
+}
+
+export interface InAppNotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  postSlug?: string | null;
+  postId?: string | null;
+  commentId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+  actor?: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  } | null;
+}
+
+export interface FollowUserItem {
+  id: string;
+  displayName: string;
+  username?: string | null;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  followedAt: string;
+}
+
+export async function fetchSavedPosts(token: string): Promise<Post[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/saved-posts`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const raw = json.data?.posts || [];
+    return raw.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      excerpt: item.excerpt || '',
+      featuredImage: resolveImageUrl(item.featuredImageUrl),
+      category: item.category?.name || 'General',
+      categorySlug: item.category?.slug || 'general',
+      publishedAt: item.publishedAt,
+      createdAt: item.savedAt,
+      likeCount: item.likeCount || 0,
+      commentCount: 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchNotifications(token: string): Promise<{ notifications: InAppNotificationItem[]; unreadCount: number }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/notifications`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return { notifications: [], unreadCount: 0 };
+    const json = await res.json();
+    return {
+      notifications: json.data?.notifications || [],
+      unreadCount: json.data?.unreadCount || 0,
+    };
+  } catch {
+    return { notifications: [], unreadCount: 0 };
+  }
+}
+
+export async function markNotificationRead(id: string, token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/notifications/${encodeURIComponent(id)}/read`, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function markAllNotificationsRead(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/notifications/read-all`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchUserProfile(id: string, token?: string | null): Promise<UserProfileData | null> {
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(id)}`, { headers });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data?.user || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateMyProfile(
+  data: { displayName?: string; bio?: string; avatarUrl?: string; phone?: string },
+  token: string
+): Promise<{ success: boolean; user?: any; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, error: json?.message || 'Error al actualizar el perfil' };
+    }
+    return { success: true, user: json.data?.user };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error de conexión' };
+  }
+}
+
+export async function toggleFollowUser(
+  id: string,
+  token: string
+): Promise<{ success: boolean; following?: boolean; followersCount?: number; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(id)}/follow`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, error: json?.message || 'No se pudo realizar la acción' };
+    }
+    return {
+      success: true,
+      following: json.data?.following,
+      followersCount: json.data?.followersCount,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error de conexión' };
+  }
+}
+
+export async function fetchUserFollowers(id: string): Promise<FollowUserItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(id)}/followers`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.users || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchUserFollowing(id: string): Promise<FollowUserItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(id)}/following`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.users || [];
+  } catch {
+    return [];
+  }
+}
+

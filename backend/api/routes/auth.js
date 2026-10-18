@@ -32,6 +32,18 @@ const registerSchema = z.object({
   tokenResponse: z.boolean().optional(),
 });
 
+const updateProfileSchema = z.object({
+  displayName: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres').max(160).optional(),
+  bio: z.string().max(2000).optional().nullable(),
+  avatarUrl: z.string().max(768).optional().nullable(),
+  phone: z.string().max(40).optional().nullable(),
+  websiteUrl: z.string().max(768).optional().nullable(),
+  facebookUrl: z.string().max(768).optional().nullable(),
+  instagramUrl: z.string().max(768).optional().nullable(),
+  xUrl: z.string().max(768).optional().nullable(),
+  youtubeUrl: z.string().max(768).optional().nullable(),
+});
+
 const refreshSchema = z.object({
   refreshToken: z.string().min(32).max(512).optional(),
   tokenResponse: z.boolean().optional(),
@@ -363,12 +375,278 @@ export async function registerAuthRoutes(app) {
     return { data: { ok: true } };
   });
 
+  async function getUserStats(userId) {
+    const [followersCount, followingCount, savedPostsCount, unreadNotificationsCount] = await Promise.all([
+      typeof app.prisma.userFollow?.count === 'function'
+        ? app.prisma.userFollow.count({ where: { followingId: userId } })
+        : 0,
+      typeof app.prisma.userFollow?.count === 'function'
+        ? app.prisma.userFollow.count({ where: { followerId: userId } })
+        : 0,
+      typeof app.prisma.savedPost?.count === 'function'
+        ? app.prisma.savedPost.count({ where: { userId } })
+        : 0,
+      typeof app.prisma.inAppNotification?.count === 'function'
+        ? app.prisma.inAppNotification.count({ where: { userId, isRead: false } })
+        : 0,
+    ]);
+    return { followersCount, followingCount, savedPostsCount, unreadNotificationsCount };
+  }
+
   app.get('/api/v1/auth/me', { preHandler: app.authenticate }, async (request, reply) => {
     noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+    const stats = await getUserStats(userId);
 
     return {
       data: {
-        user: request.auth.safeUser,
+        user: {
+          ...request.auth.safeUser,
+          ...stats,
+        },
+      },
+    };
+  });
+
+  app.put('/api/v1/auth/profile', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+    const body = updateProfileSchema.safeParse(request.body);
+
+    if (!body.success) {
+      throw app.httpErrors.badRequest('Datos de perfil no válidos');
+    }
+
+    const { displayName, bio, avatarUrl, phone, websiteUrl, facebookUrl, instagramUrl, xUrl, youtubeUrl } = body.data;
+
+    if (displayName !== undefined && displayName !== request.auth.user.displayName) {
+      await app.prisma.user.update({
+        where: { id: userId },
+        data: { displayName },
+      });
+    }
+
+    if (typeof app.prisma.userProfile?.upsert === 'function') {
+      await app.prisma.userProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          bio: bio ?? null,
+          avatarUrl: avatarUrl ?? null,
+          phone: phone ?? null,
+          websiteUrl: websiteUrl ?? null,
+          facebookUrl: facebookUrl ?? null,
+          instagramUrl: instagramUrl ?? null,
+          xUrl: xUrl ?? null,
+          youtubeUrl: youtubeUrl ?? null,
+        },
+        update: {
+          ...(bio !== undefined ? { bio } : {}),
+          ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+          ...(phone !== undefined ? { phone } : {}),
+          ...(websiteUrl !== undefined ? { websiteUrl } : {}),
+          ...(facebookUrl !== undefined ? { facebookUrl } : {}),
+          ...(instagramUrl !== undefined ? { instagramUrl } : {}),
+          ...(xUrl !== undefined ? { xUrl } : {}),
+          ...(youtubeUrl !== undefined ? { youtubeUrl } : {}),
+        },
+      });
+    }
+
+    const updatedUser = await app.prisma.user.findUnique({
+      where: { id: userId },
+      include: userAuthInclude,
+    });
+
+    const stats = await getUserStats(userId);
+
+    return {
+      data: {
+        user: {
+          ...sanitizeUser(updatedUser),
+          ...stats,
+        },
+      },
+    };
+  });
+
+  app.get('/api/v1/auth/saved-posts', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    const saved = await app.prisma.savedPost.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        post: {
+          include: {
+            featuredMedia: true,
+            categories: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const posts = saved
+      .filter((s) => s.post && s.post.status === 'PUBLISHED')
+      .map((s) => {
+        const p = s.post;
+        const primaryCat = p.categories.find((c) => c.isPrimary)?.category || p.categories[0]?.category;
+        return {
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+          excerpt: p.excerpt,
+          featuredImageUrl: p.featuredMedia?.url || null,
+          category: primaryCat ? { id: primaryCat.id, name: primaryCat.name, slug: primaryCat.slug } : null,
+          savedAt: s.createdAt,
+          publishedAt: p.publishedAt,
+          viewCount: p.viewCount,
+          likeCount: p.likeCount,
+        };
+      });
+
+    return {
+      data: {
+        posts,
+        total: posts.length,
+      },
+    };
+  });
+
+  app.get('/api/v1/auth/notifications', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    const [notifications, unreadCount] = await Promise.all([
+      app.prisma.inAppNotification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        include: {
+          actor: {
+            include: {
+              profile: true,
+              avatarMedia: true,
+            },
+          },
+        },
+      }),
+      app.prisma.inAppNotification.count({
+        where: { userId, isRead: false },
+      }),
+    ]);
+
+    return {
+      data: {
+        notifications: notifications.map((n) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          postSlug: n.postSlug,
+          postId: n.postId,
+          commentId: n.commentId,
+          isRead: n.isRead,
+          createdAt: n.createdAt,
+          actor: n.actor ? {
+            id: n.actor.id,
+            displayName: n.actor.displayName,
+            avatarUrl: n.actor.profile?.avatarUrl || n.actor.avatarMedia?.url || null,
+          } : null,
+        })),
+        unreadCount,
+      },
+    };
+  });
+
+  app.patch('/api/v1/auth/notifications/:id/read', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+    const { id } = request.params;
+
+    await app.prisma.inAppNotification.updateMany({
+      where: { id, userId },
+      data: { isRead: true },
+    });
+
+    return { data: { ok: true } };
+  });
+
+  app.post('/api/v1/auth/notifications/read-all', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    await app.prisma.inAppNotification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    });
+
+    return { data: { ok: true } };
+  });
+
+  app.get('/api/v1/auth/followers', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    const list = await app.prisma.userFollow.findMany({
+      where: { followingId: userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        follower: {
+          include: {
+            profile: true,
+            avatarMedia: true,
+          },
+        },
+      },
+    });
+
+    return {
+      data: {
+        users: list.map((item) => ({
+          id: item.follower.id,
+          displayName: item.follower.displayName,
+          username: item.follower.username,
+          bio: item.follower.profile?.bio || null,
+          avatarUrl: item.follower.profile?.avatarUrl || item.follower.avatarMedia?.url || null,
+          followedAt: item.createdAt,
+        })),
+      },
+    };
+  });
+
+  app.get('/api/v1/auth/following', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    const list = await app.prisma.userFollow.findMany({
+      where: { followerId: userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        following: {
+          include: {
+            profile: true,
+            avatarMedia: true,
+          },
+        },
+      },
+    });
+
+    return {
+      data: {
+        users: list.map((item) => ({
+          id: item.following.id,
+          displayName: item.following.displayName,
+          username: item.following.username,
+          bio: item.following.profile?.bio || null,
+          avatarUrl: item.following.profile?.avatarUrl || item.following.avatarMedia?.url || null,
+          followedAt: item.createdAt,
+        })),
       },
     };
   });

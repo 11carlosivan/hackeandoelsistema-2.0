@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Share, ActivityIndicator, Pla
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
-import { fetchPostEngagement, togglePostLike, registerPostShare } from '@/services/api';
-import { Heart, MessageSquare, Share2 } from 'lucide-react-native';
+import { fetchPostEngagement, togglePostLike, togglePostSave, registerPostShare } from '@/services/api';
+import { Heart, MessageSquare, Share2, Bookmark } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface EngagementBarProps {
@@ -27,22 +27,27 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
   onCommentsPress,
 }) => {
   const { colors } = useTheme();
-  const { user, token } = useAuth();
-  const { showModal } = useNotification();
+  const { user, token, refreshUser } = useAuth();
+  const { showModal, toast } = useNotification();
   const router = useRouter();
 
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(initialLikeCount);
+  const [saved, setSaved] = useState(false);
+  const [saves, setSaves] = useState(0);
   const [comments, setComments] = useState(initialCommentCount);
   const [shares, setShares] = useState(initialShareCount);
   const [loadingLike, setLoadingLike] = useState(false);
+  const [loadingSave, setLoadingSave] = useState(false);
 
   useEffect(() => {
     if (postId) {
       fetchPostEngagement(postId, token).then((data) => {
         if (data) {
           setLiked(data.liked);
+          setSaved(data.saved);
           setLikes(data.counts.likes);
+          setSaves(data.counts.saves);
           setComments(data.counts.comments);
           setShares(data.counts.shares);
         }
@@ -66,7 +71,6 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
       return;
     }
 
-
     const nextLiked = !liked;
     setLiked(nextLiked);
     setLikes((prev) => Math.max(0, prev + (nextLiked ? 1 : -1)));
@@ -78,6 +82,41 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
     if (res) {
       setLiked(res.liked);
       setLikes(res.likeCount);
+    }
+  };
+
+  const handleSave = async () => {
+    if (loadingSave) return;
+
+    if (!user || !token) {
+      showModal({
+        icon: 'question',
+        title: 'Iniciar Sesión',
+        message: 'Debes iniciar sesión con tu cuenta para guardar artículos.',
+        buttons: [
+          { text: 'Iniciar Sesión', style: 'primary', onPress: () => router.push('/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ],
+      });
+      return;
+    }
+
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+    setSaves((prev) => Math.max(0, prev + (nextSaved ? 1 : -1)));
+    setLoadingSave(true);
+
+    const res = await togglePostSave(postId, nextSaved, token);
+    setLoadingSave(false);
+
+    if (res) {
+      setSaved(res.saved);
+      setSaves(res.saveCount);
+      toast.success(
+        res.saved ? 'Artículo Guardado' : 'Guardado Eliminado',
+        res.saved ? 'Puedes consultarlo desde tu perfil.' : 'Se eliminó de tus guardados.'
+      );
+      refreshUser();
     }
   };
 
@@ -118,6 +157,28 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
         )}
         <Text style={[styles.actionCount, { color: liked ? '#EF4444' : colors.text }]}>
           {likes}
+        </Text>
+      </TouchableOpacity>
+
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+      {/* Botón de Guardar / Bookmark */}
+      <TouchableOpacity
+        style={styles.actionBtn}
+        onPress={handleSave}
+        activeOpacity={0.7}
+      >
+        {loadingSave ? (
+          <ActivityIndicator size="small" color="#F59E0B" />
+        ) : (
+          <Bookmark
+            size={20}
+            color={saved ? '#F59E0B' : colors.textMuted}
+            fill={saved ? '#F59E0B' : 'transparent'}
+          />
+        )}
+        <Text style={[styles.actionCount, { color: saved ? '#F59E0B' : colors.text }]}>
+          {saves}
         </Text>
       </TouchableOpacity>
 
@@ -165,12 +226,12 @@ const styles = StyleSheet.create({
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 6,
+    paddingHorizontal: 8,
     paddingVertical: 6,
   },
   actionCount: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   divider: {

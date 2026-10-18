@@ -82,11 +82,29 @@ export async function verifyAccessToken(config, token) {
 }
 
 export function sanitizeUser(user) {
+  const avatarUrl = user.profile?.avatarUrl || user.avatarMedia?.url || null;
+  const bio = user.profile?.bio || null;
+
   return {
     id: user.id,
     email: user.email,
     username: user.username,
     displayName: user.displayName,
+    avatarUrl,
+    bio,
+    phone: user.profile?.phone || null,
+    profile: user.profile ? {
+      firstName: user.profile.firstName,
+      lastName: user.profile.lastName,
+      bio: user.profile.bio,
+      avatarUrl,
+      phone: user.profile.phone,
+      websiteUrl: user.profile.websiteUrl,
+      facebookUrl: user.profile.facebookUrl,
+      instagramUrl: user.profile.instagramUrl,
+      xUrl: user.profile.xUrl,
+      youtubeUrl: user.profile.youtubeUrl,
+    } : null,
     status: user.status,
     roles: user.roles?.map((item) => item.role.name) ?? [],
     permissions: [
@@ -192,6 +210,8 @@ export async function rotateRefreshSession({ prisma, config, request, refreshTok
 }
 
 export const userAuthInclude = {
+  profile: true,
+  avatarMedia: true,
   roles: {
     include: {
       role: {

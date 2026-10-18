@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.js';
 import { removeLocalMediaFile, storeMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
+import { notifyEditorialPost } from '../services/notifications.js';
 
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const REDIRECT_SOURCE_RESERVED_PREFIXES = ['/api/', '/_next/', '/cms/'];
@@ -4165,6 +4166,10 @@ export async function registerCmsRoutes(app) {
 
       return { post, route: updatedRoute, seo: updatedSeo };
     });
+
+    if (action === 'PUBLISH' && result.post?.status === 'PUBLISHED') {
+      notifyEditorialPost({ prisma, post: result.post }).catch((err) => (log || console).error(err));
+    }
 
     return result;
   }
