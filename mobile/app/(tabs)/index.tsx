@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Image, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Image, TouchableOpacity, Share, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { OpinionSlider } from '@/components/OpinionSlider';
@@ -67,67 +67,70 @@ const HeroArticleCard: React.FC<{ post: Post }> = ({ post }) => {
         registerPostShare(post.id, 'native');
       }
     } catch (err) {
-      // Ignored
+      console.warn('[Share] Error sharing hero post:', err);
     }
   };
 
   return (
-    <TouchableOpacity
+    <View
       style={[styles.heroCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-      onPress={() => router.push(`/article/${post.slug}` as any)}
-      activeOpacity={0.85}
     >
-      {post.featuredImage ? (
-        <Image source={{ uri: post.featuredImage }} style={styles.heroImage} resizeMode="cover" />
-      ) : null}
-
-      <View style={styles.heroBody}>
-        <View style={styles.heroMetaRow}>
-          <View style={[styles.heroCategoryBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.heroCategoryText}>{post.category?.toUpperCase()}</Text>
-          </View>
-
-          {post.publishedAt ? (
-            <View style={styles.heroDateRow}>
-              <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
-              <Text style={[styles.heroDateText, { color: colors.textMuted }]}>
-                {new Date(post.publishedAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        <Text style={[styles.heroTitle, { color: colors.text }]}>{post.title}</Text>
-
-        {post.excerpt ? (
-          <Text style={[styles.heroExcerpt, { color: colors.textMuted }]} numberOfLines={3}>
-            {post.excerpt}
-          </Text>
+      <TouchableOpacity
+        onPress={() => router.push(`/article/${post.slug}` as any)}
+        activeOpacity={0.85}
+      >
+        {post.featuredImage ? (
+          <Image source={{ uri: post.featuredImage }} style={styles.heroImage} resizeMode="cover" />
         ) : null}
 
-        <Text style={[styles.heroAuthor, { color: colors.textMuted }]}>
-          Por <Text style={{ color: colors.text, fontWeight: '700' }}>{post.author?.name || 'Redacción HES'}</Text>
-        </Text>
+        <View style={styles.heroBody}>
+          <View style={styles.heroMetaRow}>
+            <View style={[styles.heroCategoryBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.heroCategoryText}>{post.category?.toUpperCase()}</Text>
+            </View>
 
-        {/* Barra de interacción social sincronizada */}
-        <View style={[styles.heroEngagementRow, { borderTopColor: colors.border }]}>
-          <TouchableOpacity style={styles.heroEngagementBtn} onPress={handleLike} activeOpacity={0.7}>
-            <Heart size={16} color={liked ? '#EF4444' : colors.textMuted} fill={liked ? '#EF4444' : 'transparent'} />
-            <Text style={[styles.heroEngagementText, { color: liked ? '#EF4444' : colors.text }]}>{likes}</Text>
-          </TouchableOpacity>
+            {post.publishedAt ? (
+              <View style={styles.heroDateRow}>
+                <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+                <Text style={[styles.heroDateText, { color: colors.textMuted }]}>
+                  {new Date(post.publishedAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
-          <TouchableOpacity style={styles.heroEngagementBtn} onPress={() => router.push(`/article/${post.slug}` as any)} activeOpacity={0.7}>
-            <MessageSquare size={16} color={colors.textMuted} />
-            <Text style={[styles.heroEngagementText, { color: colors.text }]}>{comments}</Text>
-          </TouchableOpacity>
+          <Text style={[styles.heroTitle, { color: colors.text }]}>{post.title}</Text>
 
-          <TouchableOpacity style={styles.heroEngagementBtn} onPress={handleShare} activeOpacity={0.7}>
-            <Share2 size={16} color={colors.textMuted} />
-            <Text style={[styles.heroEngagementText, { color: colors.text }]}>{shares}</Text>
-          </TouchableOpacity>
+          {post.excerpt ? (
+            <Text style={[styles.heroExcerpt, { color: colors.textMuted }]} numberOfLines={3}>
+              {post.excerpt}
+            </Text>
+          ) : null}
+
+          <Text style={[styles.heroAuthor, { color: colors.textMuted }]}>
+            Por <Text style={{ color: colors.text, fontWeight: '700' }}>{post.author?.name || 'Redacción HES'}</Text>
+          </Text>
         </View>
+      </TouchableOpacity>
+
+      {/* Barra de interacción social sincronizada */}
+      <View style={[styles.heroEngagementRow, { borderTopColor: colors.border }]}>
+        <TouchableOpacity style={styles.heroEngagementBtn} onPress={handleLike} activeOpacity={0.7}>
+          <Heart size={16} color={liked ? '#EF4444' : colors.textMuted} fill={liked ? '#EF4444' : 'transparent'} />
+          <Text style={[styles.heroEngagementText, { color: liked ? '#EF4444' : colors.text }]}>{likes}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.heroEngagementBtn} onPress={() => router.push(`/article/${post.slug}` as any)} activeOpacity={0.7}>
+          <MessageSquare size={16} color={colors.textMuted} />
+          <Text style={[styles.heroEngagementText, { color: colors.text }]}>{comments}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.heroEngagementBtn} onPress={handleShare} activeOpacity={0.7}>
+          <Share2 size={16} color={colors.textMuted} />
+          <Text style={[styles.heroEngagementText, { color: colors.text }]}>{shares}</Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 

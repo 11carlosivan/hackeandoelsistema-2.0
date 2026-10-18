@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIn
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { fetchPostBySlug, Post } from '@/services/api';
+import { fetchPostBySlug, Post, registerPostShare } from '@/services/api';
 import { GutenbergRenderer } from '@/components/GutenbergRenderer';
 import { EngagementBar } from '@/components/EngagementBar';
 import { CommentSection } from '@/components/CommentSection';
@@ -31,13 +31,17 @@ export default function ArticleDetailScreen() {
     if (post) {
       try {
         const shareUrl = `https://hackeandoelsistema.net/${post.slug}/`;
-        await Share.share({
+        const result = await Share.share({
           title: post.title,
           message: Platform.OS === 'android' ? `${post.title}\n\n${shareUrl}` : post.title,
           url: shareUrl,
         });
+
+        if (result.action === Share.sharedAction) {
+          registerPostShare(post.id, 'native');
+        }
       } catch (err) {
-        // Share dismissed
+        console.warn('[Share] Error sharing post:', err);
       }
     }
   };

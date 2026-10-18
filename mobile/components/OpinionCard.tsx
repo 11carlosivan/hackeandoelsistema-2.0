@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -67,48 +67,49 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({ post }) => {
         registerPostShare(post.id, 'native');
       }
     } catch (err) {
-      // Ignored
+      console.warn('[Share] Error sharing opinion:', err);
     }
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.primary }]}
-      onPress={() => router.push(`/article/${post.slug}` as any)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.topHeader}>
-        <View style={[styles.pillBadge, { backgroundColor: colors.primary }]}>
-          <Quote size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-          <Text style={styles.pillText}>OPINIÓN Y ANÁLISIS</Text>
-        </View>
-      </View>
-
-      <View style={styles.body}>
-        {post.featuredImage ? (
-          <Image source={{ uri: post.featuredImage }} style={styles.authorAvatar} resizeMode="cover" />
-        ) : (
-          <View style={[styles.authorAvatarFallback, { backgroundColor: colors.primary }]}>
-            <Text style={styles.avatarInitial}>{(post.author?.name || 'O')[0]}</Text>
+    <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.primary }]}>
+      <TouchableOpacity
+        onPress={() => router.push(`/article/${post.slug}` as any)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.topHeader}>
+          <View style={[styles.pillBadge, { backgroundColor: colors.primary }]}>
+            <Quote size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <Text style={styles.pillText}>OPINIÓN Y ANÁLISIS</Text>
           </View>
-        )}
-
-        <View style={styles.textContainer}>
-          <Text style={[styles.authorTitle, { color: colors.text }]} numberOfLines={2}>
-            {post.title}
-          </Text>
-
-          <Text style={[styles.authorName, { color: colors.primary }]}>
-            — {post.author?.name || 'Columnista HES'}
-          </Text>
-
-          {post.excerpt ? (
-            <Text style={[styles.excerpt, { color: colors.textMuted }]} numberOfLines={2}>
-              "{post.excerpt}"
-            </Text>
-          ) : null}
         </View>
-      </View>
+
+        <View style={styles.body}>
+          {post.featuredImage ? (
+            <Image source={{ uri: post.featuredImage }} style={styles.authorAvatar} resizeMode="cover" />
+          ) : (
+            <View style={[styles.authorAvatarFallback, { backgroundColor: colors.primary }]}>
+              <Text style={styles.avatarInitial}>{(post.author?.name || 'O')[0]}</Text>
+            </View>
+          )}
+
+          <View style={styles.textContainer}>
+            <Text style={[styles.authorTitle, { color: colors.text }]} numberOfLines={2}>
+              {post.title}
+            </Text>
+
+            <Text style={[styles.authorName, { color: colors.primary }]}>
+              — {post.author?.name || 'Columnista HES'}
+            </Text>
+
+            {post.excerpt ? (
+              <Text style={[styles.excerpt, { color: colors.textMuted }]} numberOfLines={2}>
+                "{post.excerpt}"
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </TouchableOpacity>
 
       {/* Barra de interacción social sincronizada */}
       <View style={[styles.engagementRow, { borderTopColor: colors.border }]}>
@@ -127,7 +128,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({ post }) => {
           <Text style={[styles.engagementText, { color: colors.text }]}>{shares}</Text>
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 

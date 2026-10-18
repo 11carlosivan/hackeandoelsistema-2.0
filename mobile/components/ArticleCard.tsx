@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -79,95 +79,96 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ post }) => {
         registerPostShare(post.id, 'native');
       }
     } catch (err) {
-      // Ignored
+      console.warn('[Share] Error sharing post:', err);
     }
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-      onPress={handleCardPress}
-      activeOpacity={0.85}
-    >
-      {post.featuredImage ? (
-        <Image source={{ uri: post.featuredImage }} style={styles.image} resizeMode="cover" />
-      ) : (
-        <View style={[styles.placeholderImage, { backgroundColor: colors.border }]}>
-          <Text style={{ color: colors.textMuted, fontSize: 12 }}>HES</Text>
-        </View>
-      )}
-      <View style={styles.content}>
-        <View style={styles.metaRow}>
-          <View style={[styles.categoryBadge, { backgroundColor: post.isOpinion ? colors.badgeOpinionBg : colors.inputBackground }]}>
-            <Text style={[styles.categoryText, { color: post.isOpinion ? colors.badgeOpinionText : colors.primary }]}>
-              {post.category?.toUpperCase()}
+    <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+      <TouchableOpacity
+        onPress={handleCardPress}
+        activeOpacity={0.85}
+      >
+        {post.featuredImage ? (
+          <Image source={{ uri: post.featuredImage }} style={styles.image} resizeMode="cover" />
+        ) : (
+          <View style={[styles.placeholderImage, { backgroundColor: colors.border }]}>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>HES</Text>
+          </View>
+        )}
+        <View style={styles.content}>
+          <View style={styles.metaRow}>
+            <View style={[styles.categoryBadge, { backgroundColor: post.isOpinion ? colors.badgeOpinionBg : colors.inputBackground }]}>
+              <Text style={[styles.categoryText, { color: post.isOpinion ? colors.badgeOpinionText : colors.primary }]}>
+                {post.category?.toUpperCase()}
+              </Text>
+            </View>
+            {formattedDate ? (
+              <View style={styles.dateRow}>
+                <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+                <Text style={[styles.dateText, { color: colors.textMuted }]}>{formattedDate}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+            {post.title}
+          </Text>
+
+          {post.excerpt ? (
+            <Text style={[styles.excerpt, { color: colors.textMuted }]} numberOfLines={2}>
+              {post.excerpt}
+            </Text>
+          ) : null}
+
+          <View style={styles.authorRow}>
+            <Text style={[styles.authorName, { color: colors.textMuted }]}>
+              Por <Text style={{ fontWeight: '700', color: colors.text }}>{post.author?.name || 'Redacción HES'}</Text>
             </Text>
           </View>
-          {formattedDate ? (
-            <View style={styles.dateRow}>
-              <Clock size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
-              <Text style={[styles.dateText, { color: colors.textMuted }]}>{formattedDate}</Text>
-            </View>
-          ) : null}
         </View>
+      </TouchableOpacity>
 
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
-          {post.title}
-        </Text>
-
-        {post.excerpt ? (
-          <Text style={[styles.excerpt, { color: colors.textMuted }]} numberOfLines={2}>
-            {post.excerpt}
+      {/* Barra de interacción social sincronizada con la web */}
+      <View style={[styles.engagementRow, { borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={styles.engagementBtn}
+          onPress={handleLike}
+          activeOpacity={0.7}
+        >
+          <Heart
+            size={16}
+            color={liked ? '#EF4444' : colors.textMuted}
+            fill={liked ? '#EF4444' : 'transparent'}
+          />
+          <Text style={[styles.engagementText, { color: liked ? '#EF4444' : colors.text }]}>
+            {likes}
           </Text>
-        ) : null}
+        </TouchableOpacity>
 
-        <View style={styles.authorRow}>
-          <Text style={[styles.authorName, { color: colors.textMuted }]}>
-            Por <Text style={{ fontWeight: '700', color: colors.text }}>{post.author?.name || 'Redacción HES'}</Text>
+        <TouchableOpacity
+          style={styles.engagementBtn}
+          onPress={handleCommentPress}
+          activeOpacity={0.7}
+        >
+          <MessageSquare size={16} color={colors.textMuted} />
+          <Text style={[styles.engagementText, { color: colors.text }]}>
+            {comments}
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        {/* Barra de interacción social sincronizada con la web */}
-        <View style={[styles.engagementRow, { borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={styles.engagementBtn}
-            onPress={handleLike}
-            activeOpacity={0.7}
-          >
-            <Heart
-              size={16}
-              color={liked ? '#EF4444' : colors.textMuted}
-              fill={liked ? '#EF4444' : 'transparent'}
-            />
-            <Text style={[styles.engagementText, { color: liked ? '#EF4444' : colors.text }]}>
-              {likes}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.engagementBtn}
-            onPress={handleCommentPress}
-            activeOpacity={0.7}
-          >
-            <MessageSquare size={16} color={colors.textMuted} />
-            <Text style={[styles.engagementText, { color: colors.text }]}>
-              {comments}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.engagementBtn}
-            onPress={handleShare}
-            activeOpacity={0.7}
-          >
-            <Share2 size={16} color={colors.textMuted} />
-            <Text style={[styles.engagementText, { color: colors.text }]}>
-              {shares}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.engagementBtn}
+          onPress={handleShare}
+          activeOpacity={0.7}
+        >
+          <Share2 size={16} color={colors.textMuted} />
+          <Text style={[styles.engagementText, { color: colors.text }]}>
+            {shares}
+          </Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -238,8 +239,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     borderTopWidth: 1,
-    marginTop: 12,
-    paddingTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   engagementBtn: {
     flexDirection: 'row',

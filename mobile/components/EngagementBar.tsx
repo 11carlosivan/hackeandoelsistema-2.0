@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Share, ActivityIndicator, Platform } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
@@ -95,7 +95,7 @@ export const EngagementBar: React.FC<EngagementBarProps> = ({
         registerPostShare(postId, 'native');
       }
     } catch (err) {
-      // Ignored
+      console.warn('[Share] Error sharing from EngagementBar:', err);
     }
   };
 
