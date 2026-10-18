@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { Home, Users, Tv, Radio, Menu, Quote, Briefcase, Search, Grid, User } from 'lucide-react-native';
+import { Home, Users, Tv, TrendingUp, Menu, Quote, Briefcase, Search, Grid, User } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -47,10 +47,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="radio"
+        name="info"
         options={{
-          title: 'Radio',
-          tabBarIcon: ({ color, size }) => <Radio size={size} color={color} />,
+          title: 'Info',
+          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -44,7 +44,6 @@ export const HamburgerMenuModal: React.FC<Props> = ({ visible, onClose }) => {
         { label: 'Portada / Noticias', icon: Home, path: '/(tabs)' },
         { label: 'Feed Comunitario', icon: Users, path: '/(tabs)/community' },
         { label: 'HES Live (En Vivo)', icon: Tv, path: '/(tabs)/live' },
-        { label: 'HES Radio', icon: Radio, path: '/(tabs)/radio' },
       ],
     },
     {

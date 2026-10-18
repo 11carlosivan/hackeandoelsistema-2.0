@@ -36,7 +36,6 @@ export default function MenuScreen() {
         { label: 'Portada / Noticias', icon: Home, path: '/(tabs)' },
         { label: 'Feed Comunitario', icon: Users, path: '/(tabs)/community' },
         { label: 'HES Live (En Vivo)', icon: Tv, path: '/(tabs)/live' },
-        { label: 'HES Radio en Vivo', icon: Radio, path: '/(tabs)/radio' },
       ],
     },
     {
