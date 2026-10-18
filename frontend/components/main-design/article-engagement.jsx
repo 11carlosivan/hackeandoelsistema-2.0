@@ -32,12 +32,13 @@ async function requestJson(path, options = {}) {
   return payload;
 }
 
-export default function ArticleEngagement({ article }) {
-  const postId = article?.raw?.id;
+export default function ArticleEngagement({ article, initialComments = [] }) {
+  const postId = article?.raw?.id || article?.postId;
   const articleUrl = useMemo(() => {
     if (typeof window === 'undefined') return article?.route || '/';
     return new URL(article?.route || window.location.pathname, window.location.origin).href;
   }, [article?.route]);
+
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -48,11 +49,19 @@ export default function ArticleEngagement({ article }) {
     likes: safeCount(article?.likeCount),
     saves: safeCount(article?.saveCount),
     shares: safeCount(article?.shareCount),
-    comments: safeCount(article?.commentCount),
+    comments: safeCount(article?.commentCount || initialComments?.length),
   });
   const [status, setStatus] = useState('');
   const [commentStatus, setCommentStatus] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  const [commentsList, setCommentsList] = useState(
+    initialComments.length > 0 ? initialComments : article?.comments || [],
+  );
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+  const [replyStatus, setReplyStatus] = useState('');
 
   useEffect(() => {
     if (!postId) return;
@@ -72,16 +81,29 @@ export default function ArticleEngagement({ article }) {
           likes: safeCount(payload.data?.counts?.likes),
           saves: safeCount(payload.data?.counts?.saves),
           shares: safeCount(payload.data?.counts?.shares),
-          comments: safeCount(payload.data?.counts?.comments),
+          comments: safeCount(payload.data?.counts?.comments ?? current.comments),
         }));
         setEngagementLoaded(true);
       })
       .catch(() => {
-        // Counts rendered from the article payload remain available.
         if (!cancelled) {
           setEngagementLoaded(true);
         }
       });
+
+    requestJson(`/api/v1/public/posts/id/${encodeURIComponent(postId)}/comments`)
+      .then((payload) => {
+        if (!cancelled && Array.isArray(payload?.data) && payload.data.length > 0) {
+          setCommentsList(payload.data.map((c) => ({
+            id: c.id,
+            parentId: c.parentId || null,
+            user: c.user || 'Lector',
+            text: c.text,
+            date: c.date ? new Date(c.date).toLocaleDateString('es-DO', { day: '2-digit', month: 'short' }) : 'Reciente',
+          })));
+        }
+      })
+      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -195,9 +217,8 @@ export default function ArticleEngagement({ article }) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const payload = {
-      body: String(formData.get('body') || '').trim(),
-    };
+    const textBody = String(formData.get('body') || '').trim();
+    if (!textBody) return;
 
     setSubmittingComment(true);
     setCommentStatus('');
@@ -205,10 +226,19 @@ export default function ArticleEngagement({ article }) {
     try {
       const response = await requestJson(`/api/v1/public/posts/id/${encodeURIComponent(postId)}/comments`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ body: textBody }),
       });
 
       form.reset();
+      const newComment = {
+        id: response.data?.comment?.id || String(Date.now()),
+        parentId: null,
+        user: response.data?.comment?.user || 'Tú',
+        text: response.data?.comment?.text || textBody,
+        date: 'Reciente',
+      };
+      setCommentsList((prev) => [...prev, newComment]);
+      setCounts((current) => ({ ...current, comments: current.comments + 1 }));
       setCommentStatus(response.data?.moderation?.message || 'Comentario publicado con éxito.');
     } catch (error) {
       setCommentStatus(error.status === 401 ? 'Inicia sesion para comentar.' : error.message);
@@ -217,9 +247,55 @@ export default function ArticleEngagement({ article }) {
     }
   };
 
+  const handleStartReply = (comment) => {
+    if (!requireAuth('responder a este comentario')) return;
+    setReplyingTo(replyingTo?.id === comment.id ? null : { id: comment.id, user: comment.user });
+    setReplyText('');
+    setReplyStatus('');
+  };
+
+  const submitReply = async (event, parentComment) => {
+    event.preventDefault();
+    if (!postId || submittingReply) return;
+    if (!requireAuth('responder a este comentario')) return;
+
+    const textBody = replyText.trim();
+    if (!textBody) return;
+
+    setSubmittingReply(true);
+    setReplyStatus('');
+
+    try {
+      const response = await requestJson(`/api/v1/public/posts/id/${encodeURIComponent(postId)}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body: textBody, parentId: parentComment.id }),
+      });
+
+      const newReply = {
+        id: response.data?.comment?.id || String(Date.now()),
+        parentId: parentComment.id,
+        user: response.data?.comment?.user || 'Tú',
+        text: response.data?.comment?.text || textBody,
+        date: 'Reciente',
+      };
+      setCommentsList((prev) => [...prev, newReply]);
+      setCounts((current) => ({ ...current, comments: current.comments + 1 }));
+      setReplyText('');
+      setReplyingTo(null);
+      setReplyStatus('Respuesta publicada con éxito.');
+    } catch (error) {
+      setReplyStatus(error.status === 401 ? 'Inicia sesion para responder.' : error.message);
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
   if (!postId) {
     return null;
   }
+
+  const topLevelComments = commentsList.filter((c) => !c.parentId);
+  const getReplies = (parentId) => commentsList.filter((c) => c.parentId === parentId);
 
   return (
     <section className="border border-terminal-gray bg-surface-container-low/20 p-5 md:p-6">
@@ -230,6 +306,7 @@ export default function ArticleEngagement({ article }) {
         nextPath={article?.route || '/'}
       />
 
+      {/* Engagement Buttons */}
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -262,48 +339,175 @@ export default function ArticleEngagement({ article }) {
           <span className="material-symbols-outlined text-[16px]">ios_share</span>
           {counts.shares}
         </button>
+
+        <a
+          href="#comentarios-seccion"
+          className="inline-flex items-center gap-2 border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red"
+        >
+          <span className="material-symbols-outlined text-[16px]">mode_comment</span>
+          {counts.comments}
+        </a>
       </div>
 
       {status ? <p className="mt-3 text-xs text-on-surface-variant">{status}</p> : null}
 
-      {!engagementLoaded ? (
-        <div className="mt-6 border border-terminal-gray bg-black/30 p-4">
-          <p className="text-sm text-on-surface-variant">Cargando comentarios...</p>
+      {/* Comentarios de la Red Section */}
+      <div id="comentarios-seccion" className="mt-8 border-t border-terminal-gray/80 pt-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-headline-md text-2xl text-white uppercase flex items-center gap-2">
+            <span className="material-symbols-outlined text-system-red text-xl">forum</span>
+            Comentarios de la red ({commentsList.length})
+          </h2>
         </div>
-      ) : authenticated ? (
-        <form onSubmit={submitComment} className="mt-6 grid gap-3">
-          <textarea
-            name="body"
-            required
-            minLength={3}
-            maxLength={2000}
-            rows={4}
-            placeholder="Escribe un comentario para moderacion"
-            className="resize-y border border-terminal-gray bg-black px-4 py-3 text-sm text-white outline-none focus:border-system-red"
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={submittingComment}
-              className="bg-system-red px-5 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white disabled:opacity-60"
-            >
-              {submittingComment ? 'Enviando...' : 'Enviar comentario'}
-            </button>
-            {commentStatus ? <span className="text-xs text-on-surface-variant">{commentStatus}</span> : null}
+
+        {/* Input Form or Sign-in Prompt */}
+        {!engagementLoaded ? (
+          <div className="border border-terminal-gray bg-black/30 p-4 mb-6">
+            <p className="text-sm text-on-surface-variant">Cargando comentarios...</p>
           </div>
-        </form>
-      ) : (
-        <div className="mt-6 border border-terminal-gray bg-black/30 p-4">
-          <p className="text-sm text-on-surface-variant">Inicia sesion para comentar.</p>
-          <a
-            href={`/iniciar-sesion?next=${encodeURIComponent(article?.route || '/')}`}
-            className="mt-3 inline-flex bg-system-red px-4 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white"
-          >
-            Iniciar sesion
-          </a>
+        ) : authenticated ? (
+          <form onSubmit={submitComment} className="grid gap-3 border border-terminal-gray bg-black/30 p-4 mb-6">
+            <div className="flex items-center gap-2 text-xs font-label-caps text-system-red font-bold">
+              <span className="material-symbols-outlined text-sm">edit_note</span>
+              Escribe un comentario
+            </div>
+            <textarea
+              name="body"
+              required
+              minLength={3}
+              maxLength={2000}
+              rows={3}
+              placeholder="Escribe un comentario para moderacion"
+              className="resize-y border border-terminal-gray bg-black px-4 py-3 text-sm text-white outline-none focus:border-system-red"
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={submittingComment}
+                className="bg-system-red px-5 py-3 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white disabled:opacity-60"
+              >
+                {submittingComment ? 'Enviando...' : 'Enviar comentario'}
+              </button>
+              {commentStatus ? <span className="text-xs text-on-surface-variant">{commentStatus}</span> : null}
+            </div>
+          </form>
+        ) : (
+          <div className="border border-terminal-gray bg-black/30 p-5 mb-6">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-system-red text-2xl mt-0.5">lock</span>
+              <div>
+                <p className="text-sm font-bold text-white uppercase tracking-wider">Inicia sesion para comentar.</p>
+                <p className="text-xs text-on-surface-variant mt-1">
+                  Puedes leer todos los comentarios libremente. Para unirte a la conversación o responder a otros lectores, identifícate en la red.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a
+                href={`/iniciar-sesion?next=${encodeURIComponent(article?.route || '/')}`}
+                className="inline-flex bg-system-red px-4 py-2.5 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white"
+              >
+                Iniciar sesion
+              </a>
+              <a
+                href="/register"
+                className="inline-flex border border-terminal-gray px-4 py-2.5 font-label-caps text-[10px] font-bold text-white transition-colors hover:border-system-red hover:text-system-red"
+              >
+                Registrarse
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de Comentarios Públicos */}
+        <div className="space-y-4">
+          {topLevelComments.length > 0 ? (
+            topLevelComments.map((comment) => {
+              const replies = getReplies(comment.id);
+
+              return (
+                <div key={comment.id} className="border border-terminal-gray bg-black/25 p-4 md:p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full border border-system-red bg-system-red/20 text-system-red font-bold text-xs flex items-center justify-center">
+                        {comment.user ? comment.user[0].toUpperCase() : 'U'}
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-white">{comment.user}</div>
+                        <div className="text-[10px] font-label-caps text-on-surface-variant">{comment.date}</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleStartReply(comment)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 border border-terminal-gray hover:border-system-red text-xs text-on-surface-variant hover:text-system-red font-label-caps transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">reply</span>
+                      Responder
+                    </button>
+                  </div>
+
+                  <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+
+                  {/* Inline reply form */}
+                  {replyingTo?.id === comment.id && (
+                    <form onSubmit={(e) => submitReply(e, comment)} className="mt-3 p-4 border border-system-red/50 bg-black/60 space-y-3">
+                      <div className="flex items-center justify-between text-xs text-system-red font-label-caps">
+                        <span>Respondiendo a @{comment.user}</span>
+                        <button type="button" onClick={() => setReplyingTo(null)} className="hover:text-white">Cancelar</button>
+                      </div>
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        required
+                        minLength={3}
+                        maxLength={2000}
+                        rows={2}
+                        placeholder={`Escribe tu respuesta para @${comment.user}...`}
+                        className="w-full resize-y border border-terminal-gray bg-black px-3 py-2 text-sm text-white outline-none focus:border-system-red"
+                      />
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="submit"
+                          disabled={submittingReply || !replyText.trim()}
+                          className="bg-system-red px-4 py-2 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white disabled:opacity-60"
+                        >
+                          {submittingReply ? 'Enviando...' : 'Publicar respuesta'}
+                        </button>
+                        {replyStatus ? <span className="text-xs text-on-surface-variant">{replyStatus}</span> : null}
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Respuestas anidadas */}
+                  {replies.length > 0 && (
+                    <div className="ml-4 md:ml-8 mt-3 space-y-3 border-l-2 border-system-red/50 pl-4 pt-1">
+                      {replies.map((reply) => (
+                        <div key={reply.id} className="border border-terminal-gray/60 bg-black/40 p-3.5 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-white">{reply.user}</span>
+                              <span className="text-[10px] font-label-caps text-system-red bg-system-red/10 px-2 py-0.5 rounded">
+                                en respuesta a @{comment.user}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-label-caps text-on-surface-variant">{reply.date}</span>
+                          </div>
+                          <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{reply.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="border border-terminal-gray/60 bg-black/20 p-6 text-center text-on-surface-variant text-sm">
+              No hay comentarios registrados en este nodo. ¡Sé el primero en opinar!
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 }
-

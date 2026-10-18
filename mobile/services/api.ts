@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 export interface PostComment {
   id: string;
+  parentId?: string | null;
   user: string;
   text: string;
   date: string;
@@ -146,6 +147,7 @@ export async function fetchPostBySlug(slug: string): Promise<Post | null> {
       shareCount: Number(item.shareCount ?? 0),
       comments: (item.comments || []).map((c: any) => ({
         id: c.id,
+        parentId: c.parentId || null,
         user: c.authorName || c.user?.displayName || c.user || 'Lector HES',
         text: c.body || c.text || '',
         date: c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : (c.date || ''),
@@ -212,7 +214,12 @@ export async function registerPostShare(postId: string, channel = 'native'): Pro
   }
 }
 
-export async function submitPostComment(postId: string, body: string, token: string): Promise<{ success: boolean; comment?: PostComment; error?: string }> {
+export async function submitPostComment(
+  postId: string,
+  body: string,
+  token: string,
+  parentId?: string | null,
+): Promise<{ success: boolean; comment?: PostComment; error?: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/public/posts/id/${encodeURIComponent(postId)}/comments`, {
       method: 'POST',
@@ -221,7 +228,7 @@ export async function submitPostComment(postId: string, body: string, token: str
         Accept: 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, parentId: parentId || undefined }),
     });
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.data?.comment) {
@@ -232,6 +239,7 @@ export async function submitPostComment(postId: string, body: string, token: str
       success: true,
       comment: {
         id: c.id,
+        parentId: c.parentId || null,
         user: c.user || c.authorName || 'Tú',
         text: c.text || c.body,
         date: 'Reciente',
@@ -239,6 +247,26 @@ export async function submitPostComment(postId: string, body: string, token: str
     };
   } catch (err: any) {
     return { success: false, error: err.message || 'Error de conexión' };
+  }
+}
+
+export async function fetchPostComments(postId: string): Promise<PostComment[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/posts/id/${encodeURIComponent(postId)}/comments`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    if (!json?.data || !Array.isArray(json.data)) return [];
+    return json.data.map((c: any) => ({
+      id: c.id,
+      parentId: c.parentId || null,
+      user: c.user || c.authorName || 'Lector HES',
+      text: c.text || c.body,
+      date: c.date ? new Date(c.date).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Reciente',
+    }));
+  } catch (err) {
+    return [];
   }
 }
 

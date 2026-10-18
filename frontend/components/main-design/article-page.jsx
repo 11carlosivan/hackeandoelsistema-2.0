@@ -205,26 +205,7 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
               </section>
             )}
 
-            <ArticleEngagement article={article} />
-
-            <section id="comentarios-seccion" className="border border-terminal-gray bg-surface-container-low/20 p-6">
-              <h2 className="font-headline-md text-2xl text-white uppercase mb-5">Comentarios de la red</h2>
-              <div className="space-y-4">
-                {articleComments.length > 0 ? (
-                  articleComments.map((comment) => (
-                    <div key={comment.id} className="border-l-2 border-system-red bg-black/20 p-4">
-                      <div className="flex justify-between gap-4 font-label-caps text-[10px] text-system-red mb-2">
-                        <span>{comment.user}</span>
-                        <span>{comment.date}</span>
-                      </div>
-                      <p className="text-on-surface-variant text-sm">{comment.text}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-on-surface-variant text-sm">No hay comentarios registrados en este nodo.</p>
-                )}
-              </div>
-            </section>
+            <ArticleEngagement article={article} initialComments={articleComments} />
           </div>
 
           <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-36 self-start">

@@ -35,7 +35,7 @@ const idParamSchema = z.object({
 });
 const publicCommentSchema = z.object({
   body: z.string().trim().min(3).max(2000),
-  parentId: z.uuid().nullable().optional(),
+  parentId: z.string().trim().min(1).max(280).nullable().optional(),
 });
 const publicLikeSchema = z.object({
   liked: z.boolean().optional(),
@@ -871,6 +871,7 @@ async function findPublicEntityRoute(app, entityType, entityId) {
 function normalizePublicComment(comment) {
   return {
     id: comment.id,
+    parentId: comment.parentId || null,
     user: comment.authorName || comment.user?.displayName || 'Visitante',
     text: comment.body,
     date: comment.createdAt,
@@ -1526,6 +1527,7 @@ export async function registerPublicRoutes(app) {
           take: 50,
           select: {
             id: true,
+            parentId: true,
             authorName: true,
             body: true,
             createdAt: true,
@@ -1599,6 +1601,7 @@ export async function registerPublicRoutes(app) {
           take: 50,
           select: {
             id: true,
+            parentId: true,
             authorName: true,
             body: true,
             createdAt: true,
@@ -2017,17 +2020,23 @@ export async function registerPublicRoutes(app) {
         authorName: request.auth.user.displayName,
         authorEmail: request.auth.user.email,
         body: body.data.body,
-        status: 'PENDING',
+        status: 'APPROVED',
         ipHash,
         userAgentHash,
       },
       select: {
         id: true,
+        parentId: true,
         authorName: true,
         body: true,
         status: true,
         createdAt: true,
       },
+    });
+
+    await app.prisma.post.update({
+      where: { id: post.id },
+      data: { commentCount: { increment: 1 } },
     });
 
     reply.code(201);
@@ -2036,16 +2045,54 @@ export async function registerPublicRoutes(app) {
       data: {
         comment: {
           id: comment.id,
+          parentId: comment.parentId || null,
           user: comment.authorName || 'Visitante',
           text: comment.body,
           status: comment.status,
           date: comment.createdAt,
         },
         moderation: {
-          status: 'PENDING',
-          message: 'Comentario recibido y pendiente de moderacion.',
+          status: 'APPROVED',
+          message: 'Comentario publicado con éxito.',
         },
       },
+    };
+  });
+
+  app.get('/api/v1/public/posts/id/:id/comments', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    const post = await findPublicPostForEngagement(app, id);
+
+    if (!post) {
+      throw app.httpErrors.notFound('Post not found');
+    }
+
+    noStoreHeaders(reply);
+    const comments = await app.prisma.comment.findMany({
+      where: {
+        postId: post.id,
+        status: 'APPROVED',
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      take: 100,
+      select: {
+        id: true,
+        parentId: true,
+        authorName: true,
+        body: true,
+        createdAt: true,
+        user: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    return {
+      data: comments.map(normalizePublicComment),
     };
   });
 

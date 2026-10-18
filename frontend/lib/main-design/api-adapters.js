@@ -129,6 +129,7 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     ),
     comments: (post.comments || []).map((comment) => ({
       id: comment.id,
+      parentId: comment.parentId || null,
       user: comment.user,
       text: comment.text,
       date: formatShortDate(comment.date ? new Date(comment.date) : null),
