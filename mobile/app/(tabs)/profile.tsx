@@ -38,11 +38,13 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   fetchSavedPosts,
   updateMyProfile,
   fetchUserFollowers,
   fetchUserFollowing,
+  uploadAvatarImage,
   Post,
   FollowUserItem,
 } from '@/services/api';
@@ -66,6 +68,7 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Followers / Following Modal state
@@ -103,8 +106,36 @@ export default function ProfileScreen() {
     setEditName(user.displayName || user.name || '');
     setEditBio(user.bio || '');
     setEditAvatarUrl(user.avatarUrl || '');
+    setSelectedAvatarFile(null);
     setEditModalVisible(true);
   }
+
+  const handlePickAvatar = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const ext = file.name?.split('.').pop()?.toLowerCase();
+        let mime = file.mimeType || 'image/jpeg';
+        if (ext === 'png') mime = 'image/png';
+        else if (ext === 'webp') mime = 'image/webp';
+        else if (ext === 'gif') mime = 'image/gif';
+
+        setSelectedAvatarFile({
+          uri: file.uri,
+          name: file.name || 'avatar.jpg',
+          mimeType: mime,
+        });
+        setEditAvatarUrl(file.uri);
+      }
+    } catch (err) {
+      toast.error('Error', 'No se pudo seleccionar la imagen.');
+    }
+  };
 
   async function handleSaveProfile() {
     if (!token) return;
@@ -114,11 +145,27 @@ export default function ProfileScreen() {
     }
 
     setSavingProfile(true);
+
+    let finalAvatarUrl = editAvatarUrl;
+
+    // Si el usuario seleccionó un archivo local, lo subimos
+    if (selectedAvatarFile) {
+      const uploadRes = await uploadAvatarImage(
+        selectedAvatarFile.uri,
+        selectedAvatarFile.name,
+        selectedAvatarFile.mimeType,
+        token
+      );
+      if (uploadRes?.avatarUrl) {
+        finalAvatarUrl = uploadRes.avatarUrl;
+      }
+    }
+
     const res = await updateMyProfile(
       {
         displayName: editName.trim(),
         bio: editBio.trim() || undefined,
-        avatarUrl: editAvatarUrl.trim() || undefined,
+        avatarUrl: finalAvatarUrl || undefined,
       },
       token
     );
@@ -129,10 +176,11 @@ export default function ProfileScreen() {
         displayName: res.user.displayName,
         name: res.user.displayName,
         bio: res.user.bio,
-        avatarUrl: res.user.avatarUrl,
+        avatarUrl: res.user.avatarUrl || finalAvatarUrl,
       });
+      setSelectedAvatarFile(null);
       setEditModalVisible(false);
-      toast.success('Perfil Actualizado', 'Tus datos se guardaron exitosamente.');
+      toast.success('Perfil Actualizado', 'Tus datos e imagen se guardaron exitosamente.');
       refreshUser();
     } else {
       toast.error('Error', res.error || 'No se pudo actualizar el perfil.');
@@ -595,15 +643,55 @@ export default function ProfileScreen() {
                 placeholderTextColor={colors.textMuted}
               />
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginTop: 14 }]}>URL Foto de Perfil (Avatar)</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
-                value={editAvatarUrl}
-                onChangeText={setEditAvatarUrl}
-                placeholder="https://ejemplo.com/mifoto.jpg"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-              />
+              {/* Foto de Perfil (Avatar) - Subida directa idéntica a la web */}
+              <Text style={[styles.inputLabel, { color: colors.text, marginTop: 16 }]}>
+                Foto de Perfil (Avatar)
+              </Text>
+
+              <View style={[styles.avatarUploadContainer, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                <View style={styles.avatarPreviewWrapper}>
+                  {editAvatarUrl ? (
+                    <Image source={{ uri: editAvatarUrl }} style={styles.avatarPreviewImg} />
+                  ) : (
+                    <View style={[styles.avatarPreviewPlaceholder, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.avatarPreviewInitials}>
+                        {(editName || user?.displayName || 'U').slice(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.avatarUploadActions}>
+                  <TouchableOpacity
+                    style={[styles.uploadPhotoBtn, { backgroundColor: colors.primary }]}
+                    onPress={handlePickAvatar}
+                    activeOpacity={0.8}
+                  >
+                    <Camera size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.uploadPhotoBtnText}>
+                      {editAvatarUrl ? 'Cambiar Foto' : 'Subir Mi Foto de Perfil'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {editAvatarUrl ? (
+                    <TouchableOpacity
+                      style={[styles.removePhotoBtn, { borderColor: colors.border }]}
+                      onPress={() => {
+                        setEditAvatarUrl('');
+                        setSelectedAvatarFile(null);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Trash2 size={13} color="#EF4444" style={{ marginRight: 4 }} />
+                      <Text style={styles.removePhotoBtnText}>Quitar Foto</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <Text style={[styles.uploadHintText, { color: colors.textMuted }]}>
+                    Toca para seleccionar desde tu galería (JPG, PNG, WEBP).
+                  </Text>
+                </View>
+              </View>
 
               <Text style={[styles.inputLabel, { color: colors.text, marginTop: 14 }]}>Biografía</Text>
               <TextInput
@@ -1084,6 +1172,78 @@ const styles = StyleSheet.create({
   },
   listBio: {
     fontSize: 12,
+    marginTop: 2,
+  },
+  avatarUploadContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 8,
+    marginBottom: 6,
+    gap: 14,
+  },
+  avatarPreviewWrapper: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+  },
+  avatarPreviewImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPreviewPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPreviewInitials: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 20,
+  },
+  avatarUploadActions: {
+    flex: 1,
+  },
+  uploadPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  uploadPhotoBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  removePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  removePhotoBtnText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  uploadHintText: {
+    fontSize: 10,
     marginTop: 2,
   },
 });

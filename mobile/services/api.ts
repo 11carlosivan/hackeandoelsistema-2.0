@@ -523,6 +523,74 @@ export async function uploadResumeFile(
   }
 }
 
+export async function uploadAvatarImage(
+  uri: string,
+  fileName: string = 'avatar.jpg',
+  mimeType: string = 'image/jpeg',
+  token?: string | null
+): Promise<{ avatarUrl: string } | null> {
+  const uploadUrl = `${API_BASE_URL}/api/v1/auth/avatar`;
+  const cleanFileName = fileName || 'avatar.jpg';
+  const cleanMime = mimeType || 'image/jpeg';
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    // 1. En iOS / Android nativo: FileSystem.uploadAsync para manejar URIs de archivo nativas
+    if (Platform.OS !== 'web' && FileSystem && typeof (FileSystem as any).uploadAsync === 'function') {
+      const response = await (FileSystem as any).uploadAsync(uploadUrl, uri, {
+        httpMethod: 'POST',
+        uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 1,
+        fieldName: 'file',
+        mimeType: cleanMime,
+        parameters: {
+          name: cleanFileName,
+        },
+        headers,
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        let errMessage = `Error al subir la imagen (${response.status})`;
+        try {
+          const parsed = JSON.parse(response.body);
+          if (parsed?.message) errMessage = parsed.message;
+        } catch (_) {}
+        throw new Error(errMessage);
+      }
+
+      const json = JSON.parse(response.body);
+      return json?.data || null;
+    }
+
+    // 2. Web fallback
+    const formData = new FormData();
+    const fetchBlob = await fetch(uri);
+    const blob = await fetchBlob.blob();
+    formData.append('file', blob, cleanFileName);
+
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.data) {
+      throw new Error(json?.message || `Error al subir la foto (${res.status})`);
+    }
+
+    return json.data;
+  } catch (error: any) {
+    console.warn('[Avatar Upload Error]:', error);
+    return null;
+  }
+}
+
 
 export async function applyToJob(
   jobId: string,

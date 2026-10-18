@@ -16,6 +16,7 @@ import {
 } from '../services/auth.js';
 import { addMinutes } from '../utils/crypto.js';
 import { noStoreHeaders } from '../utils/http.js';
+import { storeMediaUpload } from '../services/media-storage.js';
 
 const loginSchema = z.object({
   email: z.string().email().max(255),
@@ -404,6 +405,69 @@ export async function registerAuthRoutes(app) {
           ...request.auth.safeUser,
           ...stats,
         },
+      },
+    };
+  });
+
+  // Subida de imagen de perfil (avatar)
+  app.post('/api/v1/auth/avatar', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+    let file = null;
+
+    if (request.isMultipart()) {
+      const parts = request.parts();
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          file = {
+            filename: part.filename,
+            mimetype: part.mimetype,
+            buffer: await part.toBuffer(),
+          };
+          break;
+        }
+      }
+    } else if (request.body?.avatarBase64 || request.body?.image) {
+      const raw = String(request.body.avatarBase64 || request.body.image);
+      const match = raw.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (match) {
+        const mimetype = match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        file = {
+          filename: `avatar-${userId}-${Date.now()}.${mimetype.split('/')[1] || 'jpg'}`,
+          mimetype,
+          buffer,
+        };
+      }
+    }
+
+    if (!file) {
+      throw app.httpErrors.badRequest('No se proporcionó un archivo de imagen válido');
+    }
+
+    const stored = await storeMediaUpload({
+      config: app.config,
+      file,
+    });
+
+    const avatarUrl = stored.url;
+
+    if (typeof app.prisma.userProfile?.upsert === 'function') {
+      await app.prisma.userProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          avatarUrl,
+        },
+        update: {
+          avatarUrl,
+        },
+      });
+    }
+
+    return {
+      data: {
+        avatarUrl,
       },
     };
   });

@@ -9,6 +9,7 @@ const CSRF_EXEMPT_PATHS = new Set([
   '/api/v1/auth/login',
   '/api/v1/auth/refresh',
   '/api/v1/auth/register',
+  '/api/v1/auth/avatar',
   '/api/v1/public/forms/submit',
   '/api/v1/jobs/upload-resume',
 ]);
@@ -18,6 +19,7 @@ function isCsrfExempt(url) {
   if (CSRF_EXEMPT_PATHS.has(path)) return true;
   if (path.startsWith('/api/v1/public/')) return true;
   if (path === '/api/v1/jobs/upload-resume') return true;
+  if (path === '/api/v1/auth/avatar') return true;
   return false;
 }
 const INTERNAL_HOSTS = new Set(['backend', 'localhost', '127.0.0.1', '::1']);
