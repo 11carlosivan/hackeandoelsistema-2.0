@@ -19,7 +19,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   onCommentAdded,
 }) => {
   const { colors } = useTheme();
-  const { user, token } = useAuth();
+  const { user, token, refreshAccessToken } = useAuth();
   const { toast, showModal } = useNotification();
   const router = useRouter();
 
@@ -77,7 +77,16 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     }
 
     setSubmitting(true);
-    const result = await submitPostComment(postId, trimmed, token, replyingTo?.id);
+    let activeToken = token;
+    let result = await submitPostComment(postId, trimmed, activeToken, replyingTo?.id);
+
+    if (!result.success && result.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
+        activeToken = freshToken;
+        result = await submitPostComment(postId, trimmed, activeToken, replyingTo?.id);
+      }
+    }
     setSubmitting(false);
 
     if (result.success) {

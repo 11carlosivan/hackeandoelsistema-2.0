@@ -49,7 +49,7 @@ import {
 
 export default function CommunityFeedScreen() {
   const { colors } = useTheme();
-  const { user, token } = useAuth();
+  const { user, token, refreshAccessToken } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<'all' | 'news' | 'community'>('all');
@@ -122,13 +122,30 @@ export default function CommunityFeedScreen() {
     }
 
     setPublishing(true);
-    const res = await createCommunityPost(
+    let activeToken = token;
+    let res = await createCommunityPost(
       {
         content: postText.trim(),
         poll: pollData,
       },
-      token
+      activeToken
     );
+
+    // Si falló por token expirado, auto-refrescamos la sesión en segundo plano y reintentamos
+    if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
+        activeToken = freshToken;
+        res = await createCommunityPost(
+          {
+            content: postText.trim(),
+            poll: pollData,
+          },
+          activeToken
+        );
+      }
+    }
+
     setPublishing(false);
 
     if (res.success && res.post) {
