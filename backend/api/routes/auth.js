@@ -276,8 +276,10 @@ export async function registerAuthRoutes(app) {
     const validPassword = await verifyPassword(user?.passwordHash, parsed.data.password);
 
     if (isUserLocked(user)) {
-      await recordFailedLogin(app, request, user, 'locked');
-      throw app.httpErrors.unauthorized('Invalid credentials');
+      const remainingMinutes = Math.max(1, Math.ceil((new Date(user.lockedUntil).getTime() - Date.now()) / 60000));
+      throw app.httpErrors.tooManyRequests(
+        `Tu cuenta está temporalmente bloqueada por seguridad debido a varios intentos fallidos. Intenta de nuevo en ${remainingMinutes} minuto(s).`
+      );
     }
 
     if (!user || !validPassword || user.status !== 'ACTIVE') {
@@ -287,7 +289,7 @@ export async function registerAuthRoutes(app) {
         user,
         user?.status === 'ACTIVE' ? 'invalid_credentials' : 'inactive_or_missing',
       );
-      throw app.httpErrors.unauthorized('Invalid credentials');
+      throw app.httpErrors.unauthorized('Credenciales incorrectas. Verifica tu correo y contraseña.');
     }
 
     const [access, refresh] = await Promise.all([
