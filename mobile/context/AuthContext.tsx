@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@/constants/Config';
+import { resolveImageUrl } from '@/services/api';
 
 export interface User {
   id: string;
@@ -71,7 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (savedRefresh) setRefreshToken(savedRefresh);
         if (savedUser) {
           try {
-            setUser(JSON.parse(savedUser));
+            const parsed = JSON.parse(savedUser);
+            if (parsed.avatarUrl) {
+              parsed.avatarUrl = resolveImageUrl(parsed.avatarUrl);
+            }
+            setUser(parsed);
           } catch {}
         }
       } catch (err) {
@@ -154,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: received.displayName || received.username || received.email,
           displayName: received.displayName,
           username: received.username,
-          avatarUrl: received.avatarUrl,
+          avatarUrl: resolveImageUrl(received.avatarUrl) || received.avatarUrl || null,
           bio: received.bio,
           phone: received.phone,
           roles: received.roles || [],
@@ -173,7 +178,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUser = useCallback((partial: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return null;
-      const merged = { ...prev, ...partial };
+      const patched = { ...partial };
+      if (patched.avatarUrl !== undefined && patched.avatarUrl !== null) {
+        patched.avatarUrl = resolveImageUrl(patched.avatarUrl) || patched.avatarUrl;
+      }
+      const merged = { ...prev, ...patched };
       AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(merged)).catch(() => {});
       return merged;
     });
@@ -215,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: receivedUser.displayName || receivedUser.username || receivedUser.email,
         displayName: receivedUser.displayName,
         username: receivedUser.username,
-        avatarUrl: receivedUser.avatarUrl || null,
+        avatarUrl: resolveImageUrl(receivedUser.avatarUrl) || receivedUser.avatarUrl || null,
         bio: receivedUser.bio || null,
         phone: receivedUser.phone || null,
         roles,
@@ -287,7 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: receivedUser.displayName || receivedUser.username || receivedUser.email,
         displayName: receivedUser.displayName,
         username: receivedUser.username,
-        avatarUrl: receivedUser.avatarUrl || null,
+        avatarUrl: resolveImageUrl(receivedUser.avatarUrl) || receivedUser.avatarUrl || null,
         bio: receivedUser.bio || null,
         phone: receivedUser.phone || null,
         roles,

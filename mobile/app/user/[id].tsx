@@ -31,6 +31,7 @@ import {
   toggleFollowUser,
   fetchUserFollowers,
   fetchUserFollowing,
+  resolveImageUrl,
   UserProfileData,
   FollowUserItem,
 } from '@/services/api';
@@ -206,7 +207,7 @@ export default function PublicProfileScreen() {
             {/* Avatar */}
             <View style={styles.avatarWrapper}>
               {profile.avatarUrl ? (
-                <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+                <Image source={{ uri: resolveImageUrl(profile.avatarUrl) || profile.avatarUrl }} style={styles.avatarImage} />
               ) : (
                 <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
                   <Text style={styles.avatarInitials}>
@@ -353,7 +354,7 @@ export default function PublicProfileScreen() {
                     activeOpacity={0.7}
                   >
                     {item.avatarUrl ? (
-                      <Image source={{ uri: item.avatarUrl }} style={styles.listAvatar} />
+                      <Image source={{ uri: resolveImageUrl(item.avatarUrl) || item.avatarUrl }} style={styles.listAvatar} />
                     ) : (
                       <View style={[styles.listAvatarPlaceholder, { backgroundColor: colors.primary }]}>
                         <Text style={styles.listInitials}>

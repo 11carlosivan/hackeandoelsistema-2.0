@@ -7,6 +7,7 @@ import {
   hashPassword,
   normalizeEmail,
   recordSecurityEvent,
+  resolveAvatarUrl,
   revokeRefreshSession,
   rotateRefreshSession,
   sanitizeUser,
@@ -467,7 +468,7 @@ export async function registerAuthRoutes(app) {
 
     return {
       data: {
-        avatarUrl,
+        avatarUrl: resolveAvatarUrl(avatarUrl, app.config),
       },
     };
   });
@@ -620,7 +621,7 @@ export async function registerAuthRoutes(app) {
           actor: n.actor ? {
             id: n.actor.id,
             displayName: n.actor.displayName,
-            avatarUrl: n.actor.profile?.avatarUrl || n.actor.avatarMedia?.url || null,
+            avatarUrl: resolveAvatarUrl(n.actor.profile?.avatarUrl || n.actor.avatarMedia?.url || null, app.config),
           } : null,
         })),
         unreadCount,
@@ -677,7 +678,7 @@ export async function registerAuthRoutes(app) {
           displayName: item.follower.displayName,
           username: item.follower.username,
           bio: item.follower.profile?.bio || null,
-          avatarUrl: item.follower.profile?.avatarUrl || item.follower.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(item.follower.profile?.avatarUrl || item.follower.avatarMedia?.url || null, app.config),
           followedAt: item.createdAt,
         })),
       },
@@ -708,7 +709,7 @@ export async function registerAuthRoutes(app) {
           displayName: item.following.displayName,
           username: item.following.username,
           bio: item.following.profile?.bio || null,
-          avatarUrl: item.following.profile?.avatarUrl || item.following.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(item.following.profile?.avatarUrl || item.following.avatarMedia?.url || null, app.config),
           followedAt: item.createdAt,
         })),
       },

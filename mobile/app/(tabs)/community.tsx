@@ -27,6 +27,7 @@ import {
   toggleCommunityPostLike,
   fetchSponsoredPosts,
   fetchPolls,
+  resolveImageUrl,
   CommunityPostItem,
   SponsoredPostItem,
   PollItem,
@@ -268,7 +269,7 @@ export default function CommunityFeedScreen() {
             activeOpacity={0.7}
           >
             {author.avatarUrl ? (
-              <Image source={{ uri: author.avatarUrl }} style={styles.avatar} />
+              <Image source={{ uri: resolveImageUrl(author.avatarUrl) || author.avatarUrl }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
                 <Text style={styles.avatarInitial}>
@@ -424,7 +425,7 @@ export default function CommunityFeedScreen() {
       >
         <Image
           source={{
-            uri: user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+            uri: resolveImageUrl(user?.avatarUrl) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
           }}
           style={styles.promptAvatar}
         />

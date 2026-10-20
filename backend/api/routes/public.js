@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AUTH_COOKIE_NAMES, verifyAccessToken } from '../services/auth.js';
+import { AUTH_COOKIE_NAMES, resolveAvatarUrl, verifyAccessToken } from '../services/auth.js';
 import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.js';
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
@@ -869,7 +869,7 @@ async function findPublicEntityRoute(app, entityType, entityId) {
 }
 
 function normalizePublicComment(comment) {
-  const avatarUrl = comment.user?.profile?.avatarUrl || comment.user?.avatarMedia?.url || null;
+  const avatarUrl = resolveAvatarUrl(comment.user?.profile?.avatarUrl || comment.user?.avatarMedia?.url || null);
   return {
     id: comment.id,
     userId: comment.userId || comment.user?.id || null,
@@ -2547,7 +2547,7 @@ export async function registerPublicRoutes(app) {
         : false,
     ]);
 
-    const avatarUrl = targetUser.profile?.avatarUrl || targetUser.avatarMedia?.url || null;
+    const avatarUrl = resolveAvatarUrl(targetUser.profile?.avatarUrl || targetUser.avatarMedia?.url || null);
 
     return {
       data: {
@@ -2669,7 +2669,7 @@ export async function registerPublicRoutes(app) {
           displayName: f.follower.displayName,
           username: f.follower.username,
           bio: f.follower.profile?.bio || null,
-          avatarUrl: f.follower.profile?.avatarUrl || f.follower.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(f.follower.profile?.avatarUrl || f.follower.avatarMedia?.url || null),
           followedAt: f.createdAt,
         })),
       },
@@ -2706,7 +2706,7 @@ export async function registerPublicRoutes(app) {
           displayName: f.following.displayName,
           username: f.following.username,
           bio: f.following.profile?.bio || null,
-          avatarUrl: f.following.profile?.avatarUrl || f.following.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(f.following.profile?.avatarUrl || f.following.avatarMedia?.url || null),
           followedAt: f.createdAt,
         })),
       },
@@ -2801,7 +2801,7 @@ export async function registerPublicRoutes(app) {
           id: post.user.id,
           displayName: post.user.displayName,
           username: post.user.username,
-          avatarUrl: post.user.profile?.avatarUrl || post.user.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(post.user.profile?.avatarUrl || post.user.avatarMedia?.url || null),
           bio: post.user.profile?.bio || null,
           isFollowing,
           isNucleo,
@@ -2903,7 +2903,7 @@ export async function registerPublicRoutes(app) {
           id: newPost.user.id,
           displayName: newPost.user.displayName,
           username: newPost.user.username,
-          avatarUrl: newPost.user.profile?.avatarUrl || newPost.user.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(newPost.user.profile?.avatarUrl || newPost.user.avatarMedia?.url || null),
           isFollowing: false,
           isNucleo: false,
         },
@@ -3004,7 +3004,7 @@ export async function registerPublicRoutes(app) {
             id: c.user.id,
             displayName: c.user.displayName,
             username: c.user.username,
-            avatarUrl: c.user.profile?.avatarUrl || c.user.avatarMedia?.url || null,
+            avatarUrl: resolveAvatarUrl(c.user.profile?.avatarUrl || c.user.avatarMedia?.url || null),
           },
         })),
       },
@@ -3053,7 +3053,7 @@ export async function registerPublicRoutes(app) {
             id: comment.user.id,
             displayName: comment.user.displayName,
             username: comment.user.username,
-            avatarUrl: comment.user.profile?.avatarUrl || comment.user.avatarMedia?.url || null,
+            avatarUrl: resolveAvatarUrl(comment.user.profile?.avatarUrl || comment.user.avatarMedia?.url || null),
           },
         },
       },
@@ -3308,7 +3308,7 @@ export async function registerPublicRoutes(app) {
           displayName: u.displayName,
           username: u.username,
           bio: u.profile?.bio || 'Miembro de la comunidad HES',
-          avatarUrl: u.profile?.avatarUrl || u.avatarMedia?.url || null,
+          avatarUrl: resolveAvatarUrl(u.profile?.avatarUrl || u.avatarMedia?.url || null),
         })),
       },
     };

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
-import { submitPostComment, fetchPostComments, PostComment } from '@/services/api';
+import { submitPostComment, fetchPostComments, resolveImageUrl, PostComment } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { MessageSquare, Send, UserCheck, Lock, CornerDownRight, X } from 'lucide-react-native';
 
@@ -211,7 +211,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                     activeOpacity={0.7}
                   >
                     {item.avatarUrl ? (
-                      <Image source={{ uri: item.avatarUrl }} style={styles.commentAvatar} />
+                      <Image source={{ uri: resolveImageUrl(item.avatarUrl) || item.avatarUrl }} style={styles.commentAvatar} />
                     ) : (
                       <View style={[styles.commentAvatarPlaceholder, { backgroundColor: colors.primary }]}>
                         <Text style={styles.commentAvatarInitials}>
@@ -258,7 +258,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                             activeOpacity={0.7}
                           >
                             {reply.avatarUrl ? (
-                              <Image source={{ uri: reply.avatarUrl }} style={styles.commentAvatarSmall} />
+                              <Image source={{ uri: resolveImageUrl(reply.avatarUrl) || reply.avatarUrl }} style={styles.commentAvatarSmall} />
                             ) : (
                               <View style={[styles.commentAvatarPlaceholderSmall, { backgroundColor: colors.primary }]}>
                                 <Text style={styles.commentAvatarInitialsSmall}>

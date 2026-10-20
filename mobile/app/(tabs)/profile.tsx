@@ -46,6 +46,7 @@ import {
   fetchUserFollowers,
   fetchUserFollowing,
   uploadAvatarImage,
+  resolveImageUrl,
   Post,
   FollowUserItem,
 } from '@/services/api';
@@ -371,7 +372,7 @@ export default function ProfileScreen() {
               {/* Avatar + Edit Photo icon */}
               <View style={styles.avatarContainer}>
                 {user.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+                  <Image source={{ uri: resolveImageUrl(user.avatarUrl) || user.avatarUrl }} style={styles.avatarImg} />
                 ) : (
                   <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
                     <Text style={styles.avatarInitials}>
@@ -750,7 +751,7 @@ export default function ProfileScreen() {
               <View style={[styles.avatarUploadContainer, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                 <View style={styles.avatarPreviewWrapper}>
                   {editAvatarUrl ? (
-                    <Image source={{ uri: editAvatarUrl }} style={styles.avatarPreviewImg} />
+                    <Image source={{ uri: resolveImageUrl(editAvatarUrl) || editAvatarUrl }} style={styles.avatarPreviewImg} />
                   ) : (
                     <View style={[styles.avatarPreviewPlaceholder, { backgroundColor: colors.primary }]}>
                       <Text style={styles.avatarPreviewInitials}>
@@ -870,7 +871,7 @@ export default function ProfileScreen() {
                     activeOpacity={0.7}
                   >
                     {item.avatarUrl ? (
-                      <Image source={{ uri: item.avatarUrl }} style={styles.listAvatar} />
+                      <Image source={{ uri: resolveImageUrl(item.avatarUrl) || item.avatarUrl }} style={styles.listAvatar} />
                     ) : (
                       <View style={[styles.listAvatarPlaceholder, { backgroundColor: colors.primary }]}>
                         <Text style={styles.listInitials}>

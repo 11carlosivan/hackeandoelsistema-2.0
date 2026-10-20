@@ -4844,7 +4844,7 @@ export async function registerCmsRoutes(app) {
     const applications = await app.prisma.jobApplication.findMany({
       where: { jobId: id },
       include: {
-        applicantUser: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+        applicantUser: { select: { id: true, displayName: true, email: true, profile: { select: { avatarUrl: true } }, avatarMedia: { select: { url: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -4872,7 +4872,7 @@ export async function registerCmsRoutes(app) {
       app.prisma.communityPost.findMany({
         where,
         include: {
-          user: { select: { id: true, displayName: true, username: true, avatarUrl: true, email: true } },
+          user: { select: { id: true, displayName: true, username: true, email: true, profile: { select: { avatarUrl: true } }, avatarMedia: { select: { url: true } } } },
           poll: { include: { options: true } },
           _count: { select: { comments: true, likes: true } },
         },
@@ -4909,7 +4909,7 @@ export async function registerCmsRoutes(app) {
     const comments = await app.prisma.communityComment.findMany({
       where: { postId: id },
       include: {
-        user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+        user: { select: { id: true, displayName: true, username: true, profile: { select: { avatarUrl: true } }, avatarMedia: { select: { url: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });

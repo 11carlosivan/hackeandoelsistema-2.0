@@ -20,6 +20,7 @@ import {
   fetchPublicPosts,
   fetchSearchOverview,
   toggleFollowUser,
+  resolveImageUrl,
   Post,
 } from '@/services/api';
 import {
@@ -284,7 +285,7 @@ export default function SearchScreen() {
                         onPress={() => router.push(`/user/${u.id}` as any)}
                         activeOpacity={0.7}
                       >
-                        <Image source={{ uri: u.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' }} style={styles.userAvatar} />
+                        <Image source={{ uri: resolveImageUrl(u.avatarUrl) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' }} style={styles.userAvatar} />
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.userDisplayName, { color: colors.text }]} numberOfLines={1}>
                             {u.displayName}

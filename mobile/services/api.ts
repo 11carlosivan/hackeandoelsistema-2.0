@@ -59,9 +59,16 @@ export interface EngagementData {
   };
 }
 
-function resolveImageUrl(url?: string | null): string | null {
+export function resolveImageUrl(url?: string | null): string | null {
   if (!url) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) {
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('file://') ||
+    url.startsWith('content://') ||
+    url.startsWith('ph://') ||
+    url.startsWith('data:')
+  ) {
     return url;
   }
   const baseUrl = API_BASE_URL.replace(/\/+$/, '');

@@ -81,8 +81,17 @@ export async function verifyAccessToken(config, token) {
   return result.payload;
 }
 
-export function sanitizeUser(user) {
-  const avatarUrl = user.profile?.avatarUrl || user.avatarMedia?.url || null;
+export function resolveAvatarUrl(url, config) {
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || config?.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
+export function sanitizeUser(user, config) {
+  const rawAvatar = user.profile?.avatarUrl || user.avatarMedia?.url || null;
+  const avatarUrl = resolveAvatarUrl(rawAvatar, config);
   const bio = user.profile?.bio || null;
 
   return {
