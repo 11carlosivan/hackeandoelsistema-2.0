@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -38,7 +39,7 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react-native';
-import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import {
   fetchSavedPosts,
   updateMyProfile,
@@ -51,7 +52,7 @@ import {
 
 export default function ProfileScreen() {
   const { colors, isDark, themeMode, setThemeMode } = useTheme();
-  const { user, token, logout, deleteAccount, refreshUser, updateUser } = useAuth();
+  const { user, token, logout, deleteAccount, refreshUser, updateUser, refreshAccessToken } = useAuth();
   const { toast, showModal } = useNotification();
   const router = useRouter();
 
@@ -110,35 +111,96 @@ export default function ProfileScreen() {
     setEditModalVisible(true);
   }
 
-  const handlePickAvatar = async () => {
+  const handlePickAvatarFromGallery = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/*'],
-        copyToCacheDirectory: true,
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        toast.error('Permiso requerido', 'Se necesita acceso a tus fotos para seleccionar tu foto de perfil.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
-        const ext = file.name?.split('.').pop()?.toLowerCase();
-        let mime = file.mimeType || 'image/jpeg';
-        if (ext === 'png') mime = 'image/png';
-        else if (ext === 'webp') mime = 'image/webp';
-        else if (ext === 'gif') mime = 'image/gif';
+        const fileName = file.fileName || `avatar_${Date.now()}.jpg`;
+        const mimeType = file.mimeType || 'image/jpeg';
 
         setSelectedAvatarFile({
           uri: file.uri,
-          name: file.name || 'avatar.jpg',
-          mimeType: mime,
+          name: fileName,
+          mimeType,
         });
         setEditAvatarUrl(file.uri);
       }
     } catch (err) {
-      toast.error('Error', 'No se pudo seleccionar la imagen.');
+      toast.error('Error', 'No se pudo abrir la galería de fotos.');
     }
   };
 
+  const handleTakeAvatarPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        toast.error('Permiso requerido', 'Se necesita acceso a la cámara para tomar una foto.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const fileName = `avatar_cam_${Date.now()}.jpg`;
+        const mimeType = file.mimeType || 'image/jpeg';
+
+        setSelectedAvatarFile({
+          uri: file.uri,
+          name: fileName,
+          mimeType,
+        });
+        setEditAvatarUrl(file.uri);
+      }
+    } catch (err) {
+      toast.error('Error', 'No se pudo abrir la cámara.');
+    }
+  };
+
+  const handlePickAvatar = () => {
+    Alert.alert(
+      'Cambiar Foto de Perfil',
+      '¿De dónde deseas seleccionar tu foto?',
+      [
+        {
+          text: 'Elegir de la Galería',
+          onPress: handlePickAvatarFromGallery,
+        },
+        {
+          text: 'Tomar Foto con la Cámara',
+          onPress: handleTakeAvatarPhoto,
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   async function handleSaveProfile() {
-    if (!token) return;
+    if (!token) {
+      toast.error('Sesión requerida', 'Debes iniciar sesión para editar tu perfil.');
+      return;
+    }
     if (!editName.trim()) {
       toast.error('Error', 'El nombre no puede estar vacío.');
       return;
@@ -146,29 +208,66 @@ export default function ProfileScreen() {
 
     setSavingProfile(true);
 
+    let activeToken = token;
     let finalAvatarUrl = editAvatarUrl;
 
     // Si el usuario seleccionó un archivo local, lo subimos
     if (selectedAvatarFile) {
-      const uploadRes = await uploadAvatarImage(
+      let uploadRes = await uploadAvatarImage(
         selectedAvatarFile.uri,
         selectedAvatarFile.name,
         selectedAvatarFile.mimeType,
-        token
+        activeToken
       );
+
+      // Si falló (ej: token expirado), intentamos refrescar el token automáticamente y reintentar
+      if (!uploadRes && refreshAccessToken) {
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken) {
+          activeToken = refreshedToken;
+          uploadRes = await uploadAvatarImage(
+            selectedAvatarFile.uri,
+            selectedAvatarFile.name,
+            selectedAvatarFile.mimeType,
+            activeToken
+          );
+        }
+      }
+
       if (uploadRes?.avatarUrl) {
         finalAvatarUrl = uploadRes.avatarUrl;
+      } else {
+        setSavingProfile(false);
+        toast.error('Error al subir foto', 'No se pudo subir la foto seleccionada. Verifica tu conexión.');
+        return;
       }
     }
 
-    const res = await updateMyProfile(
+    let res = await updateMyProfile(
       {
         displayName: editName.trim(),
         bio: editBio.trim() || undefined,
         avatarUrl: finalAvatarUrl || undefined,
       },
-      token
+      activeToken
     );
+
+    // Si falló por token expirado, reintentamos refrescando
+    if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        activeToken = refreshedToken;
+        res = await updateMyProfile(
+          {
+            displayName: editName.trim(),
+            bio: editBio.trim() || undefined,
+            avatarUrl: finalAvatarUrl || undefined,
+          },
+          activeToken
+        );
+      }
+    }
+
     setSavingProfile(false);
 
     if (res.success && res.user) {

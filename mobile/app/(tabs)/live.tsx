@@ -9,6 +9,7 @@ import {
   Share,
   ActivityIndicator,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -86,9 +87,55 @@ export default function HESLiveScreen() {
   ];
 
   const activePlaylistId = liveData?.playlistId || (liveData?.channelId ? `UU${liveData.channelId.slice(2)}` : YOUTUBE_PLAYLIST_ID);
-  const embedUrl = liveData?.videoId && liveData.videoId !== 'live_stream_current'
-    ? `https://www.youtube-nocookie.com/embed/${liveData.videoId}?autoplay=1&mute=0&enablejsapi=1`
-    : `https://www.youtube-nocookie.com/embed/videoseries?list=${activePlaylistId}&autoplay=1&mute=0&enablejsapi=1`;
+  const isSpecificVideo = liveData?.videoId && liveData.videoId !== 'live_stream_current';
+  const embedUrl = isSpecificVideo
+    ? `https://www.youtube.com/embed/${liveData.videoId}?autoplay=1&mute=0&playsinline=1&enablejsapi=1&origin=https://hackeandoelsistema.net&widget_referrer=https://hackeandoelsistema.net`
+    : `https://www.youtube.com/embed/videoseries?list=${activePlaylistId}&autoplay=1&mute=0&playsinline=1&enablejsapi=1&origin=https://hackeandoelsistema.net&widget_referrer=https://hackeandoelsistema.net`;
+
+  const youtubeDirectUrl = isSpecificVideo
+    ? `https://www.youtube.com/watch?v=${liveData.videoId}`
+    : `https://www.youtube.com/playlist?list=${activePlaylistId}`;
+
+  const youtubeHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <iframe
+    id="hes_player"
+    type="text/html"
+    src="${embedUrl}"
+    frameborder="0"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+</body>
+</html>
+  `;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -107,16 +154,25 @@ export default function HESLiveScreen() {
             <iframe
               src={embedUrl}
               style={{ width: '100%', height: '100%', border: 'none' } as any}
+              referrerPolicy="strict-origin-when-cross-origin"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
           ) : WebViewComponent ? (
             <WebViewComponent
-              source={{ uri: embedUrl }}
+              source={{
+                html: youtubeHtml,
+                baseUrl: 'https://hackeandoelsistema.net',
+              }}
               style={styles.webView}
               allowsFullscreenVideo
+              allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction={false}
               javaScriptEnabled
+              domStorageEnabled
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
             />
           ) : (
             <View style={[styles.webView, { alignItems: 'center', justifyContent: 'center' }]}>
@@ -170,6 +226,15 @@ export default function HESLiveScreen() {
               <Text style={[styles.actionText, { color: saved ? '#DC2626' : colors.text }]}>
                 {saved ? 'Guardado' : 'Guardar'}
               </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => Linking.openURL(youtubeDirectUrl)}
+              activeOpacity={0.7}
+            >
+              <ExternalLink size={18} color="#DC2626" />
+              <Text style={[styles.actionText, { color: '#DC2626', fontWeight: '700' }]}>Ver en App</Text>
             </TouchableOpacity>
           </View>
         </View>
