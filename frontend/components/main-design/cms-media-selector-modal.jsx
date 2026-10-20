@@ -161,7 +161,7 @@ function UploadDropzone({ onUploaded }) {
   );
 }
 
-export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selectedMediaId = null, initialMedia = [] }) {
+export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selectedMediaId = null, initialMedia = [], title = 'Imagen destacada' }) {
   const [items, setItems] = useState(initialMedia);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState('library');
@@ -258,7 +258,7 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
         <header className="flex items-center justify-between border-b border-terminal-gray px-4 py-3 md:px-5">
           <div>
             <div className="font-label-caps text-system-red text-[10px] font-bold">MEDIA</div>
-            <h2 className="font-headline-md text-xl text-white uppercase md:text-2xl">Imagen destacada</h2>
+            <h2 className="font-headline-md text-xl text-white uppercase md:text-2xl">{title}</h2>
           </div>
           <button
             type="button"
