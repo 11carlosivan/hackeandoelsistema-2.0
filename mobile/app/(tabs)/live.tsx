@@ -85,7 +85,10 @@ export default function HESLiveScreen() {
     { id: 'p3', title: 'HES Especial: Crisis alimentaria y reformas', duration: '1:05:40', date: 'Hace 5 días', views: '41K' },
   ];
 
-  const embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${YOUTUBE_PLAYLIST_ID}&autoplay=1&mute=0&enablejsapi=1`;
+  const activePlaylistId = liveData?.playlistId || (liveData?.channelId ? `UU${liveData.channelId.slice(2)}` : YOUTUBE_PLAYLIST_ID);
+  const embedUrl = liveData?.videoId && liveData.videoId !== 'live_stream_current'
+    ? `https://www.youtube-nocookie.com/embed/${liveData.videoId}?autoplay=1&mute=0&enablejsapi=1`
+    : `https://www.youtube-nocookie.com/embed/videoseries?list=${activePlaylistId}&autoplay=1&mute=0&enablejsapi=1`;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>

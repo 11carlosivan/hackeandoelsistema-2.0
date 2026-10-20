@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import { MatrixLoadingScreen } from '@/components/MatrixLoadingScreen';
 
 function RootLayoutNav() {
   const { colors, isDark } = useTheme();
+  const [showSplash, setShowSplash] = useState(true);
 
   return (
-    <>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+    <View style={{ flex: 1 }}>
+      <StatusBar style={showSplash ? 'light' : (isDark ? 'light' : 'dark')} />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -26,7 +29,11 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="register" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
-    </>
+
+      {showSplash ? (
+        <MatrixLoadingScreen onFinish={() => setShowSplash(false)} />
+      ) : null}
+    </View>
   );
 }
 

@@ -865,3 +865,149 @@ export async function getJobBySlug(slug) {
     return null;
   }
 }
+
+// ==================== CMS LIVE STREAM SETTINGS ====================
+export async function getCmsLiveStreamSettings(accessToken) {
+  try {
+    const res = await fetchProtectedApi('/api/v1/cms/settings/live-stream', accessToken);
+    return res?.data || null;
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+export async function updateCmsLiveStreamSettings(accessToken, payload) {
+  return fetchProtectedApi('/api/v1/cms/settings/live-stream', accessToken, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+// ==================== CMS SPONSORED POSTS / PUBLICIDAD ====================
+export async function getCmsSponsoredPosts(accessToken) {
+  try {
+    const res = await fetchProtectedApi('/api/v1/cms/sponsored-posts', accessToken);
+    return res?.data?.ads || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createCmsSponsoredPost(accessToken, payload) {
+  return fetchProtectedApi('/api/v1/cms/sponsored-posts', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCmsSponsoredPost(accessToken, id, payload) {
+  return fetchProtectedApi(`/api/v1/cms/sponsored-posts/${encodeURIComponent(id)}`, accessToken, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function toggleCmsSponsoredPost(accessToken, id) {
+  return fetchProtectedApi(`/api/v1/cms/sponsored-posts/${encodeURIComponent(id)}/toggle`, accessToken, {
+    method: 'PATCH',
+  });
+}
+
+export async function deleteCmsSponsoredPost(accessToken, id) {
+  return fetchProtectedApi(`/api/v1/cms/sponsored-posts/${encodeURIComponent(id)}`, accessToken, {
+    method: 'DELETE',
+  });
+}
+
+// ==================== CMS JOBS / VACANTES ====================
+export async function getCmsJobs(accessToken, { status, q, page = 1, limit = 30 } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (q) params.set('q', q);
+    if (page) params.set('page', String(page));
+    if (limit) params.set('limit', String(limit));
+
+    const res = await fetchProtectedApi(`/api/v1/cms/jobs?${params.toString()}`, accessToken);
+    return {
+      jobs: res?.data?.jobs || [],
+      meta: res?.data?.meta || { total: 0, page: 1, limit: 30, totalPages: 1 },
+    };
+  } catch (error) {
+    return { jobs: [], meta: { total: 0, page: 1, limit: 30, totalPages: 1 }, error: error.message };
+  }
+}
+
+export async function updateCmsJobStatus(accessToken, id, status) {
+  return fetchProtectedApi(`/api/v1/cms/jobs/${encodeURIComponent(id)}/status`, accessToken, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function updateCmsJob(accessToken, id, payload) {
+  return fetchProtectedApi(`/api/v1/cms/jobs/${encodeURIComponent(id)}`, accessToken, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCmsJob(accessToken, id) {
+  return fetchProtectedApi(`/api/v1/cms/jobs/${encodeURIComponent(id)}`, accessToken, {
+    method: 'DELETE',
+  });
+}
+
+export async function getCmsJobApplications(accessToken, id) {
+  try {
+    const res = await fetchProtectedApi(`/api/v1/cms/jobs/${encodeURIComponent(id)}/applications`, accessToken);
+    return res?.data?.applications || [];
+  } catch {
+    return [];
+  }
+}
+
+// ==================== CMS COMMUNITY MODERATION ====================
+export async function getCmsCommunityPosts(accessToken, { q, page = 1, limit = 30 } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (page) params.set('page', String(page));
+    if (limit) params.set('limit', String(limit));
+
+    const res = await fetchProtectedApi(`/api/v1/cms/community-posts?${params.toString()}`, accessToken);
+    return {
+      posts: res?.data?.posts || [],
+      meta: res?.data?.meta || { total: 0, page: 1, limit: 30, totalPages: 1 },
+    };
+  } catch (error) {
+    return { posts: [], meta: { total: 0, page: 1, limit: 30, totalPages: 1 }, error: error.message };
+  }
+}
+
+export async function deleteCmsCommunityPost(accessToken, id) {
+  return fetchProtectedApi(`/api/v1/cms/community-posts/${encodeURIComponent(id)}`, accessToken, {
+    method: 'DELETE',
+  });
+}
+
+export async function getCmsCommunityComments(accessToken, id) {
+  try {
+    const res = await fetchProtectedApi(`/api/v1/cms/community-posts/${encodeURIComponent(id)}/comments`, accessToken);
+    return res?.data?.comments || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteCmsCommunityComment(accessToken, id) {
+  return fetchProtectedApi(`/api/v1/cms/community-comments/${encodeURIComponent(id)}`, accessToken, {
+    method: 'DELETE',
+  });
+}
+

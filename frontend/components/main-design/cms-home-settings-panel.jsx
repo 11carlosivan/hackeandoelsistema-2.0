@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SystemPageHeader } from '@/components/main-design/content-primitives';
+import { getCmsLiveStreamSettings, updateCmsLiveStreamSettings } from '@/lib/main-design/api';
 
 const LAYOUT_OPTIONS = [
   {
@@ -28,11 +29,40 @@ const LAYOUT_OPTIONS = [
   }
 ];
 
-export default function CmsHomeSettingsPanel({ allCategories = [] }) {
+export default function CmsHomeSettingsPanel({ allCategories = [], accessToken }) {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [categoryLayouts, setCategoryLayouts] = useState({});
   const [savedMessage, setSavedMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Live Stream & YouTube Playlist configuration
+  const [liveStream, setLiveStream] = useState({
+    channelId: 'UCPO4ECcCtQNLPe11a0k5n2w',
+    playlistId: 'UUPO4ECcCtQNLPe11a0k5n2w',
+    videoId: '',
+    title: 'Red Estelar: análisis del panorama político',
+    host: 'Con Melvin Sena y su equipo',
+    isLive: true,
+  });
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveFeedback, setLiveFeedback] = useState('');
+
+  useEffect(() => {
+    if (accessToken) {
+      getCmsLiveStreamSettings(accessToken).then((data) => {
+        if (data && !data.error) {
+          setLiveStream({
+            channelId: data.channelId || 'UCPO4ECcCtQNLPe11a0k5n2w',
+            playlistId: data.playlistId || 'UUPO4ECcCtQNLPe11a0k5n2w',
+            videoId: data.videoId === 'live_stream_current' ? '' : (data.videoId || ''),
+            title: data.title || '',
+            host: data.host || '',
+            isLive: data.isLive ?? true,
+          });
+        }
+      });
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     // Load current configuration from localStorage
@@ -122,17 +152,147 @@ export default function CmsHomeSettingsPanel({ allCategories = [] }) {
     }
   };
 
+  const handleSaveLiveStream = async (e) => {
+    if (e) e.preventDefault();
+    setLiveLoading(true);
+    setLiveFeedback('');
+    try {
+      await updateCmsLiveStreamSettings(accessToken, {
+        ...liveStream,
+        videoId: liveStream.videoId?.trim() || 'live_stream_current',
+      });
+      setLiveFeedback('¡Configuración de YouTube y transmisión en vivo guardada exitosamente!');
+      setTimeout(() => setLiveFeedback(''), 5000);
+    } catch (err) {
+      alert('Error al guardar configuración de YouTube: ' + err.message);
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
   return (
     <div className="w-full space-y-8">
       <SystemPageHeader
         eyebrow="CMS TERMINAL"
-        title="Ajustes de Portada (Home)"
-        description="Selecciona qué categorías mostrar en la página principal, ordena su aparición y elige la estructura visual de cuadros para cada una."
+        title="Ajustes de Portada y Transmisión"
+        description="Configura el canal/playlist de YouTube para la app móvil y personalizada las secciones y cuadros de noticias de la web."
         stats={[
           { label: 'CATEGORÍAS ACTIVAS', value: String(selectedCategories.length), icon: 'category' },
-          { label: 'PATRONES DE DISEÑO', value: '3 Opciones', icon: 'view_compact' },
+          { label: 'ESTADO EN VIVO', value: liveStream.isLive ? 'ACTIVO' : 'PAUSADO', icon: 'live_tv' },
         ]}
       />
+
+      {/* SECCIÓN YOUTUBE LIVE (APP & WEB) */}
+      <div className="border border-terminal-gray bg-surface-container-low/60 p-6 font-mono text-xs shadow-md">
+        <div className="flex items-center justify-between border-b border-terminal-gray pb-4 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-system-red text-2xl">smart_display</span>
+            <div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                Transmisión En Vivo y Canal de YouTube (App & Web)
+              </h2>
+              <p className="text-on-surface-variant text-[11px] mt-0.5">
+                Configura el ID de canal o playlist que reproduce la pestaña "En Vivo" en la app móvil.
+              </p>
+            </div>
+          </div>
+          <span className={`px-2.5 py-1 text-[10px] font-bold uppercase border ${liveStream.isLive ? 'border-green-500/50 bg-green-500/10 text-green-400' : 'border-terminal-gray text-terminal-gray'}`}>
+            {liveStream.isLive ? '● En Vivo' : '○ Standby'}
+          </span>
+        </div>
+
+        {liveFeedback && (
+          <div className="p-3 mb-6 bg-green-500/10 border border-green-500/40 text-green-400 font-bold flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]">verified</span>
+            {liveFeedback}
+          </div>
+        )}
+
+        <form onSubmit={handleSaveLiveStream} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-terminal-gray mb-1 uppercase font-bold">ID del Canal de YouTube</label>
+              <input
+                type="text"
+                value={liveStream.channelId}
+                onChange={(e) => setLiveStream({ ...liveStream, channelId: e.target.value })}
+                placeholder="Ej: UCPO4ECcCtQNLPe11a0k5n2w"
+                className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+              />
+              <span className="text-[10px] text-terminal-gray/80 mt-1 block">Canal oficial de Hackeando El Sistema</span>
+            </div>
+
+            <div>
+              <label className="block text-terminal-gray mb-1 uppercase font-bold">ID de la Lista de Reproducción (Playlist)</label>
+              <input
+                type="text"
+                value={liveStream.playlistId}
+                onChange={(e) => setLiveStream({ ...liveStream, playlistId: e.target.value })}
+                placeholder="Ej: UUPO4ECcCtQNLPe11a0k5n2w"
+                className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+              />
+              <span className="text-[10px] text-terminal-gray/80 mt-1 block">Lista de videos/emisiones que se reproducirán</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-terminal-gray mb-1 uppercase font-bold">ID de Video Específico (Opcional)</label>
+              <input
+                type="text"
+                value={liveStream.videoId}
+                onChange={(e) => setLiveStream({ ...liveStream, videoId: e.target.value })}
+                placeholder="Dejar vacío para lista continua"
+                className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-terminal-gray mb-1 uppercase font-bold">Título de la Emisión</label>
+              <input
+                type="text"
+                value={liveStream.title}
+                onChange={(e) => setLiveStream({ ...liveStream, title: e.target.value })}
+                placeholder="Ej: Red Estelar: Análisis del día"
+                className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-terminal-gray mb-1 uppercase font-bold">Conductor / Moderador</label>
+              <input
+                type="text"
+                value={liveStream.host}
+                onChange={(e) => setLiveStream({ ...liveStream, host: e.target.value })}
+                placeholder="Ej: Con Melvin Sena y su equipo"
+                className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-terminal-gray/40">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isLiveToggle"
+                checked={liveStream.isLive}
+                onChange={(e) => setLiveStream({ ...liveStream, isLive: e.target.checked })}
+                className="accent-system-red w-4 h-4 cursor-pointer"
+              />
+              <label htmlFor="isLiveToggle" className="text-white font-bold cursor-pointer select-none">
+                Emisión en Vivo activa actualmente
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={liveLoading}
+              className="bg-system-red hover:bg-white text-black px-6 py-2.5 font-bold uppercase transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[16px]">save</span>
+              {liveLoading ? 'GUARDANDO...' : 'GUARDAR CONFIGURACIÓN DE YOUTUBE'}
+            </button>
+          </div>
+        </form>
+      </div>
 
       {savedMessage && (
         <div className="border border-system-red bg-system-red/10 text-white p-4 font-mono text-xs flex items-center justify-between animate-pulse">

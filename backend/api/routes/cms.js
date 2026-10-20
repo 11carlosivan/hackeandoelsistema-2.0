@@ -5,6 +5,7 @@ import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.j
 import { removeLocalMediaFile, storeMediaUpload } from '../services/media-storage.js';
 import { noStoreHeaders } from '../utils/http.js';
 import { notifyEditorialPost } from '../services/notifications.js';
+import { getGlobalLiveStreamSettings, updateGlobalLiveStreamSettings } from '../services/public-system-stats.js';
 
 const PUBLIC_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.WEB_ORIGIN || 'https://hackeandoelsistema.net').replace(/\/+$/g, '');
 const REDIRECT_SOURCE_RESERVED_PREFIXES = ['/api/', '/_next/', '/cms/'];
@@ -4655,4 +4656,271 @@ export async function registerCmsRoutes(app) {
       },
     };
   });
+
+  // ==================== LIVE STREAM SETTINGS ====================
+  app.get('/api/v1/cms/settings/live-stream', { preHandler: app.requirePermission('cms:read') }, async (_request, reply) => {
+    noStoreHeaders(reply);
+    return { data: getGlobalLiveStreamSettings() };
+  });
+
+  app.put('/api/v1/cms/settings/live-stream', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const bodySchema = z.object({
+      channelId: z.string().optional(),
+      playlistId: z.string().optional(),
+      videoId: z.string().optional(),
+      title: z.string().optional(),
+      host: z.string().optional(),
+      isLive: z.boolean().optional(),
+    });
+    const parsed = bodySchema.parse(request.body || {});
+    const updated = updateGlobalLiveStreamSettings(parsed);
+    return { data: updated };
+  });
+
+  // ==================== PUBLICIDAD / SPONSORED POSTS CMS ====================
+  const sponsoredPostSchema = z.object({
+    sponsorName: z.string().min(1, 'El nombre del anunciante es obligatorio'),
+    sponsorHandle: z.string().optional().nullable(),
+    sponsorLogo: z.string().optional().nullable(),
+    title: z.string().min(1, 'El título es obligatorio'),
+    content: z.string().min(1, 'El contenido es obligatorio'),
+    mediaUrl: z.string().optional().nullable(),
+    ctaText: z.string().default('Conoce más'),
+    ctaUrl: z.string().url('Debe ser una URL válida (http/https)'),
+    placement: z.string().default('feed'),
+    isActive: z.boolean().default(true),
+  });
+
+  app.get('/api/v1/cms/sponsored-posts', { preHandler: app.requirePermission('cms:read') }, async (_request, reply) => {
+    noStoreHeaders(reply);
+    if (!app.prisma?.sponsoredPost) return { data: { ads: [] } };
+    const ads = await app.prisma.sponsoredPost.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return { data: { ads } };
+  });
+
+  app.post('/api/v1/cms/sponsored-posts', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const body = sponsoredPostSchema.parse(request.body || {});
+    const ad = await app.prisma.sponsoredPost.create({
+      data: {
+        id: randomUUID(),
+        ...body,
+      },
+    });
+    return reply.status(201).send({ data: { ad } });
+  });
+
+  app.patch('/api/v1/cms/sponsored-posts/:id', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    const body = sponsoredPostSchema.partial().parse(request.body || {});
+    const ad = await app.prisma.sponsoredPost.update({
+      where: { id },
+      data: body,
+    });
+    return { data: { ad } };
+  });
+
+  app.patch('/api/v1/cms/sponsored-posts/:id/toggle', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    const existing = await app.prisma.sponsoredPost.findUnique({ where: { id } });
+    if (!existing) return reply.status(404).send({ error: 'Anuncio no encontrado' });
+    const ad = await app.prisma.sponsoredPost.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+    return { data: { ad } };
+  });
+
+  app.delete('/api/v1/cms/sponsored-posts/:id', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    await app.prisma.sponsoredPost.delete({ where: { id } });
+    return { data: { success: true } };
+  });
+
+  // ==================== VACANTES / JOBS CMS ====================
+  app.get('/api/v1/cms/jobs', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    noStoreHeaders(reply);
+    if (!app.prisma?.job) return { data: { jobs: [], total: 0 } };
+    const { status, q, page = '1', limit = '30' } = request.query || {};
+    const take = Math.max(1, Math.min(100, Number(limit) || 30));
+    const skip = Math.max(0, ((Number(page) || 1) - 1) * take);
+
+    const where = {};
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+    if (q && q.trim()) {
+      where.OR = [
+        { title: { contains: q.trim() } },
+        { companyName: { contains: q.trim() } },
+        { location: { contains: q.trim() } },
+      ];
+    }
+
+    const [jobs, total] = await Promise.all([
+      app.prisma.job.findMany({
+        where,
+        include: {
+          company: { select: { id: true, displayName: true, email: true, username: true } },
+          _count: { select: { applications: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+      app.prisma.job.count({ where }),
+    ]);
+
+    return {
+      data: {
+        jobs,
+        meta: {
+          total,
+          page: Number(page) || 1,
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      },
+    };
+  });
+
+  app.patch('/api/v1/cms/jobs/:id/status', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    const { status } = z.object({
+      status: z.enum(['PUBLISHED', 'CLOSED', 'ARCHIVED', 'DRAFT']),
+    }).parse(request.body || {});
+
+    const job = await app.prisma.job.update({
+      where: { id },
+      data: { status },
+    });
+    return { data: { job } };
+  });
+
+  app.patch('/api/v1/cms/jobs/:id', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    const updateSchema = z.object({
+      title: z.string().optional(),
+      companyName: z.string().optional(),
+      location: z.string().optional(),
+      workplaceType: z.enum(['ONSITE', 'REMOTE', 'HYBRID']).optional(),
+      employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP', 'TEMPORARY']).optional(),
+      category: z.string().optional().nullable(),
+      salaryMin: z.number().int().optional().nullable(),
+      salaryMax: z.number().int().optional().nullable(),
+      salaryCurrency: z.string().optional(),
+      isSalaryNegotiable: z.boolean().optional(),
+      description: z.string().optional(),
+      requirements: z.string().optional().nullable(),
+      benefits: z.string().optional().nullable(),
+      status: z.enum(['PUBLISHED', 'CLOSED', 'ARCHIVED', 'DRAFT']).optional(),
+    });
+    const parsed = updateSchema.parse(request.body || {});
+    const job = await app.prisma.job.update({
+      where: { id },
+      data: parsed,
+    });
+    return { data: { job } };
+  });
+
+  app.delete('/api/v1/cms/jobs/:id', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    await app.prisma.job.delete({ where: { id } });
+    return { data: { success: true } };
+  });
+
+  app.get('/api/v1/cms/jobs/:id/applications', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    const applications = await app.prisma.jobApplication.findMany({
+      where: { jobId: id },
+      include: {
+        applicantUser: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { data: { applications } };
+  });
+
+  // ==================== MODERACION DE COMUNIDAD CMS ====================
+  app.get('/api/v1/cms/community-posts', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    noStoreHeaders(reply);
+    if (!app.prisma?.communityPost) return { data: { posts: [], total: 0 } };
+    const { q, page = '1', limit = '30' } = request.query || {};
+    const take = Math.max(1, Math.min(100, Number(limit) || 30));
+    const skip = Math.max(0, ((Number(page) || 1) - 1) * take);
+
+    const where = {};
+    if (q && q.trim()) {
+      where.OR = [
+        { content: { contains: q.trim() } },
+        { user: { displayName: { contains: q.trim() } } },
+        { user: { username: { contains: q.trim() } } },
+      ];
+    }
+
+    const [posts, total] = await Promise.all([
+      app.prisma.communityPost.findMany({
+        where,
+        include: {
+          user: { select: { id: true, displayName: true, username: true, avatarUrl: true, email: true } },
+          poll: { include: { options: true } },
+          _count: { select: { comments: true, likes: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+      app.prisma.communityPost.count({ where }),
+    ]);
+
+    return {
+      data: {
+        posts,
+        meta: {
+          total,
+          page: Number(page) || 1,
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      },
+    };
+  });
+
+  app.delete('/api/v1/cms/community-posts/:id', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    await app.prisma.communityPost.delete({ where: { id } });
+    return { data: { success: true } };
+  });
+
+  app.get('/api/v1/cms/community-posts/:id/comments', { preHandler: app.requirePermission('cms:read') }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    const comments = await app.prisma.communityComment.findMany({
+      where: { postId: id },
+      include: {
+        user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { data: { comments } };
+  });
+
+  app.delete('/api/v1/cms/community-comments/:id', { preHandler: app.requirePermission(['posts:manage', 'cms:write']) }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = request.params;
+    await app.prisma.communityComment.delete({ where: { id } });
+    return { data: { success: true } };
+  });
 }
+

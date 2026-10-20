@@ -20,6 +20,28 @@ const DEFAULT_DOLLAR_RATE = {
   source: 'fallback',
 };
 
+let liveStreamConfig = {
+  channelId: 'UCPO4ECcCtQNLPe11a0k5n2w',
+  playlistId: 'UUPO4ECcCtQNLPe11a0k5n2w',
+  videoId: 'live_stream_current',
+  title: 'Red Estelar: análisis del panorama político',
+  host: 'Con Melvin Sena y su equipo',
+  isLive: true,
+  viewersCount: '12.4K',
+};
+
+export function getGlobalLiveStreamSettings() {
+  return liveStreamConfig;
+}
+
+export function updateGlobalLiveStreamSettings(updates = {}) {
+  liveStreamConfig = {
+    ...liveStreamConfig,
+    ...updates,
+  };
+  return liveStreamConfig;
+}
+
 const weatherCodeMap = new Map([
   [0, ['Despejado', 'sunny']],
   [1, ['Mayormente despejado', 'partly_cloudy_day']],
@@ -246,13 +268,13 @@ export function createSystemStatsProvider(config = {}) {
     };
 
     const liveStream = {
-      channelId: 'UCPO4ECcCtQNLPe11a0k5n2w',
-      playlistId: 'UUPO4ECcCtQNLPe11a0k5n2w',
-      videoId: 'live_stream_current',
-      title: 'Red Estelar: análisis del panorama político',
-      host: 'Con Melvin Sena y su equipo',
-      isLive: true,
-      viewersCount: '12.4K',
+      channelId: liveStreamConfig.channelId,
+      playlistId: liveStreamConfig.playlistId,
+      videoId: liveStreamConfig.videoId,
+      title: liveStreamConfig.title,
+      host: liveStreamConfig.host,
+      isLive: liveStreamConfig.isLive,
+      viewersCount: liveStreamConfig.viewersCount,
       likesCount: '1.2K',
       sharesCount: '342',
       schedule: [

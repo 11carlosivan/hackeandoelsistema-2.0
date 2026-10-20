@@ -10,6 +10,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://hackeandoelsistema.net"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -19,6 +22,9 @@
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://hackeandoelsistema.net"
+      },
       "android": {
         "buildType": "app-bundle"
       },

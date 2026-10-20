@@ -156,6 +156,27 @@ export default function CmsDashboard({ summary, accessToken = null }) {
             Análisis Estadístico
           </Link>
           <Link
+            href="/cms/publicidad"
+            className="border border-system-red/60 bg-system-red/10 px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:bg-system-red hover:text-black transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px] text-system-red group-hover:text-black">campaign</span>
+            Publicidad
+          </Link>
+          <Link
+            href="/cms/empleos"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px]">work</span>
+            Vacantes
+          </Link>
+          <Link
+            href="/cms/comunidad"
+            className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[14px]">forum</span>
+            Comunidad
+          </Link>
+          <Link
             href="/cms/ajustes"
             className="border border-terminal-gray px-4 py-3 font-label-caps text-[10px] font-bold text-white hover:border-system-red hover:text-system-red transition-colors flex items-center gap-1.5"
           >
