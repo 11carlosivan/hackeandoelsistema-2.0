@@ -13,6 +13,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,12 +26,18 @@ import {
   fetchCommunityPosts,
   createCommunityPost,
   toggleCommunityPostLike,
+  fetchCommunityComments,
+  submitCommunityComment,
+  repostCommunityPost,
   fetchSponsoredPosts,
   fetchPolls,
   resolveImageUrl,
   CommunityPostItem,
   SponsoredPostItem,
   PollItem,
+  toggleFollowUser,
+  getSavedCommunityPosts,
+  toggleSaveCommunityPost,
 } from '@/services/api';
 import {
   Send,
@@ -69,16 +76,28 @@ export default function CommunityFeedScreen() {
   const [pollOption2, setPollOption2] = useState('');
   const [publishing, setPublishing] = useState(false);
 
+  // Comments Modal State
+  const [commentsModalVisible, setCommentsModalVisible] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<CommunityPostItem | null>(null);
+  const [postComments, setPostComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const [savedCommunityPostIds, setSavedCommunityPostIds] = useState<Set<string>>(new Set());
+
   const loadData = useCallback(async () => {
     try {
-      const [postRes, adRes, pollRes] = await Promise.all([
+      const [postRes, adRes, pollRes, savedRes] = await Promise.all([
         fetchCommunityPosts(token),
         fetchSponsoredPosts(),
         fetchPolls(),
+        getSavedCommunityPosts(),
       ]);
       setPosts(postRes);
       setSponsoredAds(adRes);
       setPolls(pollRes);
+      setSavedCommunityPostIds(new Set(savedRes.map((p) => p.id)));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -186,11 +205,176 @@ export default function CommunityFeedScreen() {
     await toggleCommunityPostLike(postId, token);
   };
 
+  const handleOpenComments = async (post: CommunityPostItem) => {
+    setSelectedPostForComments(post);
+    setCommentsModalVisible(true);
+    setLoadingComments(true);
+    setPostComments([]);
+    try {
+      const comms = await fetchCommunityComments(post.id);
+      setPostComments(comms || []);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleSendCommunityComment = async () => {
+    if (!token) {
+      setCommentsModalVisible(false);
+      router.push('/login' as any);
+      return;
+    }
+    const text = newCommentText.trim();
+    if (!text || !selectedPostForComments) return;
+
+    setSubmittingComment(true);
+    let activeToken = token;
+    let res = await submitCommunityComment(selectedPostForComments.id, text, activeToken);
+    if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const fresh = await refreshAccessToken();
+      if (fresh) {
+        activeToken = fresh;
+        res = await submitCommunityComment(selectedPostForComments.id, text, activeToken);
+      }
+    }
+    setSubmittingComment(false);
+
+    if (res.success && res.comment) {
+      setPostComments((prev) => [...prev, res.comment]);
+      setNewCommentText('');
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === selectedPostForComments.id
+            ? { ...p, commentsCount: (p.commentsCount || 0) + 1 }
+            : p
+        )
+      );
+    } else {
+      Alert.alert('Error', res.error || 'No se pudo enviar el comentario');
+    }
+  };
+
+  const handleRepost = async (postId: string) => {
+    if (!token) {
+      router.push('/login' as any);
+      return;
+    }
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, repostsCount: (p.repostsCount || 0) + 1 }
+          : p
+      )
+    );
+    let activeToken = token;
+    let res = await repostCommunityPost(postId, activeToken);
+    if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const fresh = await refreshAccessToken();
+      if (fresh) {
+        activeToken = fresh;
+        res = await repostCommunityPost(postId, activeToken);
+      }
+    }
+    Alert.alert('¡Republicado!', 'Has compartido esta publicación en la comunidad.');
+  };
+
+  const handleShare = async (post: CommunityPostItem) => {
+    try {
+      const shareUrl = `https://hackeandoelsistema.net/comunidad#post-${post.id}`;
+      await Share.share({
+        title: 'Publicación en Hackeando el Sistema',
+        message: `${post.user?.displayName || 'Usuario'}: "${post.content}"\n\n${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch (e) {
+      console.warn('Error sharing community post:', e);
+    }
+  };
+
+  const handleToggleBookmark = async (post: CommunityPostItem) => {
+    const isNowSaved = await toggleSaveCommunityPost(post);
+    setSavedCommunityPostIds((prev) => {
+      const next = new Set(prev);
+      if (isNowSaved) {
+        next.add(post.id);
+      } else {
+        next.delete(post.id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleFollow = async (authorId: string) => {
+    if (!token) {
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para seguir a otros usuarios de la comunidad.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Iniciar Sesión', onPress: () => router.push('/login' as any) },
+      ]);
+      return;
+    }
+
+    // Optimistic UI update
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.user?.id === authorId) {
+          return {
+            ...p,
+            user: {
+              ...p.user,
+              isFollowing: !p.user.isFollowing,
+            },
+          };
+        }
+        return p;
+      })
+    );
+
+    let activeToken = token;
+    let res = await toggleFollowUser(authorId, activeToken);
+    if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
+        activeToken = freshToken;
+        res = await toggleFollowUser(authorId, activeToken);
+      }
+    }
+
+    if (!res.success) {
+      // Revert optimistic update
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.user?.id === authorId) {
+            return {
+              ...p,
+              user: {
+                ...p.user,
+                isFollowing: !p.user.isFollowing,
+              },
+            };
+          }
+          return p;
+        })
+      );
+      Alert.alert('Error', res.error || 'No se pudo actualizar el seguimiento');
+    }
+  };
+
+  // Filter posts based on activeTab
+  const filteredPosts = React.useMemo(() => {
+    if (activeTab === 'news') {
+      return posts.filter((p) => p.user?.isNucleo || p.content.toLowerCase().includes('noticia') || p.content.toLowerCase().includes('debate'));
+    }
+    if (activeTab === 'community') {
+      return posts.filter((p) => !p.user?.isNucleo);
+    }
+    return posts;
+  }, [posts, activeTab]);
+
   // Build interleaved feed items (posts, polls, and sponsored ads)
   const feedItems = React.useMemo(() => {
     const list: Array<{ type: 'post' | 'ad' | 'poll'; data: any; key: string }> = [];
 
-    // Fallback editorial post with mock destacados if needed
+    // Fallback editorial post ONLY if no posts exist at all
     if (posts.length === 0 && !loading) {
       list.push({
         type: 'post',
@@ -216,7 +400,7 @@ export default function CommunityFeedScreen() {
       });
     }
 
-    posts.forEach((p, idx) => {
+    filteredPosts.forEach((p, idx) => {
       list.push({ type: 'post', data: p, key: `post-${p.id}` });
 
       // Insert sponsored ad every 3 posts
@@ -245,7 +429,7 @@ export default function CommunityFeedScreen() {
     }
 
     return list;
-  }, [posts, sponsoredAds, polls, loading]);
+  }, [posts, filteredPosts, sponsoredAds, polls, loading]);
 
   const renderItem = ({ item }: { item: { type: 'post' | 'ad' | 'poll'; data: any; key: string } }) => {
     if (item.type === 'ad') {
@@ -299,6 +483,29 @@ export default function CommunityFeedScreen() {
               </Text>
             </View>
           </TouchableOpacity>
+
+          {/* Botón Seguir / Siguiendo */}
+          {(!user || user.id !== author.id) && (
+            <TouchableOpacity
+              style={[
+                styles.followBtn,
+                author.isFollowing
+                  ? { borderColor: colors.border, backgroundColor: 'transparent' }
+                  : { backgroundColor: '#DC2626', borderColor: '#DC2626' },
+              ]}
+              onPress={() => handleToggleFollow(author.id)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.followBtnText,
+                  { color: author.isFollowing ? colors.textMuted : '#FFFFFF' },
+                ]}
+              >
+                {author.isFollowing ? 'Siguiendo' : 'Seguir'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Content */}
@@ -335,7 +542,7 @@ export default function CommunityFeedScreen() {
 
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => router.push(`/user/${author.id}` as any)}
+            onPress={() => handleOpenComments(post)}
             activeOpacity={0.7}
           >
             <MessageCircle size={18} color={colors.textMuted} />
@@ -344,15 +551,35 @@ export default function CommunityFeedScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleRepost(post.id)}
+            activeOpacity={0.7}
+          >
             <Repeat2 size={18} color={colors.textMuted} />
             <Text style={[styles.actionCount, { color: colors.textMuted }]}>
               {post.repostsCount || 0}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleShare(post)}
+            activeOpacity={0.7}
+          >
             <Share2 size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleToggleBookmark(post)}
+            activeOpacity={0.7}
+          >
+            <Bookmark
+              size={18}
+              color={savedCommunityPostIds.has(post.id) ? '#DC2626' : colors.textMuted}
+              fill={savedCommunityPostIds.has(post.id) ? '#DC2626' : 'transparent'}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -569,6 +796,108 @@ export default function CommunityFeedScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Community Post Comments Modal */}
+      <Modal
+        visible={commentsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setCommentsModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.commentsModalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MessageCircle size={18} color={colors.primary} />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Comentarios</Text>
+              </View>
+              <TouchableOpacity onPress={() => setCommentsModalVisible(false)} style={styles.closeBtn}>
+                <X size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Post Context Preview */}
+            {selectedPostForComments && (
+              <View style={[styles.commentsPostPreview, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                <Text style={[styles.previewAuthor, { color: colors.primary }]}>
+                  {selectedPostForComments.user?.displayName || 'Usuario'}:
+                </Text>
+                <Text style={[styles.previewText, { color: colors.text }]} numberOfLines={2}>
+                  {selectedPostForComments.content}
+                </Text>
+              </View>
+            )}
+
+            {/* Comments List */}
+            {loadingComments ? (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ color: colors.textMuted, marginTop: 8, fontSize: 12 }}>Cargando comentarios...</Text>
+              </View>
+            ) : postComments.length === 0 ? (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <Text style={{ color: colors.textMuted, fontSize: 13 }}>Sé el primero en comentar esta publicación.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={postComments}
+                keyExtractor={(c) => c.id || String(Math.random())}
+                style={{ maxHeight: 260 }}
+                contentContainerStyle={{ paddingVertical: 10 }}
+                renderItem={({ item: c }) => (
+                  <View style={[styles.communityCommentRow, { borderBottomColor: colors.border }]}>
+                    <View style={styles.commentAvatar}>
+                      {c.user?.avatarUrl ? (
+                        <Image source={{ uri: resolveImageUrl(c.user.avatarUrl) || c.user.avatarUrl }} style={styles.avatarMini} />
+                      ) : (
+                        <View style={[styles.avatarMiniFallback, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.avatarInitialMini}>
+                            {(c.user?.displayName || 'U').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.commentUserName, { color: colors.text }]}>
+                        {c.user?.displayName || 'Usuario'}
+                      </Text>
+                      <Text style={[styles.commentContent, { color: colors.text }]}>
+                        {c.content}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              />
+            )}
+
+            {/* Send Comment Input */}
+            <View style={[styles.commentInputRow, { borderTopColor: colors.border }]}>
+              <TextInput
+                style={[styles.commentTextInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                placeholder={token ? 'Escribe una respuesta...' : 'Inicia sesión para responder...'}
+                placeholderTextColor={colors.textMuted}
+                value={newCommentText}
+                onChangeText={setNewCommentText}
+                editable={!submittingComment}
+              />
+              <TouchableOpacity
+                style={[styles.sendCommentBtn, { backgroundColor: colors.primary, opacity: submittingComment || !newCommentText.trim() ? 0.6 : 1 }]}
+                onPress={handleSendCommunityComment}
+                disabled={submittingComment || !newCommentText.trim()}
+              >
+                {submittingComment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Send size={16} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -702,6 +1031,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  followBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  followBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   usernameText: {
     fontSize: 12,
     marginTop: 2,
@@ -819,5 +1159,84 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  commentsModalCard: {
+    width: '100%',
+    maxHeight: '80%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+  },
+  commentsPostPreview: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  previewAuthor: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  previewText: {
+    fontSize: 13,
+  },
+  communityCommentRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  avatarMini: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  avatarMiniFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitialMini: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  commentAvatar: {
+    marginTop: 2,
+  },
+  commentUserName: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  commentContent: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  commentTextInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 13,
+  },
+  sendCommentBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

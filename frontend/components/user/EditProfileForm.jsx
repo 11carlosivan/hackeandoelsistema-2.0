@@ -23,6 +23,7 @@ export default function EditProfileForm({ initialData = {}, onSave }) {
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showRetentionModal, setShowRetentionModal] = useState(false);
   const [message, setMessage] = useState('');
 
   // Perfil se considera verificado si los campos requeridos y datos clave estan completos
@@ -337,49 +338,112 @@ export default function EditProfileForm({ initialData = {}, onSave }) {
       </div>
 
       {/* Apartado para darse de baja / eliminar cuenta */}
-      <div className="mt-12 pt-6 border-t border-red-900/50 bg-red-950/20 p-5 border">
+      <div className="mt-12 pt-6 border-t border-red-900/50 bg-red-950/20 p-5 border border-red-900/40">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="font-headline-md text-base text-red-400 uppercase tracking-wide">
+            <h3 className="font-headline-md text-base text-red-400 uppercase tracking-wide flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
               Zona de Peligro — Darse de baja
             </h3>
-            <p className="text-xs text-on-surface-variant mt-1 max-w-xl">
+            <p className="text-xs text-on-surface-variant mt-1 max-w-xl leading-relaxed">
               Si ya no deseas utilizar tu cuenta, puedes darte de baja definitivamente. Esto cancelará tus sesiones, deshabilitará tu perfil y removerá tus credenciales de acceso de forma permanente.
             </p>
           </div>
           <button
             type="button"
-            disabled={deleting}
-            onClick={async () => {
-              const confirm = window.confirm(
-                '¿Estás seguro de que deseas darte de baja y eliminar tu cuenta de forma definitiva? Esta acción es irreversible.'
-              );
-              if (!confirm) return;
-
-              setDeleting(true);
-              try {
-                const res = await fetch(`${getClientApiBaseUrl()}/api/v1/auth/me`, {
-                  method: 'DELETE',
-                  credentials: 'include',
-                });
-                if (!res.ok) {
-                  const errPayload = await res.json().catch(() => null);
-                  throw new Error(errPayload?.message || 'Error al procesar la baja');
-                }
-                localStorage.removeItem('hes_user_profile');
-                alert('Tu cuenta ha sido dada de baja exitosamente.');
-                window.location.href = '/';
-              } catch (err) {
-                alert(err.message || 'Error al dar de baja la cuenta.');
-                setDeleting(false);
-              }
-            }}
-            className="border border-red-500/60 bg-red-600/20 px-4 py-2.5 font-label-caps text-[10px] font-bold text-red-300 hover:bg-red-600 hover:text-white transition-colors shrink-0 disabled:opacity-50"
+            onClick={() => setShowRetentionModal(true)}
+            className="border border-red-500/60 bg-red-600/20 px-4 py-2.5 font-label-caps text-[10px] font-bold text-red-300 hover:bg-red-600 hover:text-white transition-colors shrink-0"
           >
-            {deleting ? 'Procesando baja...' : 'Darse de baja y eliminar cuenta'}
+            Darse de baja y eliminar cuenta
           </button>
         </div>
       </div>
+
+      {/* Modal de Retención para Eliminación de Cuenta */}
+      {showRetentionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+          <div className="bg-[#12141a] border border-red-700/80 max-w-lg w-full p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 border-b border-red-900/50 pb-4 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-600/20 border border-red-500/50 flex items-center justify-center text-red-500 text-lg font-bold">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-headline-md text-base sm:text-lg text-red-400 font-bold uppercase tracking-wider">
+                  ¿Deseas eliminar tu cuenta?
+                </h3>
+                <p className="text-xs text-on-surface-variant">
+                  Esta acción es definitiva e irreversible.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-950/40 border border-red-900/60 p-4 mb-6">
+              <p className="text-xs font-bold text-red-300 uppercase tracking-wider mb-2.5">
+                Antes de irte, ten en cuenta lo que ya NO podrás hacer:
+              </p>
+              <ul className="space-y-2.5 text-xs text-on-surface-variant">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 font-bold">✕</span>
+                  <span>No podrás acceder a tus artículos guardados para leer más tarde.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 font-bold">✕</span>
+                  <span>Perderás todas tus publicaciones y aportes en el feed comunitario.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 font-bold">✕</span>
+                  <span>Perderás a tus seguidores y la lista de cuentas que sigues en la comunidad.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 font-bold">✕</span>
+                  <span>No recibirás alertas ni notificaciones cuando respondan a tus comentarios en noticias.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 font-bold">✕</span>
+                  <span>Se cerrarán de inmediato todas tus sesiones activas en cualquier navegador o aplicación móvil.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2 border-t border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setShowRetentionModal(false)}
+                disabled={deleting}
+                className="w-full sm:w-auto px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-label-caps text-xs font-bold transition-colors"
+              >
+                Mantener mi cuenta
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    const res = await fetch(`${getClientApiBaseUrl()}/api/v1/auth/me`, {
+                      method: 'DELETE',
+                      credentials: 'include',
+                    });
+                    if (!res.ok) {
+                      const errPayload = await res.json().catch(() => null);
+                      throw new Error(errPayload?.message || 'Error al procesar la baja');
+                    }
+                    localStorage.removeItem('hes_user_profile');
+                    alert('Tu cuenta ha sido dada de baja exitosamente.');
+                    window.location.href = '/';
+                  } catch (err) {
+                    alert(err.message || 'Error al dar de baja la cuenta.');
+                    setDeleting(false);
+                  }
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-label-caps text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Eliminando cuenta...' : 'Eliminar definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

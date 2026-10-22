@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@/constants/Config';
 import { resolveImageUrl } from '@/services/api';
+import { registerForPushNotificationsAsync } from '@/services/pushNotifications';
 
 export interface User {
   id: string;
@@ -85,6 +86,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     loadPersistedSession();
   }, []);
+
+  // Registrar Expo Push Token en el backend cuando haya token de autenticación
+  useEffect(() => {
+    if (token) {
+      registerForPushNotificationsAsync(token).catch((err) => {
+        console.log('[Auth] Error registrando push token:', err);
+      });
+    }
+  }, [token]);
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     let rToken = refreshToken;

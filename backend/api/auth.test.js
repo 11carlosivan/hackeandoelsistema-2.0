@@ -414,6 +414,7 @@ describe('auth routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
+      remoteAddress: '127.0.0.99',
       payload: {
         email: 'admin@example.com',
         password: 'CorrectHorse123!',
@@ -422,7 +423,7 @@ describe('auth routes', () => {
 
     await app.close();
 
-    expect(response.statusCode).toBe(401);
+    expect(response.statusCode).toBe(429);
   });
 
   it('protects /me with bearer auth', async () => {

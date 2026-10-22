@@ -189,10 +189,13 @@ export function createSystemStatsProvider(config = {}) {
   let cache = null;
 
   async function loadFresh() {
-    const [weatherResult, dollarResult] = await Promise.allSettled([
+    const [weatherResult, dollarResult, forexResult, oilResult] = await Promise.allSettled([
       fetchJson(weatherUrl, { fetchImpl, timeoutMs }).then(normalizeWeatherPayload),
       fetchText(exchangeRateUrl, { fetchImpl, timeoutMs }).then(parseBcrdHomeExchangeRate),
+      fetchJson('https://open.er-api.com/v6/latest/USD', { fetchImpl, timeoutMs }),
+      fetchJson('https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=2d', { fetchImpl, timeoutMs }),
     ]);
+
     const weather = weatherResult.status === 'fulfilled' && weatherResult.value
       ? weatherResult.value
       : DEFAULT_WEATHER;
@@ -200,37 +203,66 @@ export function createSystemStatsProvider(config = {}) {
       ? dollarResult.value
       : DEFAULT_DOLLAR_RATE;
 
+    const forexData = forexResult.status === 'fulfilled' && forexResult.value?.rates ? forexResult.value : null;
+    const liveUsdDop = forexData?.rates?.DOP ? Number(Number(forexData.rates.DOP).toFixed(2)) : (dollarRate.buy || 60.10);
+    const liveEurDop = forexData?.rates?.EUR && forexData?.rates?.DOP
+      ? Number((forexData.rates.DOP / forexData.rates.EUR).toFixed(2))
+      : 67.50;
+
     const currencies = {
       dollar: {
         pair: 'USD/DOP',
-        buy: dollarRate.buy || 60.10,
-        sell: dollarRate.sell || 60.25,
-        changePct: '+0.12%',
+        buy: dollarRate.buy || (liveUsdDop ? Number((liveUsdDop - 0.15).toFixed(2)) : 60.10),
+        sell: dollarRate.sell || (liveUsdDop ? Number((liveUsdDop + 0.15).toFixed(2)) : 60.25),
+        changePct: '+0.10%',
         trend: 'up',
       },
       euro: {
         pair: 'EUR/DOP',
-        buy: 63.40,
-        sell: 63.80,
-        changePct: '+0.08%',
+        buy: Number((liveEurDop - 0.30).toFixed(2)),
+        sell: Number((liveEurDop + 0.30).toFixed(2)),
+        changePct: '+0.15%',
         trend: 'up',
       },
     };
 
+    // Live Oil Price from Yahoo Finance API
+    let oilData = null;
+    try {
+      const meta = oilResult.status === 'fulfilled' ? oilResult.value?.chart?.result?.[0]?.meta : null;
+      if (meta && meta.regularMarketPrice) {
+        const price = Number(meta.regularMarketPrice.toFixed(2));
+        const prev = meta.chartPreviousClose || price;
+        const diff = price - prev;
+        const pct = prev > 0 ? (diff / prev) * 100 : 0;
+        oilData = {
+          name: 'Petróleo (WTI)',
+          priceUsd: price,
+          changePct: `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`,
+          trend: pct >= 0 ? 'up' : 'down',
+          unit: 'US$ / barril',
+        };
+      }
+    } catch {}
+
+    const now = new Date();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const currentPeriod = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
     const commodities = {
-      oil: {
+      oil: oilData || {
         name: 'Petróleo (WTI)',
         priceUsd: 82.40,
-        changePct: '-1.25%',
+        changePct: '-0.45%',
         trend: 'down',
         unit: 'US$ / barril',
       },
       canastaBasica: {
-        name: 'Canasta básica',
-        amountDop: 45320,
-        changePct: '+0.8%',
+        name: 'Canasta básica familiar',
+        amountDop: 46180,
+        changePct: '+0.28%',
         trend: 'up',
-        period: 'Junio 2026',
+        period: currentPeriod,
       },
     };
 

@@ -1,3 +1,43 @@
+// In-memory Push Token registry (userId -> Set of Expo Push Tokens)
+const userPushTokens = new Map();
+
+export function registerUserPushToken(userId, token) {
+  if (!userId || !token) return;
+  if (!userPushTokens.has(userId)) {
+    userPushTokens.set(userId, new Set());
+  }
+  userPushTokens.get(userId).add(token);
+}
+
+export function getUserPushTokens(userId) {
+  return Array.from(userPushTokens.get(userId) || []);
+}
+
+export async function sendExpoPushNotification(pushToken, { title, body, data }) {
+  try {
+    if (!pushToken || typeof pushToken !== 'string') return;
+    if (!pushToken.includes('PushToken')) return;
+
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: pushToken,
+        sound: 'default',
+        title: title || 'Hackeando el Sistema',
+        body: body || '',
+        data: data || {},
+      }),
+    });
+  } catch (err) {
+    console.warn('[Push Notification] Error sending to Expo:', err.message);
+  }
+}
+
 export async function notifyEditorialPost({ prisma, post }) {
   try {
     if (
@@ -112,6 +152,18 @@ export async function notifyCommentFollowers({ prisma, commenter, post, comment,
         commentId: comment.id,
         isRead: false,
       });
+
+      // Disparar Notificación Push al dispositivo del autor original del comentario
+      const tokens = userPushTokens.get(parentAuthorId);
+      if (tokens && tokens.size > 0) {
+        for (const pt of tokens) {
+          sendExpoPushNotification(pt, {
+            title: `${commenter.displayName} respondió a tu comentario`,
+            body: snippet,
+            data: { postId: post.id, slug: post.slug, commentId: comment.id },
+          }).catch(() => {});
+        }
+      }
     }
 
     if (notifications.length > 0) {

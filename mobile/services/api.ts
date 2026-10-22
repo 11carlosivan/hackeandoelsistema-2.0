@@ -1,6 +1,8 @@
+export { API_BASE_URL } from '@/constants/Config';
 import { API_BASE_URL } from '@/constants/Config';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface PostComment {
   id: string;
@@ -37,6 +39,14 @@ export interface Post {
   commentCount?: number;
   shareCount?: number;
   comments?: PostComment[];
+  relatedPosts?: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    featuredImage?: string | null;
+    category?: string;
+    publishedAt?: string;
+  }>;
 }
 
 export interface Category {
@@ -160,6 +170,14 @@ export async function fetchPostBySlug(slug: string): Promise<Post | null> {
         user: c.authorName || c.user?.displayName || c.user || 'Lector HES',
         text: c.body || c.text || '',
         date: c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : (c.date || ''),
+      })),
+      relatedPosts: (item.relatedPosts || []).map((rp: any) => ({
+        id: rp.id,
+        title: rp.title,
+        slug: rp.slug,
+        featuredImage: resolveImageUrl(rp.featuredMedia?.url || rp.featuredImage || rp.image || null),
+        category: rp.primaryCategory?.name || rp.category || 'Noticias',
+        publishedAt: rp.publishedAt || rp.createdAt,
       })),
     };
   } catch (error) {
@@ -1098,6 +1116,26 @@ export async function submitCommunityComment(
   }
 }
 
+export async function repostCommunityPost(
+  postId: string,
+  token: string
+): Promise<{ success: boolean; repostsCount?: number; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}/repost`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) return { success: false, error: json?.message || 'Error al repostear' };
+    return { success: true, repostsCount: json.data?.repostsCount };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function fetchPolls(): Promise<PollItem[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/public/polls`, {
@@ -1171,4 +1209,43 @@ export async function fetchSystemStats(): Promise<any> {
     return null;
   }
 }
+
+const COMMUNITY_BOOKMARKS_KEY = '@hes_saved_community_posts';
+
+export async function getSavedCommunityPosts(): Promise<CommunityPostItem[]> {
+  try {
+    const raw = await AsyncStorage.getItem(COMMUNITY_BOOKMARKS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export async function toggleSaveCommunityPost(post: CommunityPostItem): Promise<boolean> {
+  try {
+    const posts = await getSavedCommunityPosts();
+    const exists = posts.some((p) => p.id === post.id);
+    let updated: CommunityPostItem[];
+    if (exists) {
+      updated = posts.filter((p) => p.id !== post.id);
+    } else {
+      updated = [post, ...posts];
+    }
+    await AsyncStorage.setItem(COMMUNITY_BOOKMARKS_KEY, JSON.stringify(updated));
+    return !exists;
+  } catch {
+    return false;
+  }
+}
+
+export async function isCommunityPostSaved(postId: string): Promise<boolean> {
+  try {
+    const posts = await getSavedCommunityPosts();
+    return posts.some((p) => p.id === postId);
+  } catch {
+    return false;
+  }
+}
+
 

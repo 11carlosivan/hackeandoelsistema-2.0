@@ -108,7 +108,7 @@ export default function ArticleDetailScreen() {
           ) : null}
 
           {/* Article Body Content */}
-          <GutenbergRenderer content={post.content || post.excerpt || ''} />
+          <GutenbergRenderer content={post.content || post.excerpt || ''} postId={post.id} />
 
           {/* Barra de interacción social: Likes, Comentarios, Compartir */}
           <EngagementBar
@@ -132,6 +132,47 @@ export default function ArticleDetailScreen() {
               initialComments={post.comments || []}
             />
           </View>
+
+          {/* Artículos Relacionados */}
+          {post.relatedPosts && post.relatedPosts.length > 0 ? (
+            <View style={styles.relatedSection}>
+              <View style={styles.relatedHeaderRow}>
+                <View style={[styles.relatedAccent, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.relatedSectionTitle, { color: colors.text }]}>
+                  ARTÍCULOS RELACIONADOS
+                </Text>
+              </View>
+              <View style={styles.relatedList}>
+                {post.relatedPosts.map((related) => (
+                  <TouchableOpacity
+                    key={related.id || related.slug}
+                    style={[styles.relatedCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                    onPress={() => router.push(`/article/${related.slug}` as any)}
+                    activeOpacity={0.7}
+                  >
+                    {related.featuredImage ? (
+                      <Image source={{ uri: related.featuredImage }} style={styles.relatedThumbnail} resizeMode="cover" />
+                    ) : null}
+                    <View style={styles.relatedContent}>
+                      {related.category ? (
+                        <Text style={[styles.relatedCategory, { color: colors.primary }]}>
+                          {related.category.toUpperCase()}
+                        </Text>
+                      ) : null}
+                      <Text style={[styles.relatedTitle, { color: colors.text }]} numberOfLines={2}>
+                        {related.title}
+                      </Text>
+                      {related.publishedAt ? (
+                        <Text style={[styles.relatedDate, { color: colors.textMuted }]}>
+                          {new Date(related.publishedAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </ScrollView>
       ) : (
         <View style={styles.loadingBox}>
@@ -225,5 +266,62 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     borderLeftWidth: 3,
     marginBottom: 16,
+  },
+  relatedSection: {
+    marginTop: 24,
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  relatedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 8,
+  },
+  relatedAccent: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+  },
+  relatedSectionTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  relatedList: {
+    gap: 12,
+  },
+  relatedCard: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    padding: 10,
+    gap: 12,
+    alignItems: 'center',
+  },
+  relatedThumbnail: {
+    width: 80,
+    height: 60,
+    borderRadius: 8,
+  },
+  relatedContent: {
+    flex: 1,
+  },
+  relatedCategory: {
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  relatedTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  relatedDate: {
+    fontSize: 11,
   },
 });

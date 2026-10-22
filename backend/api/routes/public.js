@@ -1522,7 +1522,7 @@ export async function registerPublicRoutes(app) {
         },
         comments: {
           where: {
-            status: 'APPROVED',
+            status: { notIn: ['SPAM', 'TRASHED'] },
           },
           orderBy: {
             createdAt: 'asc',
@@ -1596,7 +1596,7 @@ export async function registerPublicRoutes(app) {
         },
         comments: {
           where: {
-            status: 'APPROVED',
+            status: { notIn: ['SPAM', 'TRASHED'] },
           },
           orderBy: {
             createdAt: 'asc',
@@ -2004,7 +2004,7 @@ export async function registerPublicRoutes(app) {
         where: {
           id: body.data.parentId,
           postId: post.id,
-          status: 'APPROVED',
+          status: { notIn: ['SPAM', 'TRASHED'] },
         },
         select: { id: true },
       });
@@ -2084,7 +2084,7 @@ export async function registerPublicRoutes(app) {
     const comments = await app.prisma.comment.findMany({
       where: {
         postId: post.id,
-        status: 'APPROVED',
+        status: { notIn: ['SPAM', 'TRASHED'] },
       },
       orderBy: {
         createdAt: 'asc',
@@ -2971,6 +2971,29 @@ export async function registerPublicRoutes(app) {
         postId: id,
         liked,
         likesCount: updated?.likesCount || 0,
+      },
+    };
+  });
+
+  app.post('/api/v1/public/community/posts/:id/repost', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+
+    if (typeof app.prisma?.communityPost?.update !== 'function') {
+      return { data: { postId: id, reposted: true, repostsCount: 1 } };
+    }
+
+    const updated = await app.prisma.communityPost.update({
+      where: { id },
+      data: { repostsCount: { increment: 1 } },
+      select: { repostsCount: true },
+    }).catch(() => null);
+
+    return {
+      data: {
+        postId: id,
+        reposted: true,
+        repostsCount: updated?.repostsCount || 1,
       },
     };
   });

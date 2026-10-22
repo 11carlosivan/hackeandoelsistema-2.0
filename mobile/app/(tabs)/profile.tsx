@@ -38,6 +38,7 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -47,8 +48,11 @@ import {
   fetchUserFollowing,
   uploadAvatarImage,
   resolveImageUrl,
+  getSavedCommunityPosts,
+  toggleSaveCommunityPost,
   Post,
   FollowUserItem,
+  CommunityPostItem,
 } from '@/services/api';
 
 export default function ProfileScreen() {
@@ -60,10 +64,16 @@ export default function ProfileScreen() {
   // Active view tab: 'saved' or 'settings'
   const [activeTab, setActiveTab] = useState<'saved' | 'settings'>('saved');
 
-  // Saved Posts state
+  // Saved Posts state (Artículos y Comunidad)
+  const [savedSubTab, setSavedSubTab] = useState<'articles' | 'community'>('articles');
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [savedCommunityPosts, setSavedCommunityPosts] = useState<CommunityPostItem[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Danger Zone / Account Deletion Modal state
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Edit Profile Modal state
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -89,8 +99,12 @@ export default function ProfileScreen() {
   async function loadSavedArticles() {
     if (!token) return;
     setLoadingSaved(true);
-    const posts = await fetchSavedPosts(token);
+    const [posts, communityPosts] = await Promise.all([
+      fetchSavedPosts(token),
+      getSavedCommunityPosts(),
+    ]);
     setSavedPosts(posts);
+    setSavedCommunityPosts(communityPosts);
     setLoadingSaved(false);
   }
 
@@ -325,24 +339,28 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
-    showModal({
-      icon: 'error',
-      title: 'Eliminar Mi Cuenta',
-      message:
-        '¿Estás seguro de que deseas eliminar permanentemente tu cuenta y todos tus datos guardados? Esta acción es irreversible.',
-      buttons: [
-        {
-          text: 'Eliminar Definitivamente',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteAccount();
-            setSavedPosts([]);
-            toast.success('Cuenta Eliminada', 'Tu cuenta y datos asociados han sido eliminados.');
-          },
-        },
-        { text: 'Cancelar', style: 'cancel' },
-      ],
-    });
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      setSavedPosts([]);
+      setSavedCommunityPosts([]);
+      setDeleteModalVisible(false);
+      toast.success('Cuenta Eliminada', 'Tu cuenta y datos asociados han sido eliminados.');
+    } catch {
+      toast.error('Error', 'No se pudo eliminar la cuenta. Intenta de nuevo.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleRemoveSavedCommunityPost = async (post: CommunityPostItem) => {
+    await toggleSaveCommunityPost(post);
+    setSavedCommunityPosts((prev) => prev.filter((p) => p.id !== post.id));
+    toast.info('Post removido', 'Publicación eliminada de tus guardados.');
   };
 
   return (
@@ -526,7 +544,7 @@ export default function ProfileScreen() {
                   { color: activeTab === 'saved' ? colors.text : colors.textMuted },
                 ]}
               >
-                Artículos Guardados ({savedPosts.length})
+                Guardados ({savedPosts.length + savedCommunityPosts.length})
               </Text>
             </TouchableOpacity>
 
@@ -552,55 +570,176 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        {/* Tab 1: Saved Posts */}
+        {/* Tab 1: Saved Items (Articles & Community) */}
         {user && activeTab === 'saved' ? (
           <View style={styles.savedSection}>
+            {/* Sub-tab selector */}
+            <View style={[styles.subTabSelector, { backgroundColor: isDark ? '#1F2430' : '#E2E8F0' }]}>
+              <TouchableOpacity
+                style={[
+                  styles.subTabBtn,
+                  savedSubTab === 'articles' && [
+                    styles.subTabBtnActive,
+                    { backgroundColor: isDark ? '#161922' : '#FFFFFF' },
+                  ],
+                ]}
+                onPress={() => setSavedSubTab('articles')}
+              >
+                <Text
+                  style={[
+                    styles.subTabBtnText,
+                    { color: savedSubTab === 'articles' ? colors.text : colors.textMuted },
+                    savedSubTab === 'articles' && { fontWeight: '800' },
+                  ]}
+                >
+                  Artículos ({savedPosts.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.subTabBtn,
+                  savedSubTab === 'community' && [
+                    styles.subTabBtnActive,
+                    { backgroundColor: isDark ? '#161922' : '#FFFFFF' },
+                  ],
+                ]}
+                onPress={() => setSavedSubTab('community')}
+              >
+                <Text
+                  style={[
+                    styles.subTabBtnText,
+                    { color: savedSubTab === 'community' ? colors.text : colors.textMuted },
+                    savedSubTab === 'community' && { fontWeight: '800' },
+                  ]}
+                >
+                  Comunidad ({savedCommunityPosts.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {loadingSaved ? (
               <ActivityIndicator color="#D32F2F" style={{ marginVertical: 32 }} />
-            ) : savedPosts.length === 0 ? (
-              <View style={[styles.emptySavedBox, { borderColor: colors.border }]}>
-                <Bookmark size={42} color={colors.textMuted} style={{ marginBottom: 10 }} />
-                <Text style={[styles.emptySavedTitle, { color: colors.text }]}>
-                  No tienes artículos guardados
-                </Text>
-                <Text style={[styles.emptySavedSub, { color: colors.textMuted }]}>
-                  Pulsa el ícono de marcador en cualquier noticia para leerla más tarde desde aquí.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.savedList}>
-                {savedPosts.map((post) => (
-                  <TouchableOpacity
-                    key={post.id}
-                    style={[
-                      styles.savedCard,
-                      { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border },
-                    ]}
-                    onPress={() => router.push(`/article/${encodeURIComponent(post.slug)}`)}
-                    activeOpacity={0.8}
-                  >
-                    {post.featuredImage ? (
-                      <Image source={{ uri: post.featuredImage }} style={styles.savedThumb} />
-                    ) : (
-                      <View style={[styles.savedThumbPlaceholder, { backgroundColor: isDark ? '#1F2430' : '#E2E8F0' }]}>
-                        <Bookmark size={24} color={colors.textMuted} />
+            ) : savedSubTab === 'articles' ? (
+              savedPosts.length === 0 ? (
+                <View style={[styles.emptySavedBox, { borderColor: colors.border }]}>
+                  <Bookmark size={42} color={colors.textMuted} style={{ marginBottom: 10 }} />
+                  <Text style={[styles.emptySavedTitle, { color: colors.text }]}>
+                    No tienes artículos guardados
+                  </Text>
+                  <Text style={[styles.emptySavedSub, { color: colors.textMuted }]}>
+                    Pulsa el ícono de marcador en cualquier noticia para leerla más tarde desde aquí.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.savedList}>
+                  {savedPosts.map((post) => (
+                    <TouchableOpacity
+                      key={post.id}
+                      style={[
+                        styles.savedCard,
+                        { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border },
+                      ]}
+                      onPress={() => router.push(`/article/${encodeURIComponent(post.slug)}`)}
+                      activeOpacity={0.8}
+                    >
+                      {post.featuredImage ? (
+                        <Image source={{ uri: post.featuredImage }} style={styles.savedThumb} />
+                      ) : (
+                        <View style={[styles.savedThumbPlaceholder, { backgroundColor: isDark ? '#1F2430' : '#E2E8F0' }]}>
+                          <Bookmark size={24} color={colors.textMuted} />
+                        </View>
+                      )}
+                      <View style={styles.savedInfo}>
+                        <Text style={[styles.savedCategory, { color: colors.primary }]}>
+                          {post.category || 'General'}
+                        </Text>
+                        <Text style={[styles.savedTitle, { color: colors.text }]} numberOfLines={2}>
+                          {post.title}
+                        </Text>
+                        <Text style={[styles.savedDate, { color: colors.textMuted }]}>
+                          {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('es-DO') : ''}
+                        </Text>
                       </View>
-                    )}
-                    <View style={styles.savedInfo}>
-                      <Text style={[styles.savedCategory, { color: colors.primary }]}>
-                        {post.category || 'General'}
+                      <ChevronRight size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )
+            ) : (
+              savedCommunityPosts.length === 0 ? (
+                <View style={[styles.emptySavedBox, { borderColor: colors.border }]}>
+                  <Bookmark size={42} color={colors.textMuted} style={{ marginBottom: 10 }} />
+                  <Text style={[styles.emptySavedTitle, { color: colors.text }]}>
+                    No tienes publicaciones de comunidad guardadas
+                  </Text>
+                  <Text style={[styles.emptySavedSub, { color: colors.textMuted }]}>
+                    Toca el ícono de marcador en cualquier post del feed comunitario para guardarlo aquí.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.savedList}>
+                  {savedCommunityPosts.map((cPost) => (
+                    <View
+                      key={cPost.id}
+                      style={[
+                        styles.savedCommunityCard,
+                        { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border },
+                      ]}
+                    >
+                      <View style={styles.savedCommunityHeader}>
+                        <View style={styles.savedCommunityAuthor}>
+                          {cPost.user?.avatarUrl ? (
+                            <Image
+                              source={{ uri: resolveImageUrl(cPost.user.avatarUrl) || cPost.user.avatarUrl }}
+                              style={styles.savedCommunityAvatar}
+                            />
+                          ) : (
+                            <View style={[styles.savedCommunityAvatarFallback, { backgroundColor: colors.primary }]}>
+                              <Text style={styles.savedCommunityAvatarInitial}>
+                                {(cPost.user?.displayName || 'U').charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          <View>
+                            <Text style={[styles.savedCommunityName, { color: colors.text }]}>
+                              {cPost.user?.displayName || 'Usuario'}
+                            </Text>
+                            <Text style={[styles.savedCommunityUsername, { color: colors.textMuted }]}>
+                              @{cPost.user?.username || 'usuario'}
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleRemoveSavedCommunityPost(cPost)}
+                          style={styles.removeSavedBtn}
+                        >
+                          <Bookmark size={18} color="#D32F2F" fill="#D32F2F" />
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={[styles.savedCommunityContent, { color: colors.text }]}>
+                        {cPost.content}
                       </Text>
-                      <Text style={[styles.savedTitle, { color: colors.text }]} numberOfLines={2}>
-                        {post.title}
-                      </Text>
-                      <Text style={[styles.savedDate, { color: colors.textMuted }]}>
-                        {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('es-DO') : ''}
-                      </Text>
+
+                      <View style={styles.savedCommunityFooter}>
+                        <Text style={[styles.savedDate, { color: colors.textMuted }]}>
+                          {cPost.createdAt ? new Date(cPost.createdAt).toLocaleDateString('es-DO') : 'Reciente'}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => router.push('/(tabs)/community' as any)}
+                          style={styles.viewCommunityLink}
+                        >
+                          <Text style={[styles.viewCommunityLinkText, { color: colors.primary }]}>
+                            Ver en Comunidad
+                          </Text>
+                          <ChevronRight size={14} color={colors.primary} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <ChevronRight size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  ))}
+                </View>
+              )
             )}
           </View>
         ) : null}
@@ -892,6 +1031,97 @@ export default function ProfileScreen() {
                 )}
               />
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Retención para Eliminación de Cuenta */}
+      <Modal
+        visible={deleteModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => !deletingAccount && setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.retentionModalBox, { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: isDark ? '#371B1D' : '#FEE2E2' }]}>
+            <View style={styles.retentionHeader}>
+              <View style={styles.retentionIconBox}>
+                <AlertTriangle size={32} color="#DC2626" />
+              </View>
+              <Text style={[styles.retentionTitle, { color: colors.text }]}>
+                ¿Deseas darte de baja y eliminar tu cuenta?
+              </Text>
+              <Text style={[styles.retentionSubtitle, { color: colors.textMuted }]}>
+                Esta acción es definitiva. Antes de proceder, ten en cuenta los accesos y beneficios que perderás:
+              </Text>
+            </View>
+
+            {/* Lista de Retención */}
+            <View style={[styles.retentionWarningList, { backgroundColor: isDark ? '#231518' : '#FEF2F2', borderColor: isDark ? '#4A1D20' : '#FECACA' }]}>
+              <Text style={styles.retentionWarningHeader}>
+                Cosas que ya NO podrás hacer:
+              </Text>
+
+              <View style={styles.retentionItem}>
+                <Text style={styles.retentionBullet}>✕</Text>
+                <Text style={[styles.retentionItemText, { color: colors.text }]}>
+                  Acceder a tus artículos guardados para leer más tarde.
+                </Text>
+              </View>
+
+              <View style={styles.retentionItem}>
+                <Text style={styles.retentionBullet}>✕</Text>
+                <Text style={[styles.retentionItemText, { color: colors.text }]}>
+                  Guardar publicaciones y participar en el feed comunitario.
+                </Text>
+              </View>
+
+              <View style={styles.retentionItem}>
+                <Text style={styles.retentionBullet}>✕</Text>
+                <Text style={[styles.retentionItemText, { color: colors.text }]}>
+                  Seguir a otros miembros de la comunidad o conservar a tus seguidores.
+                </Text>
+              </View>
+
+              <View style={styles.retentionItem}>
+                <Text style={styles.retentionBullet}>✕</Text>
+                <Text style={[styles.retentionItemText, { color: colors.text }]}>
+                  Recibir notificaciones push cuando respondan a tus comentarios.
+                </Text>
+              </View>
+
+              <View style={styles.retentionItem}>
+                <Text style={styles.retentionBullet}>✕</Text>
+                <Text style={[styles.retentionItemText, { color: colors.text }]}>
+                  Mantener tus sesiones activas en cualquier otro dispositivo.
+                </Text>
+              </View>
+            </View>
+
+            {/* Botones de acción */}
+            <View style={styles.retentionActions}>
+              <TouchableOpacity
+                style={[styles.retentionKeepBtn, { backgroundColor: colors.primary }]}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={deletingAccount}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.retentionKeepBtnText}>Mantener mi cuenta</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.retentionDeleteBtn, { borderColor: '#DC2626' }]}
+                onPress={handleConfirmDeleteAccount}
+                disabled={deletingAccount}
+                activeOpacity={0.8}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator size="small" color="#DC2626" />
+                ) : (
+                  <Text style={styles.retentionDeleteBtnText}>Eliminar definitivamente</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1345,5 +1575,194 @@ const styles = StyleSheet.create({
   uploadHintText: {
     fontSize: 10,
     marginTop: 2,
+  },
+  // Sub-tabs in Saved Section
+  subTabSelector: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 16,
+  },
+  subTabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  subTabBtnActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  subTabBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Saved Community Cards
+  savedCommunityCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  savedCommunityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  savedCommunityAuthor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  savedCommunityAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 10,
+  },
+  savedCommunityAvatarFallback: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  savedCommunityAvatarInitial: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  savedCommunityName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  savedCommunityUsername: {
+    fontSize: 12,
+  },
+  removeSavedBtn: {
+    padding: 6,
+  },
+  savedCommunityContent: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  savedCommunityFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(150, 150, 150, 0.2)',
+  },
+  viewCommunityLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewCommunityLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  // Account Deletion Retention Modal Styles
+  retentionModalBox: {
+    width: '92%',
+    maxWidth: 420,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  retentionHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  retentionIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  retentionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  retentionSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  retentionWarningList: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 20,
+  },
+  retentionWarningHeader: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  retentionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    gap: 8,
+  },
+  retentionBullet: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 1,
+  },
+  retentionItemText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  retentionActions: {
+    gap: 10,
+  },
+  retentionKeepBtn: {
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retentionKeepBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  retentionDeleteBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retentionDeleteBtnText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

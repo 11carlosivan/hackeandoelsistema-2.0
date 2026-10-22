@@ -18,6 +18,7 @@ import {
 import { addMinutes } from '../utils/crypto.js';
 import { noStoreHeaders } from '../utils/http.js';
 import { storeMediaUpload } from '../services/media-storage.js';
+import { registerUserPushToken } from '../services/notifications.js';
 
 const loginSchema = z.object({
   email: z.string().email().max(255),
@@ -768,4 +769,17 @@ export async function registerAuthRoutes(app) {
 
   app.delete('/api/v1/auth/me', { preHandler: app.authenticate }, handleAccountDeletion);
   app.post('/api/v1/auth/delete-account', { preHandler: app.authenticate }, handleAccountDeletion);
+
+  app.post('/api/v1/auth/push-token', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const schema = z.object({
+      token: z.string().min(5),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest('Token push inválido');
+    }
+    registerUserPushToken(request.auth.user.id, parsed.data.token);
+    return { data: { success: true } };
+  });
 }
