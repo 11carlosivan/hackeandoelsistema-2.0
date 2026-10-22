@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -50,52 +50,63 @@ export default function LoginScreen() {
         <View style={{ width: 22 }} />
       </View>
 
-      <View style={styles.form}>
-        <Text style={[styles.label, { color: colors.textMuted }]}>Correo Electrónico</Text>
-        <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-          <Mail size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
-          <TextInput
-            style={[styles.input, { color: colors.text }]}
-            placeholder="tuemail@dominio.com"
-            placeholderTextColor={colors.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </View>
-
-        <Text style={[styles.label, { color: colors.textMuted }]}>Contraseña</Text>
-        <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-          <Lock size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
-          <TextInput
-            style={[styles.input, { color: colors.text }]}
-            placeholder="••••••••"
-            placeholderTextColor={colors.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.submitBtn, { backgroundColor: colors.primary }]}
-          onPress={handleLogin}
-          activeOpacity={0.85}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.submitBtnText}>Entrar a HES</Text>
-        </TouchableOpacity>
+          <View style={styles.form}>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Correo Electrónico</Text>
+            <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+              <Mail size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="tuemail@dominio.com"
+                placeholderTextColor={colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
 
-        <TouchableOpacity
-          style={styles.registerLink}
-          onPress={() => router.replace(redirect ? { pathname: '/register', params: { redirect } } as any : '/register')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.registerText, { color: colors.textMuted }]}>
-            ¿No tienes cuenta? <Text style={{ color: colors.primary, fontWeight: '800' }}>Regístrate aquí</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Contraseña</Text>
+            <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+              <Lock size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="••••••••"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+              onPress={handleLogin}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.submitBtnText}>Entrar a HES</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.registerLink}
+              onPress={() => router.replace(redirect ? { pathname: '/register', params: { redirect } } as any : '/register')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.registerText, { color: colors.textMuted }]}>
+                ¿No tienes cuenta? <Text style={{ color: colors.primary, fontWeight: '800' }}>Regístrate aquí</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

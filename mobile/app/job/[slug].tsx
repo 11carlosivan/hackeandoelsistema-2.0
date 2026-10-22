@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -273,7 +275,11 @@ export default function JobDetailScreen() {
 
       {/* Modal de Postulación con Subida de CV */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Postularme a la vacante</Text>
@@ -282,7 +288,7 @@ export default function JobDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.modalForm}>
+            <ScrollView contentContainerStyle={styles.modalForm} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalSubtitle, { color: colors.primary }]}>{job?.title}</Text>
 
               <Text style={[styles.label, { color: colors.textMuted }]}>Nombre Completo *</Text>
@@ -367,7 +373,7 @@ export default function JobDetailScreen() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

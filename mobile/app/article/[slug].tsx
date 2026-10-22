@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -67,7 +67,12 @@ export default function ArticleDetailScreen() {
           <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando artículo...</Text>
         </View>
       ) : post ? (
-        <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Category Badge */}
           <View style={[styles.categoryBadge, { backgroundColor: post.isOpinion ? colors.badgeOpinionBg : colors.inputBackground }]}>
             {post.isOpinion ? <Quote size={12} color={colors.primary} style={{ marginRight: 4 }} /> : null}
@@ -173,7 +178,8 @@ export default function ArticleDetailScreen() {
               </View>
             </View>
           ) : null}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       ) : (
         <View style={styles.loadingBox}>
           <Text style={{ color: colors.text }}>No se pudo cargar el artículo.</Text>

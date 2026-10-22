@@ -13,6 +13,8 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -860,7 +862,11 @@ export default function ProfileScreen() {
         transparent={true}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalBox, { backgroundColor: isDark ? '#161922' : '#FFFFFF' }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>Editar Perfil</Text>
@@ -872,7 +878,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
+            <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
               <Text style={[styles.inputLabel, { color: colors.text }]}>Nombre para mostrar</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
@@ -962,7 +968,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Followers / Following List Modal */}

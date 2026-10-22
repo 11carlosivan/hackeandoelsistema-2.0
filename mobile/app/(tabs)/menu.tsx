@@ -71,7 +71,7 @@ export default function MenuScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <HeaderBar />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Prominent Search Bar in "Más" */}
         <View
           style={[styles.searchBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}

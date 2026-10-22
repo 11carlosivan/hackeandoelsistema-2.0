@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -694,105 +695,108 @@ export default function CommunityFeedScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={styles.modalBackdrop}
         >
           <View style={[styles.modalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            {/* Modal Header */}
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Nueva publicación comunitaria</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
-                <X size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Input with 250 character countdown */}
-            <TextInput
-              style={[styles.modalInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
-              placeholder="Escribe tu opinión o comparte información (máx. 250 caracteres)..."
-              placeholderTextColor={colors.textMuted}
-              multiline
-              maxLength={250}
-              value={postText}
-              onChangeText={setPostText}
-              autoFocus
-            />
-
-            <View style={styles.charCountRow}>
-              <Text
-                style={[
-                  styles.charCountText,
-                  { color: postText.length >= 240 ? '#DC2626' : colors.textMuted },
-                ]}
-              >
-                {250 - postText.length} caracteres restantes
-              </Text>
-            </View>
-
-            {/* Optional Poll Builder */}
-            {showPollBuilder && (
-              <View style={[styles.pollBuilderBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-                <Text style={[styles.pollBuilderTitle, { color: colors.primary }]}>Agregar Encuesta:</Text>
-                <TextInput
-                  style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="Pregunta de la encuesta..."
-                  placeholderTextColor={colors.textMuted}
-                  value={pollQuestion}
-                  onChangeText={setPollQuestion}
-                />
-                <TextInput
-                  style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="Opción 1"
-                  placeholderTextColor={colors.textMuted}
-                  value={pollOption1}
-                  onChangeText={setPollOption1}
-                />
-                <TextInput
-                  style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="Opción 2"
-                  placeholderTextColor={colors.textMuted}
-                  value={pollOption2}
-                  onChangeText={setPollOption2}
-                />
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+              {/* Modal Header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Nueva publicación comunitaria</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                  <X size={20} color={colors.text} />
+                </TouchableOpacity>
               </View>
-            )}
 
-            {/* Footer Buttons */}
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.pollToggleBtn,
-                  { backgroundColor: showPollBuilder ? colors.primary : colors.inputBackground },
-                ]}
-                onPress={() => setShowPollBuilder(!showPollBuilder)}
-                activeOpacity={0.7}
-              >
-                <BarChart2 size={16} color={showPollBuilder ? '#FFFFFF' : colors.text} />
+              {/* Input with 250 character countdown */}
+              <TextInput
+                style={[styles.modalInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
+                placeholder="Escribe tu opinión o comparte información (máx. 250 caracteres)..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                maxLength={250}
+                value={postText}
+                onChangeText={setPostText}
+                autoFocus
+              />
+
+              <View style={styles.charCountRow}>
                 <Text
                   style={[
-                    styles.pollToggleText,
-                    { color: showPollBuilder ? '#FFFFFF' : colors.text },
+                    styles.charCountText,
+                    { color: postText.length >= 240 ? '#DC2626' : colors.textMuted },
                   ]}
                 >
-                  {showPollBuilder ? 'Quitar Encuesta' : 'Encuesta'}
+                  {250 - postText.length} caracteres restantes
                 </Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={[styles.publishBtn, { backgroundColor: colors.primary }]}
-                onPress={handleCreatePost}
-                disabled={publishing || !postText.trim()}
-                activeOpacity={0.8}
-              >
-                {publishing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Send size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.publishBtnText}>Publicar</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+              {/* Optional Poll Builder */}
+              {showPollBuilder && (
+                <View style={[styles.pollBuilderBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                  <Text style={[styles.pollBuilderTitle, { color: colors.primary }]}>Agregar Encuesta:</Text>
+                  <TextInput
+                    style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
+                    placeholder="Pregunta de la encuesta..."
+                    placeholderTextColor={colors.textMuted}
+                    value={pollQuestion}
+                    onChangeText={setPollQuestion}
+                  />
+                  <TextInput
+                    style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
+                    placeholder="Opción 1"
+                    placeholderTextColor={colors.textMuted}
+                    value={pollOption1}
+                    onChangeText={setPollOption1}
+                  />
+                  <TextInput
+                    style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
+                    placeholder="Opción 2"
+                    placeholderTextColor={colors.textMuted}
+                    value={pollOption2}
+                    onChangeText={setPollOption2}
+                  />
+                </View>
+              )}
+
+              {/* Footer Buttons */}
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.pollToggleBtn,
+                    { backgroundColor: showPollBuilder ? colors.primary : colors.inputBackground },
+                  ]}
+                  onPress={() => setShowPollBuilder(!showPollBuilder)}
+                  activeOpacity={0.7}
+                >
+                  <BarChart2 size={16} color={showPollBuilder ? '#FFFFFF' : colors.text} />
+                  <Text
+                    style={[
+                      styles.pollToggleText,
+                      { color: showPollBuilder ? '#FFFFFF' : colors.text },
+                    ]}
+                  >
+                    {showPollBuilder ? 'Quitar Encuesta' : 'Encuesta'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.publishBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleCreatePost}
+                  disabled={publishing || !postText.trim()}
+                  activeOpacity={0.8}
+                >
+                  {publishing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Send size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.publishBtnText}>Publicar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -806,6 +810,7 @@ export default function CommunityFeedScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={styles.modalBackdrop}
         >
           <View style={[styles.commentsModalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>

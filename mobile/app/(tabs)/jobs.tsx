@@ -211,6 +211,7 @@ export default function JobsScreen() {
           data={jobs}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }

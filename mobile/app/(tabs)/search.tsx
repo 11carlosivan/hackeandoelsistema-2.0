@@ -212,6 +212,7 @@ export default function SearchScreen() {
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => <ArticleCard post={item} />}
             contentContainerStyle={styles.listPadding}
+            keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.emptyBox}>
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>
@@ -221,7 +222,7 @@ export default function SearchScreen() {
             }
           />
         ) : (
-          <ScrollView contentContainerStyle={styles.scrollPadding}>
+          <ScrollView contentContainerStyle={styles.scrollPadding} keyboardShouldPersistTaps="handled">
             {/* TENDENCIAS SECTION */}
             {(activeTab === 'all' || activeTab === 'topics') && (
               <View style={styles.sectionBlock}>
