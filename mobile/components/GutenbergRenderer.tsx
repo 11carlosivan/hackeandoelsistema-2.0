@@ -572,7 +572,18 @@ const InArticleRelatedCard: React.FC<{
   const { colors } = useTheme();
   const router = useRouter();
   const resolvedImg = image ? resolveImageUrl(image) : null;
-  const slug = href.replace(/^\/+|\/+$/g, '').split('/').pop() || '';
+  const extractSlug = (url: string) => {
+    if (!url) return '';
+    try {
+      const cleanUrl = url.trim().replace(/^https?:\/\/[^/]+/i, '');
+      const pathParts = cleanUrl.split('?')[0].split('#')[0].replace(/^\/+|\/+$/g, '').split('/');
+      return pathParts.pop() || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const targetSlug = extractSlug(href);
 
   return (
     <TouchableOpacity
@@ -581,9 +592,9 @@ const InArticleRelatedCard: React.FC<{
         { backgroundColor: colors.cardBackground, borderColor: colors.border },
       ]}
       onPress={() => {
-        if (slug) {
-          router.push(`/article/${slug}` as any);
-        } else {
+        if (targetSlug) {
+          router.push(`/article/${encodeURIComponent(targetSlug)}` as any);
+        } else if (href) {
           Linking.openURL(href);
         }
       }}
@@ -647,6 +658,7 @@ const TableBlock: React.FC<{ headers: string[]; rows: string[][] }> = ({ headers
 
 export const GutenbergRenderer: React.FC<GutenbergRendererProps> = ({ content, postId }) => {
   const { colors } = useTheme();
+  const router = useRouter();
 
   const blocks = React.useMemo(() => parseGutenbergBlocks(content), [content]);
 
@@ -694,6 +706,20 @@ export const GutenbergRenderer: React.FC<GutenbergRendererProps> = ({ content, p
               <Text key={`p-${idx}`} style={[styles.paragraph, { color: colors.text }]}>
                 {spans.map((span, sIdx) => {
                   if (span.url) {
+                    const handleLinkPress = () => {
+                      const url = span.url!;
+                      if (url.includes('hackeandoelsistema.net') || url.startsWith('/')) {
+                        const cleanPath = url.replace(/^https?:\/\/[^/]+/i, '').split('?')[0].split('#')[0].replace(/^\/+|\/+$/g, '');
+                        const parts = cleanPath.split('/');
+                        const possibleSlug = parts.pop() || '';
+                        if (possibleSlug && !['categoria', 'category', 'contacto-seguro', 'planes', 'radio'].includes(possibleSlug)) {
+                          router.push(`/article/${encodeURIComponent(possibleSlug)}` as any);
+                          return;
+                        }
+                      }
+                      Linking.openURL(url).catch(() => {});
+                    };
+
                     return (
                       <Text
                         key={`span-${sIdx}`}
@@ -703,7 +729,7 @@ export const GutenbergRenderer: React.FC<GutenbergRendererProps> = ({ content, p
                           span.bold ? styles.bold : null,
                           span.italic ? styles.italic : null,
                         ]}
-                        onPress={() => Linking.openURL(span.url!)}
+                        onPress={handleLinkPress}
                       >
                         {span.text}
                       </Text>

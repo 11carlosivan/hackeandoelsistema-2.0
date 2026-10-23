@@ -20,8 +20,14 @@ export default function ArticleDetailScreen() {
 
   useEffect(() => {
     if (slug) {
+      setLoading(true);
+      setPost(null);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       fetchPostBySlug(slug).then((data) => {
         setPost(data);
+        setLoading(false);
+      }).catch((err) => {
+        console.warn('[Article] Error loading article by slug:', slug, err);
         setLoading(false);
       });
     }
