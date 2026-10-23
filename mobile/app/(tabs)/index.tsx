@@ -138,20 +138,39 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [opinionPosts, setOpinionPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
-    const [fetchedPosts, fetchedCategories] = await Promise.all([
-      fetchPublicPosts({ limit: 50 }),
-      fetchCategories(),
-    ]);
+    try {
+      const [fetchedPosts, fetchedCategories, fetchedOpinionPosts] = await Promise.all([
+        fetchPublicPosts({ limit: 50 }),
+        fetchCategories(),
+        fetchPublicPosts({ categorySlug: 'opinion', limit: 10 }).catch(() => []),
+      ]);
 
-    setPosts(fetchedPosts);
-    setCategories(fetchedCategories);
-    setLoading(false);
-    setRefreshing(false);
+      const directOpinions = fetchedPosts.filter((p) => p.isOpinion);
+      const combinedOpinionPosts = [
+        ...fetchedOpinionPosts,
+        ...directOpinions,
+      ];
+      const seenIds = new Set();
+      const uniqueOpinionPosts = combinedOpinionPosts.filter((p) => {
+        const id = p.slug || p.id;
+        if (!id || seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
+
+      setPosts(fetchedPosts);
+      setCategories(fetchedCategories);
+      setOpinionPosts(uniqueOpinionPosts);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -201,8 +220,8 @@ export default function HomeScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
         >
-          {/* 1. OPINIÓN SLIDER (Top 5 Columnists Carousel) */}
-          <OpinionSlider posts={posts} />
+          {/* 1. OPINIÓN SLIDER (Top 10 Columnists Carousel) */}
+          <OpinionSlider posts={opinionPosts.length > 0 ? opinionPosts : posts} />
 
           {/* 2. HERO FEATURED ARTICLE (Portada Periodística) */}
           {heroPost ? (

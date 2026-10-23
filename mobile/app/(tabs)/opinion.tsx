@@ -14,12 +14,34 @@ export default function OpinionScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadOpinionData = async () => {
-    const allPosts = await fetchPublicPosts({ limit: 40 });
-    const opinionFiltered = allPosts.filter((p) => p.isOpinion);
-    // Fallback if no posts tagged explicitly opinion: use all
-    setPosts(opinionFiltered.length > 0 ? opinionFiltered : allPosts);
-    setLoading(false);
-    setRefreshing(false);
+    try {
+      const [catOpinionPosts, allPosts] = await Promise.all([
+        fetchPublicPosts({ categorySlug: 'opinion', limit: 40 }).catch(() => []),
+        fetchPublicPosts({ limit: 50 }).catch(() => []),
+      ]);
+
+      const directOpinions = allPosts.filter((p) => p.isOpinion);
+      const combined = [
+        ...catOpinionPosts,
+        ...directOpinions,
+      ];
+      const seen = new Set();
+      const uniqueOpinions = combined.filter((p) => {
+        const id = p.slug || p.id;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+      if (uniqueOpinions.length > 0) {
+        setPosts(uniqueOpinions);
+      } else {
+        setPosts(allPosts.slice(0, 20));
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {

@@ -837,6 +837,15 @@ function normalizePublicPost(post, options = {}) {
           fullPath: primaryCategory.fullPath,
         }
       : null,
+    categories: Array.isArray(post.categories)
+      ? post.categories.map((item) => ({
+          id: item.category?.id || item.id,
+          name: item.category?.name || item.name,
+          slug: item.category?.slug || item.slug,
+          fullPath: item.category?.fullPath || item.fullPath,
+          isPrimary: Boolean(item.isPrimary),
+        }))
+      : [],
     featuredMedia: normalizePublicMediaAsset(config, post.featuredMedia) || legacyFeaturedMediaFromContent(config, post),
   };
 }
@@ -2723,8 +2732,8 @@ export async function registerPublicRoutes(app) {
     const authHeader = request.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
-        const decoded = verifyAccessToken(authHeader.slice(7));
-        currentUserId = decoded?.userId || null;
+        const decoded = await verifyAccessToken(app.config, authHeader.slice(7));
+        currentUserId = decoded?.sub || decoded?.userId || null;
       } catch {}
     }
 
@@ -2744,9 +2753,11 @@ export async function registerPublicRoutes(app) {
           poll: {
             include: { options: true },
           },
-          likes: currentUserId
-            ? { where: { userId: currentUserId }, select: { id: true } }
-            : false,
+          ...(currentUserId
+            ? {
+                likes: { where: { userId: currentUserId }, select: { id: true } },
+              }
+            : {}),
         },
       }),
       app.prisma.communityPost.count(),

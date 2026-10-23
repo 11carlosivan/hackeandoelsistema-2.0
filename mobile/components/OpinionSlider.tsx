@@ -16,8 +16,8 @@ export const OpinionSlider: React.FC<OpinionSliderProps> = ({ posts }) => {
   const { colors } = useTheme();
   const router = useRouter();
 
-  const opinionPosts = posts.filter((p) => p.isOpinion).slice(0, 5);
-  const displayPosts = opinionPosts.length > 0 ? opinionPosts : posts.slice(0, 5);
+  const opinionPosts = posts.filter((p) => p.isOpinion).slice(0, 10);
+  const displayPosts = opinionPosts.length > 0 ? opinionPosts : posts.slice(0, 8);
 
   return (
     <View style={styles.container}>

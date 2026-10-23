@@ -122,7 +122,21 @@ export async function fetchPublicPosts(options: { limit?: number; q?: string; ca
           avatar: resolveImageUrl(item.author?.avatarUrl || item.author?.avatar),
         },
         publishedAt: item.publishedAt || item.createdAt || new Date().toISOString(),
-        isOpinion: (item.primaryCategory?.slug === 'opinion' || item.categorySlug === 'opinion' || item.category?.toLowerCase() === 'opinión' || item.category?.toLowerCase() === 'opinion'),
+        isOpinion: Boolean(
+          item.postType === 'OPINION' ||
+          item.primaryCategory?.name === 'Opinión' ||
+          item.primaryCategory?.slug === 'opinion' ||
+          item.categorySlug === 'opinion' ||
+          item.category === 'Opinión' ||
+          item.category?.toLowerCase() === 'opinión' ||
+          item.category?.toLowerCase() === 'opinion' ||
+          (Array.isArray(item.categories) && item.categories.some((c: any) => (
+            c.name === 'Opinión' ||
+            c.name?.toLowerCase() === 'opinión' ||
+            c.name?.toLowerCase() === 'opinion' ||
+            c.slug === 'opinion'
+          )))
+        ),
         likeCount: Number(item.likeCount ?? 0),
         commentCount: Number(item.commentCount ?? 0),
         shareCount: Number(item.shareCount ?? 0),
@@ -160,7 +174,20 @@ export async function fetchPostBySlug(slug: string): Promise<Post | null> {
         name: item.author?.displayName || item.author?.name || 'Redacción HES',
       },
       publishedAt: item.publishedAt || item.createdAt,
-      isOpinion: item.primaryCategory?.slug === 'opinion',
+      isOpinion: Boolean(
+        item.postType === 'OPINION' ||
+        item.primaryCategory?.name === 'Opinión' ||
+        item.primaryCategory?.slug === 'opinion' ||
+        item.category === 'Opinión' ||
+        item.category?.toLowerCase() === 'opinión' ||
+        item.category?.toLowerCase() === 'opinion' ||
+        (Array.isArray(item.categories) && item.categories.some((c: any) => (
+          c.name === 'Opinión' ||
+          c.name?.toLowerCase() === 'opinión' ||
+          c.name?.toLowerCase() === 'opinion' ||
+          c.slug === 'opinion'
+        )))
+      ),
       likeCount: Number(item.likeCount ?? 0),
       commentCount: Number(item.commentCount ?? 0),
       shareCount: Number(item.shareCount ?? 0),
@@ -1023,7 +1050,7 @@ export async function fetchCommunityPosts(token?: string | null): Promise<Commun
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
-    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts`, { headers });
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts?limit=50`, { headers });
     if (!res.ok) return [];
     const json = await res.json();
     return json.data?.posts || [];

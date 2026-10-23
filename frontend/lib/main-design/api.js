@@ -14,6 +14,7 @@ const LOCAL_API_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
 const HOME_CATEGORY_SECTION_LIMIT = 21;
 const HOME_CATEGORY_PREFETCH_LIMIT = 14;
 const PRIORITY_HOME_CATEGORIES = [
+  'OPINION',
   'POLITICA',
   'NACIONALES',
   'INTERNACIONALES',

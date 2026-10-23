@@ -17,7 +17,19 @@ function normalizeCategoryName(value) {
 }
 
 export function isOpinionCategoryArticle(article) {
-  return normalizeCategoryName(article?.category) === 'OPINION';
+  if (!article) return false;
+  if (article.isOpinion) return true;
+  const rawCat = String(article?.category || '').trim();
+  if (rawCat === 'Opinión' || rawCat.toLowerCase() === 'opinión' || rawCat.toLowerCase() === 'opinion') return true;
+  if (normalizeCategoryName(article?.category) === 'OPINION') return true;
+  if (Array.isArray(article?.categories) && article.categories.some((c) => {
+    const name = String(c?.name || '').trim();
+    const slug = String(c?.slug || '').trim().toLowerCase();
+    return name === 'Opinión' || name.toLowerCase() === 'opinión' || slug === 'opinion' || normalizeCategoryName(name || slug) === 'OPINION';
+  })) {
+    return true;
+  }
+  return false;
 }
 
 export function selectHomeHeroArticles(articles = []) {
@@ -195,8 +207,19 @@ export default function Home({ initialArticles, initialCategories = [], initialC
     .sort((a, b) => parseViews(b.views) - parseViews(a.views))
     .slice(0, 5);
 
-  // Strict opinions list: only articles belonging strictly to OPINION category.
-  const opinionArticlesFromArticles = articles.filter(isOpinionCategoryArticle);
+  // Opinions list: articles belonging to OPINION category or section
+  const opinionSectionArticles = loadedCategoryArticlesMap['OPINION'] || [];
+  const candidateOpinions = [
+    ...articles.filter(isOpinionCategoryArticle),
+    ...opinionSectionArticles,
+  ];
+  const seenOpinionKeys = new Set();
+  const opinionArticlesFromArticles = candidateOpinions.filter((art) => {
+    const key = art.slug || art.id;
+    if (!key || seenOpinionKeys.has(key)) return false;
+    seenOpinionKeys.add(key);
+    return true;
+  });
 
   const formattedArticleOpinions = opinionArticlesFromArticles.map((art) => ({
     id: art.id,

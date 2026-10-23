@@ -59,6 +59,14 @@ function normalizePublicPath(value) {
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
 }
 
+function normalizeCategoryName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+}
+
 function normalizeCategoryPath(category) {
   if (category?.fullPath) {
     const cleanPath = String(category.fullPath).trim().replace(/^\/+|\/+$/g, '');
@@ -109,6 +117,18 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     subtitle: post.excerpt || excerptFromText(post.contentText) || 'Lee la cobertura completa en Hackeando el Sistema.',
     category,
     categoryPath,
+    categories: Array.isArray(post.categories) ? post.categories : [],
+    isOpinion: Boolean(
+      post.postType === 'OPINION' ||
+      category === 'Opinión' ||
+      category?.toLowerCase() === 'opinión' ||
+      normalizeCategoryName(category) === 'OPINION' ||
+      (Array.isArray(post.categories) && post.categories.some((c) => {
+        const name = String(c?.name || '').trim();
+        const slug = String(c?.slug || '').trim().toLowerCase();
+        return name === 'Opinión' || name.toLowerCase() === 'opinión' || slug === 'opinion' || normalizeCategoryName(name || slug) === 'OPINION';
+      }))
+    ),
     tag: post.postType || 'NEWS',
     authorId,
     authorName: post.author?.displayName || 'Redaccion',
