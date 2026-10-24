@@ -43,6 +43,7 @@ export function buildNavigation(categories = []) {
   return [
     { name: 'INICIO', path: '/' },
     ...categoryLinks,
+    { name: 'DEPORTES', path: '/deportes' },
     { name: 'EMPLEOS', path: '/empleos/' },
     { name: 'ARCHIVO', path: '/archivo' },
   ];
@@ -392,6 +393,21 @@ export default function Header({ categories = [] }) {
             </div>
 
             <div className="border-t border-terminal-gray/40 pt-4">
+              <Link
+                href="/deportes"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="mb-4 flex items-center justify-between rounded border border-system-red/60 bg-gradient-to-r from-system-red/20 via-black to-black p-3 font-label-caps text-xs font-bold text-white transition-all hover:border-system-red hover:from-system-red/30"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🏆</span>
+                  <div>
+                    <div className="tracking-wider text-system-red">MARCADORES DEPORTIVOS</div>
+                    <div className="text-[10px] font-normal text-white/70">LIDOM, MLB, NBA, Fútbol, NFL y F1</div>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-sm text-system-red">arrow_forward</span>
+              </Link>
+
               <div className="mb-3 font-label-caps text-[9px] font-bold tracking-widest text-system-red">
                 CATEGORIAS Y SECCIONES
               </div>

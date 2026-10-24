@@ -13,6 +13,7 @@ describe('buildNavigation', () => {
       'INICIO',
       'POLITICA',
       'NACIONALES',
+      'DEPORTES',
       'EMPLEOS',
       'ARCHIVO',
     ]);

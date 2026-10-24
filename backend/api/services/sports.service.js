@@ -133,14 +133,18 @@ async function fetchLidomScores() {
             name: awayTeam?.team?.name || 'Visitante',
             shortName: awayTeam?.team?.teamCode?.toUpperCase() || awayTeam?.team?.name?.substring(0, 3).toUpperCase(),
             score: awayTeam?.score !== undefined ? awayTeam.score : (status === 'SCHEDULED' ? null : 0),
-            logo: `https://www.mlbstatic.com/team-logos/${awayTeam?.team?.id}.svg`,
+            logo: awayTeam?.team?.id
+              ? `https://midfield.mlbstatic.com/v1/team/${awayTeam.team.id}/spots/120`
+              : null,
           },
           homeTeam: {
             id: homeTeam?.team?.id,
             name: homeTeam?.team?.name || 'Local',
             shortName: homeTeam?.team?.teamCode?.toUpperCase() || homeTeam?.team?.name?.substring(0, 3).toUpperCase(),
             score: homeTeam?.score !== undefined ? homeTeam.score : (status === 'SCHEDULED' ? null : 0),
-            logo: `https://www.mlbstatic.com/team-logos/${homeTeam?.team?.id}.svg`,
+            logo: homeTeam?.team?.id
+              ? `https://midfield.mlbstatic.com/v1/team/${homeTeam.team.id}/spots/120`
+              : null,
           },
         });
       }

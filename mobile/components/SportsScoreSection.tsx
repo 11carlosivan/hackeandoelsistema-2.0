@@ -11,8 +11,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { useRouter } from 'expo-router';
 import { fetchSportsScoreboard, SportsGame, SportsScoreboardResponse } from '@/services/api';
-import { Trophy, RefreshCw, Clock, Activity } from 'lucide-react-native';
+import { Trophy, RefreshCw, Clock, Activity, ChevronRight } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.72;
@@ -31,6 +32,7 @@ const LEAGUES: { id: LeagueType; name: string; emoji: string; short: string }[] 
 export const SportsScoreSection: React.FC = () => {
   const { colors } = useTheme();
   // Selección 100% manual por el usuario (sin rotación automática)
+  const router = useRouter();
   const [selectedLeague, setSelectedLeague] = useState<LeagueType>('lidom');
   const [scoreboard, setScoreboard] = useState<SportsScoreboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,19 +76,30 @@ export const SportsScoreSection: React.FC = () => {
           </Text>
         </View>
 
-        {/* Botón de actualizar */}
-        <TouchableOpacity
-          style={[styles.refreshBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-          onPress={() => loadData(selectedLeague, true)}
-          disabled={refreshing}
-          activeOpacity={0.7}
-        >
-          <RefreshCw
-            size={13}
-            color={colors.primary}
-            style={refreshing ? { transform: [{ rotate: '45deg' }] } : undefined}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.seeAllBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+            onPress={() => router.push('/sports' as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.seeAllText, { color: colors.text }]}>Ver todo</Text>
+            <ChevronRight size={13} color={colors.primary} />
+          </TouchableOpacity>
+
+          {/* Botón de actualizar */}
+          <TouchableOpacity
+            style={[styles.refreshBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+            onPress={() => loadData(selectedLeague, true)}
+            disabled={refreshing}
+            activeOpacity={0.7}
+          >
+            <RefreshCw
+              size={13}
+              color={colors.primary}
+              style={refreshing ? { transform: [{ rotate: '45deg' }] } : undefined}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs de Deportes (Selección manual por el usuario) */}
@@ -335,6 +348,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+  },
+  seeAllText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   refreshBtn: {
     padding: 7,

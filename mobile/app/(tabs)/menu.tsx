@@ -23,6 +23,7 @@ import {
   Search,
   Flame,
   ArrowRight,
+  Trophy,
 } from 'lucide-react-native';
 
 export default function MenuScreen() {
@@ -39,6 +40,7 @@ export default function MenuScreen() {
     {
       title: 'Servicios e Información',
       items: [
+        { label: 'Marcadores Deportivos', icon: Trophy, path: '/sports', desc: 'Resultados y partidos en vivo de LIDOM, MLB, NBA, Fútbol, NFL y F1' },
         { label: 'Info (Clima, Divisas y Petróleo)', icon: TrendingUp, path: '/(tabs)/info', desc: 'Indicadores económicos y tiempo meteorológico en tiempo real' },
         { label: 'Encuestas de Opinión', icon: BarChart3, path: '/polls', desc: 'Participa y revisa resultados' },
         { label: 'Artículos Guardados', icon: Bookmark, path: '/saved', desc: 'Tus noticias archivadas' },

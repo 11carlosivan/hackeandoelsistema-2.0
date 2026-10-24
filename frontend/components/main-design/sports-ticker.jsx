@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 
 const LEAGUES = [
   { id: 'lidom', name: 'LIDOM', emoji: '⚾', label: 'Pelota Invernal RD' },
@@ -164,6 +165,16 @@ export default function SportsTicker() {
             </span>
             <span className="hidden sm:inline text-[10px]">Actualizar</span>
           </button>
+
+          {/* Enlace para ver pantalla completa */}
+          <Link
+            href="/deportes"
+            className="flex items-center gap-1 px-2 py-0.5 rounded bg-system-red/15 border border-system-red/40 hover:border-system-red hover:bg-system-red/30 text-white transition-all"
+            title="Ver resultados deportivos completos"
+          >
+            <span className="text-[10px] font-bold text-system-red">Ver completo</span>
+            <span className="material-symbols-outlined text-[12px] text-system-red">open_in_new</span>
+          </Link>
 
           {/* Controles de scroll */}
           {games.length > 2 && (
