@@ -7,6 +7,44 @@ import { submitPostComment, fetchPostComments, resolveImageUrl, PostComment } fr
 import { useRouter } from 'expo-router';
 import { MessageSquare, Send, UserCheck, Lock, CornerDownRight, X } from 'lucide-react-native';
 
+function formatCommentDateTime(dateInput?: string | Date | null): string {
+  if (!dateInput) return 'Reciente';
+  if (dateInput === 'Reciente') return 'Reciente';
+
+  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (!d || isNaN(d.getTime())) {
+    return String(dateInput);
+  }
+
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  const timeStr = `${hours}:${minutes} ${ampm}`;
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+
+  if (isToday) {
+    return `Hoy • ${timeStr}`;
+  }
+  if (isYesterday) {
+    return `Ayer • ${timeStr}`;
+  }
+
+  return `${day} ${month} ${year} • ${timeStr}`;
+}
+
 interface CommentSectionProps {
   postId: string;
   initialComments?: PostComment[];
@@ -100,12 +138,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     setSubmitting(false);
 
     if (result.success) {
+      const nowIso = new Date().toISOString();
       const newComment: PostComment = result.comment || {
         id: String(Date.now()),
         parentId: targetParentId || null,
         user: user.displayName || user.email,
         text: trimmed,
-        date: 'Reciente',
+        date: nowIso,
+        createdAt: nowIso,
       };
 
       setComments((prev) => [...prev, newComment]);
@@ -248,11 +288,15 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                         </Text>
                       </View>
                     )}
-                    <Text style={[styles.commentAuthor, { color: colors.primary }]}>{item.user}</Text>
+                    <View style={styles.authorMeta}>
+                      <Text style={[styles.commentAuthor, { color: colors.primary }]} numberOfLines={1}>
+                        {item.user}
+                      </Text>
+                      <Text style={[styles.commentDate, { color: colors.textMuted }]}>
+                        {formatCommentDateTime(item.createdAt || item.date)}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
-                  {item.date ? (
-                    <Text style={[styles.commentDate, { color: colors.textMuted }]}>{item.date}</Text>
-                  ) : null}
                 </View>
                 <Text style={[styles.commentBody, { color: colors.text }]}>{item.text}</Text>
 
@@ -279,9 +323,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                           key={reply.id}
                           style={[styles.replyCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                         >
-                          <View style={styles.commentHeader}>
+                          <View style={styles.replyHeader}>
                             <TouchableOpacity
-                              style={styles.authorRow}
+                              style={styles.replyAuthorContainer}
                               onPress={() => {
                                 if (reply.userId) {
                                   router.push(`/user/${encodeURIComponent(reply.userId)}` as any);
@@ -299,14 +343,22 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                                   </Text>
                                 </View>
                               )}
-                              <Text style={[styles.commentAuthor, { color: colors.text }]}>{reply.user}</Text>
-                              <Text style={[styles.replyTag, { color: colors.primary, backgroundColor: `${colors.primary}15` }]}>
-                                @{replyingToName}
-                              </Text>
+                              <View style={styles.replyMeta}>
+                                <View style={styles.replyNamesRow}>
+                                  <Text style={[styles.replyAuthor, { color: colors.text }]} numberOfLines={1}>
+                                    {reply.user}
+                                  </Text>
+                                  <View style={[styles.replyTagBadge, { backgroundColor: `${colors.primary}18` }]}>
+                                    <Text style={[styles.replyTagText, { color: colors.primary }]} numberOfLines={1}>
+                                      @{replyingToName}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <Text style={[styles.replyDate, { color: colors.textMuted }]}>
+                                  {formatCommentDateTime(reply.createdAt || reply.date)}
+                                </Text>
+                              </View>
                             </TouchableOpacity>
-                            {reply.date ? (
-                              <Text style={[styles.commentDate, { color: colors.textMuted }]}>{reply.date}</Text>
-                            ) : null}
                           </View>
                           <Text style={[styles.commentBody, { color: colors.text }]}>{reply.text}</Text>
 
@@ -429,56 +481,62 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
   },
   commentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  authorMeta: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   commentAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   commentAvatarPlaceholder: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   commentAvatarInitials: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
   },
   commentAvatarSmall: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginTop: 2,
   },
   commentAvatarPlaceholderSmall: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginTop: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   commentAvatarInitialsSmall: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
   },
   commentAuthor: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
+    letterSpacing: 0.2,
   },
   commentDate: {
     fontSize: 11,
+    marginTop: 2,
   },
   commentBody: {
     fontSize: 14,
@@ -509,6 +567,41 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 6,
     borderWidth: 1,
+  },
+  replyHeader: {
+    marginBottom: 6,
+  },
+  replyAuthorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  replyMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  replyNamesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  replyAuthor: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  replyTagBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  replyTagText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  replyDate: {
+    fontSize: 11,
+    marginTop: 3,
   },
   replyTag: {
     fontSize: 10,

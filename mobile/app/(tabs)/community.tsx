@@ -1057,6 +1057,8 @@ export default function CommunityFeedScreen() {
               {/* Footer Buttons */}
               <View style={styles.modalActionsRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {/* Subir foto oculto temporalmente a petición del usuario para soporte futuro */}
+                  {/*
                   <TouchableOpacity
                     style={[
                       styles.pollToggleBtn,
@@ -1070,6 +1072,7 @@ export default function CommunityFeedScreen() {
                       {selectedImage ? 'Cambiar foto' : 'Foto'}
                     </Text>
                   </TouchableOpacity>
+                  */}
 
                   <TouchableOpacity
                     style={[
@@ -1268,6 +1271,11 @@ export default function CommunityFeedScreen() {
                           <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Responder</Text>
                         </TouchableOpacity>
                       </View>
+                      {c.createdAt ? (
+                        <Text style={{ fontSize: 10.5, color: colors.textMuted, marginBottom: 4 }}>
+                          {formatRelativeTime(c.createdAt)}
+                        </Text>
+                      ) : null}
                       <Text style={[styles.commentContent, { color: colors.text }]}>
                         {c.content}
                       </Text>

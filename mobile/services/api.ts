@@ -12,6 +12,7 @@ export interface PostComment {
   avatarUrl?: string | null;
   text: string;
   date: string;
+  createdAt?: string | null;
 }
 
 export interface Post {
@@ -248,7 +249,8 @@ export async function fetchPostBySlug(slug: string, postId?: string): Promise<Po
       parentId: c.parentId || null,
       user: c.authorName || c.user?.displayName || c.user || 'Lector HES',
       text: c.body || c.text || '',
-      date: c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : (c.date || ''),
+      date: c.createdAt || c.date || '',
+      createdAt: c.createdAt || c.date || null,
     })),
     relatedPosts: (item.relatedPosts || []).map((rp: any) => ({
       id: rp.id,
@@ -344,7 +346,8 @@ export async function submitPostComment(
         parentId: c.parentId || null,
         user: c.user || c.authorName || 'Tú',
         text: c.text || c.body,
-        date: 'Reciente',
+        date: c.date || c.createdAt || new Date().toISOString(),
+        createdAt: c.date || c.createdAt || new Date().toISOString(),
       },
     };
   } catch (err: any) {
@@ -390,7 +393,8 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
       user: c.user || c.authorName || 'Lector HES',
       avatarUrl: c.avatarUrl || null,
       text: c.text || c.body,
-      date: c.date ? new Date(c.date).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Reciente',
+      date: c.date || c.createdAt || '',
+      createdAt: c.date || c.createdAt || null,
     }));
   } catch (err) {
     return [];
