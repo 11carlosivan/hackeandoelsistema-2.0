@@ -72,18 +72,22 @@ export interface EngagementData {
 
 export function resolveImageUrl(url?: string | null): string | null {
   if (!url) return null;
+  let resolved = url;
+  if (resolved.startsWith('http://hackeandoelsistema.net')) {
+    resolved = resolved.replace('http://hackeandoelsistema.net', 'https://hackeandoelsistema.net');
+  }
   if (
-    url.startsWith('http://') ||
-    url.startsWith('https://') ||
-    url.startsWith('file://') ||
-    url.startsWith('content://') ||
-    url.startsWith('ph://') ||
-    url.startsWith('data:')
+    resolved.startsWith('http://') ||
+    resolved.startsWith('https://') ||
+    resolved.startsWith('file://') ||
+    resolved.startsWith('content://') ||
+    resolved.startsWith('ph://') ||
+    resolved.startsWith('data:')
   ) {
-    return url;
+    return resolved;
   }
   const baseUrl = API_BASE_URL.replace(/\/+$/, '');
-  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  const cleanPath = resolved.startsWith('/') ? resolved : `/${resolved}`;
   return `${baseUrl}${cleanPath}`;
 }
 
@@ -423,38 +427,7 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 function getFallbackPosts(): Post[] {
-  return [
-    {
-      id: 'mock-1',
-      title: 'El impacto de la transformación digital en el periodismo independiente',
-      slug: 'transformacion-digital-periodismo',
-      excerpt: 'Un análisis profundo sobre cómo las nuevas plataformas están cambiando la difusión de noticias en tiempo real.',
-      category: 'OPINIÓN',
-      categorySlug: 'opinion',
-      isOpinion: true,
-      author: { name: 'Carlos Castillo' },
-      publishedAt: new Date().toISOString(),
-      featuredImage: 'https://picsum.photos/800/450',
-      likeCount: 14,
-      commentCount: 3,
-      shareCount: 5,
-    },
-    {
-      id: 'mock-2',
-      title: 'Nuevas reformas tecnológicas impulsan la transparencia pública',
-      slug: 'reformas-tecnologicas-transparencia',
-      excerpt: 'El sector digital recibe un importante respaldo gubernamental para garantizar el acceso ciudadano a la información.',
-      category: 'POLÍTICA',
-      categorySlug: 'politica',
-      isOpinion: false,
-      author: { name: 'Redacción HES' },
-      publishedAt: new Date().toISOString(),
-      featuredImage: 'https://picsum.photos/800/451',
-      likeCount: 22,
-      commentCount: 6,
-      shareCount: 8,
-    },
-  ];
+  return [];
 }
 
 /* ==========================================================================
@@ -787,48 +760,7 @@ export async function fetchJobApplicants(
 }
 
 function getFallbackJobs(): Job[] {
-  return [
-    {
-      id: 'mock-job-1',
-      title: 'Desarrollador React Native & Node.js Senior',
-      slug: 'desarrollador-react-native-node-senior',
-      companyName: '11Ci Media Group',
-      location: 'Santo Domingo, República Dominicana',
-      workplaceType: 'HYBRID',
-      employmentType: 'FULL_TIME',
-      category: 'Tecnología',
-      salaryMin: 90000,
-      salaryMax: 140000,
-      salaryCurrency: 'DOP',
-      salaryPeriod: 'MONTHLY',
-      isSalaryNegotiable: true,
-      description: 'Buscamos un ingeniero de software con pasión por el periodismo digital para liderar el ecosistema de apps móviles de Hackeando El Sistema.',
-      requirements: '- 3+ años con React Native / Expo\n- Experiencia con APIs REST Fastify/Node.js\n- Manejo de Git y despliegues en Linux/VPS',
-      benefits: '- Trabajo híbrido\n- Seguro médico complementario\n- Bonos por objetivos',
-      applicantCount: 4,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'mock-job-2',
-      title: 'Periodista de Investigación y Redactor Digital',
-      slug: 'periodista-investigacion-redactor-digital',
-      companyName: 'Hackeando El Sistema',
-      location: 'Distrito Nacional, RD',
-      workplaceType: 'ONSITE',
-      employmentType: 'FULL_TIME',
-      category: 'Editorial',
-      salaryMin: 65000,
-      salaryMax: 95000,
-      salaryCurrency: 'DOP',
-      salaryPeriod: 'MONTHLY',
-      isSalaryNegotiable: false,
-      description: 'Responsable de la investigación de denuncias ciudadanas, redacción de reportajes especiales y cobertura de actualidad.',
-      requirements: '- Licenciatura en Comunicación Social o Periodismo\n- Capacidad analítica y excelente ortografía\n- Experiencia en medios digitales',
-      benefits: '- Viáticos y transporte\n- Horario flexible en coberturas especiales\n- Oportunidad de crecimiento en el canal HES TV',
-      applicantCount: 7,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  return [];
 }
 
 export interface UserProfileData {

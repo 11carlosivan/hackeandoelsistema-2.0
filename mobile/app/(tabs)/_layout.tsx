@@ -2,9 +2,18 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { Home, Users, Tv, TrendingUp, Menu, Quote, Briefcase, Search, Grid, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const isAndroid = Platform.OS === 'android';
+  const bottomInset = insets.bottom;
+  // Respetar la barra de navegación digital de 3 botones de Android (48dp) o gestos (16-24dp)
+  const paddingBottom = bottomInset > 0 ? bottomInset + 4 : (isAndroid ? 10 : 8);
+  const tabHeight = 60 + (bottomInset > 0 ? bottomInset : (isAndroid ? 8 : 0));
 
   return (
     <Tabs
@@ -15,8 +24,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.headerBackground,
           borderTopColor: colors.border,
-          height: 60,
-          paddingBottom: 8,
+          height: tabHeight,
+          paddingBottom: paddingBottom,
           paddingTop: 6,
         },
         tabBarLabelStyle: {
