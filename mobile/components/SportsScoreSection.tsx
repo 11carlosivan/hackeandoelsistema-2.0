@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,33 +6,34 @@ import {
   Image,
   TouchableOpacity,
   FlatList,
+  ScrollView,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { fetchSportsScoreboard, SportsGame, SportsScoreboardResponse } from '@/services/api';
-import { Trophy, RefreshCw, Clock, Activity, Pause, Play } from 'lucide-react-native';
+import { Trophy, RefreshCw, Clock, Activity } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.72;
-const ROTATION_SECONDS = 20;
 
-type LeagueType = 'lidom' | 'mlb' | 'nba';
+type LeagueType = 'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl';
 
 const LEAGUES: { id: LeagueType; name: string; emoji: string; short: string }[] = [
   { id: 'lidom', name: 'LIDOM', emoji: '⚾', short: 'Pelota RD' },
   { id: 'mlb', name: 'MLB', emoji: '⚾', short: 'Grandes Ligas' },
   { id: 'nba', name: 'NBA', emoji: '🏀', short: 'Baloncesto' },
+  { id: 'soccer', name: 'Fútbol', emoji: '⚽', short: 'Soccer' },
+  { id: 'nfl', name: 'NFL', emoji: '🏈', short: 'Americano' },
 ];
 
 export const SportsScoreSection: React.FC = () => {
   const { colors } = useTheme();
+  // Selección 100% manual por el usuario (sin rotación automática)
   const [selectedLeague, setSelectedLeague] = useState<LeagueType>('lidom');
   const [scoreboard, setScoreboard] = useState<SportsScoreboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [cycleKey, setCycleKey] = useState(0);
 
   const loadData = useCallback(async (league: LeagueType, isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -53,33 +54,16 @@ export const SportsScoreSection: React.FC = () => {
     loadData(selectedLeague);
   }, [selectedLeague, loadData]);
 
-  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA (respetando si está en pausa)
-  useEffect(() => {
-    if (isPaused) return;
-
-    const timer = setInterval(() => {
-      setSelectedLeague((curr) => {
-        const idx = LEAGUES.findIndex((l) => l.id === curr);
-        const nextIdx = (idx + 1) % LEAGUES.length;
-        return LEAGUES[nextIdx].id;
-      });
-      setCycleKey((k) => k + 1);
-    }, ROTATION_SECONDS * 1000);
-
-    return () => clearInterval(timer);
-  }, [isPaused, cycleKey]);
-
-  const handleManualSelect = (leagueId: LeagueType) => {
+  const handleSelectLeague = (leagueId: LeagueType) => {
     if (leagueId === selectedLeague) return;
     setSelectedLeague(leagueId);
-    setCycleKey((k) => k + 1); // reinicia el temporizador de 20s
   };
 
   const games = scoreboard?.games || [];
 
   return (
     <View style={styles.container}>
-      {/* Header con título y selector de ligas */}
+      {/* Header con título y botón de recarga */}
       <View style={styles.headerRow}>
         <View style={styles.titleWithBadge}>
           <View style={[styles.redBar, { backgroundColor: colors.primary }]} />
@@ -89,44 +73,27 @@ export const SportsScoreSection: React.FC = () => {
           </Text>
         </View>
 
-        {/* Acciones: Pausar/Reanudar y Actualizar */}
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[
-              styles.actionBtn,
-              { backgroundColor: isPaused ? 'rgba(255, 179, 0, 0.15)' : colors.cardBackground, borderColor: isPaused ? '#FFB300' : colors.border },
-            ]}
-            onPress={() => setIsPaused((prev) => !prev)}
-            activeOpacity={0.7}
-            accessibilityLabel={isPaused ? 'Reanudar rotación' : 'Pausar rotación'}
-          >
-            {isPaused ? (
-              <Play size={12} color="#FFB300" />
-            ) : (
-              <Pause size={12} color={colors.primary} />
-            )}
-            <Text style={[styles.actionBtnText, { color: isPaused ? '#FFB300' : colors.textSecondary }]}>
-              {isPaused ? 'Pausado' : '20s'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-            onPress={() => loadData(selectedLeague, true)}
-            disabled={refreshing}
-            activeOpacity={0.7}
-          >
-            <RefreshCw
-              size={12}
-              color={colors.primary}
-              style={refreshing ? { transform: [{ rotate: '45deg' }] } : undefined}
-            />
-          </TouchableOpacity>
-        </View>
+        {/* Botón de actualizar */}
+        <TouchableOpacity
+          style={[styles.refreshBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+          onPress={() => loadData(selectedLeague, true)}
+          disabled={refreshing}
+          activeOpacity={0.7}
+        >
+          <RefreshCw
+            size={13}
+            color={colors.primary}
+            style={refreshing ? { transform: [{ rotate: '45deg' }] } : undefined}
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Tabs de Ligas con indicador de auto-rotación */}
-      <View style={styles.tabRow}>
+      {/* Tabs de Deportes (Selección manual por el usuario) */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabRow}
+      >
         {LEAGUES.map((l) => {
           const isActive = selectedLeague === l.id;
           return (
@@ -139,7 +106,7 @@ export const SportsScoreSection: React.FC = () => {
                   borderColor: isActive ? colors.primary : colors.border,
                 },
               ]}
-              onPress={() => handleManualSelect(l.id)}
+              onPress={() => handleSelectLeague(l.id)}
               activeOpacity={0.8}
             >
               <Text style={styles.tabEmoji}>{l.emoji}</Text>
@@ -154,7 +121,7 @@ export const SportsScoreSection: React.FC = () => {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* Lista de Marcadores o Estado Vacío */}
       {loading ? (
@@ -345,26 +312,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
+  refreshBtn: {
+    padding: 7,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  actionBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
   tabRow: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 8,
     marginBottom: 12,
@@ -372,14 +325,14 @@ const styles = StyleSheet.create({
   tabBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    gap: 4,
+    gap: 5,
   },
   tabEmoji: {
-    fontSize: 12,
+    fontSize: 13,
   },
   tabText: {
     fontSize: 12,

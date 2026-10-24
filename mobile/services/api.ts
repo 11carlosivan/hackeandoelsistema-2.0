@@ -1651,7 +1651,7 @@ export interface SportsScoreboardResponse {
   updatedAt: string;
 }
 
-export async function fetchSportsScoreboard(league: 'lidom' | 'mlb' | 'nba' = 'lidom'): Promise<SportsScoreboardResponse | null> {
+export async function fetchSportsScoreboard(league: 'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' = 'lidom'): Promise<SportsScoreboardResponse | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/sports/scoreboard?league=${league}`);
     if (!res.ok) return null;

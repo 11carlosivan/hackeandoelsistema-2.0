@@ -6,6 +6,8 @@ const LEAGUES = [
   { id: 'lidom', name: 'LIDOM', emoji: '⚾', label: 'Pelota Invernal RD' },
   { id: 'mlb', name: 'MLB', emoji: '⚾', label: 'Grandes Ligas' },
   { id: 'nba', name: 'NBA', emoji: '🏀', label: 'Baloncesto' },
+  { id: 'soccer', name: 'Fútbol', emoji: '⚽', label: 'Fútbol Soccer' },
+  { id: 'nfl', name: 'NFL', emoji: '🏈', label: 'Fútbol Americano' },
 ];
 
 const ROTATION_SECONDS = 20;

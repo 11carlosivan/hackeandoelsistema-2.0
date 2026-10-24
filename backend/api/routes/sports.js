@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getScoreboard } from '../services/sports.service.js';
 
 const scoreboardQuerySchema = z.object({
-  league: z.enum(['lidom', 'mlb', 'nba', 'all']).default('all'),
+  league: z.enum(['lidom', 'mlb', 'nba', 'soccer', 'nfl', 'all']).default('all'),
 });
 
 export async function registerSportsRoutes(app) {

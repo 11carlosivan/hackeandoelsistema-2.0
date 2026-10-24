@@ -360,8 +360,213 @@ async function fetchNbaScores() {
 }
 
 /**
+ * Obtener partidos de NFL (Fútbol Americano) desde ESPN Scoreboard API
+ */
+async function fetchNflScores() {
+  const cacheKey = 'sports_nfl';
+  const cached = getFromCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`ESPN NFL API returned ${res.status}`);
+    const data = await res.json();
+
+    const games = (data.events || []).map((ev) => {
+      const comp = ev.competitions?.[0];
+      const statusType = ev.status?.type;
+      let status = 'SCHEDULED';
+      if (statusType?.state === 'in') status = 'IN_PROGRESS';
+      else if (statusType?.state === 'post') status = 'FINAL';
+
+      let statusDetail = statusType?.shortDetail || 'Programado';
+      if (status === 'SCHEDULED' && ev.date) {
+        try {
+          statusDetail = new Intl.DateTimeFormat('es-DO', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'America/Santo_Domingo'
+          }).format(new Date(ev.date));
+        } catch {
+          statusDetail = statusType?.shortDetail || 'Hoy';
+        }
+      }
+
+      const competitors = comp?.competitors || [];
+      const home = competitors.find((c) => c.homeAway === 'home') || competitors[0];
+      const away = competitors.find((c) => c.homeAway === 'away') || competitors[1];
+
+      return {
+        id: `nfl-${ev.id}`,
+        league: 'nfl',
+        leagueName: 'NFL - Fútbol Americano',
+        sport: 'football',
+        name: ev.name,
+        gameDate: ev.date,
+        status,
+        statusDetail,
+        venue: comp?.venue?.fullName || '',
+        awayTeam: {
+          id: away?.team?.id,
+          name: away?.team?.displayName || away?.team?.name || 'Visitante',
+          shortName: away?.team?.abbreviation || 'VIS',
+          score: away?.score !== undefined ? Number(away.score) : null,
+          logo: away?.team?.logo || `https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/${away?.team?.abbreviation?.toLowerCase()}.png`,
+        },
+        homeTeam: {
+          id: home?.team?.id,
+          name: home?.team?.displayName || home?.team?.name || 'Local',
+          shortName: home?.team?.abbreviation || 'LOC',
+          score: home?.score !== undefined ? Number(home.score) : null,
+          logo: home?.team?.logo || `https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/${home?.team?.abbreviation?.toLowerCase()}.png`,
+        },
+      };
+    });
+
+    const result = {
+      league: 'nfl',
+      leagueName: 'NFL (Fútbol Americano)',
+      sport: 'football',
+      totalGames: games.length,
+      games,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setInCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return cache.get(cacheKey)?.data || {
+      league: 'nfl',
+      leagueName: 'NFL (Fútbol Americano)',
+      sport: 'football',
+      totalGames: 0,
+      games: [],
+      error: error.message,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Obtener partidos de Fútbol Soccer (LaLiga, Champions, Premier League) desde ESPN Scoreboard API
+ */
+async function fetchSoccerScores() {
+  const cacheKey = 'sports_soccer';
+  const cached = getFromCache(cacheKey);
+  if (cached) return cached;
+
+  const leaguesToFetch = [
+    { id: 'esp.1', name: 'LaLiga' },
+    { id: 'uefa.champions', name: 'Champions League' },
+    { id: 'eng.1', name: 'Premier League' },
+  ];
+
+  try {
+    const responses = await Promise.allSettled(
+      leaguesToFetch.map((l) =>
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${l.id}/scoreboard`, {
+          signal: AbortSignal.timeout(6000),
+        }).then((r) => (r.ok ? r.json() : { events: [] }))
+      )
+    );
+
+    const allGames = [];
+
+    responses.forEach((resResult, idx) => {
+      if (resResult.status !== 'fulfilled' || !resResult.value?.events) return;
+      const tournamentName = leaguesToFetch[idx].name;
+
+      for (const ev of resResult.value.events) {
+        const comp = ev.competitions?.[0];
+        const statusType = ev.status?.type;
+        let status = 'SCHEDULED';
+        if (statusType?.state === 'in') status = 'IN_PROGRESS';
+        else if (statusType?.state === 'post') status = 'FINAL';
+
+        let statusDetail = statusType?.shortDetail || 'Programado';
+        if (status === 'SCHEDULED' && ev.date) {
+          try {
+            const timeStr = new Intl.DateTimeFormat('es-DO', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: 'America/Santo_Domingo',
+            }).format(new Date(ev.date));
+            statusDetail = timeStr;
+          } catch {
+            statusDetail = statusType?.shortDetail || 'Hoy';
+          }
+        } else if (status === 'FINAL') {
+          statusDetail = 'Final';
+        }
+
+        const competitors = comp?.competitors || [];
+        const home = competitors.find((c) => c.homeAway === 'home') || competitors[0];
+        const away = competitors.find((c) => c.homeAway === 'away') || competitors[1];
+
+        allGames.push({
+          id: `soccer-${ev.id}`,
+          league: 'soccer',
+          leagueName: `Fútbol (${tournamentName})`,
+          sport: 'soccer',
+          name: ev.name,
+          gameDate: ev.date,
+          status,
+          statusDetail: `${tournamentName} • ${statusDetail}`,
+          venue: comp?.venue?.fullName || '',
+          awayTeam: {
+            id: away?.team?.id,
+            name: away?.team?.displayName || away?.team?.name || 'Visitante',
+            shortName: away?.team?.abbreviation || 'VIS',
+            score: away?.score !== undefined ? Number(away.score) : null,
+            logo: away?.team?.logo || '',
+          },
+          homeTeam: {
+            id: home?.team?.id,
+            name: home?.team?.displayName || home?.team?.name || 'Local',
+            shortName: home?.team?.abbreviation || 'LOC',
+            score: home?.score !== undefined ? Number(home.score) : null,
+            logo: home?.team?.logo || '',
+          },
+        });
+      }
+    });
+
+    // Ordenar: en vivo primero, luego finales, luego programados
+    allGames.sort((a, b) => {
+      const priority = { IN_PROGRESS: 0, FINAL: 1, SCHEDULED: 2 };
+      return (priority[a.status] ?? 3) - (priority[b.status] ?? 3);
+    });
+
+    const result = {
+      league: 'soccer',
+      leagueName: 'Fútbol (Soccer)',
+      sport: 'soccer',
+      totalGames: allGames.length,
+      games: allGames,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setInCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return cache.get(cacheKey)?.data || {
+      league: 'soccer',
+      leagueName: 'Fútbol (Soccer)',
+      sport: 'soccer',
+      totalGames: 0,
+      games: [],
+      error: error.message,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
  * Obtener marcadores según liga o combinados
- * @param {'lidom' | 'mlb' | 'nba' | 'all'} league 
+ * @param {'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' | 'all'} league 
  */
 export async function getScoreboard(league = 'all') {
   const normLeague = String(league || 'all').toLowerCase();
@@ -378,11 +583,21 @@ export async function getScoreboard(league = 'all') {
     return await fetchNbaScores();
   }
 
-  // 'all': Obtener los 3 en paralelo
-  const [lidom, mlb, nba] = await Promise.all([
+  if (normLeague === 'soccer') {
+    return await fetchSoccerScores();
+  }
+
+  if (normLeague === 'nfl') {
+    return await fetchNflScores();
+  }
+
+  // 'all': Obtener los 5 en paralelo
+  const [lidom, mlb, nba, soccer, nfl] = await Promise.all([
     fetchLidomScores(),
     fetchMlbScores(),
     fetchNbaScores(),
+    fetchSoccerScores(),
+    fetchNflScores(),
   ]);
 
   return {
@@ -390,6 +605,8 @@ export async function getScoreboard(league = 'all') {
       lidom,
       mlb,
       nba,
+      soccer,
+      nfl,
     },
     updatedAt: new Date().toISOString(),
   };
