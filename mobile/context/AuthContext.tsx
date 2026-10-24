@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@/constants/Config';
 import { resolveImageUrl } from '@/services/api';
-import { registerForPushNotificationsAsync } from '@/services/pushNotifications';
+import { registerForPushNotificationsAsync, isPushNotificationsEnabled } from '@/services/pushNotifications';
 
 export interface User {
   id: string;
@@ -26,7 +26,14 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, pass: string, age?: number, isCompany?: boolean) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    name: string,
+    email: string,
+    pass: string,
+    age?: number,
+    isCompany?: boolean,
+    extra?: { firstName?: string; lastName?: string; username?: string }
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -87,11 +94,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadPersistedSession();
   }, []);
 
-  // Registrar Expo Push Token en el backend cuando haya token de autenticación
+  // Registrar Expo Push Token en el backend cuando haya token de autenticación (si no está desactivado)
   useEffect(() => {
     if (token) {
-      registerForPushNotificationsAsync(token).catch((err) => {
-        console.log('[Auth] Error registrando push token:', err);
+      isPushNotificationsEnabled().then((enabled) => {
+        if (enabled) {
+          registerForPushNotificationsAsync(token).catch((err) => {
+            console.log('[Auth] Error registrando push token:', err);
+          });
+        }
       });
     }
   }, [token]);
@@ -268,7 +279,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, pass: string, age = 18, isCompany = false) => {
+  const register = async (
+    name: string,
+    email: string,
+    pass: string,
+    age = 18,
+    isCompany = false,
+    extra?: { firstName?: string; lastName?: string; username?: string }
+  ) => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
@@ -279,6 +297,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         body: JSON.stringify({
           displayName: name.trim(),
+          firstName: extra?.firstName?.trim() || undefined,
+          lastName: extra?.lastName?.trim() || undefined,
+          username: extra?.username?.trim() || undefined,
           email: email.trim().toLowerCase(),
           password: pass,
           age,

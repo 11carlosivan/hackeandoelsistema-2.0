@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { API_BASE_URL } from '@/constants/Config';
@@ -80,5 +81,40 @@ export async function registerForPushNotificationsAsync(authToken: string): Prom
   } catch (error) {
     console.warn('[Push] Error inesperado configurando notificaciones:', error);
     return null;
+  }
+}
+
+const PUSH_ENABLED_STORAGE_KEY = '@hes_push_notifications_enabled';
+
+export async function isPushNotificationsEnabled(): Promise<boolean> {
+  try {
+    const val = await AsyncStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
+    if (val === null) return true; // Default: habilitadas
+    return val === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export async function setPushNotificationsEnabled(enabled: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch {}
+}
+
+export async function unregisterPushNotificationsAsync(authToken: string): Promise<boolean> {
+  try {
+    await setPushNotificationsEnabled(false);
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/push-token`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[Push] Error al desregistrar push token:', err);
+    return false;
   }
 }

@@ -18,7 +18,7 @@ import {
 import { addMinutes } from '../utils/crypto.js';
 import { noStoreHeaders } from '../utils/http.js';
 import { storeMediaUpload } from '../services/media-storage.js';
-import { registerUserPushToken } from '../services/notifications.js';
+import { registerUserPushToken, unregisterUserPushToken } from '../services/notifications.js';
 
 const loginSchema = z.object({
   email: z.string().email().max(255),
@@ -27,7 +27,10 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  displayName: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres').max(160),
+  displayName: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres').max(160).optional(),
+  firstName: z.string().trim().max(120).optional(),
+  lastName: z.string().trim().max(120).optional(),
+  username: z.string().trim().min(3, 'El nombre de usuario debe tener al menos 3 caracteres').max(120).regex(/^[a-zA-Z0-9_.-]+$/, 'Nombre de usuario inválido (solo letras, números, puntos y guiones)').optional(),
   email: z.string().email('El correo no es válido').max(255),
   password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(200),
   age: z.coerce.number().int().min(14, 'Debes tener al menos 14 años').max(120, 'Edad no válida').optional(),
@@ -207,6 +210,20 @@ export async function registerAuthRoutes(app) {
       throw app.httpErrors.conflict('Este correo ya está registrado. Por favor inicia sesión.');
     }
 
+    let cleanUsername = null;
+    if (parsed.data.username) {
+      cleanUsername = parsed.data.username.trim().replace(/^@/, '');
+      const existingUsername = await app.prisma.user.findFirst({
+        where: { username: cleanUsername },
+        select: { id: true },
+      });
+      if (existingUsername) {
+        throw app.httpErrors.conflict('Este nombre de usuario ya está en uso. Por favor elige otro.');
+      }
+    }
+
+    const cleanDisplayName = parsed.data.displayName || [parsed.data.firstName, parsed.data.lastName].filter(Boolean).join(' ').trim() || cleanUsername || 'Usuario HES';
+
     const passwordHash = await hashPassword(parsed.data.password);
     const user = await app.prisma.$transaction(async (tx) => {
       const memberRole = await ensureMemberRole(tx);
@@ -214,11 +231,22 @@ export async function registerAuthRoutes(app) {
         data: {
           email,
           passwordHash,
-          displayName: parsed.data.displayName,
+          displayName: cleanDisplayName,
+          username: cleanUsername,
           status: 'ACTIVE',
           passwordChangedAt: new Date(),
         },
       });
+
+      if (parsed.data.firstName || parsed.data.lastName) {
+        await tx.userProfile.create({
+          data: {
+            userId: createdUser.id,
+            firstName: parsed.data.firstName || null,
+            lastName: parsed.data.lastName || null,
+          },
+        });
+      }
 
       await tx.userRole.create({
         data: {
@@ -780,6 +808,12 @@ export async function registerAuthRoutes(app) {
       throw app.httpErrors.badRequest('Token push inválido');
     }
     await registerUserPushToken(request.auth.user.id, parsed.data.token, app.prisma);
+    return { data: { success: true } };
+  });
+
+  app.delete('/api/v1/auth/push-token', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    await unregisterUserPushToken(request.auth.user.id, app.prisma);
     return { data: { success: true } };
   });
 }

@@ -33,6 +33,27 @@ export async function registerUserPushToken(userId, token, prisma = null) {
   }
 }
 
+export async function unregisterUserPushToken(userId, prisma = null) {
+  if (typeof userId === 'object' && userId !== null && userId.userId) {
+    prisma = userId.prisma || null;
+    userId = userId.userId;
+  }
+  if (!userId) return;
+
+  userPushTokens.delete(userId);
+
+  if (prisma?.$executeRawUnsafe) {
+    try {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM user_push_tokens WHERE user_id = ?`,
+        userId
+      );
+    } catch (e) {
+      console.warn('[PushToken] Error removing token from DB:', e.message);
+    }
+  }
+}
+
 export async function getUserPushTokens(userId, prisma = null) {
   if (typeof userId === 'object' && userId !== null && userId.userId) {
     prisma = userId.prisma || null;

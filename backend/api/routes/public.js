@@ -2841,6 +2841,69 @@ export async function registerPublicRoutes(app) {
     };
   });
 
+  app.get('/api/v1/public/community/posts/:id', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+
+    if (typeof app.prisma?.communityPost?.findUnique !== 'function') {
+      throw app.httpErrors.notFound('Publicación no encontrada');
+    }
+
+    const post = await app.prisma.communityPost.findUnique({
+      where: { id },
+      include: {
+        user: {
+          include: { profile: true, avatarMedia: true },
+        },
+        poll: {
+          include: { options: true },
+        },
+      },
+    });
+
+    if (!post) {
+      throw app.httpErrors.notFound('Publicación no encontrada');
+    }
+
+    let pollData = null;
+    if (post.poll) {
+      const totalPollVotes = (post.poll.options || []).reduce((acc, curr) => acc + curr.votesCount, 0);
+      pollData = {
+        id: post.poll.id,
+        question: post.poll.question,
+        totalVotes: totalPollVotes,
+        hasVoted: false,
+        options: (post.poll.options || []).map((opt) => ({
+          id: opt.id,
+          text: opt.text,
+          votesCount: opt.votesCount,
+          percentage: totalPollVotes > 0 ? Math.round((opt.votesCount / totalPollVotes) * 100) : 0,
+        })),
+      };
+    }
+
+    return {
+      data: {
+        id: post.id,
+        content: post.content,
+        mediaUrl: post.mediaUrl,
+        likesCount: post.likesCount,
+        commentsCount: post.commentsCount,
+        repostsCount: post.repostsCount,
+        isLiked: false,
+        createdAt: post.createdAt,
+        user: {
+          id: post.user?.id || 'hes',
+          displayName: post.user?.displayName || 'Usuario HES',
+          username: post.user?.username || 'usuario',
+          avatarUrl: resolveAvatarUrl(post.user?.profile?.avatarUrl || post.user?.avatarMedia?.url || null),
+          bio: post.user?.profile?.bio || null,
+        },
+        poll: pollData,
+      },
+    };
+  });
+
   app.post('/api/v1/public/community/posts', { preHandler: app.authenticate }, async (request, reply) => {
     noStoreHeaders(reply);
     const schema = z.object({

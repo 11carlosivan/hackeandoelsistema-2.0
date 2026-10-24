@@ -71,8 +71,20 @@ export default function NotificationsScreen() {
       refreshUser();
     }
 
-    if (item.postSlug) {
+    const isCommunity = Boolean(
+      item.type?.includes('COMMUNITY') ||
+      (!item.postSlug && item.postId && !item.type?.includes('EDITORIAL'))
+    );
+
+    if (isCommunity && item.postId) {
+      router.push({
+        pathname: '/(tabs)/community',
+        params: { postId: item.postId, commentId: item.commentId || '' },
+      } as any);
+    } else if (item.postSlug) {
       router.push(`/article/${encodeURIComponent(item.postSlug)}`);
+    } else if (item.postId) {
+      router.push(`/article/${encodeURIComponent(item.postId)}`);
     } else if (item.actor?.id) {
       router.push(`/user/${encodeURIComponent(item.actor.id)}` as any);
     }

@@ -17,7 +17,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HeaderBar } from '@/components/HeaderBar';
 import { PollCard } from '@/components/PollCard';
 import { SponsoredPostCard } from '@/components/SponsoredPostCard';
@@ -26,6 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import {
   fetchCommunityPosts,
+  fetchCommunityPostById,
   createCommunityPost,
   updateCommunityPost,
   deleteCommunityPost,
@@ -73,6 +74,8 @@ export default function CommunityFeedScreen() {
   const { colors } = useTheme();
   const { user, token, refreshAccessToken } = useAuth();
   const router = useRouter();
+  const { postId: targetPostId, commentId: targetCommentId } = useLocalSearchParams<{ postId?: string; commentId?: string }>();
+  const handledTargetPostRef = useRef<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'all' | 'news' | 'community'>('all');
   const [posts, setPosts] = useState<CommunityPostItem[]>([]);
@@ -135,6 +138,40 @@ export default function CommunityFeedScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Si se abre desde una notificación con postId, abrir automáticamente los comentarios de la publicación
+  useEffect(() => {
+    if (targetPostId && handledTargetPostRef.current !== targetPostId) {
+      setActiveTab('community');
+      handledTargetPostRef.current = targetPostId;
+
+      const existing = posts.find((p) => p.id === targetPostId);
+      if (existing) {
+        handleOpenComments(existing);
+      } else {
+        fetchCommunityPostById(targetPostId).then((foundPost) => {
+          if (foundPost) {
+            handleOpenComments(foundPost);
+          } else {
+            fetchCommunityComments(targetPostId).then((comms) => {
+              setSelectedPostForComments({
+                id: targetPostId,
+                content: 'Publicación comunitaria',
+                createdAt: new Date().toISOString(),
+                user: { id: '', displayName: 'Comunidad HES', username: 'comunidad' },
+                likesCount: 0,
+                commentsCount: comms?.length || 0,
+                repostsCount: 0,
+                isLiked: false,
+              });
+              setPostComments(comms || []);
+              setCommentsModalVisible(true);
+            });
+          }
+        });
+      }
+    }
+  }, [targetPostId, posts]);
 
   const handleRefresh = () => {
     setRefreshing(true);

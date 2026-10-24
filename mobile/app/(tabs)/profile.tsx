@@ -15,6 +15,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -47,6 +48,7 @@ import {
   MoreVertical,
   UserX,
   Shield,
+  Bell,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -67,6 +69,12 @@ import {
   FollowUserItem,
   CommunityPostItem,
 } from '@/services/api';
+import {
+  isPushNotificationsEnabled,
+  setPushNotificationsEnabled,
+  registerForPushNotificationsAsync,
+  unregisterPushNotificationsAsync,
+} from '@/services/pushNotifications';
 
 export default function ProfileScreen() {
   const { colors, isDark, themeMode, setThemeMode } = useTheme();
@@ -90,6 +98,32 @@ export default function ProfileScreen() {
   // Blocked users management
   const [blockedUsersModalVisible, setBlockedUsersModalVisible] = useState(false);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+
+  // Push Notifications toggle state
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [togglingPush, setTogglingPush] = useState(false);
+
+  useEffect(() => {
+    isPushNotificationsEnabled().then(setPushEnabled);
+  }, []);
+
+  const handleTogglePushNotifications = async (val: boolean) => {
+    setPushEnabled(val);
+    setTogglingPush(true);
+    await setPushNotificationsEnabled(val);
+    if (!val) {
+      if (token) {
+        await unregisterPushNotificationsAsync(token);
+      }
+      toast.info('Notificaciones desactivadas', 'No recibirás alertas push en este dispositivo.');
+    } else {
+      if (token) {
+        await registerForPushNotificationsAsync(token);
+      }
+      toast.success('Notificaciones activadas', 'Recibirás alertas push sobre tus publicaciones y comentarios.');
+    }
+    setTogglingPush(false);
+  };
 
   // Saved Posts state (Artículos y Comunidad)
   const [savedSubTab, setSavedSubTab] = useState<'articles' | 'community'>('articles');
@@ -1008,6 +1042,33 @@ export default function ProfileScreen() {
         {/* Tab 2: Settings & Account */}
         {(!user || activeTab === 'settings') && (
           <View style={styles.settingsSection}>
+            {/* Push Notifications Section */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>NOTIFICACIONES</Text>
+              <View style={[styles.optionsGroup, { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border }]}>
+                <View style={[styles.optionRow, { justifyContent: 'space-between' }]}>
+                  <View style={[styles.optionLeft, { flex: 1, marginRight: 12 }]}>
+                    <Bell size={18} color={pushEnabled ? colors.primary : colors.textMuted} style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.optionText, { color: colors.text }]}>Notificaciones Push</Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                        {pushEnabled
+                          ? 'Recibirás alertas de actividad, comentarios y respuestas.'
+                          : 'Notificaciones push desactivadas en este dispositivo.'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={pushEnabled}
+                    onValueChange={handleTogglePushNotifications}
+                    disabled={togglingPush}
+                    trackColor={{ false: isDark ? '#334155' : '#CBD5E1', true: colors.primary }}
+                    thumbColor={Platform.OS === 'android' ? (pushEnabled ? '#FFFFFF' : '#94A3B8') : undefined}
+                  />
+                </View>
+              </View>
+            </View>
+
             {/* Theme Settings Section */}
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>APARIENCIA Y TEMA</Text>

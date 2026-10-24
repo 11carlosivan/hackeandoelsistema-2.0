@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
-import { ArrowLeft, User, Mail, Lock, Calendar, CheckSquare, Square } from 'lucide-react-native';
+import { ArrowLeft, User, Mail, Lock, Calendar, CheckSquare, Square, AtSign } from 'lucide-react-native';
 
 export default function RegisterScreen() {
   const { colors } = useTheme();
@@ -13,7 +13,9 @@ export default function RegisterScreen() {
   const { toast } = useNotification();
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [age, setAge] = useState('');
   const [password, setPassword] = useState('');
@@ -22,8 +24,19 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password) {
-      toast.warning('Campos requeridos', 'Por favor completa todos los campos.');
+    if (!firstName.trim() || !lastName.trim() || !username.trim() || !email.trim() || !password) {
+      toast.warning('Campos requeridos', 'Por favor completa tu nombre, apellido, usuario, correo y contraseña.');
+      return;
+    }
+
+    const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
+    if (cleanUsername.length < 3) {
+      toast.warning('Usuario muy corto', 'El nombre de usuario debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUsername)) {
+      toast.warning('Usuario inválido', 'El nombre de usuario solo puede contener letras, números, puntos y guiones.');
       return;
     }
 
@@ -49,7 +62,12 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    const result = await register(name, email, password, parsedAge);
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const result = await register(fullName, email, password, parsedAge, false, {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      username: cleanUsername,
+    });
     setLoading(false);
 
     if (result.success) {
@@ -81,15 +99,46 @@ export default function RegisterScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.form}>
-          <Text style={[styles.label, { color: colors.textMuted }]}>Nombre o Empresa</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: colors.textMuted }]}>Nombre</Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                <User size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Carlos"
+                  placeholderTextColor={colors.textMuted}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                />
+              </View>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: colors.textMuted }]}>Apellido</Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Castillo"
+                  placeholderTextColor={colors.textMuted}
+                  value={lastName}
+                  onChangeText={setLastName}
+                />
+              </View>
+            </View>
+          </View>
+
+          <Text style={[styles.label, { color: colors.textMuted }]}>Nombre de Usuario</Text>
           <View style={[styles.inputBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-            <User size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+            <AtSign size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Tu Nombre o Razón Social"
+              placeholder="tu_usuario (sin espacios)"
               placeholderTextColor={colors.textMuted}
-              value={name}
-              onChangeText={setName}
+              value={username}
+              onChangeText={(text) => setUsername(text.replace(/\s+/g, ''))}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 

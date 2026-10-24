@@ -1241,6 +1241,19 @@ export async function updateCommunityPost(
   }
 }
 
+export async function fetchCommunityPostById(postId: string): Promise<CommunityPostItem | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteCommunityPost(
   postId: string,
   token?: string | null
