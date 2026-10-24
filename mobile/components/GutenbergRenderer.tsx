@@ -118,11 +118,11 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
     .replace(/<!--[\s\S]*?-->/g, '');
 
   const blockRegex =
-    /(<div\s+class=["'][^"']*wp-block-hes-form[^"']*["'][^>]*data-form-config=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>)|(<div\s+class=["'][^"']*wp-block-hes-related[^"']*["'][^>]*>([\s\S]*?)<\/div>)|(<figure[^>]*>([\s\S]*?)<\/figure>)|(<div\s+class=["'][^"']*(?:wp-block-embed|embed)[^"']*["'][^>]*>([\s\S]*?)<\/div>)|(<iframe[^>]*src=["']([^"']+)["'][^>]*>[\s\S]*?<\/iframe>)|(<video[^>]*src=["']([^"']+)["'][^>]*>[\s\S]*?<\/video>)|(<img[^>]*src=["']([^"']+)["'][^>]*\/?>)|(<h([1-6])[^>]*>([\s\S]*?)<\/h\12>)|(<blockquote[^>]*>([\s\S]*?)<\/blockquote>)|(<(ul|ol)[^>]*>([\s\S]*?)<\/\16>)|(<table[^>]*>([\s\S]*?)<\/table>)|(<hr[^>]*\/?>)|(<p[^>]*>([\s\S]*?)<\/p>)/gi;
+    /<div\s+class=["'][^"']*wp-block-hes-form[^"']*["'][^>]*data-form-config=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>|<div\s+class=["'][^"']*wp-block-hes-related[^"']*["'][^>]*>[\s\S]*?<\/div>|<figure[^>]*>[\s\S]*?<\/figure>|<div\s+class=["'][^"']*(?:wp-block-embed|embed)[^"']*["'][^>]*>[\s\S]*?<\/div>|<iframe[^>]*>[\s\S]*?<\/iframe>|<video[^>]*>[\s\S]*?<\/video>|<img[^>]*\/?>|<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>|<blockquote[^>]*>[\s\S]*?<\/blockquote>|<(?:ul|ol)[^>]*>[\s\S]*?<\/(?:ul|ol)>|<table[^>]*>[\s\S]*?<\/table>|<hr[^>]*\/?>|<p[^>]*>[\s\S]*?<\/p>/gi;
 
   const blocks: ParsedBlock[] = [];
   let lastIndex = 0;
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = blockRegex.exec(clean)) !== null) {
     // Plain text chunk before block
@@ -136,18 +136,22 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
       }
     }
 
-    if (match[1] !== undefined) {
+    const tagStr = match[0];
+
+    if (/^<div\s+class=["'][^"']*wp-block-hes-form/i.test(tagStr)) {
       // 1. Form Block
-      try {
-        const config = JSON.parse(decodeURIComponent(match[2]));
-        blocks.push({ type: 'form', config });
-      } catch {}
-    } else if (match[3] !== undefined) {
+      const configMatch = tagStr.match(/data-form-config=["']([^"']+)["']/i);
+      if (configMatch) {
+        try {
+          const config = JSON.parse(decodeURIComponent(configMatch[1]));
+          blocks.push({ type: 'form', config });
+        } catch {}
+      }
+    } else if (/^<div\s+class=["'][^"']*wp-block-hes-related/i.test(tagStr)) {
       // 2. In-article Related Post Box
-      const relHtml = match[4];
-      const imgMatch = relHtml.match(/<img[^>]*src=["']([^"']+)["']/i);
-      const catMatch = relHtml.match(/<span\s+class=["'][^"']*related-category[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
-      const aMatch = relHtml.match(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+      const imgMatch = tagStr.match(/<img[^>]*src=["']([^"']+)["']/i);
+      const catMatch = tagStr.match(/<span\s+class=["'][^"']*related-category[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+      const aMatch = tagStr.match(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
       if (aMatch) {
         blocks.push({
           type: 'related',
@@ -157,10 +161,9 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
           category: catMatch ? decodeHtmlEntities(catMatch[1].replace(/<[^>]+>/g, '').trim()) : undefined,
         });
       }
-    } else if (match[5] !== undefined) {
+    } else if (/^<figure/i.test(tagStr)) {
       // 3. figure (can contain image or video embed)
-      const figHtml = match[6];
-      const iframeMatch = figHtml.match(/<iframe[^>]*src=["']([^"']+)["']/i);
+      const iframeMatch = tagStr.match(/<iframe[^>]*src=["']([^"']+)["']/i);
       if (iframeMatch) {
         const videoId = extractYouTubeId(iframeMatch[1]);
         if (videoId) {
@@ -169,8 +172,8 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
           blocks.push({ type: 'videoEmbed', src: iframeMatch[1] });
         }
       } else {
-        const srcMatch = figHtml.match(/<img[^>]*src=["']([^"']+)["']/i);
-        const capMatch = figHtml.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i);
+        const srcMatch = tagStr.match(/<img[^>]*src=["']([^"']+)["']/i);
+        const capMatch = tagStr.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i);
         if (srcMatch) {
           blocks.push({
             type: 'image',
@@ -179,10 +182,9 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
           });
         }
       }
-    } else if (match[7] !== undefined) {
+    } else if (/^<div\s+class=["'][^"']*(?:wp-block-embed|embed)/i.test(tagStr)) {
       // 4. wp-block-embed div
-      const embedInner = match[8];
-      const iframeMatch = embedInner.match(/<iframe[^>]*src=["']([^"']+)["']/i);
+      const iframeMatch = tagStr.match(/<iframe[^>]*src=["']([^"']+)["']/i);
       if (iframeMatch) {
         const videoId = extractYouTubeId(iframeMatch[1]);
         if (videoId) {
@@ -191,69 +193,80 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
           blocks.push({ type: 'videoEmbed', src: iframeMatch[1] });
         }
       } else {
-        const ytId = extractYouTubeId(embedInner);
+        const ytId = extractYouTubeId(tagStr);
         if (ytId) {
           blocks.push({ type: 'youtube', videoId: ytId });
         }
       }
-    } else if (match[9] !== undefined) {
+    } else if (/^<iframe/i.test(tagStr)) {
       // 5. standalone iframe
-      const src = match[10];
-      const videoId = extractYouTubeId(src);
-      if (videoId) {
-        blocks.push({ type: 'youtube', videoId });
-      } else {
-        blocks.push({ type: 'videoEmbed', src });
+      const srcMatch = tagStr.match(/src=["']([^"']+)["']/i);
+      const src = srcMatch ? srcMatch[1] : '';
+      if (src) {
+        const videoId = extractYouTubeId(src);
+        if (videoId) {
+          blocks.push({ type: 'youtube', videoId });
+        } else {
+          blocks.push({ type: 'videoEmbed', src });
+        }
       }
-    } else if (match[11] !== undefined) {
+    } else if (/^<video/i.test(tagStr)) {
       // 6. video tag
-      blocks.push({ type: 'videoEmbed', src: match[11] });
-    } else if (match[12] !== undefined) {
+      const srcMatch = tagStr.match(/src=["']([^"']+)["']/i);
+      if (srcMatch) {
+        blocks.push({ type: 'videoEmbed', src: srcMatch[1] });
+      }
+    } else if (/^<img/i.test(tagStr)) {
       // 7. standalone img
-      blocks.push({ type: 'image', src: match[13] });
-    } else if (match[14] !== undefined) {
+      const srcMatch = tagStr.match(/src=["']([^"']+)["']/i);
+      if (srcMatch) {
+        blocks.push({ type: 'image', src: srcMatch[1] });
+      }
+    } else if (/^<h[1-6]/i.test(tagStr)) {
       // 8. Headings h1 - h6
-      const level = parseInt(match[15], 10) || 2;
-      const text = decodeHtmlEntities(match[16].replace(/<[^>]+>/g, '').trim());
+      const levelMatch = tagStr.match(/^<h([1-6])/i);
+      const level = levelMatch ? parseInt(levelMatch[1], 10) : 2;
+      const textMatch = tagStr.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+      const rawText = textMatch ? textMatch[1] : '';
+      const text = decodeHtmlEntities(rawText.replace(/<[^>]+>/g, '').trim());
       if (text) {
         blocks.push({ type: 'heading', level, text });
       }
-    } else if (match[17] !== undefined) {
+    } else if (/^<blockquote/i.test(tagStr)) {
       // 9. Blockquote
-      const quoteHtml = match[18];
-      const citeMatch = quoteHtml.match(/<cite[^>]*>([\s\S]*?)<\/cite>/i);
+      const citeMatch = tagStr.match(/<cite[^>]*>([\s\S]*?)<\/cite>/i);
+      const innerMatch = tagStr.match(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/i);
+      const quoteHtml = innerMatch ? innerMatch[1] : tagStr;
       const text = decodeHtmlEntities(quoteHtml.replace(/<cite[^>]*>[\s\S]*?<\/cite>/gi, '').replace(/<[^>]+>/g, '').trim());
       const author = citeMatch ? decodeHtmlEntities(citeMatch[1].replace(/<[^>]+>/g, '').trim()) : undefined;
       if (text) {
         blocks.push({ type: 'quote', text, author });
       }
-    } else if (match[19] !== undefined) {
+    } else if (/^<(?:ul|ol)/i.test(tagStr)) {
       // 10. Lists
-      const isOrdered = match[20].toLowerCase() === 'ol';
-      const listContent = match[21];
+      const isOrdered = /^<ol/i.test(tagStr);
       const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
       const items: string[] = [];
       let liMatch;
-      while ((liMatch = liRegex.exec(listContent)) !== null) {
+      while ((liMatch = liRegex.exec(tagStr)) !== null) {
         const itemText = decodeHtmlEntities(liMatch[1].replace(/<[^>]+>/g, '').trim());
         if (itemText) items.push(itemText);
       }
       if (items.length > 0) {
         blocks.push({ type: 'list', items, ordered: isOrdered });
       }
-    } else if (match[22] !== undefined) {
+    } else if (/^<table/i.test(tagStr)) {
       // 11. Tables
-      const tableHtml = match[23];
       const headers: string[] = [];
       const rows: string[][] = [];
       const thRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
       let thMatch;
-      while ((thMatch = thRegex.exec(tableHtml)) !== null) {
+      while ((thMatch = thRegex.exec(tagStr)) !== null) {
         headers.push(decodeHtmlEntities(thMatch[1].replace(/<[^>]+>/g, '').trim()));
       }
       const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
       let trMatch;
-      while ((trMatch = trRegex.exec(tableHtml)) !== null) {
+      while ((trMatch = trRegex.exec(tagStr)) !== null) {
         const rowContent = trMatch[1];
         const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
         const rowCells: string[] = [];
@@ -268,12 +281,13 @@ function parseGutenbergBlocks(content: string): ParsedBlock[] {
       if (headers.length > 0 || rows.length > 0) {
         blocks.push({ type: 'table', headers, rows });
       }
-    } else if (match[24] !== undefined) {
+    } else if (/^<hr/i.test(tagStr)) {
       // 12. Divider
       blocks.push({ type: 'divider' });
-    } else if (match[25] !== undefined) {
+    } else if (/^<p/i.test(tagStr)) {
       // 13. Paragraph
-      const rawP = match[26];
+      const pMatch = tagStr.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      const rawP = pMatch ? pMatch[1] : '';
       const ytId = extractYouTubeId(rawP);
       if (ytId && rawP.length < 150) {
         blocks.push({ type: 'youtube', videoId: ytId });
@@ -663,10 +677,26 @@ export const GutenbergRenderer: React.FC<GutenbergRendererProps> = ({ content, p
   const blocks = React.useMemo(() => parseGutenbergBlocks(content), [content]);
 
   if (blocks.length === 0) {
+    const rawParagraphs = decodeHtmlEntities(
+      content
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<[^>]+>/g, ' ')
+    )
+      .split(/\n\s*\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (rawParagraphs.length === 0) return null;
+
     return (
-      <Text style={[styles.paragraph, { color: colors.text }]}>
-        {decodeHtmlEntities(content.replace(/<[^>]+>/g, '').trim())}
-      </Text>
+      <View style={styles.container}>
+        {rawParagraphs.map((para, idx) => (
+          <Text key={`fallback-p-${idx}`} style={[styles.paragraph, { color: colors.text, marginBottom: 16 }]}>
+            {para}
+          </Text>
+        ))}
+      </View>
     );
   }
 

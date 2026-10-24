@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  Alert,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +26,11 @@ import {
   UserCheck,
   X,
   ExternalLink,
+  MoreVertical,
+  Heart,
+  MessageCircle,
+  Flag,
+  ShieldAlert,
 } from 'lucide-react-native';
 import {
   fetchUserProfile,
@@ -34,6 +40,12 @@ import {
   resolveImageUrl,
   UserProfileData,
   FollowUserItem,
+  reportUser,
+  blockUser,
+  unblockUser,
+  getBlockedUserIds,
+  fetchUserCommunityPosts,
+  CommunityPostItem,
 } from '@/services/api';
 
 export default function PublicProfileScreen() {
@@ -48,6 +60,11 @@ export default function PublicProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+
+  // Blocked and Community Posts State
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [userPosts, setUserPosts] = useState<CommunityPostItem[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
 
   // Modal for Followers / Following list
   const [listModalVisible, setListModalVisible] = useState(false);
@@ -66,10 +83,16 @@ export default function PublicProfileScreen() {
   async function loadProfile() {
     if (!id) return;
     setIsLoading(true);
-    const data = await fetchUserProfile(id, token);
+    const [data, blockedIds, posts] = await Promise.all([
+      fetchUserProfile(id, token),
+      getBlockedUserIds(),
+      fetchUserCommunityPosts(id, token),
+    ]);
     if (data) {
       setProfile(data);
       setIsFollowing(Boolean(data.isFollowing));
+      setIsBlocked(blockedIds.includes(data.id));
+      setUserPosts(posts || []);
     }
     setIsLoading(false);
   }
@@ -156,6 +179,73 @@ export default function PublicProfileScreen() {
     }
   }
 
+  const handleProfileOptions = () => {
+    if (!profile) return;
+    Alert.alert(
+      'Opciones de usuario',
+      `Acciones para @${profile.username || 'usuario'}`,
+      [
+        {
+          text: '🚩 Reportar usuario',
+          onPress: handleReportUser,
+        },
+        {
+          text: isBlocked ? 'Desbloquear usuario' : '🚫 Bloquear usuario',
+          style: isBlocked ? 'default' : 'destructive',
+          onPress: handleToggleBlock,
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleReportUser = () => {
+    if (!profile) return;
+    Alert.alert(
+      'Reportar usuario',
+      '¿Por qué deseas reportar a este usuario? Nuestro equipo lo revisará en menos de 24 horas:',
+      [
+        { text: 'Spam o cuenta falsa', onPress: () => submitUserReport('SPAM') },
+        { text: 'Acoso o difamación', onPress: () => submitUserReport('HARASSMENT') },
+        { text: 'Discurso de odio', onPress: () => submitUserReport('HATE_SPEECH') },
+        { text: 'Contenido inapropiado', onPress: () => submitUserReport('INAPPROPRIATE') },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const submitUserReport = async (reason: string) => {
+    if (!profile) return;
+    const res = await reportUser(profile.id, reason, '', token);
+    Alert.alert('Reporte enviado', res.message || 'El reporte ha sido recibido por moderación.');
+  };
+
+  const handleToggleBlock = async () => {
+    if (!profile) return;
+    if (isBlocked) {
+      await unblockUser(profile.id);
+      setIsBlocked(false);
+      Alert.alert('Usuario desbloqueado', `Has desbloqueado a @${profile.username || 'usuario'}.`);
+    } else {
+      Alert.alert(
+        'Bloquear usuario',
+        `¿Confirmas que deseas bloquear a @${profile.username || 'usuario'}? No verás sus publicaciones ni comentarios en la comunidad.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Bloquear',
+            style: 'destructive',
+            onPress: async () => {
+              await blockUser(profile.id);
+              setIsBlocked(true);
+              Alert.alert('Usuario bloqueado', `Has bloqueado a @${profile.username || 'usuario'}.`);
+            },
+          },
+        ]
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Top Header */}
@@ -167,7 +257,17 @@ export default function PublicProfileScreen() {
           <ArrowLeft size={20} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Perfil de Usuario</Text>
-        <View style={{ width: 38 }} />
+        {!isOwnProfile && profile ? (
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: colors.inputBackground }]}
+            onPress={handleProfileOptions}
+            activeOpacity={0.7}
+          >
+            <MoreVertical size={18} color={colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 38 }} />
+        )}
       </View>
 
       {isLoading ? (
@@ -305,6 +405,66 @@ export default function PublicProfileScreen() {
                 </Text>
               </View>
             )}
+
+            {/* User Community Posts Section */}
+            <View style={{ marginTop: 24, width: '100%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>
+                  Publicaciones en la Comunidad
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  {userPosts.length} post{userPosts.length === 1 ? '' : 's'}
+                </Text>
+              </View>
+
+              {userPosts.length === 0 ? (
+                <View style={{ padding: 24, alignItems: 'center', backgroundColor: isDark ? '#161922' : '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center' }}>
+                    Este usuario no ha publicado nada en la comunidad todavía.
+                  </Text>
+                </View>
+              ) : (
+                userPosts.map((post) => (
+                  <View
+                    key={post.id}
+                    style={{
+                      backgroundColor: isDark ? '#161922' : '#FFFFFF',
+                      borderRadius: 12,
+                      padding: 16,
+                      marginBottom: 12,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>
+                      {post.content}
+                    </Text>
+                    {post.mediaUrl ? (
+                      <Image
+                        source={{ uri: post.mediaUrl }}
+                        style={{ width: '100%', height: 180, borderRadius: 8, marginTop: 10 }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                        {new Date(post.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Heart size={14} color={post.isLiked ? '#DC2626' : colors.textMuted} fill={post.isLiked ? '#DC2626' : 'transparent'} />
+                          <Text style={{ fontSize: 12, color: colors.textMuted }}>{post.likesCount || 0}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <MessageCircle size={14} color={colors.textMuted} />
+                          <Text style={{ fontSize: 12, color: colors.textMuted }}>{post.commentsCount || 0}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
           </View>
         </ScrollView>
       )}

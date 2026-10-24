@@ -26,7 +26,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [comments, setComments] = useState<PostComment[]>(initialComments);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<{ id: string; user: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; user: string; parentId?: string | null } | null>(null);
+  const inputRef = React.useRef<TextInput>(null);
 
   useEffect(() => {
     if (!postId) return;
@@ -37,7 +38,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     });
   }, [postId]);
 
-  const handleStartReply = (item: PostComment) => {
+  const handleStartReply = (item: PostComment, rootItem?: PostComment) => {
     if (!user || !token) {
       showModal({
         icon: 'question',
@@ -51,7 +52,15 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       return;
     }
 
-    setReplyingTo({ id: item.id, user: item.user });
+    setReplyingTo({
+      id: item.id,
+      user: item.user,
+      parentId: item.id,
+    });
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
   };
 
   const handleSubmit = async () => {
@@ -78,13 +87,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
     setSubmitting(true);
     let activeToken = token;
-    let result = await submitPostComment(postId, trimmed, activeToken, replyingTo?.id);
+    let targetParentId = replyingTo?.parentId || replyingTo?.id;
+    let result = await submitPostComment(postId, trimmed, activeToken, targetParentId);
 
     if (!result.success && result.error?.toLowerCase().includes('token') && refreshAccessToken) {
       const freshToken = await refreshAccessToken();
       if (freshToken) {
         activeToken = freshToken;
-        result = await submitPostComment(postId, trimmed, activeToken, replyingTo?.id);
+        result = await submitPostComment(postId, trimmed, activeToken, targetParentId);
       }
     }
     setSubmitting(false);
@@ -92,7 +102,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     if (result.success) {
       const newComment: PostComment = result.comment || {
         id: String(Date.now()),
-        parentId: replyingTo?.id || null,
+        parentId: targetParentId || null,
         user: user.displayName || user.email,
         text: trimmed,
         date: 'Reciente',
@@ -103,7 +113,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       setReplyingTo(null);
       toast.success(
         replyingTo ? 'Respuesta Enviada' : 'Comentario Enviado',
-        replyingTo ? 'Tu respuesta ha sido publicada.' : 'Tu comentario ha sido publicado en la red.'
+        replyingTo ? `Has respondido a @${replyingTo.user}.` : 'Tu comentario ha sido publicado en la red.'
       );
       if (onCommentAdded) onCommentAdded();
     } else {
@@ -112,7 +122,25 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const topLevelComments = comments.filter((c) => !c.parentId);
-  const getReplies = (parentId: string) => comments.filter((c) => c.parentId === parentId);
+
+  // Recursively collect all descendant replies in this thread
+  const getThreadReplies = (rootId: string): PostComment[] => {
+    const list: PostComment[] = [];
+    const visited = new Set<string>();
+
+    const collectChildren = (pid: string) => {
+      for (const c of comments) {
+        if (c.parentId === pid && !visited.has(c.id)) {
+          visited.add(c.id);
+          list.push(c);
+          collectChildren(c.id);
+        }
+      }
+    };
+
+    collectChildren(rootId);
+    return list;
+  };
 
   return (
     <View style={styles.container}>
@@ -148,6 +176,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           )}
 
           <TextInput
+            ref={inputRef}
             style={[styles.input, { color: colors.text }]}
             placeholder={replyingTo ? `Escribe tu respuesta a @${replyingTo.user}...` : "Escribe tu opinión sobre esta noticia..."}
             placeholderTextColor={colors.textMuted}
@@ -192,7 +221,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       <View style={styles.commentsList}>
         {topLevelComments.length > 0 ? (
           topLevelComments.map((item) => {
-            const replies = getReplies(item.id);
+            const replies = getThreadReplies(item.id);
 
             return (
               <View
@@ -238,46 +267,65 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                {/* Respuestas Anidadas */}
+                {/* Respuestas Anidadas y Respuestas entre sí */}
                 {replies.length > 0 && (
                   <View style={[styles.repliesContainer, { borderLeftColor: colors.primary }]}>
-                    {replies.map((reply) => (
-                      <View
-                        key={reply.id}
-                        style={[styles.replyCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-                      >
-                        <View style={styles.commentHeader}>
-                          <TouchableOpacity
-                            style={styles.authorRow}
-                            onPress={() => {
-                              if (reply.userId) {
-                                router.push(`/user/${encodeURIComponent(reply.userId)}` as any);
-                              }
-                            }}
-                            disabled={!reply.userId}
-                            activeOpacity={0.7}
-                          >
-                            {reply.avatarUrl ? (
-                              <Image source={{ uri: resolveImageUrl(reply.avatarUrl) || reply.avatarUrl }} style={styles.commentAvatarSmall} />
-                            ) : (
-                              <View style={[styles.commentAvatarPlaceholderSmall, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.commentAvatarInitialsSmall}>
-                                  {(reply.user || 'U').slice(0, 1).toUpperCase()}
-                                </Text>
-                              </View>
-                            )}
-                            <Text style={[styles.commentAuthor, { color: colors.text }]}>{reply.user}</Text>
-                            <Text style={[styles.replyTag, { color: colors.primary, backgroundColor: `${colors.primary}15` }]}>
-                              @{item.user}
-                            </Text>
-                          </TouchableOpacity>
-                          {reply.date ? (
-                            <Text style={[styles.commentDate, { color: colors.textMuted }]}>{reply.date}</Text>
-                          ) : null}
+                    {replies.map((reply) => {
+                      const parentOfReply = comments.find((c) => c.id === reply.parentId);
+                      const replyingToName = parentOfReply?.user || item.user;
+
+                      return (
+                        <View
+                          key={reply.id}
+                          style={[styles.replyCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        >
+                          <View style={styles.commentHeader}>
+                            <TouchableOpacity
+                              style={styles.authorRow}
+                              onPress={() => {
+                                if (reply.userId) {
+                                  router.push(`/user/${encodeURIComponent(reply.userId)}` as any);
+                                }
+                              }}
+                              disabled={!reply.userId}
+                              activeOpacity={0.7}
+                            >
+                              {reply.avatarUrl ? (
+                                <Image source={{ uri: resolveImageUrl(reply.avatarUrl) || reply.avatarUrl }} style={styles.commentAvatarSmall} />
+                              ) : (
+                                <View style={[styles.commentAvatarPlaceholderSmall, { backgroundColor: colors.primary }]}>
+                                  <Text style={styles.commentAvatarInitialsSmall}>
+                                    {(reply.user || 'U').slice(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
+                              <Text style={[styles.commentAuthor, { color: colors.text }]}>{reply.user}</Text>
+                              <Text style={[styles.replyTag, { color: colors.primary, backgroundColor: `${colors.primary}15` }]}>
+                                @{replyingToName}
+                              </Text>
+                            </TouchableOpacity>
+                            {reply.date ? (
+                              <Text style={[styles.commentDate, { color: colors.textMuted }]}>{reply.date}</Text>
+                            ) : null}
+                          </View>
+                          <Text style={[styles.commentBody, { color: colors.text }]}>{reply.text}</Text>
+
+                          {/* Botón para responder directamente a esta respuesta */}
+                          <View style={styles.actionRow}>
+                            <TouchableOpacity
+                              style={styles.replyButton}
+                              onPress={() => handleStartReply(reply, item)}
+                              activeOpacity={0.7}
+                            >
+                              <CornerDownRight size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                              <Text style={[styles.replyButtonText, { color: colors.primary, fontSize: 11 }]}>
+                                Responder a @{reply.user}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
-                        <Text style={[styles.commentBody, { color: colors.text }]}>{reply.text}</Text>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
               </View>

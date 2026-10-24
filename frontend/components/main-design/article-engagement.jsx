@@ -295,7 +295,21 @@ export default function ArticleEngagement({ article, initialComments = [] }) {
   }
 
   const topLevelComments = commentsList.filter((c) => !c.parentId);
-  const getReplies = (parentId) => commentsList.filter((c) => c.parentId === parentId);
+  const getThreadReplies = (rootId) => {
+    const list = [];
+    const visited = new Set();
+    const collect = (pid) => {
+      for (const c of commentsList) {
+        if (c.parentId === pid && !visited.has(c.id)) {
+          visited.add(c.id);
+          list.push(c);
+          collect(c.id);
+        }
+      }
+    };
+    collect(rootId);
+    return list;
+  };
 
   return (
     <section className="border border-terminal-gray bg-surface-container-low/20 p-5 md:p-6">
@@ -423,7 +437,7 @@ export default function ArticleEngagement({ article, initialComments = [] }) {
         <div className="space-y-4">
           {topLevelComments.length > 0 ? (
             topLevelComments.map((comment) => {
-              const replies = getReplies(comment.id);
+              const replies = getThreadReplies(comment.id);
 
               return (
                 <div key={comment.id} className="border border-terminal-gray bg-black/25 p-4 md:p-5 space-y-3">
@@ -449,7 +463,7 @@ export default function ArticleEngagement({ article, initialComments = [] }) {
 
                   <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{comment.text}</p>
 
-                  {/* Inline reply form */}
+                  {/* Inline reply form for root comment */}
                   {replyingTo?.id === comment.id && (
                     <form onSubmit={(e) => submitReply(e, comment)} className="mt-3 p-4 border border-system-red/50 bg-black/60 space-y-3">
                       <div className="flex items-center justify-between text-xs text-system-red font-label-caps">
@@ -479,23 +493,69 @@ export default function ArticleEngagement({ article, initialComments = [] }) {
                     </form>
                   )}
 
-                  {/* Respuestas anidadas */}
+                  {/* Respuestas anidadas y respuestas a respuestas */}
                   {replies.length > 0 && (
                     <div className="ml-4 md:ml-8 mt-3 space-y-3 border-l-2 border-system-red/50 pl-4 pt-1">
-                      {replies.map((reply) => (
-                        <div key={reply.id} className="border border-terminal-gray/60 bg-black/40 p-3.5 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-white">{reply.user}</span>
-                              <span className="text-[10px] font-label-caps text-system-red bg-system-red/10 px-2 py-0.5 rounded">
-                                en respuesta a @{comment.user}
-                              </span>
+                      {replies.map((reply) => {
+                        const parentOfReply = commentsList.find((c) => c.id === reply.parentId);
+                        const replyingToName = parentOfReply ? parentOfReply.user : comment.user;
+
+                        return (
+                          <div key={reply.id} className="border border-terminal-gray/60 bg-black/40 p-3.5 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-white">{reply.user}</span>
+                                <span className="text-[10px] font-label-caps text-system-red bg-system-red/10 px-2 py-0.5 rounded">
+                                  en respuesta a @{replyingToName}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-label-caps text-on-surface-variant">{reply.date}</span>
                             </div>
-                            <span className="text-[10px] font-label-caps text-on-surface-variant">{reply.date}</span>
+                            <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{reply.text}</p>
+
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => handleStartReply(reply)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 border border-terminal-gray hover:border-system-red text-[11px] text-on-surface-variant hover:text-system-red font-label-caps transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">reply</span>
+                                Responder a @{reply.user}
+                              </button>
+                            </div>
+
+                            {/* Inline reply form for this reply */}
+                            {replyingTo?.id === reply.id && (
+                              <form onSubmit={(e) => submitReply(e, reply)} className="mt-3 p-4 border border-system-red/50 bg-black/60 space-y-3">
+                                <div className="flex items-center justify-between text-xs text-system-red font-label-caps">
+                                  <span>Respondiendo a @{reply.user}</span>
+                                  <button type="button" onClick={() => setReplyingTo(null)} className="hover:text-white">Cancelar</button>
+                                </div>
+                                <textarea
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  required
+                                  minLength={3}
+                                  maxLength={2000}
+                                  rows={2}
+                                  placeholder={`Escribe tu respuesta para @${reply.user}...`}
+                                  className="w-full resize-y border border-terminal-gray bg-black px-3 py-2 text-sm text-white outline-none focus:border-system-red"
+                                />
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="submit"
+                                    disabled={submittingReply || !replyText.trim()}
+                                    className="bg-system-red px-4 py-2 font-label-caps text-[10px] font-bold text-black transition-colors hover:bg-white disabled:opacity-60"
+                                  >
+                                    {submittingReply ? 'Enviando...' : 'Publicar respuesta'}
+                                  </button>
+                                  {replyStatus ? <span className="text-xs text-on-surface-variant">{replyStatus}</span> : null}
+                                </div>
+                              </form>
+                            )}
                           </div>
-                          <p className="text-on-surface text-sm leading-relaxed whitespace-pre-wrap">{reply.text}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

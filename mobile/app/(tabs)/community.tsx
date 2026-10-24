@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,9 +23,12 @@ import { PollCard } from '@/components/PollCard';
 import { SponsoredPostCard } from '@/components/SponsoredPostCard';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import * as ImagePicker from 'expo-image-picker';
 import {
   fetchCommunityPosts,
   createCommunityPost,
+  updateCommunityPost,
+  deleteCommunityPost,
   toggleCommunityPostLike,
   fetchCommunityComments,
   submitCommunityComment,
@@ -39,6 +42,9 @@ import {
   toggleFollowUser,
   getSavedCommunityPosts,
   toggleSaveCommunityPost,
+  reportCommunityPost,
+  blockUser,
+  getBlockedUserIds,
 } from '@/services/api';
 import {
   Send,
@@ -54,6 +60,13 @@ import {
   PlusCircle,
   X,
   UserCheck,
+  MoreVertical,
+  Edit3,
+  Trash2,
+  Camera,
+  Flag,
+  ShieldAlert,
+  CornerDownRight,
 } from 'lucide-react-native';
 
 export default function CommunityFeedScreen() {
@@ -77,6 +90,16 @@ export default function CommunityFeedScreen() {
   const [pollOption2, setPollOption2] = useState('');
   const [publishing, setPublishing] = useState(false);
 
+  // Edit Post Modal State
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingPost, setEditingPost] = useState<CommunityPostItem | null>(null);
+  const [editPostText, setEditPostText] = useState('');
+  const [updatingPost, setUpdatingPost] = useState(false);
+
+  // Blocked users & Image state
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   // Comments Modal State
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [selectedPostForComments, setSelectedPostForComments] = useState<CommunityPostItem | null>(null);
@@ -84,21 +107,25 @@ export default function CommunityFeedScreen() {
   const [loadingComments, setLoadingComments] = useState(false);
   const [newCommentText, setNewCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [replyingToComment, setReplyingToComment] = useState<{ id: string; user: string } | null>(null);
+  const commentInputRef = useRef<TextInput>(null);
 
   const [savedCommunityPostIds, setSavedCommunityPostIds] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     try {
-      const [postRes, adRes, pollRes, savedRes] = await Promise.all([
+      const [postRes, adRes, pollRes, savedRes, blockedRes] = await Promise.all([
         fetchCommunityPosts(token),
         fetchSponsoredPosts(),
         fetchPolls(),
         getSavedCommunityPosts(),
+        getBlockedUserIds(),
       ]);
       setPosts(postRes);
       setSponsoredAds(adRes);
       setPolls(pollRes);
       setSavedCommunityPostIds(new Set(savedRes.map((p) => p.id)));
+      setBlockedUserIds(blockedRes);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -147,6 +174,7 @@ export default function CommunityFeedScreen() {
     let res = await createCommunityPost(
       {
         content: postText.trim(),
+        mediaUrl: selectedImage,
         poll: pollData,
       },
       activeToken
@@ -160,6 +188,7 @@ export default function CommunityFeedScreen() {
         res = await createCommunityPost(
           {
             content: postText.trim(),
+            mediaUrl: selectedImage,
             poll: pollData,
           },
           activeToken
@@ -172,6 +201,7 @@ export default function CommunityFeedScreen() {
     if (res.success && res.post) {
       setPosts([res.post, ...posts]);
       setPostText('');
+      setSelectedImage(null);
       setPollQuestion('');
       setPollOption1('');
       setPollOption2('');
@@ -181,6 +211,221 @@ export default function CommunityFeedScreen() {
     } else {
       Alert.alert('Error', res.error || 'No se pudo crear la publicación.');
     }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setSelectedImage(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setSelectedImage(asset.uri);
+        }
+      }
+    } catch (err) {
+      console.warn('Error picking image:', err);
+    }
+  };
+
+  const handlePressOptions = (post: CommunityPostItem) => {
+    const isOwner = Boolean(
+      user && (user.id === post.user?.id || user.username === post.user?.username || (Array.isArray(user.roles) && user.roles.some((r: string) => ['admin', 'superadmin', 'editor'].includes(r.toLowerCase()))))
+    );
+
+    if (isOwner) {
+      Alert.alert(
+        'Opciones de publicación',
+        '¿Qué deseas hacer con tu publicación?',
+        [
+          {
+            text: 'Editar publicación',
+            onPress: () => handleStartEdit(post),
+          },
+          {
+            text: 'Eliminar publicación',
+            style: 'destructive',
+            onPress: () => handleConfirmDelete(post),
+          },
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Opciones de moderación',
+        `Acciones para @${post.user?.username || 'usuario'}`,
+        [
+          {
+            text: '🚩 Reportar publicación',
+            onPress: () => handleReportPost(post),
+          },
+          {
+            text: `🚫 Bloquear a @${post.user?.username || 'usuario'}`,
+            style: 'destructive',
+            onPress: () => handleBlockUser(post.user?.id, post.user?.username),
+          },
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+        ]
+      );
+    }
+  };
+
+  const handleReportPost = (post: CommunityPostItem) => {
+    Alert.alert(
+      'Reportar publicación',
+      'Selecciona el motivo por el cual reportas este contenido. Nuestro equipo de moderación lo revisará en menos de 24 horas:',
+      [
+        {
+          text: 'Spam o publicidad engañosa',
+          onPress: () => submitReport(post.id, 'SPAM'),
+        },
+        {
+          text: 'Acoso o difamación',
+          onPress: () => submitReport(post.id, 'HARASSMENT'),
+        },
+        {
+          text: 'Discurso de odio o violencia',
+          onPress: () => submitReport(post.id, 'HATE_SPEECH'),
+        },
+        {
+          text: 'Desinformación grave',
+          onPress: () => submitReport(post.id, 'MISINFORMATION'),
+        },
+        {
+          text: 'Contenido inapropiado',
+          onPress: () => submitReport(post.id, 'INAPPROPRIATE'),
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const submitReport = async (postId: string, reason: string) => {
+    const res = await reportCommunityPost(postId, reason, '', token);
+    Alert.alert(
+      'Reporte enviado',
+      res.message || 'Gracias por avisarnos. El equipo de moderación revisará la publicación en un plazo máximo de 24 horas y tomará las medidas oportunas.'
+    );
+  };
+
+  const handleBlockUser = (authorId?: string, username?: string | null) => {
+    if (!authorId) return;
+    Alert.alert(
+      'Bloquear usuario',
+      `¿Estás seguro de que deseas bloquear a @${username || 'usuario'}? No volverás a ver sus publicaciones ni comentarios en la comunidad.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: async () => {
+            const updated = await blockUser(authorId);
+            setBlockedUserIds(updated);
+            setPosts((prev) => prev.filter((p) => p.user?.id !== authorId));
+            Alert.alert(
+              'Usuario bloqueado',
+              `Has bloqueado a @${username || 'usuario'}. Ya no verás sus publicaciones.`
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStartEdit = (post: CommunityPostItem) => {
+    setEditingPost(post);
+    setEditPostText(post.content);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPost || !token) return;
+    const trimmed = editPostText.trim();
+    if (!trimmed) {
+      Alert.alert('Contenido requerido', 'El contenido no puede estar vacío.');
+      return;
+    }
+    if (trimmed.length > 250) {
+      Alert.alert('Límite excedido', 'Tu publicación no puede superar los 250 caracteres.');
+      return;
+    }
+
+    setUpdatingPost(true);
+    let activeToken = token;
+    let res = await updateCommunityPost(editingPost.id, { content: trimmed }, activeToken);
+
+    if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
+        activeToken = freshToken;
+        res = await updateCommunityPost(editingPost.id, { content: trimmed }, activeToken);
+      }
+    }
+
+    setUpdatingPost(false);
+
+    if (res.success && res.post) {
+      setPosts((prev) =>
+        prev.map((p) => (p.id === editingPost.id ? { ...p, content: trimmed } : p))
+      );
+      setEditModalVisible(false);
+      setEditingPost(null);
+      Alert.alert('¡Actualizado!', 'La publicación ha sido editada exitosamente.');
+    } else {
+      Alert.alert('Error', res.error || 'No se pudo actualizar la publicación.');
+    }
+  };
+
+  const handleConfirmDelete = (post: CommunityPostItem) => {
+    Alert.alert(
+      'Eliminar publicación',
+      '¿Estás seguro de que deseas eliminar este post? Esta acción es irreversible.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            if (!token) return;
+            // Optimistic deletion
+            setPosts((prev) => prev.filter((p) => p.id !== post.id));
+
+            let activeToken = token;
+            let res = await deleteCommunityPost(post.id, activeToken);
+
+            if (!res.success && res.error?.toLowerCase().includes('token') && refreshAccessToken) {
+              const freshToken = await refreshAccessToken();
+              if (freshToken) {
+                activeToken = freshToken;
+                res = await deleteCommunityPost(post.id, activeToken);
+              }
+            }
+
+            if (!res.success) {
+              // Rollback if failure
+              setPosts((prev) => [post, ...prev]);
+              Alert.alert('Error', res.error || 'No se pudo eliminar la publicación.');
+            } else {
+              Alert.alert('Eliminado', 'La publicación ha sido eliminada exitosamente.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleToggleLike = async (postId: string) => {
@@ -211,12 +456,22 @@ export default function CommunityFeedScreen() {
     setCommentsModalVisible(true);
     setLoadingComments(true);
     setPostComments([]);
+    setReplyingToComment(null);
     try {
       const comms = await fetchCommunityComments(post.id);
       setPostComments(comms || []);
     } finally {
       setLoadingComments(false);
     }
+  };
+
+  const handleStartReplyCommunity = (c: any) => {
+    const username = c.user?.username || c.user?.displayName || 'usuario';
+    setReplyingToComment({ id: c.id, user: username });
+    setNewCommentText(`@${username} `);
+    setTimeout(() => {
+      commentInputRef.current?.focus();
+    }, 50);
   };
 
   const handleSendCommunityComment = async () => {
@@ -243,6 +498,7 @@ export default function CommunityFeedScreen() {
     if (res.success && res.comment) {
       setPostComments((prev) => [...prev, res.comment]);
       setNewCommentText('');
+      setReplyingToComment(null);
       setPosts((prev) =>
         prev.map((p) =>
           p.id === selectedPostForComments.id
@@ -360,46 +616,38 @@ export default function CommunityFeedScreen() {
     }
   };
 
-  // Filter posts based on activeTab
+  // Helper for dynamic relative time
+  const formatRelativeTime = (dateString?: string): string => {
+    if (!dateString) return 'Hace un momento';
+    const now = Date.now();
+    const past = new Date(dateString).getTime();
+    const diffMs = Math.max(0, now - past);
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'Ahora';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `Hace ${diffMin} min`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `Hace ${diffHours} h`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `Hace ${diffDays} d`;
+    return new Date(dateString).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' });
+  };
+
+  // Filter posts based on activeTab and exclude blocked users
   const filteredPosts = React.useMemo(() => {
+    const unblocked = posts.filter((p) => !blockedUserIds.includes(p.user?.id));
     if (activeTab === 'news') {
-      return posts.filter((p) => p.user?.isNucleo || p.content.toLowerCase().includes('noticia') || p.content.toLowerCase().includes('debate'));
+      return unblocked.filter((p) => p.user?.isNucleo || p.content.toLowerCase().includes('noticia') || p.content.toLowerCase().includes('debate'));
     }
     if (activeTab === 'community') {
-      return posts.filter((p) => !p.user?.isNucleo);
+      return unblocked.filter((p) => !p.user?.isNucleo);
     }
-    return posts;
-  }, [posts, activeTab]);
+    return unblocked;
+  }, [posts, activeTab, blockedUserIds]);
 
   // Build interleaved feed items (posts, polls, and sponsored ads)
   const feedItems = React.useMemo(() => {
     const list: Array<{ type: 'post' | 'ad' | 'poll'; data: any; key: string }> = [];
-
-    // Fallback editorial post ONLY if no posts exist at all
-    if (posts.length === 0 && !loading) {
-      list.push({
-        type: 'post',
-        key: 'default-post-1',
-        data: {
-          id: 'def-1',
-          content: '¿Qué significa la derogación del arancel al arroz para los productores nacionales? Abro debate.',
-          likesCount: 342,
-          commentsCount: 86,
-          repostsCount: 24,
-          isLiked: false,
-          createdAt: new Date().toISOString(),
-          user: {
-            id: 'melvin-sena',
-            displayName: 'Melvin Sena',
-            username: 'melvinsena',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-            bio: 'Periodista y director de Hackeando el Sistema',
-            isFollowing: true,
-            isNucleo: true,
-          },
-        },
-      });
-    }
 
     filteredPosts.forEach((p, idx) => {
       list.push({ type: 'post', data: p, key: `post-${p.id}` });
@@ -430,7 +678,7 @@ export default function CommunityFeedScreen() {
     }
 
     return list;
-  }, [posts, filteredPosts, sponsoredAds, polls, loading]);
+  }, [posts, filteredPosts, sponsoredAds, polls]);
 
   const renderItem = ({ item }: { item: { type: 'post' | 'ad' | 'poll'; data: any; key: string } }) => {
     if (item.type === 'ad') {
@@ -480,37 +728,57 @@ export default function CommunityFeedScreen() {
                 ) : null}
               </View>
               <Text style={[styles.usernameText, { color: colors.textMuted }]}>
-                @{author.username || 'usuario'} &bull; Hace un momento
+                @{author.username || 'usuario'} &bull; {formatRelativeTime(post.createdAt)}
               </Text>
             </View>
           </TouchableOpacity>
 
-          {/* Botón Seguir / Siguiendo */}
-          {(!user || user.id !== author.id) && (
-            <TouchableOpacity
-              style={[
-                styles.followBtn,
-                author.isFollowing
-                  ? { borderColor: colors.border, backgroundColor: 'transparent' }
-                  : { backgroundColor: '#DC2626', borderColor: '#DC2626' },
-              ]}
-              onPress={() => handleToggleFollow(author.id)}
-              activeOpacity={0.8}
-            >
-              <Text
+          {/* Action buttons on post header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {(!user || user.id !== author.id) && (
+              <TouchableOpacity
                 style={[
-                  styles.followBtnText,
-                  { color: author.isFollowing ? colors.textMuted : '#FFFFFF' },
+                  styles.followBtn,
+                  author.isFollowing
+                    ? { borderColor: colors.border, backgroundColor: 'transparent' }
+                    : { backgroundColor: '#DC2626', borderColor: '#DC2626' },
                 ]}
+                onPress={() => handleToggleFollow(author.id)}
+                activeOpacity={0.8}
               >
-                {author.isFollowing ? 'Siguiendo' : 'Seguir'}
-              </Text>
+                <Text
+                  style={[
+                    styles.followBtnText,
+                    { color: author.isFollowing ? colors.textMuted : '#FFFFFF' },
+                  ]}
+                >
+                  {author.isFollowing ? 'Siguiendo' : 'Seguir'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={{ padding: 6 }}
+              onPress={() => handlePressOptions(post)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MoreVertical size={18} color={colors.textMuted} />
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         {/* Content */}
         <Text style={[styles.postContent, { color: colors.text }]}>{post.content}</Text>
+
+        {/* Attached Image if present */}
+        {post.mediaUrl ? (
+          <Image
+            source={{ uri: post.mediaUrl }}
+            style={{ width: '100%', height: 220, borderRadius: 10, marginTop: 10, backgroundColor: colors.inputBackground }}
+            resizeMode="cover"
+          />
+        ) : null}
 
         {/* Embedded Poll if present */}
         {post.poll ? (
@@ -675,6 +943,17 @@ export default function CommunityFeedScreen() {
           keyExtractor={(item) => item.key}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={36} color={colors.textMuted} style={{ marginBottom: 12, opacity: 0.6 }} />
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 6, textAlign: 'center' }}>
+                Aún no hay publicaciones
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                Sé el primero en compartir tu opinión con la comunidad de Hackeando el Sistema.
+              </Text>
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -759,26 +1038,55 @@ export default function CommunityFeedScreen() {
                 </View>
               )}
 
+              {/* Optional Selected Image Preview */}
+              {selectedImage && (
+                <View style={{ marginTop: 10, position: 'relative' }}>
+                  <Image source={{ uri: selectedImage }} style={{ width: '100%', height: 180, borderRadius: 8 }} resizeMode="cover" />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 14, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => setSelectedImage(null)}
+                  >
+                    <X size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Footer Buttons */}
               <View style={styles.modalActionsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.pollToggleBtn,
-                    { backgroundColor: showPollBuilder ? colors.primary : colors.inputBackground },
-                  ]}
-                  onPress={() => setShowPollBuilder(!showPollBuilder)}
-                  activeOpacity={0.7}
-                >
-                  <BarChart2 size={16} color={showPollBuilder ? '#FFFFFF' : colors.text} />
-                  <Text
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity
                     style={[
-                      styles.pollToggleText,
-                      { color: showPollBuilder ? '#FFFFFF' : colors.text },
+                      styles.pollToggleBtn,
+                      { backgroundColor: selectedImage ? colors.primary : colors.inputBackground },
                     ]}
+                    onPress={handlePickImage}
+                    activeOpacity={0.7}
                   >
-                    {showPollBuilder ? 'Quitar Encuesta' : 'Encuesta'}
-                  </Text>
-                </TouchableOpacity>
+                    <Camera size={16} color={selectedImage ? '#FFFFFF' : colors.text} />
+                    <Text style={[styles.pollToggleText, { color: selectedImage ? '#FFFFFF' : colors.text }]}>
+                      {selectedImage ? 'Cambiar foto' : 'Foto'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.pollToggleBtn,
+                      { backgroundColor: showPollBuilder ? colors.primary : colors.inputBackground },
+                    ]}
+                    onPress={() => setShowPollBuilder(!showPollBuilder)}
+                    activeOpacity={0.7}
+                  >
+                    <BarChart2 size={16} color={showPollBuilder ? '#FFFFFF' : colors.text} />
+                    <Text
+                      style={[
+                        styles.pollToggleText,
+                        { color: showPollBuilder ? '#FFFFFF' : colors.text },
+                      ]}
+                    >
+                      {showPollBuilder ? 'Quitar Encuesta' : 'Encuesta'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity
                   style={[styles.publishBtn, { backgroundColor: colors.primary }]}
@@ -792,6 +1100,84 @@ export default function CommunityFeedScreen() {
                     <>
                       <Send size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                       <Text style={styles.publishBtnText}>Publicar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Store EULA Compliance Warning */}
+              <View style={{ marginTop: 14, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
+                <Text style={{ fontSize: 10, color: colors.textMuted, lineHeight: 14 }}>
+                  Al publicar aceptas las Normas de la Comunidad HES (tolerancia cero a odio, acoso, spam o difamación; las infracciones implican suspensión permanente de la cuenta).
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Community Post Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+              {/* Modal Header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Edit3 size={18} color={colors.primary} />
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Editar publicación</Text>
+                </View>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.closeBtn}>
+                  <X size={20} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Input with 250 character countdown */}
+              <TextInput
+                style={[styles.modalInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
+                placeholder="Modifica tu publicación (máx. 250 caracteres)..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                maxLength={250}
+                value={editPostText}
+                onChangeText={setEditPostText}
+                autoFocus
+              />
+
+              <View style={styles.charCountRow}>
+                <Text
+                  style={[
+                    styles.charCountText,
+                    { color: editPostText.length >= 240 ? '#DC2626' : colors.textMuted },
+                  ]}
+                >
+                  {250 - editPostText.length} caracteres restantes
+                </Text>
+              </View>
+
+              {/* Footer Buttons */}
+              <View style={[styles.modalActionsRow, { justifyContent: 'flex-end' }]}>
+                <TouchableOpacity
+                  style={[styles.publishBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleSaveEdit}
+                  disabled={updatingPost || !editPostText.trim()}
+                  activeOpacity={0.8}
+                >
+                  {updatingPost ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Send size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.publishBtnText}>Guardar cambios</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -866,9 +1252,19 @@ export default function CommunityFeedScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.commentUserName, { color: colors.text }]}>
-                        {c.user?.displayName || 'Usuario'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <Text style={[styles.commentUserName, { color: colors.text }]}>
+                          {c.user?.displayName || 'Usuario'}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => handleStartReplyCommunity(c)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 2, paddingHorizontal: 6 }}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <CornerDownRight size={11} color={colors.primary} />
+                          <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Responder</Text>
+                        </TouchableOpacity>
+                      </View>
                       <Text style={[styles.commentContent, { color: colors.text }]}>
                         {c.content}
                       </Text>
@@ -878,11 +1274,27 @@ export default function CommunityFeedScreen() {
               />
             )}
 
+            {/* Replying Banner */}
+            {replyingToComment && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: colors.inputBackground, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <CornerDownRight size={13} color={colors.primary} />
+                  <Text style={{ fontSize: 12, color: colors.text }}>
+                    Respondiendo a <Text style={{ color: colors.primary, fontWeight: '700' }}>@{replyingToComment.user}</Text>
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => { setReplyingToComment(null); setNewCommentText(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X size={15} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Send Comment Input */}
             <View style={[styles.commentInputRow, { borderTopColor: colors.border }]}>
               <TextInput
+                ref={commentInputRef}
                 style={[styles.commentTextInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
-                placeholder={token ? 'Escribe una respuesta...' : 'Inicia sesión para responder...'}
+                placeholder={token ? (replyingToComment ? `Responde a @${replyingToComment.user}...` : 'Escribe una respuesta...') : 'Inicia sesión para responder...'}
                 placeholderTextColor={colors.textMuted}
                 value={newCommentText}
                 onChangeText={setNewCommentText}

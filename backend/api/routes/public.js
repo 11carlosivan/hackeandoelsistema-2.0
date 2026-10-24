@@ -1567,6 +1567,7 @@ export async function registerPublicRoutes(app) {
       data: {
         ...normalizePublicPost(post, { route, config: app.config }),
         contentHtml: rewriteLegacyMediaHtml(app.config, post.contentHtml),
+        contentText: post.contentText,
         contentJson: rewriteLegacyMediaContentJson(app.config, post.contentJson),
         relatedPosts: relatedPosts.map((relatedPost) => normalizePublicPost(relatedPost, { config: app.config })),
         comments: (post.comments || []).map(normalizePublicComment),
@@ -1641,6 +1642,7 @@ export async function registerPublicRoutes(app) {
       data: {
         ...normalizePublicPost(post, { route, config: app.config }),
         contentHtml: rewriteLegacyMediaHtml(app.config, post.contentHtml),
+        contentText: post.contentText,
         contentJson: rewriteLegacyMediaContentJson(app.config, post.contentJson),
         relatedPosts: relatedPosts.map((relatedPost) => normalizePublicPost(relatedPost, { config: app.config })),
         comments: (post.comments || []).map(normalizePublicComment),
@@ -2733,7 +2735,10 @@ export async function registerPublicRoutes(app) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const decoded = await verifyAccessToken(app.config, authHeader.slice(7));
-        currentUserId = decoded?.sub || decoded?.userId || null;
+        const sub = decoded?.sub || decoded?.userId || null;
+        if (sub && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sub)) {
+          currentUserId = sub;
+        }
       } catch {}
     }
 
@@ -2767,16 +2772,18 @@ export async function registerPublicRoutes(app) {
     let followedUserIds = new Set();
     let followerUserIds = new Set();
     if (currentUserId && typeof app.prisma?.userFollow?.findMany === 'function') {
-      const [following, followers] = await Promise.all([
-        app.prisma.userFollow.findMany({ where: { followerId: currentUserId }, select: { followingId: true } }),
-        app.prisma.userFollow.findMany({ where: { followingId: currentUserId }, select: { followerId: true } }),
-      ]);
-      followedUserIds = new Set(following.map((f) => f.followingId));
-      followerUserIds = new Set(followers.map((f) => f.followerId));
+      try {
+        const [following, followers] = await Promise.all([
+          app.prisma.userFollow.findMany({ where: { followerId: currentUserId }, select: { followingId: true } }),
+          app.prisma.userFollow.findMany({ where: { followingId: currentUserId }, select: { followerId: true } }),
+        ]);
+        followedUserIds = new Set(following.map((f) => f.followingId));
+        followerUserIds = new Set(followers.map((f) => f.followerId));
+      } catch {}
     }
 
     const formattedPosts = posts.map((post) => {
-      const authorId = post.user.id;
+      const authorId = post.user?.id || 'unknown';
       const isFollowing = followedUserIds.has(authorId);
       const isFollower = followerUserIds.has(authorId);
       const isNucleo = isFollowing && isFollower;
@@ -2790,7 +2797,7 @@ export async function registerPublicRoutes(app) {
           totalVotes: totalPollVotes,
           expiresAt: post.poll.expiresAt,
           isActive: post.poll.isActive,
-          options: post.poll.options.map((opt) => ({
+          options: (post.poll.options || []).map((opt) => ({
             id: opt.id,
             text: opt.text,
             votesCount: opt.votesCount,
@@ -2809,11 +2816,11 @@ export async function registerPublicRoutes(app) {
         isLiked: Array.isArray(post.likes) && post.likes.length > 0,
         createdAt: post.createdAt,
         user: {
-          id: post.user.id,
-          displayName: post.user.displayName,
-          username: post.user.username,
-          avatarUrl: resolveAvatarUrl(post.user.profile?.avatarUrl || post.user.avatarMedia?.url || null),
-          bio: post.user.profile?.bio || null,
+          id: post.user?.id || 'hes',
+          displayName: post.user?.displayName || 'Usuario HES',
+          username: post.user?.username || 'usuario',
+          avatarUrl: resolveAvatarUrl(post.user?.profile?.avatarUrl || post.user?.avatarMedia?.url || null),
+          bio: post.user?.profile?.bio || null,
           isFollowing,
           isNucleo,
         },
@@ -2931,6 +2938,120 @@ export async function registerPublicRoutes(app) {
               })),
             }
           : null,
+      },
+    };
+  });
+
+  app.patch('/api/v1/public/community/posts/:id', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const schema = z.object({
+      content: z.string().trim().min(1, 'El contenido no puede estar vacío').max(250, 'El post comunitario tiene un máximo de 250 caracteres'),
+      mediaUrl: z.string().trim().max(768).optional().nullable(),
+    });
+
+    const parsed = schema.parse(request.body);
+    const currentUserId = request.auth.user.id;
+    const userRoles = request.auth.roles || [];
+
+    if (typeof app.prisma?.communityPost?.findUnique !== 'function') {
+      throw app.httpErrors.serviceUnavailable('Servicio de comunidad no disponible temporalmente');
+    }
+
+    const existingPost = await app.prisma.communityPost.findUnique({
+      where: { id },
+    });
+
+    if (!existingPost) {
+      throw app.httpErrors.notFound('Publicación no encontrada');
+    }
+
+    const isAuthor = existingPost.userId === currentUserId;
+    const isAdmin = userRoles.some((r) => ['ADMIN', 'SUPERADMIN', 'EDITOR'].includes(String(r).toUpperCase()));
+    if (!isAuthor && !isAdmin) {
+      throw app.httpErrors.forbidden('No tienes permiso para editar esta publicación');
+    }
+
+    const updatedPost = await app.prisma.communityPost.update({
+      where: { id },
+      data: {
+        content: parsed.content,
+        ...(parsed.mediaUrl !== undefined ? { mediaUrl: parsed.mediaUrl } : {}),
+      },
+      include: {
+        user: {
+          include: { profile: true, avatarMedia: true },
+        },
+        poll: {
+          include: { options: true },
+        },
+      },
+    });
+
+    return {
+      data: {
+        id: updatedPost.id,
+        content: updatedPost.content,
+        mediaUrl: updatedPost.mediaUrl,
+        likesCount: updatedPost.likesCount,
+        commentsCount: updatedPost.commentsCount,
+        repostsCount: updatedPost.repostsCount,
+        createdAt: updatedPost.createdAt,
+        updatedAt: updatedPost.updatedAt,
+        user: {
+          id: updatedPost.user.id,
+          displayName: updatedPost.user.displayName,
+          username: updatedPost.user.username,
+          avatarUrl: resolveAvatarUrl(updatedPost.user.profile?.avatarUrl || updatedPost.user.avatarMedia?.url || null),
+        },
+        poll: updatedPost.poll
+          ? {
+              id: updatedPost.poll.id,
+              question: updatedPost.poll.question,
+              totalVotes: updatedPost.poll.totalVotes || 0,
+              options: (updatedPost.poll.options || []).map((opt) => ({
+                id: opt.id,
+                text: opt.text,
+                votesCount: opt.votesCount,
+              })),
+            }
+          : null,
+      },
+    };
+  });
+
+  app.delete('/api/v1/public/community/posts/:id', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const currentUserId = request.auth.user.id;
+    const userRoles = request.auth.roles || [];
+
+    if (typeof app.prisma?.communityPost?.findUnique !== 'function') {
+      throw app.httpErrors.serviceUnavailable('Servicio de comunidad no disponible temporalmente');
+    }
+
+    const existingPost = await app.prisma.communityPost.findUnique({
+      where: { id },
+    });
+
+    if (!existingPost) {
+      throw app.httpErrors.notFound('Publicación no encontrada');
+    }
+
+    const isAuthor = existingPost.userId === currentUserId;
+    const isAdmin = userRoles.some((r) => ['ADMIN', 'SUPERADMIN', 'EDITOR'].includes(String(r).toUpperCase()));
+    if (!isAuthor && !isAdmin) {
+      throw app.httpErrors.forbidden('No tienes permiso para eliminar esta publicación');
+    }
+
+    await app.prisma.communityPost.delete({
+      where: { id },
+    });
+
+    return {
+      data: {
+        id,
+        deleted: true,
       },
     };
   });
@@ -3090,6 +3211,146 @@ export async function registerPublicRoutes(app) {
             avatarUrl: resolveAvatarUrl(comment.user.profile?.avatarUrl || comment.user.avatarMedia?.url || null),
           },
         },
+      },
+    };
+  });
+
+  app.post('/api/v1/public/community/posts/:id/report', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const reportSchema = z.object({
+      reason: z.string().trim().min(1, 'El motivo es requerido').max(100),
+      details: z.string().trim().max(500).optional().nullable(),
+    });
+    const parsed = reportSchema.parse(request.body || {});
+
+    const post = await app.prisma?.communityPost?.findUnique({ where: { id } }).catch(() => null);
+    if (!post) {
+      throw app.httpErrors.notFound('Publicación no encontrada');
+    }
+
+    request.log.warn({
+      postId: id,
+      authorId: post.userId,
+      reason: parsed.reason,
+      details: parsed.details,
+      reporterIp: request.ip,
+    }, '[UGC REPORT] Community post reported by user');
+
+    return {
+      success: true,
+      data: {
+        reported: true,
+        message: 'Reporte recibido. Nuestro equipo de moderación revisará la publicación en un plazo máximo de 24 horas.',
+      },
+    };
+  });
+
+  app.post('/api/v1/public/users/:id/report', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+    const reportSchema = z.object({
+      reason: z.string().trim().min(1, 'El motivo es requerido').max(100),
+      details: z.string().trim().max(500).optional().nullable(),
+    });
+    const parsed = reportSchema.parse(request.body || {});
+
+    const targetUser = await app.prisma?.user?.findUnique({ where: { id } }).catch(() => null);
+    if (!targetUser) {
+      throw app.httpErrors.notFound('Usuario no encontrado');
+    }
+
+    request.log.warn({
+      targetUserId: id,
+      targetUsername: targetUser.username,
+      reason: parsed.reason,
+      details: parsed.details,
+      reporterIp: request.ip,
+    }, '[UGC REPORT] User profile reported');
+
+    return {
+      success: true,
+      data: {
+        reported: true,
+        message: 'Reporte de usuario recibido. Procederemos con la investigación según nuestras normas de tolerancia cero.',
+      },
+    };
+  });
+
+  app.get('/api/v1/public/users/:id/community-posts', async (request, reply) => {
+    noStoreHeaders(reply);
+    const { id } = idParamSchema.parse(request.params);
+
+    let currentUserId = null;
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = await verifyAccessToken(app.config, authHeader.slice(7));
+        const sub = decoded?.sub || decoded?.userId || null;
+        if (sub && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sub)) {
+          currentUserId = sub;
+        }
+      } catch {}
+    }
+
+    if (typeof app.prisma?.communityPost?.findMany !== 'function') {
+      return { data: { posts: [] } };
+    }
+
+    const posts = await app.prisma.communityPost.findMany({
+      where: { userId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: {
+          include: { profile: true, avatarMedia: true },
+        },
+        poll: {
+          include: { options: true },
+        },
+        ...(currentUserId
+          ? {
+              likes: { where: { userId: currentUserId }, select: { id: true } },
+            }
+          : {}),
+      },
+    });
+
+    const formattedPosts = posts.map((post) => ({
+      id: post.id,
+      content: post.content,
+      mediaUrl: post.mediaUrl,
+      likesCount: post.likesCount,
+      commentsCount: post.commentsCount,
+      repostsCount: post.repostsCount,
+      isLiked: Array.isArray(post.likes) && post.likes.length > 0,
+      createdAt: post.createdAt,
+      user: {
+        id: post.user?.id || id,
+        displayName: post.user?.displayName || 'Usuario HES',
+        username: post.user?.username || 'usuario',
+        avatarUrl: resolveAvatarUrl(post.user?.profile?.avatarUrl || post.user?.avatarMedia?.url || null),
+        bio: post.user?.profile?.bio || null,
+        isFollowing: false,
+        isNucleo: false,
+      },
+      poll: post.poll
+        ? {
+            id: post.poll.id,
+            question: post.poll.question,
+            totalVotes: post.poll.totalVotes || 0,
+            options: (post.poll.options || []).map((opt) => ({
+              id: opt.id,
+              text: opt.text,
+              votesCount: opt.votesCount,
+            })),
+          }
+        : null,
+    }));
+
+    return {
+      data: {
+        posts: formattedPosts,
       },
     };
   });

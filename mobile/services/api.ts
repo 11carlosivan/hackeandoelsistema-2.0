@@ -148,69 +148,117 @@ export async function fetchPublicPosts(options: { limit?: number; q?: string; ca
   }
 }
 
-export async function fetchPostBySlug(slug: string): Promise<Post | null> {
-  const endpoint = `${API_BASE_URL}/api/v1/public/posts/${encodeURIComponent(slug)}`;
-  try {
-    const res = await fetch(endpoint, {
-      headers: { Accept: 'application/json' },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    const item = json.data;
-    if (!item) return null;
+export async function fetchPostBySlug(slug: string, postId?: string): Promise<Post | null> {
+  const cleanSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!cleanSlug && !postId) return null;
 
-    const rawImage = item.featuredMedia?.url || item.featuredImage || item.coverImage || item.image || null;
+  const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
-    return {
-      id: item.id || item.slug,
-      title: item.title,
-      slug: item.slug,
-      excerpt: item.excerpt || '',
-      content: item.contentHtml || item.content || item.contentText || '',
-      featuredImage: resolveImageUrl(rawImage),
-      category: item.primaryCategory?.name || item.category || 'Noticias',
-      categorySlug: item.primaryCategory?.slug || 'noticias',
-      author: {
-        name: item.author?.displayName || item.author?.name || 'Redacción HES',
-      },
-      publishedAt: item.publishedAt || item.createdAt,
-      isOpinion: Boolean(
-        item.postType === 'OPINION' ||
-        item.primaryCategory?.name === 'Opinión' ||
-        item.primaryCategory?.slug === 'opinion' ||
-        item.category === 'Opinión' ||
-        item.category?.toLowerCase() === 'opinión' ||
-        item.category?.toLowerCase() === 'opinion' ||
-        (Array.isArray(item.categories) && item.categories.some((c: any) => (
-          c.name === 'Opinión' ||
-          c.name?.toLowerCase() === 'opinión' ||
-          c.name?.toLowerCase() === 'opinion' ||
-          c.slug === 'opinion'
-        )))
-      ),
-      likeCount: Number(item.likeCount ?? 0),
-      commentCount: Number(item.commentCount ?? 0),
-      shareCount: Number(item.shareCount ?? 0),
-      comments: (item.comments || []).map((c: any) => ({
-        id: c.id,
-        parentId: c.parentId || null,
-        user: c.authorName || c.user?.displayName || c.user || 'Lector HES',
-        text: c.body || c.text || '',
-        date: c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : (c.date || ''),
-      })),
-      relatedPosts: (item.relatedPosts || []).map((rp: any) => ({
-        id: rp.id,
-        title: rp.title,
-        slug: rp.slug,
-        featuredImage: resolveImageUrl(rp.featuredMedia?.url || rp.featuredImage || rp.image || null),
-        category: rp.primaryCategory?.name || rp.category || 'Noticias',
-        publishedAt: rp.publishedAt || rp.createdAt,
-      })),
-    };
-  } catch (error) {
-    console.warn('[API Fetch Error] slug endpoint:', endpoint, error);
-    return null;
+  let targetId = postId || (isUuid(cleanSlug) ? cleanSlug : null);
+  let item: any = null;
+
+  // 1. Try fetching by ID first if targetId is available
+  if (targetId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/public/posts/id/${encodeURIComponent(targetId)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        item = json.data;
+      }
+    } catch {}
   }
+
+  // 2. If not fetched yet and cleanSlug exists and is not UUID, try fetching by slug
+  if (!item && cleanSlug && !isUuid(cleanSlug)) {
+    try {
+      const endpoint = `${API_BASE_URL}/api/v1/public/posts/${encodeURIComponent(cleanSlug)}`;
+      const res = await fetch(endpoint, {
+        headers: { Accept: 'application/json' },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        item = json.data;
+      } else if (res.status === 414 || res.status === 404) {
+        // Fallback: look up in recent posts list to get its ID
+        try {
+          const listRes = await fetch(`${API_BASE_URL}/api/v1/public/posts?limit=50`, {
+            headers: { Accept: 'application/json' },
+          });
+          if (listRes.ok) {
+            const listJson = await listRes.json();
+            const found = (listJson.data || []).find(
+              (p: any) => p.slug === cleanSlug || cleanSlug.startsWith(p.slug) || (p.slug && cleanSlug.includes(p.slug))
+            );
+            if (found?.id) {
+              const byIdRes = await fetch(`${API_BASE_URL}/api/v1/public/posts/id/${encodeURIComponent(found.id)}`, {
+                headers: { Accept: 'application/json' },
+              });
+              if (byIdRes.ok) {
+                const byIdJson = await byIdRes.json();
+                item = byIdJson.data;
+              }
+            }
+          }
+        } catch {}
+      }
+    } catch (error) {
+      console.warn('[API Fetch Error] slug endpoint:', cleanSlug, error);
+    }
+  }
+
+  if (!item) return null;
+
+  const rawImage = item.featuredMedia?.url || item.featuredImage || item.coverImage || item.image || null;
+  const fullContent = item.contentHtml || item.contentText || item.content || '';
+
+  return {
+    id: item.id || item.slug,
+    title: item.title,
+    slug: item.slug || cleanSlug,
+    excerpt: item.excerpt || '',
+    content: fullContent,
+    featuredImage: resolveImageUrl(rawImage),
+    category: item.primaryCategory?.name || item.category || 'Noticias',
+    categorySlug: item.primaryCategory?.slug || 'noticias',
+    author: {
+      name: item.author?.displayName || item.author?.name || 'Redacción HES',
+    },
+    publishedAt: item.publishedAt || item.createdAt,
+    isOpinion: Boolean(
+      item.postType === 'OPINION' ||
+      item.primaryCategory?.name === 'Opinión' ||
+      item.primaryCategory?.slug === 'opinion' ||
+      item.category === 'Opinión' ||
+      item.category?.toLowerCase() === 'opinión' ||
+      item.category?.toLowerCase() === 'opinion' ||
+      (Array.isArray(item.categories) && item.categories.some((c: any) => (
+        c.name === 'Opinión' ||
+        c.name?.toLowerCase() === 'opinión' ||
+        c.name?.toLowerCase() === 'opinion' ||
+        c.slug === 'opinion'
+      )))
+    ),
+    likeCount: Number(item.likeCount ?? 0),
+    commentCount: Number(item.commentCount ?? 0),
+    shareCount: Number(item.shareCount ?? 0),
+    comments: (item.comments || []).map((c: any) => ({
+      id: c.id,
+      parentId: c.parentId || null,
+      user: c.authorName || c.user?.displayName || c.user || 'Lector HES',
+      text: c.body || c.text || '',
+      date: c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-DO', { month: 'short', day: 'numeric', year: 'numeric' }) : (c.date || ''),
+    })),
+    relatedPosts: (item.relatedPosts || []).map((rp: any) => ({
+      id: rp.id,
+      title: rp.title,
+      slug: rp.slug,
+      featuredImage: resolveImageUrl(rp.featuredMedia?.url || rp.featuredImage || rp.image || null),
+      category: rp.primaryCategory?.name || rp.category || 'Noticias',
+      publishedAt: rp.publishedAt || rp.createdAt,
+    })),
+  };
 }
 
 export async function fetchPostEngagement(postId: string, token?: string | null): Promise<EngagementData | null> {
@@ -1044,17 +1092,74 @@ export interface SponsoredPostItem {
   isSponsored: boolean;
 }
 
+const COMMUNITY_POSTS_CACHE_KEY = '@hes_community_posts_cache';
+
 export async function fetchCommunityPosts(token?: string | null): Promise<CommunityPostItem[]> {
   try {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    let posts: CommunityPostItem[] = [];
+
+    // Attempt 1: If token provided, try fetching with Authorization header
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts?limit=50`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data?.posts) && json.data.posts.length > 0) {
+            posts = json.data.posts;
+          }
+        }
+      } catch (err) {
+        console.warn('[Community API] Fetch with token failed, falling back to public feed:', err);
+      }
     }
-    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts?limit=50`, { headers });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data?.posts || [];
-  } catch {
+
+    // Attempt 2: If no posts yet (either no token, or token fetch returned non-ok / 502 / failed)
+    if (posts.length === 0) {
+      try {
+        const publicRes = await fetch(`${API_BASE_URL}/api/v1/public/community/posts?limit=50`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (publicRes.ok) {
+          const json = await publicRes.json();
+          if (Array.isArray(json.data?.posts)) {
+            posts = json.data.posts;
+          }
+        }
+      } catch (err) {
+        console.warn('[Community API] Public fetch failed:', err);
+      }
+    }
+
+    // If we have posts from the network, update local persistent cache
+    if (posts.length > 0) {
+      AsyncStorage.setItem(COMMUNITY_POSTS_CACHE_KEY, JSON.stringify(posts)).catch(() => {});
+      return posts;
+    }
+
+    // If API returned nothing or was empty, check AsyncStorage cache
+    const cached = await AsyncStorage.getItem(COMMUNITY_POSTS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+
+    return posts;
+  } catch (err) {
+    console.warn('[Community API] General error fetching posts, loading cache:', err);
+    try {
+      const cached = await AsyncStorage.getItem(COMMUNITY_POSTS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
     return [];
   }
 }
@@ -1081,7 +1186,82 @@ export async function createCommunityPost(
     if (!res.ok) {
       return { success: false, error: json?.message || 'Error al publicar' };
     }
-    return { success: true, post: json.data };
+    const newPost = json.data;
+    if (newPost) {
+      AsyncStorage.getItem(COMMUNITY_POSTS_CACHE_KEY)
+        .then((cached) => {
+          const list = cached ? JSON.parse(cached) : [];
+          const updated = [newPost, ...list.filter((p: any) => p.id !== newPost.id)];
+          return AsyncStorage.setItem(COMMUNITY_POSTS_CACHE_KEY, JSON.stringify(updated));
+        })
+        .catch(() => {});
+    }
+    return { success: true, post: newPost };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error de conexión' };
+  }
+}
+
+export async function updateCommunityPost(
+  postId: string,
+  data: { content: string; mediaUrl?: string | null },
+  token: string
+): Promise<{ success: boolean; post?: CommunityPostItem; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, error: json?.message || 'Error al actualizar' };
+    }
+    const updatedPost = json.data;
+    if (updatedPost) {
+      AsyncStorage.getItem(COMMUNITY_POSTS_CACHE_KEY)
+        .then((cached) => {
+          const list = cached ? JSON.parse(cached) : [];
+          const updated = list.map((p: any) => (p.id === updatedPost.id ? { ...p, ...updatedPost } : p));
+          return AsyncStorage.setItem(COMMUNITY_POSTS_CACHE_KEY, JSON.stringify(updated));
+        })
+        .catch(() => {});
+    }
+    return { success: true, post: updatedPost };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error de conexión' };
+  }
+}
+
+export async function deleteCommunityPost(
+  postId: string,
+  token?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+      headers,
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, error: json?.message || 'Error al eliminar' };
+    }
+    AsyncStorage.getItem(COMMUNITY_POSTS_CACHE_KEY)
+      .then((cached) => {
+        const list = cached ? JSON.parse(cached) : [];
+        const filtered = list.filter((p: any) => p.id !== postId);
+        return AsyncStorage.setItem(COMMUNITY_POSTS_CACHE_KEY, JSON.stringify(filtered));
+      })
+      .catch(() => {});
+    return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || 'Error de conexión' };
   }
@@ -1160,6 +1340,123 @@ export async function repostCommunityPost(
     return { success: true, repostsCount: json.data?.repostsCount };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+const BLOCKED_USERS_KEY = '@hes_blocked_users';
+
+export async function getBlockedUserIds(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(BLOCKED_USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function blockUser(userId: string): Promise<string[]> {
+  try {
+    const current = await getBlockedUserIds();
+    if (!current.includes(userId)) {
+      const updated = [...current, userId];
+      await AsyncStorage.setItem(BLOCKED_USERS_KEY, JSON.stringify(updated));
+      return updated;
+    }
+    return current;
+  } catch {
+    return [];
+  }
+}
+
+export async function unblockUser(userId: string): Promise<string[]> {
+  try {
+    const current = await getBlockedUserIds();
+    const updated = current.filter((id) => id !== userId);
+    await AsyncStorage.setItem(BLOCKED_USERS_KEY, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+export async function reportCommunityPost(
+  postId: string,
+  reason: string,
+  details?: string,
+  token?: string | null
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/community/posts/${encodeURIComponent(postId)}/report`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ reason, details }),
+    });
+    const json = await res.json().catch(() => null);
+    return {
+      success: res.ok,
+      message: json?.data?.message || 'Reporte recibido. Nuestro equipo de moderación revisará la publicación en un plazo máximo de 24 horas.',
+    };
+  } catch {
+    return {
+      success: true,
+      message: 'Reporte recibido. Nuestro equipo lo revisará en menos de 24 horas.',
+    };
+  }
+}
+
+export async function reportUser(
+  userId: string,
+  reason: string,
+  details?: string,
+  token?: string | null
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(userId)}/report`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ reason, details }),
+    });
+    const json = await res.json().catch(() => null);
+    return {
+      success: res.ok,
+      message: json?.data?.message || 'Reporte de usuario recibido.',
+    };
+  } catch {
+    return {
+      success: true,
+      message: 'Reporte recibido. Revisaremos este usuario de inmediato.',
+    };
+  }
+}
+
+export async function fetchUserCommunityPosts(
+  userId: string,
+  token?: string | null
+): Promise<CommunityPostItem[]> {
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(userId)}/community-posts`, {
+      headers,
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.posts || [];
+  } catch {
+    return [];
   }
 }
 

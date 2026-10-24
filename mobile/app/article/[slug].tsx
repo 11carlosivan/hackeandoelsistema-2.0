@@ -10,7 +10,7 @@ import { CommentSection } from '@/components/CommentSection';
 import { ArrowLeft, Share2, Clock, User, Quote } from 'lucide-react-native';
 
 export default function ArticleDetailScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, id } = useLocalSearchParams<{ slug: string; id?: string }>();
   const { colors } = useTheme();
   const router = useRouter();
   const [post, setPost] = useState<Post | null>(null);
@@ -19,19 +19,19 @@ export default function ArticleDetailScreen() {
   const commentsLayoutY = useRef(0);
 
   useEffect(() => {
-    if (slug) {
+    if (slug || id) {
       setLoading(true);
       setPost(null);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-      fetchPostBySlug(slug).then((data) => {
+      fetchPostBySlug(slug, id).then((data) => {
         setPost(data);
         setLoading(false);
       }).catch((err) => {
-        console.warn('[Article] Error loading article by slug:', slug, err);
+        console.warn('[Article] Error loading article by slug/id:', slug, id, err);
         setLoading(false);
       });
     }
-  }, [slug]);
+  }, [slug, id]);
 
   const handleShare = async () => {
     if (post) {
@@ -111,8 +111,8 @@ export default function ArticleDetailScreen() {
             <Image source={{ uri: post.featuredImage }} style={styles.featuredImage} resizeMode="cover" />
           ) : null}
 
-          {/* Excerpt Lead */}
-          {post.excerpt ? (
+          {/* Excerpt Lead (only when distinct from full body) */}
+          {post.excerpt && post.content && post.excerpt.trim() !== post.content.replace(/<[^>]+>/g, '').trim() ? (
             <Text style={[styles.excerptLead, { color: colors.textMuted, borderLeftColor: colors.primary }]}>
               {post.excerpt}
             </Text>

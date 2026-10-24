@@ -16,13 +16,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "net.hackeandoelsistema.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Hackeando El Sistema necesita acceso a tu galería para seleccionar y actualizar tu foto de perfil.",
-        "NSCameraUsageDescription": "Hackeando El Sistema necesita acceso a la cámara para tomar tu foto de perfil.",
+        "NSPhotoLibraryUsageDescription": "Hackeando El Sistema necesita acceso a tu galería para seleccionar y compartir fotos en la comunidad o actualizar tu foto de perfil.",
+        "NSCameraUsageDescription": "Hackeando El Sistema necesita acceso a la cámara para tomar fotos para la comunidad o tu perfil.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -33,7 +33,7 @@
         "backgroundColor": "#050811"
       },
       "package": "com.hackeandoelsistema.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "INTERNET",
         "CAMERA",
@@ -57,8 +57,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Hackeando El Sistema necesita acceso a tu galería para seleccionar y actualizar tu foto de perfil.",
-          "cameraPermission": "Hackeando El Sistema necesita acceso a la cámara para tomar tu foto de perfil."
+          "photosPermission": "Hackeando El Sistema necesita acceso a tu galería para seleccionar y compartir fotos en la comunidad o actualizar tu foto de perfil.",
+          "cameraPermission": "Hackeando El Sistema necesita acceso a la cámara para tomar fotos para la comunidad o tu perfil."
         }
       ]
     ],

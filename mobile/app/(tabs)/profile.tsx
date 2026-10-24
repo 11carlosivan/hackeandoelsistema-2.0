@@ -41,6 +41,12 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
+  MessageSquare,
+  Heart,
+  Share2,
+  MoreVertical,
+  UserX,
+  Shield,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -52,6 +58,11 @@ import {
   resolveImageUrl,
   getSavedCommunityPosts,
   toggleSaveCommunityPost,
+  fetchUserCommunityPosts,
+  updateCommunityPost,
+  deleteCommunityPost,
+  getBlockedUserIds,
+  unblockUser,
   Post,
   FollowUserItem,
   CommunityPostItem,
@@ -63,8 +74,22 @@ export default function ProfileScreen() {
   const { toast, showModal } = useNotification();
   const router = useRouter();
 
-  // Active view tab: 'saved' or 'settings'
-  const [activeTab, setActiveTab] = useState<'saved' | 'settings'>('saved');
+  // Active view tab: 'posts' | 'saved' | 'settings'
+  const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'settings'>('posts');
+
+  // User's own community posts
+  const [userPosts, setUserPosts] = useState<CommunityPostItem[]>([]);
+  const [loadingUserPosts, setLoadingUserPosts] = useState(false);
+
+  // Edit User Post Modal
+  const [editingPost, setEditingPost] = useState<CommunityPostItem | null>(null);
+  const [editPostContent, setEditPostContent] = useState('');
+  const [updatingPost, setUpdatingPost] = useState(false);
+  const [editPostModalVisible, setEditPostModalVisible] = useState(false);
+
+  // Blocked users management
+  const [blockedUsersModalVisible, setBlockedUsersModalVisible] = useState(false);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
 
   // Saved Posts state (Artículos y Comunidad)
   const [savedSubTab, setSavedSubTab] = useState<'articles' | 'community'>('articles');
@@ -94,9 +119,29 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (token) {
       loadSavedArticles();
+      loadUserPosts();
+      loadBlockedList();
       refreshUser();
     }
-  }, [token]);
+  }, [token, user?.id]);
+
+  async function loadUserPosts() {
+    if (!token || !user?.id) return;
+    setLoadingUserPosts(true);
+    try {
+      const posts = await fetchUserCommunityPosts(user.id, token);
+      setUserPosts(posts);
+    } catch {
+      setUserPosts([]);
+    } finally {
+      setLoadingUserPosts(false);
+    }
+  }
+
+  async function loadBlockedList() {
+    const list = await getBlockedUserIds();
+    setBlockedUserIds(list);
+  }
 
   async function loadSavedArticles() {
     if (!token) return;
@@ -114,7 +159,11 @@ export default function ProfileScreen() {
     setRefreshing(true);
     await refreshUser();
     if (token) {
-      await loadSavedArticles();
+      await Promise.all([
+        loadSavedArticles(),
+        loadUserPosts(),
+        loadBlockedList(),
+      ]);
     }
     setRefreshing(false);
   }
@@ -365,6 +414,73 @@ export default function ProfileScreen() {
     toast.info('Post removido', 'Publicación eliminada de tus guardados.');
   };
 
+  const handleOpenEditPost = (post: CommunityPostItem) => {
+    setEditingPost(post);
+    setEditPostContent(post.content);
+    setEditPostModalVisible(true);
+  };
+
+  const handleSaveEditedPost = async () => {
+    if (!editingPost || !token) return;
+    if (!editPostContent.trim()) {
+      Alert.alert('Error', 'El contenido no puede estar vacío.');
+      return;
+    }
+    setUpdatingPost(true);
+    const res = await updateCommunityPost(editingPost.id, { content: editPostContent.trim() }, token);
+    setUpdatingPost(false);
+    if (res.success && res.post) {
+      setUserPosts((prev) => prev.map((p) => (p.id === res.post?.id ? res.post : p)));
+      setEditPostModalVisible(false);
+      setEditingPost(null);
+      toast.success('Publicación actualizada', 'Los cambios se guardaron con éxito.');
+    } else {
+      Alert.alert('Error', res.error || 'No se pudo actualizar la publicación.');
+    }
+  };
+
+  const handleDeletePost = (post: CommunityPostItem) => {
+    Alert.alert(
+      'Eliminar publicación',
+      '¿Estás seguro de que deseas eliminar permanentemente esta publicación?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setUserPosts((prev) => prev.filter((p) => p.id !== post.id));
+            const res = await deleteCommunityPost(post.id, token || undefined);
+            if (res.success) {
+              toast.info('Publicación eliminada', 'Tu publicación ha sido eliminada.');
+            } else {
+              toast.error('Error', res.error || 'No se pudo eliminar la publicación.');
+              loadUserPosts();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePostOptions = (post: CommunityPostItem) => {
+    Alert.alert(
+      'Opciones de publicación',
+      'Elige una acción para tu publicación',
+      [
+        { text: 'Editar', onPress: () => handleOpenEditPost(post) },
+        { text: 'Eliminar', style: 'destructive', onPress: () => handleDeletePost(post) },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleUnblock = async (blockedId: string) => {
+    await unblockUser(blockedId);
+    setBlockedUserIds((prev) => prev.filter((id) => id !== blockedId));
+    toast.success('Usuario desbloqueado', 'Ahora volverás a ver su contenido en la comunidad.');
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <HeaderBar />
@@ -442,6 +558,19 @@ export default function ProfileScreen() {
               <View style={[styles.statsRow, { borderColor: colors.border }]}>
                 <TouchableOpacity
                   style={styles.statCol}
+                  onPress={() => setActiveTab('posts')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.statVal, { color: colors.text }]}>
+                    {userPosts.length}
+                  </Text>
+                  <Text style={[styles.statLbl, { color: colors.textMuted }]}>Posts</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.statSep, { backgroundColor: colors.border }]} />
+
+                <TouchableOpacity
+                  style={styles.statCol}
                   onPress={() => openFollowersModal('Seguidores')}
                   activeOpacity={0.7}
                 >
@@ -472,7 +601,7 @@ export default function ProfileScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.statVal, { color: colors.text }]}>
-                    {savedPosts.length || user.savedPostsCount || 0}
+                    {savedPosts.length + savedCommunityPosts.length}
                   </Text>
                   <Text style={[styles.statLbl, { color: colors.textMuted }]}>Guardados</Text>
                 </TouchableOpacity>
@@ -528,6 +657,31 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[
                 styles.tabBtn,
+                activeTab === 'posts' && [
+                  styles.tabBtnActive,
+                  { backgroundColor: isDark ? '#232A3B' : '#FFFFFF' },
+                ],
+              ]}
+              onPress={() => setActiveTab('posts')}
+            >
+              <MessageSquare
+                size={16}
+                color={activeTab === 'posts' ? '#D32F2F' : colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: activeTab === 'posts' ? colors.text : colors.textMuted },
+                ]}
+              >
+                Mis Posts ({userPosts.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
                 activeTab === 'saved' && [
                   styles.tabBtnActive,
                   { backgroundColor: isDark ? '#232A3B' : '#FFFFFF' },
@@ -566,9 +720,114 @@ export default function ProfileScreen() {
                   { color: activeTab === 'settings' ? colors.text : colors.textMuted },
                 ]}
               >
-                Ajustes y Cuenta
+                Ajustes
               </Text>
             </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* Tab: Mis Publicaciones */}
+        {user && activeTab === 'posts' ? (
+          <View style={styles.savedSection}>
+            {loadingUserPosts ? (
+              <ActivityIndicator color="#D32F2F" style={{ marginVertical: 32 }} />
+            ) : userPosts.length === 0 ? (
+              <View style={[styles.emptySavedBox, { borderColor: colors.border }]}>
+                <MessageSquare size={42} color={colors.textMuted} style={{ marginBottom: 10 }} />
+                <Text style={[styles.emptySavedTitle, { color: colors.text }]}>
+                  No tienes publicaciones aún
+                </Text>
+                <Text style={[styles.emptySavedSub, { color: colors.textMuted, marginBottom: 16 }]}>
+                  Comparte tus reflexiones, análisis y opiniones con toda la comunidad de Hackeando el Sistema.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.createFirstPostBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push('/(tabs)/community' as any)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.createFirstPostBtnText}>Ir al Feed Comunitario</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.savedList}>
+                {userPosts.map((post) => (
+                  <View
+                    key={post.id}
+                    style={[
+                      styles.userPostCard,
+                      { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border },
+                    ]}
+                  >
+                    <View style={styles.userPostHeader}>
+                      <View style={styles.userPostAuthorRow}>
+                        {user.avatarUrl ? (
+                          <Image
+                            source={{ uri: resolveImageUrl(user.avatarUrl) || user.avatarUrl }}
+                            style={styles.userPostAvatar}
+                          />
+                        ) : (
+                          <View style={[styles.userPostAvatarFallback, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.userPostAvatarInitial}>
+                              {(user.displayName || user.name || 'U').slice(0, 2).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <View>
+                          <Text style={[styles.userPostAuthorName, { color: colors.text }]}>
+                            {user.displayName || user.name}
+                          </Text>
+                          <Text style={[styles.userPostDate, { color: colors.textMuted }]}>
+                            {post.createdAt ? new Date(post.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente'}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.userPostOptionsBtn}
+                        onPress={() => handlePostOptions(post)}
+                      >
+                        <MoreVertical size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={[styles.userPostContent, { color: colors.text }]}>
+                      {post.content}
+                    </Text>
+
+                    {post.mediaUrl ? (
+                      <Image
+                        source={{ uri: post.mediaUrl }}
+                        style={styles.userPostImage}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+
+                    <View style={[styles.userPostFooter, { borderTopColor: colors.border }]}>
+                      <View style={styles.userPostStat}>
+                        <Heart size={15} color={post.isLiked ? '#D32F2F' : colors.textMuted} fill={post.isLiked ? '#D32F2F' : 'transparent'} />
+                        <Text style={[styles.userPostStatText, { color: colors.textMuted }]}>
+                          {post.likesCount || 0}
+                        </Text>
+                      </View>
+                      <View style={styles.userPostStat}>
+                        <MessageSquare size={15} color={colors.textMuted} />
+                        <Text style={[styles.userPostStatText, { color: colors.textMuted }]}>
+                          {post.commentsCount || 0}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.userPostActionLink}
+                        onPress={() => router.push('/(tabs)/community' as any)}
+                      >
+                        <Text style={[styles.userPostActionLinkText, { color: colors.primary }]}>
+                          Ver en Comunidad
+                        </Text>
+                        <ChevronRight size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -788,6 +1047,48 @@ export default function ProfileScreen() {
                     <Text style={[styles.optionText, { color: colors.text }]}>Automático (Sistema)</Text>
                   </View>
                   {themeMode === 'system' && <Text style={{ color: colors.primary, fontWeight: '800' }}>✓</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Moderación y Seguridad */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>SEGURIDAD Y MODERACIÓN</Text>
+              <View style={[styles.optionsGroup, { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border }]}>
+                <TouchableOpacity
+                  style={styles.optionRow}
+                  onPress={() => setBlockedUsersModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionLeft}>
+                    <UserX size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+                    <Text style={[styles.optionText, { color: colors.text }]}>Usuarios Bloqueados</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 13, color: colors.textMuted, fontWeight: '700' }}>
+                      {blockedUserIds.length}
+                    </Text>
+                    <ChevronRight size={16} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                <TouchableOpacity
+                  style={styles.optionRow}
+                  onPress={() => {
+                    Alert.alert(
+                      'Normas de la Comunidad (EULA)',
+                      'Hackeando el Sistema mantiene una política estricta de tolerancia cero ante contenidos objetables o abusivos:\n\n• Queda prohibido el acoso, amenazas o lenguaje que incite al odio.\n• No se permite spam, desinformación intencionada o material sexualmente explícito.\n• Toda infracción conlleva la eliminación del contenido en menos de 24 horas y la suspensión permanente de la cuenta.\n• Puedes bloquear usuarios o reportar publicaciones en cualquier momento con el botón de opciones (⋮).'
+                    );
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionLeft}>
+                    <Shield size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+                    <Text style={[styles.optionText, { color: colors.text }]}>Normas de la Comunidad</Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -1128,6 +1429,126 @@ export default function ProfileScreen() {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Editar Publicación de la Comunidad */}
+      <Modal
+        visible={editPostModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditPostModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#161922' : '#FFFFFF' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>Editar Publicación</Text>
+              <TouchableOpacity
+                style={[styles.modalCloseBtn, { backgroundColor: colors.inputBackground }]}
+                onPress={() => setEditPostModalVisible(false)}
+              >
+                <X size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 20 }}>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.bioInput,
+                  { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
+                ]}
+                placeholder="¿Qué deseas actualizar en tu publicación?"
+                placeholderTextColor={colors.textMuted}
+                multiline
+                maxLength={250}
+                value={editPostContent}
+                onChangeText={setEditPostContent}
+              />
+              <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'right', marginTop: 4 }}>
+                {editPostContent.length}/250
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveEditedPost}
+                disabled={updatingPost}
+              >
+                {updatingPost ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Guardar Cambios</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal: Gestión de Usuarios Bloqueados */}
+      <Modal
+        visible={blockedUsersModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setBlockedUsersModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#161922' : '#FFFFFF', maxHeight: '75%' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>Usuarios Bloqueados</Text>
+              <TouchableOpacity
+                style={[styles.modalCloseBtn, { backgroundColor: colors.inputBackground }]}
+                onPress={() => setBlockedUsersModalVisible(false)}
+              >
+                <X size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {blockedUserIds.length === 0 ? (
+              <View style={styles.modalLoading}>
+                <UserX size={44} color={colors.textMuted} style={{ marginBottom: 12 }} />
+                <Text style={[styles.emptyModalText, { color: colors.text, fontWeight: '700', fontSize: 15, marginBottom: 4 }]}>
+                  No tienes usuarios bloqueados
+                </Text>
+                <Text style={[styles.emptyModalText, { color: colors.textMuted, textAlign: 'center', paddingHorizontal: 24 }]}>
+                  Los usuarios que bloquees en el feed comunitario aparecerán aquí y no verás sus publicaciones.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={blockedUserIds}
+                keyExtractor={(item) => item}
+                contentContainerStyle={{ padding: 16 }}
+                renderItem={({ item }) => (
+                  <View style={[styles.blockedUserRow, { borderBottomColor: colors.border }]}>
+                    <View style={styles.blockedUserInfo}>
+                      <View style={[styles.blockedAvatarFallback, { backgroundColor: isDark ? '#232A3B' : '#E2E8F0' }]}>
+                        <UserX size={18} color={colors.textMuted} />
+                      </View>
+                      <View>
+                        <Text style={[styles.blockedUserName, { color: colors.text }]}>
+                          Usuario bloqueado
+                        </Text>
+                        <Text style={[styles.blockedUserId, { color: colors.textMuted }]}>
+                          ID: {item.slice(0, 12)}...
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.unblockBtn, { borderColor: colors.primary }]}
+                      onPress={() => handleUnblock(item)}
+                    >
+                      <Text style={[styles.unblockBtnText, { color: colors.primary }]}>Desbloquear</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -1769,6 +2190,142 @@ const styles = StyleSheet.create({
   retentionDeleteBtnText: {
     color: '#DC2626',
     fontSize: 13,
+    fontWeight: '700',
+  },
+  // User Posts Styling in Profile
+  userPostCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  userPostHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  userPostAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  userPostAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 10,
+  },
+  userPostAvatarFallback: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  userPostAvatarInitial: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  userPostAuthorName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  userPostDate: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  userPostOptionsBtn: {
+    padding: 4,
+  },
+  userPostContent: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  userPostImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  userPostFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 16,
+  },
+  userPostStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  userPostStatText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  userPostActionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+    gap: 4,
+  },
+  userPostActionLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  createFirstPostBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  createFirstPostBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // Blocked Users Management
+  blockedUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  blockedUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  blockedAvatarFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  blockedUserName: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  blockedUserId: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  unblockBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  unblockBtnText: {
+    fontSize: 12,
     fontWeight: '700',
   },
 });

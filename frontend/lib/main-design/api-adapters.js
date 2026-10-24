@@ -154,7 +154,10 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
       text: comment.text,
       date: formatShortDate(comment.date ? new Date(comment.date) : null),
     })),
-    contentHtml: options.includeContent ? post.contentHtml : undefined,
+    contentHtml: options.includeContent
+      ? (post.contentHtml || (post.contentText ? `<p>${post.contentText.split(/\n\s*\n+/).map((t) => t.trim()).filter(Boolean).join('</p><p>')}</p>` : ''))
+      : undefined,
+    contentText: options.includeContent ? (post.contentText || '') : undefined,
     content: options.includeContent ? htmlToBlocks(post.contentHtml || post.contentText || '') : undefined,
     raw: publicRawPost(post),
   };
@@ -293,6 +296,5 @@ function htmlToBlocks(html) {
     .split(/\n+/)
     .map((text) => text.trim())
     .filter(Boolean)
-    .slice(0, 24)
     .map((text) => ({ type: 'paragraph', text }));
 }
