@@ -7,6 +7,7 @@ import { articles as fallbackArticles, opinions, authors } from '@/lib/main-desi
 import { mapApiPostToArticle } from '@/lib/main-design/api-adapters';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
 import SafeImage from './safe-image';
+import SportsTicker from './sports-ticker';
 
 function normalizeCategoryName(value) {
   return String(value || '')
@@ -380,6 +381,9 @@ export default function Home({ initialArticles, initialCategories = [], initialC
           </div>
         </div>
       </div>
+
+      {/* Marcadores Deportivos en Vivo (LIDOM, MLB, NBA) */}
+      <SportsTicker />
 
       {/* 2. Top Featured Split Grid (3-column layout: Hero Slider 6 cols + Middle 3 cols + Trending 3 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

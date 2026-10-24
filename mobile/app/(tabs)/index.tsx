@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderBar } from '@/components/HeaderBar';
 import { OpinionSlider } from '@/components/OpinionSlider';
+import { SportsScoreSection } from '@/components/SportsScoreSection';
 import { CategorySection } from '@/components/CategorySection';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -234,6 +235,9 @@ export default function HomeScreen() {
               <HeroArticleCard post={heroPost} />
             </View>
           ) : null}
+
+          {/* Marcadores Deportivos en Vivo (LIDOM, MLB, NBA) */}
+          <SportsScoreSection />
 
           {/* 3. NOTICIAS AGRUPADAS POR CATEGORÍA CON BOTÓN "VER MÁS" */}
           <View style={styles.categoriesWrapper}>

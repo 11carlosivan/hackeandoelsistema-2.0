@@ -1620,4 +1620,45 @@ export async function isCommunityPostSaved(postId: string): Promise<boolean> {
   }
 }
 
+export interface SportsTeam {
+  id?: number | string;
+  name: string;
+  shortName: string;
+  score: number | null;
+  logo?: string;
+}
+
+export interface SportsGame {
+  id: string;
+  league: string;
+  leagueName: string;
+  sport: string;
+  name: string;
+  gameDate?: string;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'FINAL';
+  statusDetail: string;
+  venue?: string;
+  awayTeam: SportsTeam;
+  homeTeam: SportsTeam;
+}
+
+export interface SportsScoreboardResponse {
+  league: string;
+  leagueName: string;
+  sport: string;
+  totalGames: number;
+  games: SportsGame[];
+  updatedAt: string;
+}
+
+export async function fetchSportsScoreboard(league: 'lidom' | 'mlb' | 'nba' = 'lidom'): Promise<SportsScoreboardResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/sports/scoreboard?league=${league}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 
