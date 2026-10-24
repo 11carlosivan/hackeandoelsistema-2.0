@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { Trophy, RefreshCw, Clock, Activity } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.72;
+const ROTATION_SECONDS = 20;
 
 type LeagueType = 'lidom' | 'mlb' | 'nba';
 
@@ -30,6 +31,7 @@ export const SportsScoreSection: React.FC = () => {
   const [scoreboard, setScoreboard] = useState<SportsScoreboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cycleKey, setCycleKey] = useState(0);
 
   const loadData = useCallback(async (league: LeagueType, isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -49,6 +51,26 @@ export const SportsScoreSection: React.FC = () => {
   useEffect(() => {
     loadData(selectedLeague);
   }, [selectedLeague, loadData]);
+
+  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSelectedLeague((curr) => {
+        const idx = LEAGUES.findIndex((l) => l.id === curr);
+        const nextIdx = (idx + 1) % LEAGUES.length;
+        return LEAGUES[nextIdx].id;
+      });
+      setCycleKey((k) => k + 1);
+    }, ROTATION_SECONDS * 1000);
+
+    return () => clearInterval(timer);
+  }, [cycleKey]);
+
+  const handleManualSelect = (leagueId: LeagueType) => {
+    if (leagueId === selectedLeague) return;
+    setSelectedLeague(leagueId);
+    setCycleKey((k) => k + 1); // reinicia el temporizador de 20s
+  };
 
   const games = scoreboard?.games || [];
 
@@ -78,7 +100,7 @@ export const SportsScoreSection: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Tabs de Ligas */}
+      {/* Tabs de Ligas con indicador de auto-rotación */}
       <View style={styles.tabRow}>
         {LEAGUES.map((l) => {
           const isActive = selectedLeague === l.id;
@@ -92,7 +114,7 @@ export const SportsScoreSection: React.FC = () => {
                   borderColor: isActive ? colors.primary : colors.border,
                 },
               ]}
-              onPress={() => setSelectedLeague(l.id)}
+              onPress={() => handleManualSelect(l.id)}
               activeOpacity={0.8}
             >
               <Text style={styles.tabEmoji}>{l.emoji}</Text>
@@ -114,13 +136,13 @@ export const SportsScoreSection: React.FC = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Cargando partidos...
+            Cargando partidos de {selectedLeague.toUpperCase()}...
           </Text>
         </View>
       ) : games.length === 0 ? (
         <View style={[styles.emptyContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No hay partidos programados hoy para {scoreboard?.leagueName || selectedLeague.toUpperCase()}.
+            No hay partidos recientes ni programados para {scoreboard?.leagueName || selectedLeague.toUpperCase()}.
           </Text>
         </View>
       ) : (
@@ -135,6 +157,7 @@ export const SportsScoreSection: React.FC = () => {
           renderItem={({ item }) => {
             const isLive = item.status === 'IN_PROGRESS';
             const isFinal = item.status === 'FINAL';
+            const hasScores = item.awayTeam.score !== null && item.homeTeam.score !== null;
 
             return (
               <View
@@ -157,9 +180,12 @@ export const SportsScoreSection: React.FC = () => {
                       </Text>
                     </View>
                   ) : isFinal ? (
-                    <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-                      {item.statusDetail || 'FINAL'}
-                    </Text>
+                    <View style={styles.finalBadge}>
+                      <View style={styles.finalDot} />
+                      <Text style={[styles.statusText, { color: colors.text }]}>
+                        {item.statusDetail || 'FINAL'}
+                      </Text>
+                    </View>
                   ) : (
                     <View style={styles.scheduledRow}>
                       <Clock size={11} color={colors.textSecondary} style={{ marginRight: 4 }} />
@@ -192,7 +218,13 @@ export const SportsScoreSection: React.FC = () => {
                       </View>
                     )}
                     <Text
-                      style={[styles.teamName, { color: colors.text }]}
+                      style={[
+                        styles.teamName,
+                        {
+                          color: colors.text,
+                          fontWeight: isFinal && hasScores && Number(item.awayTeam.score) > Number(item.homeTeam.score) ? '800' : '600',
+                        },
+                      ]}
                       numberOfLines={1}
                     >
                       {item.awayTeam.name}
@@ -202,12 +234,13 @@ export const SportsScoreSection: React.FC = () => {
                     style={[
                       styles.scoreText,
                       {
-                        color: isLive ? colors.primary : isFinal ? colors.text : colors.textSecondary,
-                        fontWeight: isLive || isFinal ? '800' : '500',
+                        color: isLive ? colors.primary : hasScores ? colors.text : colors.textSecondary,
+                        fontWeight: isLive || hasScores ? '800' : '500',
+                        fontSize: hasScores ? 16 : 13,
                       },
                     ]}
                   >
-                    {item.awayTeam.score !== null ? item.awayTeam.score : '-'}
+                    {item.awayTeam.score !== null ? item.awayTeam.score : 'VS'}
                   </Text>
                 </View>
 
@@ -227,7 +260,13 @@ export const SportsScoreSection: React.FC = () => {
                       </View>
                     )}
                     <Text
-                      style={[styles.teamName, { color: colors.text }]}
+                      style={[
+                        styles.teamName,
+                        {
+                          color: colors.text,
+                          fontWeight: isFinal && hasScores && Number(item.homeTeam.score) > Number(item.awayTeam.score) ? '800' : '600',
+                        },
+                      ]}
                       numberOfLines={1}
                     >
                       {item.homeTeam.name}
@@ -237,12 +276,13 @@ export const SportsScoreSection: React.FC = () => {
                     style={[
                       styles.scoreText,
                       {
-                        color: isLive ? colors.primary : isFinal ? colors.text : colors.textSecondary,
-                        fontWeight: isLive || isFinal ? '800' : '500',
+                        color: isLive ? colors.primary : hasScores ? colors.text : colors.textSecondary,
+                        fontWeight: isLive || hasScores ? '800' : '500',
+                        fontSize: hasScores ? 16 : 13,
                       },
                     ]}
                   >
-                    {item.homeTeam.score !== null ? item.homeTeam.score : '-'}
+                    {item.homeTeam.score !== null ? item.homeTeam.score : 'VS'}
                   </Text>
                 </View>
               </View>
@@ -332,6 +372,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
   },
+  finalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  finalDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#34C759',
+  },
   scheduledRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -376,11 +427,9 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 13,
-    fontWeight: '600',
     flex: 1,
   },
   scoreText: {
-    fontSize: 16,
     minWidth: 24,
     textAlign: 'right',
   },

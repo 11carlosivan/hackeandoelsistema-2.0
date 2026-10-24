@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const LEAGUES = [
   { id: 'lidom', name: 'LIDOM', emoji: '⚾', label: 'Pelota Invernal RD' },
@@ -8,14 +8,17 @@ const LEAGUES = [
   { id: 'nba', name: 'NBA', emoji: '🏀', label: 'Baloncesto' },
 ];
 
+const ROTATION_SECONDS = 20;
+
 export default function SportsTicker() {
   const [activeLeague, setActiveLeague] = useState('lidom');
   const [scoreboardData, setScoreboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [progressKey, setProgressKey] = useState(0);
   const scrollRef = useRef(null);
 
-  const loadScores = async (league, isManual = false) => {
+  const loadScores = useCallback(async (league, isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
       const res = await fetch(`/api/v1/sports/scoreboard?league=${league}`, {
@@ -30,19 +33,34 @@ export default function SportsTicker() {
       setLoading(false);
       if (isManual) setRefreshing(false);
     }
-  };
+  }, []);
 
+  // Cargar datos al cambiar de liga
   useEffect(() => {
     setLoading(true);
     loadScores(activeLeague);
+  }, [activeLeague, loadScores]);
 
-    // Auto-actualizar cada 60 segundos
-    const interval = setInterval(() => {
-      loadScores(activeLeague);
-    }, 60000);
+  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveLeague((current) => {
+        const currentIndex = LEAGUES.findIndex((l) => l.id === current);
+        const nextIndex = (currentIndex + 1) % LEAGUES.length;
+        return LEAGUES[nextIndex].id;
+      });
+      setProgressKey((k) => k + 1);
+    }, ROTATION_SECONDS * 1000);
 
-    return () => clearInterval(interval);
-  }, [activeLeague]);
+    return () => clearInterval(timer);
+  }, [progressKey]);
+
+  // Manejo de clic manual en pestaña: cambia de liga y reinicia el contador de 20s
+  const handleSelectLeague = (leagueId) => {
+    if (leagueId === activeLeague) return;
+    setActiveLeague(leagueId);
+    setProgressKey((k) => k + 1); // reinicia el ciclo de 20s
+  };
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -53,7 +71,18 @@ export default function SportsTicker() {
   const games = scoreboardData?.games || [];
 
   return (
-    <div className="w-full mb-6 border border-terminal-gray/80 bg-surface-container-low/70 backdrop-blur-md overflow-hidden rounded-sm transition-all duration-300 shadow-sm">
+    <div className="w-full mb-6 border border-terminal-gray/80 bg-surface-container-low/70 backdrop-blur-md overflow-hidden rounded-sm transition-all duration-300 shadow-sm relative group">
+      {/* Barra de progreso de rotación de 20 segundos */}
+      <div className="w-full h-[2px] bg-white/5 overflow-hidden">
+        <div
+          key={progressKey}
+          className="h-full bg-system-red transition-all duration-linear"
+          style={{
+            animation: `sportsTickerProgress ${ROTATION_SECONDS}s linear infinite`,
+          }}
+        />
+      </div>
+
       {/* Header bar con selector de ligas y estado */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-black/40 border-b border-terminal-gray/60 font-mono text-xs">
         <div className="flex items-center gap-1 sm:gap-2">
@@ -62,20 +91,20 @@ export default function SportsTicker() {
             MARCADORES
           </span>
 
-          {/* Selector de ligas */}
+          {/* Selector de ligas con rotación activa */}
           <div className="flex items-center gap-1 bg-surface-container-lowest/80 p-0.5 rounded border border-terminal-gray/40">
             {LEAGUES.map((league) => {
               const isActive = activeLeague === league.id;
               return (
                 <button
                   key={league.id}
-                  onClick={() => setActiveLeague(league.id)}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-xs transition-colors ${
+                  onClick={() => handleSelectLeague(league.id)}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-xs transition-all ${
                     isActive
-                      ? 'bg-system-red text-black shadow-xs'
+                      ? 'bg-system-red text-black shadow-xs scale-102'
                       : 'text-on-surface-variant hover:text-white hover:bg-white/5'
                   }`}
-                  title={league.label}
+                  title={`${league.label} (Rota cada 20s)`}
                 >
                   <span>{league.emoji}</span>
                   <span>{league.name}</span>
@@ -83,6 +112,10 @@ export default function SportsTicker() {
               );
             })}
           </div>
+
+          <span className="hidden sm:inline-block text-[10px] text-terminal-muted border-l border-terminal-gray/50 pl-2">
+            Auto 20s
+          </span>
         </div>
 
         <div className="flex items-center gap-2 text-on-surface-variant text-[11px]">
@@ -138,19 +171,22 @@ export default function SportsTicker() {
           </div>
         ) : games.length === 0 ? (
           <div className="w-full py-5 text-center text-on-surface-variant text-xs font-mono">
-            <span>No hay partidos programados hoy para {scoreboardData?.leagueName || activeLeague.toUpperCase()}.</span>
+            <span>No hay partidos recientes ni programados para {scoreboardData?.leagueName || activeLeague.toUpperCase()}.</span>
           </div>
         ) : (
           games.map((game) => {
             const isLive = game.status === 'IN_PROGRESS';
             const isFinal = game.status === 'FINAL';
+            const hasScores = game.awayTeam.score !== null && game.homeTeam.score !== null;
 
             return (
               <div
                 key={game.id}
                 className={`min-w-[240px] max-w-[270px] shrink-0 p-3 rounded bg-black/30 border transition-all duration-200 hover:border-system-red/60 hover:bg-black/50 ${
                   isLive
-                    ? 'border-system-red/80 shadow-[0_0_12px_rgba(255,59,48,0.15)]'
+                    ? 'border-system-red/80 shadow-[0_0_12px_rgba(255,59,48,0.2)]'
+                    : isFinal
+                    ? 'border-terminal-gray/60'
                     : 'border-terminal-gray/40'
                 }`}
               >
@@ -165,7 +201,8 @@ export default function SportsTicker() {
                       EN VIVO • {game.statusDetail}
                     </span>
                   ) : isFinal ? (
-                    <span className="text-on-surface-variant uppercase font-medium">
+                    <span className="text-white/80 uppercase font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
                       {game.statusDetail || 'FINAL'}
                     </span>
                   ) : (
@@ -198,18 +235,26 @@ export default function SportsTicker() {
                         />
                       ) : null}
                       <span
-                        className="truncate text-xs font-semibold text-white"
+                        className={`truncate text-xs ${
+                          isFinal && game.awayTeam.score > game.homeTeam.score
+                            ? 'font-bold text-white'
+                            : 'font-medium text-white/90'
+                        }`}
                         title={game.awayTeam.name}
                       >
                         {game.awayTeam.name}
                       </span>
                     </div>
                     <span
-                      className={`text-sm font-mono font-bold shrink-0 ${
-                        isLive ? 'text-system-red' : isFinal ? 'text-white' : 'text-terminal-muted'
+                      className={`text-sm font-mono shrink-0 ${
+                        isLive
+                          ? 'text-system-red font-bold'
+                          : hasScores
+                          ? 'text-white font-bold'
+                          : 'text-terminal-muted text-xs'
                       }`}
                     >
-                      {game.awayTeam.score !== null ? game.awayTeam.score : '-'}
+                      {game.awayTeam.score !== null ? game.awayTeam.score : 'VS'}
                     </span>
                   </div>
 
@@ -227,18 +272,26 @@ export default function SportsTicker() {
                         />
                       ) : null}
                       <span
-                        className="truncate text-xs font-semibold text-white"
+                        className={`truncate text-xs ${
+                          isFinal && game.homeTeam.score > game.awayTeam.score
+                            ? 'font-bold text-white'
+                            : 'font-medium text-white/90'
+                        }`}
                         title={game.homeTeam.name}
                       >
                         {game.homeTeam.name}
                       </span>
                     </div>
                     <span
-                      className={`text-sm font-mono font-bold shrink-0 ${
-                        isLive ? 'text-system-red' : isFinal ? 'text-white' : 'text-terminal-muted'
+                      className={`text-sm font-mono shrink-0 ${
+                        isLive
+                          ? 'text-system-red font-bold'
+                          : hasScores
+                          ? 'text-white font-bold'
+                          : 'text-terminal-muted text-xs'
                       }`}
                     >
-                      {game.homeTeam.score !== null ? game.homeTeam.score : '-'}
+                      {game.homeTeam.score !== null ? game.homeTeam.score : 'VS'}
                     </span>
                   </div>
                 </div>
@@ -247,6 +300,17 @@ export default function SportsTicker() {
           })
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes sportsTickerProgress {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }

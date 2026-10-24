@@ -27,14 +27,33 @@ function setInCache(key, data) {
 /**
  * Obtener partidos de LIDOM (Béisbol Dominicano) desde MLB Stats API
  */
+function getSantoDomingoDate(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santo_Domingo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+/**
+ * Obtener partidos de LIDOM (Béisbol Dominicano) desde MLB Stats API
+ * Consulta últimos 2 días para incluir tanto los resultados finales recientes con sus carreras
+ * como los partidos programados de la cartelera de hoy.
+ */
 async function fetchLidomScores() {
   const cacheKey = 'sports_lidom';
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
   try {
-    // Sport ID 17 = Ligas Invernales, League ID 131 = LIDOM
-    const url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=17&leagueId=131&hydrate=team,linescore';
+    const today = getSantoDomingoDate(0);
+    const yesterday = getSantoDomingoDate(-1);
+    const twoDaysAgo = getSantoDomingoDate(-2);
+
+    // Consultamos desde 2 días atrás hasta hoy para asegurar resultados completos de la última jornada
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=17&leagueId=131&startDate=${twoDaysAgo}&endDate=${today}&hydrate=team,linescore`;
     const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`MLB API returned ${res.status}`);
     const data = await res.json();
@@ -52,23 +71,50 @@ async function fetchLidomScores() {
         const awayTeam = g.teams?.away;
         const homeTeam = g.teams?.home;
 
+        // Determinar prefijo de día relativo
+        let dayPrefix = 'Hoy';
+        try {
+          const gameDay = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Santo_Domingo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date(g.gameDate));
+
+          if (gameDay === today) {
+            dayPrefix = 'Hoy';
+          } else if (gameDay === yesterday) {
+            dayPrefix = 'Ayer';
+          } else {
+            dayPrefix = new Intl.DateTimeFormat('es-DO', {
+              timeZone: 'America/Santo_Domingo',
+              day: 'numeric',
+              month: 'short',
+            }).format(new Date(g.gameDate));
+          }
+        } catch {
+          dayPrefix = 'Hoy';
+        }
+
         // Formato amigable de detalle de estado
         let statusDetail = g.status?.detailedState || 'Programado';
         if (status === 'IN_PROGRESS') {
           const inning = g.linescore?.currentInningOrdinal || `${g.linescore?.currentInning || ''}`;
           const half = g.linescore?.inningHalf === 'Top' ? 'Alta' : 'Baja';
           statusDetail = `${half} ${inning}`;
+        } else if (status === 'FINAL') {
+          statusDetail = `${dayPrefix} • Final`;
         } else if (status === 'SCHEDULED' && g.gameDate) {
           try {
             const timeStr = new Intl.DateTimeFormat('es-DO', {
               hour: 'numeric',
               minute: '2-digit',
               hour12: true,
-              timeZone: 'America/Santo_Domingo'
+              timeZone: 'America/Santo_Domingo',
             }).format(new Date(g.gameDate));
-            statusDetail = timeStr;
+            statusDetail = `${dayPrefix} ${timeStr}`;
           } catch {
-            statusDetail = 'Hoy';
+            statusDetail = `${dayPrefix}`;
           }
         }
 
@@ -86,19 +132,27 @@ async function fetchLidomScores() {
             id: awayTeam?.team?.id,
             name: awayTeam?.team?.name || 'Visitante',
             shortName: awayTeam?.team?.teamCode?.toUpperCase() || awayTeam?.team?.name?.substring(0, 3).toUpperCase(),
-            score: awayTeam?.score ?? (status === 'SCHEDULED' ? null : 0),
+            score: awayTeam?.score !== undefined ? awayTeam.score : (status === 'SCHEDULED' ? null : 0),
             logo: `https://www.mlbstatic.com/team-logos/${awayTeam?.team?.id}.svg`,
           },
           homeTeam: {
             id: homeTeam?.team?.id,
             name: homeTeam?.team?.name || 'Local',
             shortName: homeTeam?.team?.teamCode?.toUpperCase() || homeTeam?.team?.name?.substring(0, 3).toUpperCase(),
-            score: homeTeam?.score ?? (status === 'SCHEDULED' ? null : 0),
+            score: homeTeam?.score !== undefined ? homeTeam.score : (status === 'SCHEDULED' ? null : 0),
             logo: `https://www.mlbstatic.com/team-logos/${homeTeam?.team?.id}.svg`,
           },
         });
       }
     }
+
+    // Ordenar: primero EN VIVO, luego FINALES recientes, luego PROGRAMADOS
+    games.sort((a, b) => {
+      const priority = { IN_PROGRESS: 0, FINAL: 1, SCHEDULED: 2 };
+      const diff = (priority[a.status] ?? 3) - (priority[b.status] ?? 3);
+      if (diff !== 0) return diff;
+      return new Date(b.gameDate).getTime() - new Date(a.gameDate).getTime();
+    });
 
     const result = {
       league: 'lidom',
