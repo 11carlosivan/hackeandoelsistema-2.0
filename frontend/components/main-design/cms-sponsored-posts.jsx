@@ -267,254 +267,260 @@ export default function CmsSponsoredPostsPanel({ initialAds = [], accessToken })
       </div>
 
       {/* Modal Crear / Editar */}
+      {/* Modal Crear / Editar */}
       {modalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-terminal-dark border border-terminal-gray max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6 border-b border-terminal-gray/40 pb-3">
-              <h2 className="text-lg font-bold text-white font-mono uppercase flex items-center gap-2">
-                <span className="material-symbols-outlined text-system-red">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md p-3 sm:p-6 flex items-start sm:items-center justify-center">
+          <div className="relative w-full max-w-2xl bg-terminal-dark border border-terminal-gray/80 shadow-2xl flex flex-col max-h-[92vh] my-auto overflow-hidden">
+            {/* Header Fijo */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-terminal-gray/40 bg-terminal-dark shrink-0">
+              <h2 className="text-base sm:text-lg font-bold text-white font-mono uppercase flex items-center gap-2">
+                <span className="material-symbols-outlined text-system-red text-xl">
                   {editingAd ? 'edit_note' : 'add_box'}
                 </span>
                 {editingAd ? 'Editar Campaña Publicitaria' : 'Nueva Campaña Publicitaria'}
               </h2>
               <button
+                type="button"
                 onClick={() => setModalOpen(false)}
-                className="text-terminal-gray hover:text-white font-mono text-sm"
+                className="text-terminal-gray hover:text-white font-mono text-sm px-2 py-1 transition-colors"
               >
                 ✕ Cerrar
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 font-mono text-xs">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-terminal-gray mb-1 uppercase font-bold">Nombre del Anunciante *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.sponsorName}
-                    onChange={(e) => setFormData({ ...formData, sponsorName: e.target.value })}
-                    placeholder="Ej: Claro Dominicana"
-                    className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-terminal-gray mb-1 uppercase font-bold">Usuario / Redes (Opcional)</label>
-                  <input
-                    type="text"
-                    value={formData.sponsorHandle}
-                    onChange={(e) => setFormData({ ...formData, sponsorHandle: e.target.value })}
-                    placeholder="@clarord"
-                    className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Logo del anunciante */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-terminal-gray uppercase font-bold text-[11px] flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-system-red">account_circle</span>
-                    Logo del Anunciante (Opcional)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setManualUrlToggles((prev) => ({ ...prev, sponsorLogo: !prev.sponsorLogo }))}
-                    className="text-[10px] text-terminal-gray hover:text-white underline cursor-pointer"
-                  >
-                    {manualUrlToggles.sponsorLogo ? 'Ocultar URL manual' : 'O ingresar URL manual'}
-                  </button>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden font-mono text-xs">
+              <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-terminal-gray mb-1 uppercase font-bold">Nombre del Anunciante *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.sponsorName}
+                      onChange={(e) => setFormData({ ...formData, sponsorName: e.target.value })}
+                      placeholder="Ej: Claro Dominicana"
+                      className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-terminal-gray mb-1 uppercase font-bold">Usuario / Redes (Opcional)</label>
+                    <input
+                      type="text"
+                      value={formData.sponsorHandle}
+                      onChange={(e) => setFormData({ ...formData, sponsorHandle: e.target.value })}
+                      placeholder="@clarord"
+                      className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+                    />
+                  </div>
                 </div>
 
-                {formData.sponsorLogo ? (
-                  <div className="flex items-center gap-4 p-3 bg-black border border-terminal-gray/80 rounded">
-                    <div className="w-14 h-14 bg-surface-container-low border border-terminal-gray overflow-hidden flex items-center justify-center shrink-0">
-                      <img
-                        src={formData.sponsorLogo}
-                        alt="Logo anunciante"
-                        className="w-full h-full object-contain"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-terminal-gray truncate font-mono">{formData.sponsorLogo}</div>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'sponsorLogo', title: 'Seleccionar Logo del Anunciante' })}
-                          className="px-2.5 py-1 text-[10px] font-bold uppercase bg-terminal-dark hover:bg-white hover:text-black border border-terminal-gray text-white transition-colors cursor-pointer"
-                        >
-                          Reemplazar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, sponsorLogo: '' }))}
-                          className="px-2.5 py-1 text-[10px] font-bold uppercase border border-system-red/40 text-system-red hover:bg-system-red hover:text-black transition-colors cursor-pointer"
-                        >
-                          Remover
-                        </button>
+                {/* Logo del anunciante */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-terminal-gray uppercase font-bold text-[11px] flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-system-red">account_circle</span>
+                      Logo del Anunciante (Opcional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setManualUrlToggles((prev) => ({ ...prev, sponsorLogo: !prev.sponsorLogo }))}
+                      className="text-[10px] text-terminal-gray hover:text-white underline cursor-pointer"
+                    >
+                      {manualUrlToggles.sponsorLogo ? 'Ocultar URL manual' : 'O ingresar URL manual'}
+                    </button>
+                  </div>
+
+                  {formData.sponsorLogo ? (
+                    <div className="flex items-center gap-4 p-3 bg-black border border-terminal-gray/80 rounded">
+                      <div className="w-14 h-14 bg-surface-container-low border border-terminal-gray overflow-hidden flex items-center justify-center shrink-0">
+                        <img
+                          src={formData.sponsorLogo}
+                          alt="Logo anunciante"
+                          className="w-full h-full object-contain"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] text-terminal-gray truncate font-mono">{formData.sponsorLogo}</div>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'sponsorLogo', title: 'Seleccionar Logo del Anunciante' })}
+                            className="px-2.5 py-1 text-[10px] font-bold uppercase bg-terminal-dark hover:bg-white hover:text-black border border-terminal-gray text-white transition-colors cursor-pointer"
+                          >
+                            Reemplazar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, sponsorLogo: '' }))}
+                            className="px-2.5 py-1 text-[10px] font-bold uppercase border border-system-red/40 text-system-red hover:bg-system-red hover:text-black transition-colors cursor-pointer"
+                          >
+                            Remover
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'sponsorLogo', title: 'Seleccionar Logo del Anunciante' })}
-                    className="w-full border-2 border-dashed border-system-red/40 bg-system-red/5 hover:border-system-red hover:bg-system-red/10 p-3.5 text-center text-xs text-white flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <span className="material-symbols-outlined text-2xl text-system-red">add_photo_alternate</span>
-                    <span className="font-bold uppercase tracking-wider text-[11px]">Asignar Logo del Anunciante</span>
-                    <span className="text-[10px] text-terminal-gray">Toca aquí para seleccionar de la biblioteca o subir desde tu equipo</span>
-                  </button>
-                )}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'sponsorLogo', title: 'Seleccionar Logo del Anunciante' })}
+                      className="w-full border-2 border-dashed border-system-red/40 bg-system-red/5 hover:border-system-red hover:bg-system-red/10 p-3.5 text-center text-xs text-white flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <span className="material-symbols-outlined text-2xl text-system-red">add_photo_alternate</span>
+                      <span className="font-bold uppercase tracking-wider text-[11px]">Asignar Logo del Anunciante</span>
+                      <span className="text-[10px] text-terminal-gray">Toca aquí para seleccionar de la biblioteca o subir desde tu equipo</span>
+                    </button>
+                  )}
 
-                {manualUrlToggles.sponsorLogo && (
-                  <input
-                    type="url"
-                    value={formData.sponsorLogo}
-                    onChange={(e) => setFormData({ ...formData, sponsorLogo: e.target.value })}
-                    placeholder="https://.../logo.png"
-                    className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none mt-2"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="block text-terminal-gray mb-1 uppercase font-bold">Título del Anuncio *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Conéctate a la mayor red 5G del país"
-                  className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-terminal-gray mb-1 uppercase font-bold">Texto / Descripción del Anuncio *</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  placeholder="Planes especiales de internet y fibra óptica para negocios..."
-                  className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
-                />
-              </div>
-
-              {/* Imagen / Banner publicitario */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-terminal-gray uppercase font-bold text-[11px] flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-system-red">image</span>
-                    Imagen / Banner Publicitario (Opcional)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setManualUrlToggles((prev) => ({ ...prev, mediaUrl: !prev.mediaUrl }))}
-                    className="text-[10px] text-terminal-gray hover:text-white underline cursor-pointer"
-                  >
-                    {manualUrlToggles.mediaUrl ? 'Ocultar URL manual' : 'O ingresar URL manual'}
-                  </button>
+                  {manualUrlToggles.sponsorLogo && (
+                    <input
+                      type="url"
+                      value={formData.sponsorLogo}
+                      onChange={(e) => setFormData({ ...formData, sponsorLogo: e.target.value })}
+                      placeholder="https://.../logo.png"
+                      className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none mt-2"
+                    />
+                  )}
                 </div>
 
-                {formData.mediaUrl ? (
-                  <div className="space-y-2 p-3 bg-black border border-terminal-gray/80 rounded">
-                    <div className="relative aspect-video w-full max-h-48 overflow-hidden border border-terminal-gray/60 bg-black flex items-center justify-center">
-                      <img
-                        src={formData.mediaUrl}
-                        alt="Banner de la campaña"
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <div className="text-[10px] text-terminal-gray truncate flex-1 font-mono">{formData.mediaUrl}</div>
-                      <div className="flex gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'mediaUrl', title: 'Seleccionar Banner Publicitario' })}
-                          className="px-2.5 py-1 text-[10px] font-bold uppercase bg-terminal-dark hover:bg-white hover:text-black border border-terminal-gray text-white transition-colors cursor-pointer"
-                        >
-                          Reemplazar Banner
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, mediaUrl: '' }))}
-                          className="px-2.5 py-1 text-[10px] font-bold uppercase border border-system-red/40 text-system-red hover:bg-system-red hover:text-black transition-colors cursor-pointer"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'mediaUrl', title: 'Seleccionar Banner Publicitario' })}
-                    className="w-full border-2 border-dashed border-system-red/40 bg-system-red/5 hover:border-system-red hover:bg-system-red/10 p-6 text-center text-xs text-white flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
-                  >
-                    <span className="material-symbols-outlined text-3xl text-system-red">cloud_upload</span>
-                    <span className="font-bold uppercase tracking-wider text-[11px]">Asignar Imagen / Banner Principal</span>
-                    <span className="text-[10px] text-terminal-gray">Toca aquí para seleccionar de la biblioteca o subir desde tu equipo</span>
-                  </button>
-                )}
-
-                {manualUrlToggles.mediaUrl && (
-                  <input
-                    type="url"
-                    value={formData.mediaUrl}
-                    onChange={(e) => setFormData({ ...formData, mediaUrl: e.target.value })}
-                    placeholder="https://.../banner.jpg"
-                    className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none mt-2"
-                  />
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-terminal-gray mb-1 uppercase font-bold">Texto del Botón CTA *</label>
+                  <label className="block text-terminal-gray mb-1 uppercase font-bold">Título del Anuncio *</label>
                   <input
                     type="text"
                     required
-                    value={formData.ctaText}
-                    onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
-                    placeholder="Conoce más"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Conéctate a la mayor red 5G del país"
                     className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-terminal-gray mb-1 uppercase font-bold">URL de Destino (Link de la web) *</label>
-                  <input
-                    type="url"
+                  <label className="block text-terminal-gray mb-1 uppercase font-bold">Texto / Descripción del Anuncio *</label>
+                  <textarea
                     required
-                    value={formData.ctaUrl}
-                    onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
-                    placeholder="https://www.anunciante.com"
+                    rows={3}
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    placeholder="Planes especiales de internet y fibra óptica para negocios..."
                     className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
                   />
                 </div>
+
+                {/* Imagen / Banner publicitario */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-terminal-gray uppercase font-bold text-[11px] flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-system-red">image</span>
+                      Imagen / Banner Publicitario (Opcional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setManualUrlToggles((prev) => ({ ...prev, mediaUrl: !prev.mediaUrl }))}
+                      className="text-[10px] text-terminal-gray hover:text-white underline cursor-pointer"
+                    >
+                      {manualUrlToggles.mediaUrl ? 'Ocultar URL manual' : 'O ingresar URL manual'}
+                    </button>
+                  </div>
+
+                  {formData.mediaUrl ? (
+                    <div className="space-y-2 p-3 bg-black border border-terminal-gray/80 rounded">
+                      <div className="relative aspect-video w-full max-h-48 overflow-hidden border border-terminal-gray/60 bg-black flex items-center justify-center">
+                        <img
+                          src={formData.mediaUrl}
+                          alt="Banner de la campaña"
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <div className="text-[10px] text-terminal-gray truncate flex-1 font-mono">{formData.mediaUrl}</div>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'mediaUrl', title: 'Seleccionar Banner Publicitario' })}
+                            className="px-2.5 py-1 text-[10px] font-bold uppercase bg-terminal-dark hover:bg-white hover:text-black border border-terminal-gray text-white transition-colors cursor-pointer"
+                          >
+                            Reemplazar Banner
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, mediaUrl: '' }))}
+                            className="px-2.5 py-1 text-[10px] font-bold uppercase border border-system-red/40 text-system-red hover:bg-system-red hover:text-black transition-colors cursor-pointer"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMediaModalConfig({ isOpen: true, targetField: 'mediaUrl', title: 'Seleccionar Banner Publicitario' })}
+                      className="w-full border-2 border-dashed border-system-red/40 bg-system-red/5 hover:border-system-red hover:bg-system-red/10 p-6 text-center text-xs text-white flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
+                    >
+                      <span className="material-symbols-outlined text-3xl text-system-red">cloud_upload</span>
+                      <span className="font-bold uppercase tracking-wider text-[11px]">Asignar Imagen / Banner Principal</span>
+                      <span className="text-[10px] text-terminal-gray">Toca aquí para seleccionar de la biblioteca o subir desde tu equipo</span>
+                    </button>
+                  )}
+
+                  {manualUrlToggles.mediaUrl && (
+                    <input
+                      type="url"
+                      value={formData.mediaUrl}
+                      onChange={(e) => setFormData({ ...formData, mediaUrl: e.target.value })}
+                      placeholder="https://.../banner.jpg"
+                      className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none mt-2"
+                    />
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-terminal-gray mb-1 uppercase font-bold">Texto del Botón CTA *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.ctaText}
+                      onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
+                      placeholder="Conoce más"
+                      className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-terminal-gray mb-1 uppercase font-bold">URL de Destino (Link de la web) *</label>
+                    <input
+                      type="url"
+                      required
+                      value={formData.ctaUrl}
+                      onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
+                      placeholder="https://www.anunciante.com"
+                      className="w-full bg-black border border-terminal-gray px-3 py-2 text-white focus:border-system-red outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <input
+                    type="checkbox"
+                    id="isActiveCheck"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="accent-system-red w-4 h-4 cursor-pointer"
+                  />
+                  <label htmlFor="isActiveCheck" className="text-white font-bold cursor-pointer select-none">
+                    Activar de inmediato esta campaña
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
-                <input
-                  type="checkbox"
-                  id="isActiveCheck"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="accent-system-red w-4 h-4"
-                />
-                <label htmlFor="isActiveCheck" className="text-white font-bold cursor-pointer select-none">
-                  Activar de inmediato esta campaña
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-terminal-gray/40">
+              {/* Footer Fijo */}
+              <div className="flex justify-end items-center gap-3 px-6 py-4 border-t border-terminal-gray/40 bg-terminal-dark shrink-0">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 border border-terminal-gray text-terminal-gray hover:text-white transition-colors"
+                  className="px-4 py-2 border border-terminal-gray text-terminal-gray hover:text-white transition-colors uppercase font-bold"
                 >
                   Cancelar
                 </button>

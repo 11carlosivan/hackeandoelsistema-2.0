@@ -253,7 +253,7 @@ export default function CmsMediaSelectorModal({ isOpen, onClose, onSelect, selec
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[2.5vh_2.5vw] backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-[2.5vh_2.5vw] backdrop-blur-sm">
       <div className="flex h-[95vh] w-[95vw] flex-col border border-terminal-gray bg-background text-on-surface shadow-2xl">
         <header className="flex items-center justify-between border-b border-terminal-gray px-4 py-3 md:px-5">
           <div>

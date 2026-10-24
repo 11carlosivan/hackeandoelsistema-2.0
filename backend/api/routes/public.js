@@ -3499,66 +3499,45 @@ export async function registerPublicRoutes(app) {
   });
 
   // ==================== PUBLICIDAD NATIVA / PATROCINADOS ====================
-  app.get('/api/v1/public/sponsored-posts', async (_request, reply) => {
-    publicCacheHeaders(reply, 300);
-
-    const defaultSponsored = [
-      {
-        id: 'ad-claro-rd',
-        sponsorName: 'Claro RD',
-        sponsorHandle: '@clarord',
-        sponsorLogo: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=120&auto=format&fit=crop&q=80',
-        title: 'Conéctate a lo que importa',
-        content: 'Más velocidad, más oportunidades. Disfruta de la red con mayor cobertura 5G del país con planes especiales para emprendedores y empresas.',
-        mediaUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&auto=format&fit=crop&q=80',
-        ctaText: 'Conoce más',
-        ctaUrl: 'https://www.claro.com.do',
-        placement: 'feed',
-        likesCount: 256,
-        commentsCount: 32,
-        sharesCount: 54,
-        isSponsored: true,
-      },
-      {
-        id: 'ad-banco-popular',
-        sponsorName: 'Banco Popular',
-        sponsorHandle: '@popularlinea',
-        sponsorLogo: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=120&auto=format&fit=crop&q=80',
-        title: 'Tus metas, más cerca',
-        content: 'Impulsando tu crecimiento financiero con tasas preferenciales y préstamos personales con aprobación inmediata.',
-        mediaUrl: 'https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?w=800&auto=format&fit=crop&q=80',
-        ctaText: 'Solicitar ahora',
-        ctaUrl: 'https://www.popularenlinea.com',
-        placement: 'feed',
-        likesCount: 189,
-        commentsCount: 14,
-        sharesCount: 38,
-        isSponsored: true,
-      },
-    ];
+  app.get('/api/v1/public/sponsored-posts', async (request, reply) => {
+    publicCacheHeaders(reply, 60);
 
     if (typeof app.prisma?.sponsoredPost?.findMany !== 'function') {
-      return { data: { ads: defaultSponsored } };
+      return { data: { ads: [] } };
     }
 
-    const ads = await app.prisma.sponsoredPost.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
+    try {
+      const ads = await app.prisma.sponsoredPost.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
 
-    if (ads.length === 0) {
-      return { data: { ads: defaultSponsored } };
+      return {
+        data: {
+          ads: ads.map((ad) => ({
+            id: ad.id,
+            sponsorName: ad.sponsorName,
+            sponsorHandle: ad.sponsorHandle || null,
+            sponsorLogo: ad.sponsorLogo || null,
+            title: ad.title,
+            content: ad.content,
+            mediaUrl: ad.mediaUrl || null,
+            ctaText: ad.ctaText || 'Conoce más',
+            ctaUrl: ad.ctaUrl,
+            placement: ad.placement || 'feed',
+            likesCount: ad.likesCount || 0,
+            commentsCount: 0,
+            sharesCount: ad.sharesCount || 0,
+            isSponsored: true,
+            createdAt: ad.createdAt,
+          })),
+        },
+      };
+    } catch (err) {
+      request.log?.warn?.({ err }, 'Failed to query sponsored posts');
+      return { data: { ads: [] } };
     }
-
-    return {
-      data: {
-        ads: ads.map((ad) => ({
-          ...ad,
-          isSponsored: true,
-        })),
-      },
-    };
   });
 
   // ==================== BÚSQUEDA INTEGRADA Y TENDENCIAS ====================
