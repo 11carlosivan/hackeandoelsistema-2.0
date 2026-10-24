@@ -73,7 +73,7 @@ export const OpinionSlider: React.FC<OpinionSliderProps> = ({ posts }) => {
 
             <View style={[styles.authorRow, { borderTopColor: colors.border }]}>
               {item.featuredImage ? (
-                <Image source={{ uri: item.featuredImage }} style={styles.authorAvatar} resizeMode="cover" />
+                <Image source={{ uri: item.featuredImage, cache: 'force-cache' }} style={styles.authorAvatar} resizeMode="cover" fadeDuration={0} />
               ) : (
                 <View style={[styles.authorAvatarFallback, { backgroundColor: colors.primary }]}>
                   <Text style={styles.avatarInitial}>{(item.author?.name || 'O')[0]}</Text>

@@ -108,7 +108,7 @@ export default function ArticleDetailScreen() {
 
           {/* Featured Image */}
           {post.featuredImage ? (
-            <Image source={{ uri: post.featuredImage }} style={styles.featuredImage} resizeMode="cover" />
+            <Image source={{ uri: post.featuredImage, cache: 'force-cache' }} style={styles.featuredImage} resizeMode="cover" fadeDuration={0} />
           ) : null}
 
           {/* Excerpt Lead (only when distinct from full body) */}
@@ -162,7 +162,7 @@ export default function ArticleDetailScreen() {
                     activeOpacity={0.7}
                   >
                     {related.featuredImage ? (
-                      <Image source={{ uri: related.featuredImage }} style={styles.relatedThumbnail} resizeMode="cover" />
+                      <Image source={{ uri: related.featuredImage, cache: 'force-cache' }} style={styles.relatedThumbnail} resizeMode="cover" fadeDuration={0} />
                     ) : null}
                     <View style={styles.relatedContent}>
                       {related.category ? (

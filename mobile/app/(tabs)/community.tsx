@@ -702,7 +702,7 @@ export default function CommunityFeedScreen() {
             activeOpacity={0.7}
           >
             {author.avatarUrl ? (
-              <Image source={{ uri: resolveImageUrl(author.avatarUrl) || author.avatarUrl }} style={styles.avatar} />
+              <Image source={{ uri: resolveImageUrl(author.avatarUrl) || author.avatarUrl, cache: 'force-cache' }} style={styles.avatar} fadeDuration={0} />
             ) : (
               <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
                 <Text style={styles.avatarInitial}>
@@ -774,9 +774,10 @@ export default function CommunityFeedScreen() {
         {/* Attached Image if present */}
         {post.mediaUrl ? (
           <Image
-            source={{ uri: post.mediaUrl }}
+            source={{ uri: post.mediaUrl, cache: 'force-cache' }}
             style={{ width: '100%', height: 220, borderRadius: 10, marginTop: 10, backgroundColor: colors.inputBackground }}
             resizeMode="cover"
+            fadeDuration={0}
           />
         ) : null}
 
@@ -922,8 +923,10 @@ export default function CommunityFeedScreen() {
         <Image
           source={{
             uri: resolveImageUrl(user?.avatarUrl) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+            cache: 'force-cache',
           }}
           style={styles.promptAvatar}
+          fadeDuration={0}
         />
         <Text style={[styles.promptPlaceholder, { color: colors.textMuted }]}>
           ¿Qué opinas? Publica en la comunidad (máx. 250 car)...
@@ -1242,7 +1245,7 @@ export default function CommunityFeedScreen() {
                   <View style={[styles.communityCommentRow, { borderBottomColor: colors.border }]}>
                     <View style={styles.commentAvatar}>
                       {c.user?.avatarUrl ? (
-                        <Image source={{ uri: resolveImageUrl(c.user.avatarUrl) || c.user.avatarUrl }} style={styles.avatarMini} />
+                        <Image source={{ uri: resolveImageUrl(c.user.avatarUrl) || c.user.avatarUrl, cache: 'force-cache' }} style={styles.avatarMini} fadeDuration={0} />
                       ) : (
                         <View style={[styles.avatarMiniFallback, { backgroundColor: colors.primary }]}>
                           <Text style={styles.avatarInitialMini}>

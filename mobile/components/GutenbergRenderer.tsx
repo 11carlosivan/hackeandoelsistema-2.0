@@ -615,7 +615,7 @@ const InArticleRelatedCard: React.FC<{
       activeOpacity={0.85}
     >
       {resolvedImg ? (
-        <Image source={{ uri: resolvedImg }} style={styles.inArticleRelatedImage} resizeMode="cover" />
+        <Image source={{ uri: resolvedImg, cache: 'force-cache' }} style={styles.inArticleRelatedImage} resizeMode="cover" fadeDuration={0} />
       ) : null}
       <View style={styles.inArticleRelatedBody}>
         {category ? (
@@ -786,7 +786,7 @@ export const GutenbergRenderer: React.FC<GutenbergRendererProps> = ({ content, p
             const resolved = resolveImageUrl(block.src) || block.src;
             return (
               <View key={`img-${idx}`} style={styles.imageBlock}>
-                <Image source={{ uri: resolved }} style={styles.contentImage} resizeMode="cover" />
+                <Image source={{ uri: resolved, cache: 'force-cache' }} style={styles.contentImage} resizeMode="cover" fadeDuration={0} />
                 {block.caption ? (
                   <Text style={[styles.imageCaption, { color: colors.textMuted }]}>{block.caption}</Text>
                 ) : null}

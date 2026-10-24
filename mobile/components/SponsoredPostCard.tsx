@@ -33,8 +33,9 @@ export const SponsoredPostCard: React.FC<Props> = ({ ad }) => {
       {/* Sponsor Header */}
       <View style={styles.headerRow}>
         <Image
-          source={{ uri: ad.sponsorLogo || 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=120&auto=format&fit=crop&q=80' }}
+          source={{ uri: ad.sponsorLogo || 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=120&auto=format&fit=crop&q=80', cache: 'force-cache' }}
           style={styles.logo}
+          fadeDuration={0}
         />
         <View style={styles.headerInfo}>
           <View style={styles.sponsorNameRow}>
@@ -57,7 +58,7 @@ export const SponsoredPostCard: React.FC<Props> = ({ ad }) => {
       {/* Media Image if available */}
       {ad.mediaUrl ? (
         <TouchableOpacity activeOpacity={0.9} onPress={handlePressCta} style={styles.imageWrapper}>
-          <Image source={{ uri: ad.mediaUrl }} style={styles.mediaImage} resizeMode="cover" />
+          <Image source={{ uri: ad.mediaUrl, cache: 'force-cache' }} style={styles.mediaImage} resizeMode="cover" fadeDuration={0} />
           <View style={styles.ctaOverlayButton}>
             <Text style={styles.ctaOverlayText}>{ad.ctaText || 'Conoce más'}</Text>
             <ExternalLink size={12} color="#FFFFFF" style={{ marginLeft: 4 }} />

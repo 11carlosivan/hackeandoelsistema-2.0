@@ -80,7 +80,7 @@ const HeroArticleCard: React.FC<{ post: Post }> = ({ post }) => {
         activeOpacity={0.85}
       >
         {post.featuredImage ? (
-          <Image source={{ uri: post.featuredImage }} style={styles.heroImage} resizeMode="cover" />
+          <Image source={{ uri: post.featuredImage, cache: 'force-cache' }} style={styles.heroImage} resizeMode="cover" fadeDuration={0} />
         ) : null}
 
         <View style={styles.heroBody}>

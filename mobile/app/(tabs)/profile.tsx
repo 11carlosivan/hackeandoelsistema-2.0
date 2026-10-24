@@ -508,7 +508,7 @@ export default function ProfileScreen() {
               {/* Avatar + Edit Photo icon */}
               <View style={styles.avatarContainer}>
                 {user.avatarUrl ? (
-                  <Image source={{ uri: resolveImageUrl(user.avatarUrl) || user.avatarUrl }} style={styles.avatarImg} />
+                  <Image source={{ uri: resolveImageUrl(user.avatarUrl) || user.avatarUrl, cache: 'force-cache' }} style={styles.avatarImg} fadeDuration={0} />
                 ) : (
                   <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
                     <Text style={styles.avatarInitials}>
@@ -905,7 +905,7 @@ export default function ProfileScreen() {
                       activeOpacity={0.8}
                     >
                       {post.featuredImage ? (
-                        <Image source={{ uri: post.featuredImage }} style={styles.savedThumb} />
+                        <Image source={{ uri: post.featuredImage, cache: 'force-cache' }} style={styles.savedThumb} fadeDuration={0} />
                       ) : (
                         <View style={[styles.savedThumbPlaceholder, { backgroundColor: isDark ? '#1F2430' : '#E2E8F0' }]}>
                           <Bookmark size={24} color={colors.textMuted} />

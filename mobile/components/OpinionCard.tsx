@@ -86,7 +86,7 @@ export const OpinionCard: React.FC<OpinionCardProps> = ({ post }) => {
 
         <View style={styles.body}>
           {post.featuredImage ? (
-            <Image source={{ uri: post.featuredImage }} style={styles.authorAvatar} resizeMode="cover" />
+            <Image source={{ uri: post.featuredImage, cache: 'force-cache' }} style={styles.authorAvatar} resizeMode="cover" fadeDuration={0} />
           ) : (
             <View style={[styles.authorAvatarFallback, { backgroundColor: colors.primary }]}>
               <Text style={styles.avatarInitial}>{(post.author?.name || 'O')[0]}</Text>

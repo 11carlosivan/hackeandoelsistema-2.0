@@ -90,7 +90,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ post }) => {
         activeOpacity={0.85}
       >
         {post.featuredImage ? (
-          <Image source={{ uri: post.featuredImage }} style={styles.image} resizeMode="cover" />
+          <Image source={{ uri: post.featuredImage, cache: 'force-cache' }} style={styles.image} resizeMode="cover" fadeDuration={0} />
         ) : (
           <View style={[styles.placeholderImage, { backgroundColor: colors.border }]}>
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>HES</Text>

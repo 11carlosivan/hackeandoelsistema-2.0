@@ -84,6 +84,14 @@ function isInternalServerRequest(request) {
   return INTERNAL_HOSTS.has(host) && !forwardedFor && isPrivateAddress(remoteAddress);
 }
 
+function isRateLimitExempt(request) {
+  const urlPath = String(request.url || '').split('?')[0];
+  if (urlPath.startsWith('/uploads/') || urlPath === '/favicon.ico') {
+    return true;
+  }
+  return isInternalServerRequest(request);
+}
+
 export async function registerSecurityPlugins(app, env) {
   await app.register(sensible);
 
@@ -128,7 +136,7 @@ export async function registerSecurityPlugins(app, env) {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW,
     hook: 'onRequest',
-    allowList: (request) => isInternalServerRequest(request),
+    allowList: (request) => isRateLimitExempt(request),
   });
 
   app.addHook('preHandler', async (request) => {
