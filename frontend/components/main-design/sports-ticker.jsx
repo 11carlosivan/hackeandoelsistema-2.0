@@ -8,6 +8,7 @@ const LEAGUES = [
   { id: 'nba', name: 'NBA', emoji: '🏀', label: 'Baloncesto' },
   { id: 'soccer', name: 'Fútbol', emoji: '⚽', label: 'Fútbol Soccer' },
   { id: 'nfl', name: 'NFL', emoji: '🏈', label: 'Fútbol Americano' },
+  { id: 'f1', name: 'F1', emoji: '🏎️', label: 'Fórmula 1' },
 ];
 
 const ROTATION_SECONDS = 20;
@@ -247,7 +248,26 @@ export default function SportsTicker() {
                   )}
                 </div>
 
-                {/* Equipos y Marcadores */}
+                {/* Equipos o Podio F1 */}
+                {game.isRacing && game.podium?.length ? (
+                  <div className="space-y-1">
+                    {game.podium.map((p, pIdx) => (
+                      <div key={pIdx} className="flex items-center justify-between text-xs gap-1.5">
+                        <div className="flex items-center gap-1.5 truncate min-w-0">
+                          <span className="text-[11px] font-bold text-amber-400 shrink-0">
+                            {p.position === 1 ? '🥇' : p.position === 2 ? '🥈' : '🥉'} P{p.position}
+                          </span>
+                          {p.flag && (
+                            <img src={p.flag} alt="" className="w-3.5 h-2.5 object-cover shrink-0 rounded-2xs" />
+                          )}
+                          <span className="truncate font-semibold text-white/95 text-[11px]">
+                            {p.driver}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                 <div className="space-y-1.5">
                   {/* Visitante (Away) */}
                   <div className="flex items-center justify-between gap-2">
@@ -323,8 +343,9 @@ export default function SportsTicker() {
                     </span>
                   </div>
                 </div>
-              </div>
-            );
+              )}
+            </div>
+          );
           })
         )}
       </div>

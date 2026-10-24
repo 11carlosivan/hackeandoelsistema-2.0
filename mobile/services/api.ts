@@ -1633,6 +1633,13 @@ export interface SportsGame {
   league: string;
   leagueName: string;
   sport: string;
+  isRacing?: boolean;
+  podium?: Array<{
+    position: number;
+    driver: string;
+    shortName?: string;
+    flag?: string;
+  }>;
   name: string;
   gameDate?: string;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'FINAL';
@@ -1651,7 +1658,7 @@ export interface SportsScoreboardResponse {
   updatedAt: string;
 }
 
-export async function fetchSportsScoreboard(league: 'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' = 'lidom'): Promise<SportsScoreboardResponse | null> {
+export async function fetchSportsScoreboard(league: 'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' | 'f1' = 'lidom'): Promise<SportsScoreboardResponse | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/sports/scoreboard?league=${league}`);
     if (!res.ok) return null;

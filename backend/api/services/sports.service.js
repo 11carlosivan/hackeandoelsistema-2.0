@@ -565,8 +565,107 @@ async function fetchSoccerScores() {
 }
 
 /**
+ * Obtener resultados de Fórmula 1 (F1) desde ESPN Racing API
+ */
+async function fetchF1Scores() {
+  const cacheKey = 'sports_f1';
+  const cached = getFromCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const url = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard';
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`ESPN F1 API returned ${res.status}`);
+    const data = await res.json();
+
+    const games = (data.events || []).map((ev) => {
+      const comp = ev.competitions?.[0];
+      const statusType = ev.status?.type;
+      let status = 'SCHEDULED';
+      if (statusType?.state === 'in') status = 'IN_PROGRESS';
+      else if (statusType?.state === 'post') status = 'FINAL';
+
+      let statusDetail = statusType?.shortDetail || 'Programado';
+      if (status === 'SCHEDULED' && ev.date) {
+        try {
+          statusDetail = new Intl.DateTimeFormat('es-DO', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'America/Santo_Domingo',
+          }).format(new Date(ev.date));
+        } catch {
+          statusDetail = statusType?.shortDetail || 'Hoy';
+        }
+      }
+
+      const competitors = comp?.competitors || [];
+      const podium = competitors.slice(0, 3).map((c, index) => ({
+        position: c.order || c.place || index + 1,
+        driver: c.athlete?.displayName || 'Piloto',
+        shortName: c.athlete?.shortName || c.athlete?.displayName || '',
+        flag: c.athlete?.flag?.href || '',
+      }));
+
+      const p1 = podium[0] || { driver: 'Líder', position: 1 };
+      const p2 = podium[1] || { driver: 'Segundo', position: 2 };
+
+      return {
+        id: `f1-${ev.id}`,
+        league: 'f1',
+        leagueName: 'Fórmula 1 (F1)',
+        sport: 'racing',
+        isRacing: true,
+        name: ev.name,
+        gameDate: ev.date,
+        status,
+        statusDetail: `F1 • ${statusDetail}`,
+        venue: ev.circuit?.name || comp?.venue?.fullName || 'Circuito F1',
+        podium,
+        awayTeam: {
+          id: 'p1',
+          name: `🥇 P1: ${p1.driver}`,
+          shortName: p1.shortName || 'P1',
+          score: status === 'FINAL' ? 1 : null,
+          logo: p1.flag || '',
+        },
+        homeTeam: {
+          id: 'p2',
+          name: `🥈 P2: ${p2.driver}`,
+          shortName: p2.shortName || 'P2',
+          score: status === 'FINAL' ? 2 : null,
+          logo: p2.flag || '',
+        },
+      };
+    });
+
+    const result = {
+      league: 'f1',
+      leagueName: 'Fórmula 1 (F1)',
+      sport: 'racing',
+      totalGames: games.length,
+      games,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setInCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return cache.get(cacheKey)?.data || {
+      league: 'f1',
+      leagueName: 'Fórmula 1 (F1)',
+      sport: 'racing',
+      totalGames: 0,
+      games: [],
+      error: error.message,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
  * Obtener marcadores según liga o combinados
- * @param {'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' | 'all'} league 
+ * @param {'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' | 'f1' | 'all'} league 
  */
 export async function getScoreboard(league = 'all') {
   const normLeague = String(league || 'all').toLowerCase();
@@ -591,13 +690,18 @@ export async function getScoreboard(league = 'all') {
     return await fetchNflScores();
   }
 
-  // 'all': Obtener los 5 en paralelo
-  const [lidom, mlb, nba, soccer, nfl] = await Promise.all([
+  if (normLeague === 'f1') {
+    return await fetchF1Scores();
+  }
+
+  // 'all': Obtener los 6 en paralelo
+  const [lidom, mlb, nba, soccer, nfl, f1] = await Promise.all([
     fetchLidomScores(),
     fetchMlbScores(),
     fetchNbaScores(),
     fetchSoccerScores(),
     fetchNflScores(),
+    fetchF1Scores(),
   ]);
 
   return {
@@ -607,6 +711,7 @@ export async function getScoreboard(league = 'all') {
       nba,
       soccer,
       nfl,
+      f1,
     },
     updatedAt: new Date().toISOString(),
   };

@@ -17,7 +17,7 @@ import { Trophy, RefreshCw, Clock, Activity } from 'lucide-react-native';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.72;
 
-type LeagueType = 'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl';
+type LeagueType = 'lidom' | 'mlb' | 'nba' | 'soccer' | 'nfl' | 'f1';
 
 const LEAGUES: { id: LeagueType; name: string; emoji: string; short: string }[] = [
   { id: 'lidom', name: 'LIDOM', emoji: '⚾', short: 'Pelota RD' },
@@ -25,6 +25,7 @@ const LEAGUES: { id: LeagueType; name: string; emoji: string; short: string }[] 
   { id: 'nba', name: 'NBA', emoji: '🏀', short: 'Baloncesto' },
   { id: 'soccer', name: 'Fútbol', emoji: '⚽', short: 'Soccer' },
   { id: 'nfl', name: 'NFL', emoji: '🏈', short: 'Americano' },
+  { id: 'f1', name: 'F1', emoji: '🏎️', short: 'Fórmula 1' },
 ];
 
 export const SportsScoreSection: React.FC = () => {
@@ -197,86 +198,109 @@ export const SportsScoreSection: React.FC = () => {
                   ) : null}
                 </View>
 
-                {/* Equipo Visitante */}
-                <View style={styles.teamRow}>
-                  <View style={styles.teamInfo}>
-                    {item.awayTeam.logo ? (
-                      <Image source={{ uri: item.awayTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
-                    ) : (
-                      <View style={[styles.placeholderLogo, { backgroundColor: colors.border }]}>
-                        <Text style={[styles.placeholderText, { color: colors.text }]}>
-                          {item.awayTeam.shortName?.[0] || 'V'}
+                {/* Podio F1 o Equipos */}
+                {item.isRacing && item.podium?.length ? (
+                  <View style={styles.podiumContainer}>
+                    {item.podium.map((p, pIdx) => (
+                      <View key={pIdx} style={styles.podiumRow}>
+                        <View style={styles.podiumDriver}>
+                          <Text style={styles.podiumBadge}>
+                            {p.position === 1 ? '🥇' : p.position === 2 ? '🥈' : '🥉'} P{p.position}
+                          </Text>
+                          {p.flag ? (
+                            <Image source={{ uri: p.flag }} style={styles.podiumFlag} resizeMode="cover" />
+                          ) : null}
+                          <Text style={[styles.podiumName, { color: colors.text }]} numberOfLines={1}>
+                            {p.driver}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <>
+                    {/* Equipo Visitante */}
+                    <View style={styles.teamRow}>
+                      <View style={styles.teamInfo}>
+                        {item.awayTeam.logo ? (
+                          <Image source={{ uri: item.awayTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
+                        ) : (
+                          <View style={[styles.placeholderLogo, { backgroundColor: colors.border }]}>
+                            <Text style={[styles.placeholderText, { color: colors.text }]}>
+                              {item.awayTeam.shortName?.[0] || 'V'}
+                            </Text>
+                          </View>
+                        )}
+                        <Text
+                          style={[
+                            styles.teamName,
+                            {
+                              color: colors.text,
+                              fontWeight: isFinal && hasScores && Number(item.awayTeam.score) > Number(item.homeTeam.score) ? '800' : '600',
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.awayTeam.name}
                         </Text>
                       </View>
-                    )}
-                    <Text
-                      style={[
-                        styles.teamName,
-                        {
-                          color: colors.text,
-                          fontWeight: isFinal && hasScores && Number(item.awayTeam.score) > Number(item.homeTeam.score) ? '800' : '600',
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.awayTeam.name}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.scoreText,
-                      {
-                        color: isLive ? colors.primary : hasScores ? colors.text : colors.textSecondary,
-                        fontWeight: isLive || hasScores ? '800' : '500',
-                        fontSize: hasScores ? 16 : 13,
-                      },
-                    ]}
-                  >
-                    {item.awayTeam.score !== null ? item.awayTeam.score : 'VS'}
-                  </Text>
-                </View>
+                      <Text
+                        style={[
+                          styles.scoreText,
+                          {
+                            color: isLive ? colors.primary : hasScores ? colors.text : colors.textSecondary,
+                            fontWeight: isLive || hasScores ? '800' : '500',
+                            fontSize: hasScores ? 16 : 13,
+                          },
+                        ]}
+                      >
+                        {item.awayTeam.score !== null ? item.awayTeam.score : 'VS'}
+                      </Text>
+                    </View>
 
-                {/* Separador sutil */}
-                <View style={[styles.teamSeparator, { backgroundColor: colors.border }]} />
+                    {/* Separador sutil */}
+                    <View style={[styles.teamSeparator, { backgroundColor: colors.border }]} />
 
-                {/* Equipo Local */}
-                <View style={styles.teamRow}>
-                  <View style={styles.teamInfo}>
-                    {item.homeTeam.logo ? (
-                      <Image source={{ uri: item.homeTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
-                    ) : (
-                      <View style={[styles.placeholderLogo, { backgroundColor: colors.border }]}>
-                        <Text style={[styles.placeholderText, { color: colors.text }]}>
-                          {item.homeTeam.shortName?.[0] || 'L'}
+                    {/* Equipo Local */}
+                    <View style={styles.teamRow}>
+                      <View style={styles.teamInfo}>
+                        {item.homeTeam.logo ? (
+                          <Image source={{ uri: item.homeTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
+                        ) : (
+                          <View style={[styles.placeholderLogo, { backgroundColor: colors.border }]}>
+                            <Text style={[styles.placeholderText, { color: colors.text }]}>
+                              {item.homeTeam.shortName?.[0] || 'L'}
+                            </Text>
+                          </View>
+                        )}
+                        <Text
+                          style={[
+                            styles.teamName,
+                            {
+                              color: colors.text,
+                              fontWeight: isFinal && hasScores && Number(item.homeTeam.score) > Number(item.awayTeam.score) ? '800' : '600',
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.homeTeam.name}
                         </Text>
                       </View>
-                    )}
-                    <Text
-                      style={[
-                        styles.teamName,
-                        {
-                          color: colors.text,
-                          fontWeight: isFinal && hasScores && Number(item.homeTeam.score) > Number(item.awayTeam.score) ? '800' : '600',
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.homeTeam.name}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.scoreText,
-                      {
-                        color: isLive ? colors.primary : hasScores ? colors.text : colors.textSecondary,
-                        fontWeight: isLive || hasScores ? '800' : '500',
-                        fontSize: hasScores ? 16 : 13,
-                      },
-                    ]}
-                  >
-                    {item.homeTeam.score !== null ? item.homeTeam.score : 'VS'}
-                  </Text>
-                </View>
+                      <Text
+                        style={[
+                          styles.scoreText,
+                          {
+                            color: isLive ? colors.primary : hasScores ? colors.text : colors.textSecondary,
+                            fontWeight: isLive || hasScores ? '800' : '500',
+                            fontSize: hasScores ? 16 : 13,
+                          },
+                        ]}
+                      >
+                        {item.homeTeam.score !== null ? item.homeTeam.score : 'VS'}
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
             );
           }}
@@ -451,5 +475,35 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  podiumContainer: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  podiumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  podiumDriver: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  podiumBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    minWidth: 42,
+  },
+  podiumFlag: {
+    width: 16,
+    height: 11,
+    borderRadius: 2,
+  },
+  podiumName: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
   },
 });

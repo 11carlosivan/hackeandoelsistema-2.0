@@ -26,6 +26,7 @@ describe('Sports Scoreboard Routes', () => {
     expect(body.leagues.nba).toBeDefined();
     expect(body.leagues.soccer).toBeDefined();
     expect(body.leagues.nfl).toBeDefined();
+    expect(body.leagues.f1).toBeDefined();
   }, 15000);
 
   it('GET /api/v1/sports/scoreboard?league=nba returns NBA results', async () => {
