@@ -217,7 +217,8 @@ export default function SportsTicker() {
           games.map((game) => {
             const isLive = game.status === 'IN_PROGRESS';
             const isFinal = game.status === 'FINAL';
-            const hasScores = game.awayTeam.score !== null && game.homeTeam.score !== null;
+            const isScheduled = game.status === 'SCHEDULED';
+            const hasScores = !isScheduled && game.awayTeam.score !== null && game.homeTeam.score !== null;
 
             return (
               <div
@@ -313,7 +314,7 @@ export default function SportsTicker() {
                           : 'text-terminal-muted text-xs'
                       }`}
                     >
-                      {game.awayTeam.score !== null ? game.awayTeam.score : 'VS'}
+                      {!isScheduled && game.awayTeam.score !== null ? game.awayTeam.score : 'VS'}
                     </span>
                   </div>
 
@@ -350,7 +351,7 @@ export default function SportsTicker() {
                           : 'text-terminal-muted text-xs'
                       }`}
                     >
-                      {game.homeTeam.score !== null ? game.homeTeam.score : 'VS'}
+                      {!isScheduled && game.homeTeam.score !== null ? game.homeTeam.score : 'VS'}
                     </span>
                   </div>
                 </div>

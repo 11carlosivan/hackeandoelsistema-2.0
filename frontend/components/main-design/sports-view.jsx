@@ -42,9 +42,16 @@ export default function SportsView() {
     loadData(activeLeague);
   }, [activeLeague, loadData]);
 
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'results' | 'today'
+
   const liveGames = games.filter((g) => g.status === 'IN_PROGRESS');
   const finalGames = games.filter((g) => g.status === 'FINAL');
   const scheduledGames = games.filter((g) => g.status === 'SCHEDULED');
+
+  const showLive = (filterStatus === 'all' || filterStatus === 'today') && liveGames.length > 0;
+  const showFinal = (filterStatus === 'all' || filterStatus === 'results') && finalGames.length > 0;
+  const showScheduled = (filterStatus === 'all' || filterStatus === 'today') && scheduledGames.length > 0;
+  const hasVisibleGames = showLive || showFinal || showScheduled;
 
   return (
     <div className="min-h-screen bg-black text-white pb-16">
@@ -104,6 +111,39 @@ export default function SportsView() {
               );
             })}
           </div>
+
+          {/* Sub-filtro: Todos / Resultados / De Hoy */}
+          <div className="mt-4 flex items-center gap-2">
+            {[
+              { id: 'all', label: 'Todos' },
+              { id: 'results', label: '🏆 Últimos Resultados', count: finalGames.length },
+              { id: 'today', label: '⏰ Juegos de Hoy', count: liveGames.length + scheduledGames.length },
+            ].map((f) => {
+              const isSelected = filterStatus === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setFilterStatus(f.id)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-mono font-bold transition-all ${
+                    isSelected
+                      ? 'bg-white text-black'
+                      : 'border border-terminal-gray/60 bg-surface-container-lowest/60 text-terminal-muted hover:text-white hover:border-terminal-gray'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  {f.count !== undefined && f.count > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        isSelected ? 'bg-black text-white' : 'bg-surface-container-high text-white'
+                      }`}
+                    >
+                      {f.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -114,18 +154,22 @@ export default function SportsView() {
             <span className="h-8 w-8 animate-spin rounded-full border-2 border-system-red border-t-transparent"></span>
             <span className="mt-4 font-mono text-xs">Cargando marcadores deportivos...</span>
           </div>
-        ) : games.length === 0 ? (
+        ) : !hasVisibleGames ? (
           <div className="rounded border border-terminal-gray/60 bg-surface-container-lowest/60 p-12 text-center">
             <span className="material-symbols-outlined text-4xl text-terminal-muted">sports_score</span>
-            <h3 className="mt-2 text-sm font-bold uppercase text-white">No hay encuentros programados</h3>
+            <h3 className="mt-2 text-sm font-bold uppercase text-white">No hay encuentros en esta categoría</h3>
             <p className="mt-1 text-xs text-on-surface-variant font-mono">
-              No se encontraron partidos o eventos deportivos activos o recientes para la categoría seleccionada hoy.
+              {filterStatus === 'results'
+                ? 'No se encontraron resultados finales recientes.'
+                : filterStatus === 'today'
+                ? 'No hay juegos programados o en vivo para hoy.'
+                : 'No se encontraron partidos o eventos deportivos para la categoría seleccionada.'}
             </p>
           </div>
         ) : (
           <div className="space-y-8">
             {/* EN VIVO */}
-            {liveGames.length > 0 && (
+            {showLive && (
               <div>
                 <div className="mb-4 flex items-center gap-2">
                   <span className="relative flex h-2.5 w-2.5">
@@ -145,12 +189,12 @@ export default function SportsView() {
             )}
 
             {/* PARTIDOS FINALES RECIENTES */}
-            {finalGames.length > 0 && (
+            {showFinal && (
               <div>
                 <div className="mb-4 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-green-500"></span>
                   <h2 className="font-label-caps text-xs font-bold tracking-wider text-white">
-                    RESULTADOS FINALES ({finalGames.length})
+                    ÚLTIMOS RESULTADOS ({finalGames.length})
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -162,12 +206,12 @@ export default function SportsView() {
             )}
 
             {/* PARTIDOS PROGRAMADOS DE HOY */}
-            {scheduledGames.length > 0 && (
+            {showScheduled && (
               <div>
                 <div className="mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-xs text-terminal-muted">schedule</span>
                   <h2 className="font-label-caps text-xs font-bold tracking-wider text-terminal-muted">
-                    PROGRAMADOS ({scheduledGames.length})
+                    JUEGOS DE HOY ({scheduledGames.length})
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

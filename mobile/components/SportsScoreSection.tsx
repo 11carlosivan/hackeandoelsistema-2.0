@@ -34,6 +34,7 @@ export const SportsScoreSection: React.FC = () => {
   // Selección 100% manual por el usuario (sin rotación automática)
   const router = useRouter();
   const [selectedLeague, setSelectedLeague] = useState<LeagueType>('lidom');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'finals' | 'today'>('all');
   const [scoreboard, setScoreboard] = useState<SportsScoreboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,7 +63,15 @@ export const SportsScoreSection: React.FC = () => {
     setSelectedLeague(leagueId);
   };
 
-  const games = scoreboard?.games || [];
+  const allGames = scoreboard?.games || [];
+  const games = allGames.filter((g) => {
+    if (statusFilter === 'finals') return g.status === 'FINAL';
+    if (statusFilter === 'today') return g.status === 'SCHEDULED' || g.status === 'IN_PROGRESS';
+    return true;
+  });
+
+  const finalsCount = allGames.filter((g) => g.status === 'FINAL').length;
+  const todayCount = allGames.filter((g) => g.status === 'SCHEDULED' || g.status === 'IN_PROGRESS').length;
 
   return (
     <View style={styles.container}>
@@ -137,6 +146,59 @@ export const SportsScoreSection: React.FC = () => {
         })}
       </ScrollView>
 
+      {/* Sub-apartado: Últimos Resultados vs Juegos de Hoy */}
+      {allGames.length > 0 && (
+        <View style={styles.subFilterRow}>
+          <TouchableOpacity
+            style={[
+              styles.subFilterBtn,
+              {
+                backgroundColor: statusFilter === 'all' ? colors.border : colors.cardBackground,
+                borderColor: statusFilter === 'all' ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => setStatusFilter('all')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.subFilterText, { color: colors.text, fontWeight: statusFilter === 'all' ? '700' : '500' }]}>
+              Todos ({allGames.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.subFilterBtn,
+              {
+                backgroundColor: statusFilter === 'finals' ? 'rgba(52, 199, 89, 0.15)' : colors.cardBackground,
+                borderColor: statusFilter === 'finals' ? '#34C759' : colors.border,
+              },
+            ]}
+            onPress={() => setStatusFilter('finals')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.subFilterText, { color: statusFilter === 'finals' ? '#34C759' : colors.text, fontWeight: statusFilter === 'finals' ? '700' : '500' }]}>
+              🏆 Resultados ({finalsCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.subFilterBtn,
+              {
+                backgroundColor: statusFilter === 'today' ? 'rgba(239, 68, 68, 0.15)' : colors.cardBackground,
+                borderColor: statusFilter === 'today' ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => setStatusFilter('today')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.subFilterText, { color: statusFilter === 'today' ? colors.primary : colors.text, fontWeight: statusFilter === 'today' ? '700' : '500' }]}>
+              ⏰ De Hoy ({todayCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Lista de Marcadores o Estado Vacío */}
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -148,7 +210,7 @@ export const SportsScoreSection: React.FC = () => {
       ) : games.length === 0 ? (
         <View style={[styles.emptyContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No hay partidos recientes ni programados para {scoreboard?.leagueName || selectedLeague.toUpperCase()}.
+            No hay partidos en esta categoría para {scoreboard?.leagueName || selectedLeague.toUpperCase()}.
           </Text>
         </View>
       ) : (
@@ -163,7 +225,8 @@ export const SportsScoreSection: React.FC = () => {
           renderItem={({ item }) => {
             const isLive = item.status === 'IN_PROGRESS';
             const isFinal = item.status === 'FINAL';
-            const hasScores = item.awayTeam.score !== null && item.homeTeam.score !== null;
+            const isScheduled = item.status === 'SCHEDULED';
+            const hasScores = !isScheduled && item.awayTeam.score !== null && item.homeTeam.score !== null;
 
             return (
               <View
@@ -267,7 +330,7 @@ export const SportsScoreSection: React.FC = () => {
                           },
                         ]}
                       >
-                        {item.awayTeam.score !== null ? item.awayTeam.score : 'VS'}
+                        {!isScheduled && item.awayTeam.score !== null ? item.awayTeam.score : 'VS'}
                       </Text>
                     </View>
 
@@ -309,7 +372,7 @@ export const SportsScoreSection: React.FC = () => {
                           },
                         ]}
                       >
-                        {item.homeTeam.score !== null ? item.homeTeam.score : 'VS'}
+                        {!isScheduled && item.homeTeam.score !== null ? item.homeTeam.score : 'VS'}
                       </Text>
                     </View>
                   </>
@@ -391,6 +454,22 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 12,
+  },
+  subFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 10,
+  },
+  subFilterBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  subFilterText: {
+    fontSize: 11,
   },
   listPadding: {
     paddingHorizontal: 16,

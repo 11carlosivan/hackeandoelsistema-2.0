@@ -192,29 +192,60 @@ async function fetchMlbScores() {
   if (cached) return cached;
 
   try {
-    const url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`ESPN MLB API returned ${res.status}`);
-    const data = await res.json();
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
 
-    const games = (data.events || []).map((ev) => {
+    const [resYesterday, resToday] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${fmt(yesterday)}`, {
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${fmt(today)}`, {
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ]);
+
+    const seenIds = new Set();
+    const rawEvents = [
+      ...(resToday?.events || []),
+      ...(resYesterday?.events || []),
+    ];
+    const events = rawEvents.filter((ev) => {
+      if (!ev?.id || seenIds.has(ev.id)) return false;
+      seenIds.add(ev.id);
+      return true;
+    });
+
+    const games = events.map((ev) => {
       const comp = ev.competitions?.[0];
       const statusType = ev.status?.type;
       let status = 'SCHEDULED';
       if (statusType?.state === 'in') status = 'IN_PROGRESS';
       else if (statusType?.state === 'post') status = 'FINAL';
 
-      let statusDetail = statusType?.shortDetail || 'Programado';
-      if (status === 'SCHEDULED' && ev.date) {
+      const isScheduled = status === 'SCHEDULED';
+      const eventDate = ev.date ? new Date(ev.date) : null;
+      const isYesterday = eventDate && eventDate.getUTCDate() === yesterday.getUTCDate();
+
+      let statusDetail = statusType?.shortDetail || (status === 'FINAL' ? 'Final' : 'Programado');
+      if (status === 'FINAL' && isYesterday) {
+        statusDetail = 'Ayer   Final';
+      } else if (isScheduled && eventDate) {
         try {
-          statusDetail = new Intl.DateTimeFormat('es-DO', {
+          const timeStr = new Intl.DateTimeFormat('es-DO', {
             hour: 'numeric',
             minute: '2-digit',
             hour12: true,
-            timeZone: 'America/Santo_Domingo'
-          }).format(new Date(ev.date));
+            timeZone: 'America/Santo_Domingo',
+          }).format(eventDate);
+          statusDetail = `Hoy ${timeStr}`;
         } catch {
-          statusDetail = statusType?.shortDetail || 'Hoy';
+          statusDetail = 'Hoy';
         }
       }
 
@@ -236,17 +267,28 @@ async function fetchMlbScores() {
           id: away?.team?.id,
           name: away?.team?.displayName || away?.team?.name || 'Visitante',
           shortName: away?.team?.abbreviation || 'VIS',
-          score: away?.score !== undefined ? Number(away.score) : null,
+          score: isScheduled ? null : (away?.score !== undefined && away?.score !== '' ? Number(away.score) : null),
           logo: away?.team?.logo || `https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${away?.team?.abbreviation?.toLowerCase()}.png`,
         },
         homeTeam: {
           id: home?.team?.id,
           name: home?.team?.displayName || home?.team?.name || 'Local',
           shortName: home?.team?.abbreviation || 'LOC',
-          score: home?.score !== undefined ? Number(home.score) : null,
+          score: isScheduled ? null : (home?.score !== undefined && home?.score !== '' ? Number(home.score) : null),
           logo: home?.team?.logo || `https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${home?.team?.abbreviation?.toLowerCase()}.png`,
         },
       };
+    });
+
+    // Ordenar: primero EN VIVO, luego FINALES (más recientes primero), luego PROGRAMADOS (por hora más cercana)
+    games.sort((a, b) => {
+      const priority = { IN_PROGRESS: 0, FINAL: 1, SCHEDULED: 2 };
+      const diff = (priority[a.status] ?? 3) - (priority[b.status] ?? 3);
+      if (diff !== 0) return diff;
+      if (a.status === 'SCHEDULED') {
+        return new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime();
+      }
+      return new Date(b.gameDate).getTime() - new Date(a.gameDate).getTime();
     });
 
     const result = {
@@ -282,29 +324,60 @@ async function fetchNbaScores() {
   if (cached) return cached;
 
   try {
-    const url = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`ESPN NBA API returned ${res.status}`);
-    const data = await res.json();
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
 
-    const games = (data.events || []).map((ev) => {
+    const [resYesterday, resToday] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt(yesterday)}`, {
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt(today)}`, {
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ]);
+
+    const seenIds = new Set();
+    const rawEvents = [
+      ...(resToday?.events || []),
+      ...(resYesterday?.events || []),
+    ];
+    const events = rawEvents.filter((ev) => {
+      if (!ev?.id || seenIds.has(ev.id)) return false;
+      seenIds.add(ev.id);
+      return true;
+    });
+
+    const games = events.map((ev) => {
       const comp = ev.competitions?.[0];
       const statusType = ev.status?.type;
       let status = 'SCHEDULED';
       if (statusType?.state === 'in') status = 'IN_PROGRESS';
       else if (statusType?.state === 'post') status = 'FINAL';
 
-      let statusDetail = statusType?.shortDetail || 'Programado';
-      if (status === 'SCHEDULED' && ev.date) {
+      const isScheduled = status === 'SCHEDULED';
+      const eventDate = ev.date ? new Date(ev.date) : null;
+      const isYesterday = eventDate && eventDate.getUTCDate() === yesterday.getUTCDate();
+
+      let statusDetail = statusType?.shortDetail || (status === 'FINAL' ? 'Final' : 'Programado');
+      if (status === 'FINAL' && isYesterday) {
+        statusDetail = 'Ayer   Final';
+      } else if (isScheduled && eventDate) {
         try {
-          statusDetail = new Intl.DateTimeFormat('es-DO', {
+          const timeStr = new Intl.DateTimeFormat('es-DO', {
             hour: 'numeric',
             minute: '2-digit',
             hour12: true,
-            timeZone: 'America/Santo_Domingo'
-          }).format(new Date(ev.date));
+            timeZone: 'America/Santo_Domingo',
+          }).format(eventDate);
+          statusDetail = `Hoy ${timeStr}`;
         } catch {
-          statusDetail = statusType?.shortDetail || 'Hoy';
+          statusDetail = 'Hoy';
         }
       }
 
@@ -326,17 +399,28 @@ async function fetchNbaScores() {
           id: away?.team?.id,
           name: away?.team?.displayName || away?.team?.name || 'Visitante',
           shortName: away?.team?.abbreviation || 'VIS',
-          score: away?.score !== undefined ? Number(away.score) : null,
+          score: isScheduled ? null : (away?.score !== undefined && away?.score !== '' ? Number(away.score) : null),
           logo: away?.team?.logo || `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${away?.team?.abbreviation?.toLowerCase()}.png`,
         },
         homeTeam: {
           id: home?.team?.id,
           name: home?.team?.displayName || home?.team?.name || 'Local',
           shortName: home?.team?.abbreviation || 'LOC',
-          score: home?.score !== undefined ? Number(home.score) : null,
+          score: isScheduled ? null : (home?.score !== undefined && home?.score !== '' ? Number(home.score) : null),
           logo: home?.team?.logo || `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${home?.team?.abbreviation?.toLowerCase()}.png`,
         },
       };
+    });
+
+    // Ordenar: primero EN VIVO, luego FINALES (más recientes primero), luego PROGRAMADOS (por hora más cercana)
+    games.sort((a, b) => {
+      const priority = { IN_PROGRESS: 0, FINAL: 1, SCHEDULED: 2 };
+      const diff = (priority[a.status] ?? 3) - (priority[b.status] ?? 3);
+      if (diff !== 0) return diff;
+      if (a.status === 'SCHEDULED') {
+        return new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime();
+      }
+      return new Date(b.gameDate).getTime() - new Date(a.gameDate).getTime();
     });
 
     const result = {

@@ -49,6 +49,7 @@ export default function SportsScreen() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<SportTab>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'finals' | 'today'>('all');
   const [games, setGames] = useState<SportsGame[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -75,9 +76,18 @@ export default function SportsScreen() {
     loadData();
   }, [loadData]);
 
-  const liveGames = games.filter((g) => g.status === 'IN_PROGRESS');
-  const finalGames = games.filter((g) => g.status === 'FINAL');
-  const scheduledGames = games.filter((g) => g.status === 'SCHEDULED');
+  const filteredGames = games.filter((g) => {
+    if (statusFilter === 'finals') return g.status === 'FINAL';
+    if (statusFilter === 'today') return g.status === 'SCHEDULED' || g.status === 'IN_PROGRESS';
+    return true;
+  });
+
+  const liveGames = filteredGames.filter((g) => g.status === 'IN_PROGRESS');
+  const finalGames = filteredGames.filter((g) => g.status === 'FINAL');
+  const scheduledGames = filteredGames.filter((g) => g.status === 'SCHEDULED');
+
+  const finalsCount = games.filter((g) => g.status === 'FINAL').length;
+  const todayCount = games.filter((g) => g.status === 'SCHEDULED' || g.status === 'IN_PROGRESS').length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -147,6 +157,59 @@ export default function SportsScreen() {
             );
           })}
         </ScrollView>
+
+        {/* Sub-apartado: Últimos Resultados vs Juegos de Hoy */}
+        {games.length > 0 && (
+          <View style={styles.subFilterRow}>
+            <TouchableOpacity
+              style={[
+                styles.subFilterBtn,
+                {
+                  backgroundColor: statusFilter === 'all' ? colors.border : colors.inputBackground,
+                  borderColor: statusFilter === 'all' ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={() => setStatusFilter('all')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.subFilterText, { color: colors.text, fontWeight: statusFilter === 'all' ? '700' : '500' }]}>
+                Todos ({games.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.subFilterBtn,
+                {
+                  backgroundColor: statusFilter === 'finals' ? 'rgba(52, 199, 89, 0.15)' : colors.inputBackground,
+                  borderColor: statusFilter === 'finals' ? '#34C759' : colors.border,
+                },
+              ]}
+              onPress={() => setStatusFilter('finals')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.subFilterText, { color: statusFilter === 'finals' ? '#34C759' : colors.text, fontWeight: statusFilter === 'finals' ? '700' : '500' }]}>
+                🏆 Últimos Resultados ({finalsCount})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.subFilterBtn,
+                {
+                  backgroundColor: statusFilter === 'today' ? 'rgba(239, 68, 68, 0.15)' : colors.inputBackground,
+                  borderColor: statusFilter === 'today' ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={() => setStatusFilter('today')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.subFilterText, { color: statusFilter === 'today' ? colors.primary : colors.text, fontWeight: statusFilter === 'today' ? '700' : '500' }]}>
+                ⏰ Juegos de Hoy ({todayCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Contenido principal */}
@@ -176,12 +239,12 @@ export default function SportsScreen() {
               <Text style={styles.retryBtnText}>Reintentar</Text>
             </TouchableOpacity>
           </View>
-        ) : games.length === 0 ? (
+        ) : filteredGames.length === 0 ? (
           <View style={styles.centerBox}>
             <Trophy size={42} color={colors.textMuted} style={{ marginBottom: 12 }} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No hay partidos programados</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No hay partidos en esta categoría</Text>
             <Text style={[styles.stateText, { color: colors.textMuted }]}>
-              No se encontraron encuentros activos o recientes para este deporte hoy.
+              No se encontraron encuentros para la opción seleccionada.
             </Text>
           </View>
         ) : (
@@ -194,7 +257,7 @@ export default function SportsScreen() {
               </View>
             )}
 
-            {games.map((game) => (
+            {filteredGames.map((game) => (
               <GameDetailCard key={game.id} game={game} colors={colors} />
             ))}
           </View>
@@ -207,7 +270,8 @@ export default function SportsScreen() {
 function GameDetailCard({ game, colors }: { game: SportsGame; colors: any }) {
   const isLive = game.status === 'IN_PROGRESS';
   const isFinal = game.status === 'FINAL';
-  const hasScores = game.awayTeam?.score !== null && game.homeTeam?.score !== null;
+  const isScheduled = game.status === 'SCHEDULED';
+  const hasScores = !isScheduled && game.awayTeam?.score !== null && game.homeTeam?.score !== null;
 
   if (game.isRacing && game.podium?.length) {
     return (
@@ -333,7 +397,7 @@ function GameDetailCard({ game, colors }: { game: SportsGame; colors: any }) {
               },
             ]}
           >
-            {game.awayTeam.score !== null ? game.awayTeam.score : '—'}
+            {!isScheduled && game.awayTeam.score !== null ? game.awayTeam.score : '—'}
           </Text>
         </View>
 
@@ -370,7 +434,7 @@ function GameDetailCard({ game, colors }: { game: SportsGame; colors: any }) {
               },
             ]}
           >
-            {game.homeTeam.score !== null ? game.homeTeam.score : '—'}
+            {!isScheduled && game.homeTeam.score !== null ? game.homeTeam.score : '—'}
           </Text>
         </View>
       </View>
@@ -449,6 +513,22 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 12,
+  },
+  subFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    gap: 8,
+    marginTop: 10,
+  },
+  subFilterBtn: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  subFilterText: {
+    fontSize: 11,
   },
   scrollContent: {
     padding: 16,
