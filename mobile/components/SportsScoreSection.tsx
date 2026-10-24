@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { fetchSportsScoreboard, SportsGame, SportsScoreboardResponse } from '@/services/api';
-import { Trophy, RefreshCw, Clock, Activity } from 'lucide-react-native';
+import { Trophy, RefreshCw, Clock, Activity, Pause, Play } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.72;
@@ -31,6 +31,7 @@ export const SportsScoreSection: React.FC = () => {
   const [scoreboard, setScoreboard] = useState<SportsScoreboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [cycleKey, setCycleKey] = useState(0);
 
   const loadData = useCallback(async (league: LeagueType, isManual = false) => {
@@ -52,8 +53,10 @@ export const SportsScoreSection: React.FC = () => {
     loadData(selectedLeague);
   }, [selectedLeague, loadData]);
 
-  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA
+  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA (respetando si está en pausa)
   useEffect(() => {
+    if (isPaused) return;
+
     const timer = setInterval(() => {
       setSelectedLeague((curr) => {
         const idx = LEAGUES.findIndex((l) => l.id === curr);
@@ -64,7 +67,7 @@ export const SportsScoreSection: React.FC = () => {
     }, ROTATION_SECONDS * 1000);
 
     return () => clearInterval(timer);
-  }, [cycleKey]);
+  }, [isPaused, cycleKey]);
 
   const handleManualSelect = (leagueId: LeagueType) => {
     if (leagueId === selectedLeague) return;
@@ -86,18 +89,40 @@ export const SportsScoreSection: React.FC = () => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.refreshBtn}
-          onPress={() => loadData(selectedLeague, true)}
-          disabled={refreshing}
-          activeOpacity={0.7}
-        >
-          <RefreshCw
-            size={14}
-            color={colors.primary}
-            style={refreshing ? { transform: [{ rotate: '45deg' }] } : undefined}
-          />
-        </TouchableOpacity>
+        {/* Acciones: Pausar/Reanudar y Actualizar */}
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              { backgroundColor: isPaused ? 'rgba(255, 179, 0, 0.15)' : colors.cardBackground, borderColor: isPaused ? '#FFB300' : colors.border },
+            ]}
+            onPress={() => setIsPaused((prev) => !prev)}
+            activeOpacity={0.7}
+            accessibilityLabel={isPaused ? 'Reanudar rotación' : 'Pausar rotación'}
+          >
+            {isPaused ? (
+              <Play size={12} color="#FFB300" />
+            ) : (
+              <Pause size={12} color={colors.primary} />
+            )}
+            <Text style={[styles.actionBtnText, { color: isPaused ? '#FFB300' : colors.textSecondary }]}>
+              {isPaused ? 'Pausado' : '20s'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+            onPress={() => loadData(selectedLeague, true)}
+            disabled={refreshing}
+            activeOpacity={0.7}
+          >
+            <RefreshCw
+              size={12}
+              color={colors.primary}
+              style={refreshing ? { transform: [{ rotate: '45deg' }] } : undefined}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs de Ligas con indicador de auto-rotación */}
@@ -320,9 +345,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  refreshBtn: {
-    padding: 6,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 6,
+    borderWidth: 1,
+  },
+  actionBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   tabRow: {
     flexDirection: 'row',

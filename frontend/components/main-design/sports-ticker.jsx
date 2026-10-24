@@ -15,6 +15,7 @@ export default function SportsTicker() {
   const [scoreboardData, setScoreboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
   const scrollRef = useRef(null);
 
@@ -41,8 +42,10 @@ export default function SportsTicker() {
     loadScores(activeLeague);
   }, [activeLeague, loadScores]);
 
-  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA
+  // Rotación automática cada 20 segundos entre LIDOM, MLB y NBA (respetando si está en pausa)
   useEffect(() => {
+    if (isPaused) return;
+
     const timer = setInterval(() => {
       setActiveLeague((current) => {
         const currentIndex = LEAGUES.findIndex((l) => l.id === current);
@@ -53,13 +56,17 @@ export default function SportsTicker() {
     }, ROTATION_SECONDS * 1000);
 
     return () => clearInterval(timer);
-  }, [progressKey]);
+  }, [isPaused, progressKey]);
 
   // Manejo de clic manual en pestaña: cambia de liga y reinicia el contador de 20s
   const handleSelectLeague = (leagueId) => {
     if (leagueId === activeLeague) return;
     setActiveLeague(leagueId);
-    setProgressKey((k) => k + 1); // reinicia el ciclo de 20s
+    setProgressKey((k) => k + 1);
+  };
+
+  const togglePause = () => {
+    setIsPaused((prev) => !prev);
   };
 
   const scroll = (direction) => {
@@ -76,9 +83,14 @@ export default function SportsTicker() {
       <div className="w-full h-[2px] bg-white/5 overflow-hidden">
         <div
           key={progressKey}
-          className="h-full bg-system-red transition-all duration-linear"
+          className={`h-full transition-all duration-linear ${
+            isPaused ? 'bg-amber-400 opacity-60' : 'bg-system-red'
+          }`}
           style={{
-            animation: `sportsTickerProgress ${ROTATION_SECONDS}s linear infinite`,
+            animation: isPaused
+              ? 'none'
+              : `sportsTickerProgress ${ROTATION_SECONDS}s linear infinite`,
+            width: isPaused ? '100%' : undefined,
           }}
         />
       </div>
@@ -113,9 +125,23 @@ export default function SportsTicker() {
             })}
           </div>
 
-          <span className="hidden sm:inline-block text-[10px] text-terminal-muted border-l border-terminal-gray/50 pl-2">
-            Auto 20s
-          </span>
+          {/* Botón de Pausa / Reanudar rotación de 20s */}
+          <button
+            onClick={togglePause}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono transition-all border ${
+              isPaused
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30 shadow-xs'
+                : 'text-on-surface-variant hover:text-white border-transparent hover:bg-white/10'
+            }`}
+            title={isPaused ? 'Reanudar rotación automática' : 'Pausar rotación automática'}
+          >
+            <span className="material-symbols-outlined text-[13px]">
+              {isPaused ? 'play_arrow' : 'pause'}
+            </span>
+            <span className="hidden sm:inline text-[10px] font-semibold">
+              {isPaused ? 'Pausado' : 'Pausar 20s'}
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2 text-on-surface-variant text-[11px]">
