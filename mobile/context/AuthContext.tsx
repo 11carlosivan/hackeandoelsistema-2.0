@@ -95,19 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadPersistedSession();
   }, []);
 
-  // Registrar Expo Push Token en el backend cuando haya token de autenticación (si no está desactivado)
-  useEffect(() => {
-    if (token) {
-      isPushNotificationsEnabled().then((enabled) => {
-        if (enabled) {
-          registerForPushNotificationsAsync(token).catch((err) => {
-            console.log('[Auth] Error registrando push token:', err);
-          });
-        }
-      });
-    }
-  }, [token]);
-
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     let rToken = refreshToken;
     if (!rToken) {
@@ -186,16 +173,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: received.phone,
           roles: received.roles || [],
           isCompany: received.roles?.includes('COMPANY') || received.roles?.includes('EMPRESA'),
-          followersCount: received.followersCount || 0,
-          followingCount: received.followingCount || 0,
-          savedPostsCount: received.savedPostsCount || 0,
-          unreadNotificationsCount: received.unreadNotificationsCount || 0,
+          followersCount: Number(received.followersCount ?? 0),
+          followingCount: Number(received.followingCount ?? 0),
+          nucleoCount: Number(received.nucleoCount ?? 0),
+          savedPostsCount: Number(received.savedPostsCount ?? 0),
+          unreadNotificationsCount: Number(received.unreadNotificationsCount ?? 0),
         };
         setUser(updatedUser);
         await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser)).catch(() => {});
       }
     } catch {}
   }, [token, refreshAccessToken]);
+
+  // Sincronizar contadores del usuario y registrar Push Token cuando haya sesión activa
+  useEffect(() => {
+    if (token) {
+      refreshUser();
+      isPushNotificationsEnabled().then((enabled) => {
+        if (enabled) {
+          registerForPushNotificationsAsync(token).catch((err) => {
+            console.log('[Auth] Error registrando push token:', err);
+          });
+        }
+      });
+    }
+  }, [token, refreshUser]);
 
   const updateUser = useCallback((partial: Partial<User>) => {
     setUser((prev) => {
@@ -251,10 +253,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         phone: receivedUser.phone || null,
         roles,
         isCompany,
-        followersCount: receivedUser.followersCount || 0,
-        followingCount: receivedUser.followingCount || 0,
-        savedPostsCount: receivedUser.savedPostsCount || 0,
-        unreadNotificationsCount: receivedUser.unreadNotificationsCount || 0,
+        followersCount: Number(receivedUser.followersCount ?? 0),
+        followingCount: Number(receivedUser.followingCount ?? 0),
+        nucleoCount: Number(receivedUser.nucleoCount ?? 0),
+        savedPostsCount: Number(receivedUser.savedPostsCount ?? 0),
+        unreadNotificationsCount: Number(receivedUser.unreadNotificationsCount ?? 0),
       };
 
       setUser(appUser);

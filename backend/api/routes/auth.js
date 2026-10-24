@@ -57,10 +57,13 @@ const refreshSchema = z.object({
 
 const logoutSchema = refreshSchema.optional();
 
-function authResponse({ user, access, refreshToken, includeRefreshToken = false }) {
+function authResponse({ user, access, refreshToken, includeRefreshToken = false, stats = null }) {
   return {
     data: {
-      user: sanitizeUser(user),
+      user: {
+        ...sanitizeUser(user),
+        ...(stats || {}),
+      },
       accessToken: access.token,
       accessTokenExpiresAt: access.expiresAt,
       ...(includeRefreshToken ? { refreshToken } : {}),
@@ -342,12 +345,14 @@ export async function registerAuthRoutes(app) {
     });
 
     setAuthCookies(reply, app, access, refresh.refreshToken);
+    const stats = await getUserStats(user.id);
     reply.code(200);
     return authResponse({
       user,
       access,
       refreshToken: refresh.refreshToken,
       includeRefreshToken: parsed.data.tokenResponse === true,
+      stats,
     });
   });
 

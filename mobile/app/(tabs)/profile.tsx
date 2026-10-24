@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import { HeaderBar } from '@/components/HeaderBar';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   User,
   Sun,
@@ -57,6 +57,7 @@ import {
   fetchUserFollowers,
   fetchUserFollowing,
   fetchMyNucleo,
+  fetchUserNucleo,
   uploadAvatarImage,
   resolveImageUrl,
   getSavedCommunityPosts,
@@ -159,6 +160,14 @@ export default function ProfileScreen() {
       refreshUser();
     }
   }, [token, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        refreshUser();
+      }
+    }, [token, refreshUser])
+  );
 
   async function loadUserPosts() {
     if (!token || !user?.id) return;
@@ -400,6 +409,12 @@ export default function ProfileScreen() {
         list = await fetchUserFollowing(user.id);
       } else if (type === 'Núcleo') {
         list = token ? await fetchMyNucleo(token) : [];
+        if ((!list || list.length === 0) && user.id) {
+          list = await fetchUserNucleo(user.id);
+        }
+        if (list && list.length !== user.nucleoCount) {
+          updateUser({ nucleoCount: list.length });
+        }
       }
       setFollowModalUsers(list);
     } catch {
@@ -1351,9 +1366,16 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: isDark ? '#161922' : '#FFFFFF', maxHeight: '75%' }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
-                {followModalTitle === 'Núcleo' ? 'Mi Núcleo' : followModalTitle}
-              </Text>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
+                  {followModalTitle === 'Núcleo' ? 'Mi Núcleo' : followModalTitle}
+                </Text>
+                {followModalTitle === 'Núcleo' && (
+                  <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                    Personas que sigues y también te siguen a ti
+                  </Text>
+                )}
+              </View>
               <TouchableOpacity
                 style={[styles.modalCloseBtn, { backgroundColor: colors.inputBackground }]}
                 onPress={() => setFollowModalVisible(false)}
