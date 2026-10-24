@@ -15,8 +15,9 @@ import {
   Platform,
   Share,
   ScrollView,
+  Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HeaderBar } from '@/components/HeaderBar';
 import { PollCard } from '@/components/PollCard';
@@ -76,6 +77,26 @@ export default function CommunityFeedScreen() {
   const router = useRouter();
   const { postId: targetPostId, commentId: targetCommentId } = useLocalSearchParams<{ postId?: string; commentId?: string }>();
   const handledTargetPostRef = useRef<string | null>(null);
+
+  const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'all' | 'news' | 'community'>('all');
   const [posts, setPosts] = useState<CommunityPostItem[]>([]);
@@ -1010,6 +1031,7 @@ export default function CommunityFeedScreen() {
         visible={modalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setModalVisible(false)}
       >
         <KeyboardAvoidingView
@@ -1017,7 +1039,18 @@ export default function CommunityFeedScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={styles.modalBackdrop}
         >
-          <View style={[styles.modalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                paddingBottom: keyboardHeight > 0
+                  ? (Platform.OS === 'android' ? keyboardHeight + 10 : 18)
+                  : Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 18),
+              },
+            ]}
+          >
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
               {/* Modal Header */}
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -1164,6 +1197,7 @@ export default function CommunityFeedScreen() {
         visible={editModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setEditModalVisible(false)}
       >
         <KeyboardAvoidingView
@@ -1171,7 +1205,18 @@ export default function CommunityFeedScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={styles.modalBackdrop}
         >
-          <View style={[styles.modalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                paddingBottom: keyboardHeight > 0
+                  ? (Platform.OS === 'android' ? keyboardHeight + 10 : 18)
+                  : Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 18),
+              },
+            ]}
+          >
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
               {/* Modal Header */}
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -1235,6 +1280,7 @@ export default function CommunityFeedScreen() {
         visible={commentsModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setCommentsModalVisible(false)}
       >
         <KeyboardAvoidingView
@@ -1242,7 +1288,18 @@ export default function CommunityFeedScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={styles.modalBackdrop}
         >
-          <View style={[styles.commentsModalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.commentsModalCard,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                paddingBottom: keyboardHeight > 0
+                  ? (Platform.OS === 'android' ? keyboardHeight + 10 : 16)
+                  : Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 16),
+              },
+            ]}
+          >
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <MessageCircle size={18} color={colors.primary} />
@@ -1279,7 +1336,8 @@ export default function CommunityFeedScreen() {
               <FlatList
                 data={postComments}
                 keyExtractor={(c) => c.id || String(Math.random())}
-                style={{ maxHeight: 260 }}
+                style={{ maxHeight: keyboardHeight > 0 ? 150 : 260 }}
+                keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingVertical: 10 }}
                 renderItem={({ item: c }) => (
                   <View style={[styles.communityCommentRow, { borderBottomColor: colors.border }]}>

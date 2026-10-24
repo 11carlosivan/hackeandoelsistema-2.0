@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "net.hackeandoelsistema.app",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -33,7 +33,7 @@
         "backgroundColor": "#050811"
       },
       "package": "com.hackeandoelsistema.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "INTERNET",
         "CAMERA",
