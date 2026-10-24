@@ -60,6 +60,13 @@
           "photosPermission": "Hackeando El Sistema necesita acceso a tu galería para seleccionar y compartir fotos en la comunidad o actualizar tu foto de perfil.",
           "cameraPermission": "Hackeando El Sistema necesita acceso a la cámara para tomar fotos para la comunidad o tu perfil."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF2323"
+        }
       ]
     ],
     "experiments": {

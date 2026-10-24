@@ -779,7 +779,7 @@ export async function registerAuthRoutes(app) {
     if (!parsed.success) {
       throw app.httpErrors.badRequest('Token push inválido');
     }
-    registerUserPushToken(request.auth.user.id, parsed.data.token);
+    await registerUserPushToken(request.auth.user.id, parsed.data.token, app.prisma);
     return { data: { success: true } };
   });
 }

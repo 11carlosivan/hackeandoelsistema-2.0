@@ -4,7 +4,7 @@ import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.j
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
-import { notifyCommentFollowers, notifyCommunityPostFollowers } from '../services/notifications.js';
+import { notifyCommentFollowers, notifyCommunityPostFollowers, notifyCommunityComment } from '../services/notifications.js';
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -3171,8 +3171,10 @@ export async function registerPublicRoutes(app) {
     const { id } = idParamSchema.parse(request.params);
     const commentBodySchema = z.object({
       content: z.string().trim().min(1).max(500),
+      parentId: z.string().uuid().optional().nullable(),
     });
-    const { content } = commentBodySchema.parse(request.body);
+    const parsedBody = commentBodySchema.parse(request.body);
+    const { content } = parsedBody;
     const userId = request.auth.user.id;
 
     if (typeof app.prisma?.communityComment?.create !== 'function') {
@@ -3196,6 +3198,30 @@ export async function registerPublicRoutes(app) {
       where: { id },
       data: { commentsCount: { increment: 1 } },
     }).catch(() => {});
+
+    // Disparar notificaciones In-App y Push al autor del post y autor del comentario respondido
+    const targetPost = await app.prisma.communityPost.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    }).catch(() => null);
+
+    if (targetPost) {
+      notifyCommunityComment({
+        prisma: app.prisma,
+        commenter: {
+          id: userId,
+          displayName: comment.user.displayName,
+        },
+        post: targetPost,
+        comment: {
+          id: comment.id,
+          content: comment.content,
+        },
+        parentId: parsedBody.parentId || null,
+      }).catch((err) => {
+        app.log.warn({ err }, 'Error in notifyCommunityComment');
+      });
+    }
 
     reply.code(201);
     return {
