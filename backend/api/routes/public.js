@@ -2543,21 +2543,62 @@ export async function registerPublicRoutes(app) {
 
     const currentAuthUser = await getOptionalPublicUser(app, request);
 
-    const [followersCount, followingCount, isFollowing] = await Promise.all([
-      app.prisma.userFollow.count({ where: { followingId: targetUser.id } }),
-      app.prisma.userFollow.count({ where: { followerId: targetUser.id } }),
-      currentAuthUser
-        ? app.prisma.userFollow.findUnique({
-            where: {
-              followerId_followingId: {
-                followerId: currentAuthUser.id,
-                followingId: targetUser.id,
-              },
-            },
-          }).then(Boolean)
-        : false,
-    ]);
+    const hasUserFollow = typeof app.prisma.userFollow?.count === 'function';
+    let followersCount = 0;
+    let followingCount = 0;
+    let isFollowing = false;
+    let isFollower = false;
+    let nucleoCount = 0;
 
+    if (hasUserFollow) {
+      const [fCount, folCount, folList, followState, followerState] = await Promise.all([
+        app.prisma.userFollow.count({ where: { followingId: targetUser.id } }),
+        app.prisma.userFollow.count({ where: { followerId: targetUser.id } }),
+        typeof app.prisma.userFollow?.findMany === 'function'
+          ? app.prisma.userFollow.findMany({
+              where: { followerId: targetUser.id },
+              select: { followingId: true },
+            })
+          : [],
+        currentAuthUser
+          ? app.prisma.userFollow.findUnique({
+              where: {
+                followerId_followingId: {
+                  followerId: currentAuthUser.id,
+                  followingId: targetUser.id,
+                },
+              },
+            }).then(Boolean)
+          : false,
+        currentAuthUser
+          ? app.prisma.userFollow.findUnique({
+              where: {
+                followerId_followingId: {
+                  followerId: targetUser.id,
+                  followingId: currentAuthUser.id,
+                },
+              },
+            }).then(Boolean)
+          : false,
+      ]);
+
+      followersCount = fCount;
+      followingCount = folCount;
+      isFollowing = followState;
+      isFollower = followerState;
+
+      const followingIds = (folList || []).map((f) => f.followingId);
+      if (followingIds.length > 0) {
+        nucleoCount = await app.prisma.userFollow.count({
+          where: {
+            followerId: { in: followingIds },
+            followingId: targetUser.id,
+          },
+        });
+      }
+    }
+
+    const isNucleo = Boolean(isFollowing && isFollower);
     const avatarUrl = resolveAvatarUrl(targetUser.profile?.avatarUrl || targetUser.avatarMedia?.url || null);
 
     return {
@@ -2572,7 +2613,9 @@ export async function registerPublicRoutes(app) {
           createdAt: targetUser.createdAt,
           followersCount,
           followingCount,
+          nucleoCount,
           isFollowing,
+          isNucleo,
         },
       },
     };
@@ -2719,6 +2762,60 @@ export async function registerPublicRoutes(app) {
           bio: f.following.profile?.bio || null,
           avatarUrl: resolveAvatarUrl(f.following.profile?.avatarUrl || f.following.avatarMedia?.url || null),
           followedAt: f.createdAt,
+        })),
+      },
+    };
+  });
+
+  app.get('/api/v1/public/users/:id/nucleo', async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    noStoreHeaders(reply);
+
+    const targetUser = await app.prisma.user.findFirst({
+      where: { OR: [{ id }, { username: id }], status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!targetUser) {
+      throw app.httpErrors.notFound('Usuario no encontrado');
+    }
+
+    if (typeof app.prisma.userFollow?.findMany !== 'function') {
+      return { data: { users: [] } };
+    }
+
+    const following = await app.prisma.userFollow.findMany({
+      where: { followerId: targetUser.id },
+      select: { followingId: true },
+    });
+    const followingIds = following.map((f) => f.followingId);
+
+    if (followingIds.length === 0) {
+      return { data: { users: [] } };
+    }
+
+    const list = await app.prisma.userFollow.findMany({
+      where: {
+        followerId: { in: followingIds },
+        followingId: targetUser.id,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        follower: {
+          include: { profile: true, avatarMedia: true },
+        },
+      },
+    });
+
+    return {
+      data: {
+        users: list.map((item) => ({
+          id: item.follower.id,
+          displayName: item.follower.displayName,
+          username: item.follower.username,
+          bio: item.follower.profile?.bio || null,
+          avatarUrl: resolveAvatarUrl(item.follower.profile?.avatarUrl || item.follower.avatarMedia?.url || null),
+          mutualSince: item.createdAt,
         })),
       },
     };

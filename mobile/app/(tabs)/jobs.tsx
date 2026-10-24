@@ -127,8 +127,8 @@ export default function JobsScreen() {
       {/* Título de la sección y botones de acción */}
       <View style={styles.topBar}>
         <View style={styles.titleRow}>
-          <Briefcase size={20} color={colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.title, { color: colors.text }]}>BOLSA DE EMPLEOS</Text>
+          <Briefcase size={18} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>BOLSA DE EMPLEOS</Text>
         </View>
 
         <View style={styles.topActionsRow}>
@@ -291,44 +291,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    flexWrap: 'wrap',
+    rowGap: 8,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    marginRight: 6,
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   topActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   myJobsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
   },
   myJobsBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   postJobBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
   },
   postJobBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   searchWrapper: {

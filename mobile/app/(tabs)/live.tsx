@@ -206,15 +206,15 @@ export default function HESLiveScreen() {
               onPress={handleToggleLike}
               activeOpacity={0.7}
             >
-              <Heart size={18} color={liked ? '#DC2626' : colors.text} fill={liked ? '#DC2626' : 'transparent'} />
-              <Text style={[styles.actionText, { color: liked ? '#DC2626' : colors.text }]}>
+              <Heart size={16} color={liked ? '#DC2626' : colors.text} fill={liked ? '#DC2626' : 'transparent'} />
+              <Text style={[styles.actionText, { color: liked ? '#DC2626' : colors.text }]} numberOfLines={1}>
                 {likesCount.toLocaleString()}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionBtn} onPress={handleShare} activeOpacity={0.7}>
-              <Share2 size={18} color={colors.text} />
-              <Text style={[styles.actionText, { color: colors.text }]}>Compartir</Text>
+              <Share2 size={16} color={colors.text} />
+              <Text style={[styles.actionText, { color: colors.text }]} numberOfLines={1}>Compartir</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -222,8 +222,8 @@ export default function HESLiveScreen() {
               onPress={() => setSaved(!saved)}
               activeOpacity={0.7}
             >
-              <Bookmark size={18} color={saved ? '#DC2626' : colors.text} fill={saved ? '#DC2626' : 'transparent'} />
-              <Text style={[styles.actionText, { color: saved ? '#DC2626' : colors.text }]}>
+              <Bookmark size={16} color={saved ? '#DC2626' : colors.text} fill={saved ? '#DC2626' : 'transparent'} />
+              <Text style={[styles.actionText, { color: saved ? '#DC2626' : colors.text }]} numberOfLines={1}>
                 {saved ? 'Guardado' : 'Guardar'}
               </Text>
             </TouchableOpacity>
@@ -233,8 +233,8 @@ export default function HESLiveScreen() {
               onPress={() => Linking.openURL(youtubeDirectUrl)}
               activeOpacity={0.7}
             >
-              <ExternalLink size={18} color="#DC2626" />
-              <Text style={[styles.actionText, { color: '#DC2626', fontWeight: '700' }]}>Ver en App</Text>
+              <ExternalLink size={16} color="#DC2626" />
+              <Text style={[styles.actionText, { color: '#DC2626', fontWeight: '700' }]} numberOfLines={1}>YouTube</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -438,20 +438,23 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 4,
   },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 16,
   },
   actionText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   tabBar: {

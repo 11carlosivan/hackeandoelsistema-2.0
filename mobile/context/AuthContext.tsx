@@ -17,6 +17,7 @@ export interface User {
   isCompany?: boolean;
   followersCount?: number;
   followingCount?: number;
+  nucleoCount?: number;
   savedPostsCount?: number;
   unreadNotificationsCount?: number;
 }

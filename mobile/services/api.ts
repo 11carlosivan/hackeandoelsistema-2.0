@@ -843,9 +843,11 @@ export interface UserProfileData {
   createdAt?: string;
   followersCount: number;
   followingCount: number;
+  nucleoCount?: number;
   savedPostsCount?: number;
   unreadNotificationsCount?: number;
   isFollowing?: boolean;
+  isNucleo?: boolean;
 }
 
 export interface InAppNotificationItem {
@@ -1032,6 +1034,35 @@ export async function fetchUserFollowers(id: string): Promise<FollowUserItem[]> 
 export async function fetchUserFollowing(id: string): Promise<FollowUserItem[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(id)}/following`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.users || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchMyNucleo(token: string): Promise<FollowUserItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/nucleo`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.users || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchUserNucleo(id: string): Promise<FollowUserItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/public/users/${encodeURIComponent(id)}/nucleo`, {
       headers: { Accept: 'application/json' },
     });
     if (!res.ok) return [];

@@ -31,12 +31,14 @@ import {
   MessageCircle,
   Flag,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react-native';
 import {
   fetchUserProfile,
   toggleFollowUser,
   fetchUserFollowers,
   fetchUserFollowing,
+  fetchUserNucleo,
   resolveImageUrl,
   UserProfileData,
   FollowUserItem,
@@ -66,9 +68,9 @@ export default function PublicProfileScreen() {
   const [userPosts, setUserPosts] = useState<CommunityPostItem[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
-  // Modal for Followers / Following list
+  // Modal for Followers / Following / Núcleo list
   const [listModalVisible, setListModalVisible] = useState(false);
-  const [listModalTitle, setListModalTitle] = useState<'Seguidores' | 'Siguiendo'>('Seguidores');
+  const [listModalTitle, setListModalTitle] = useState<'Seguidores' | 'Siguiendo' | 'Núcleo'>('Seguidores');
   const [modalUsers, setModalUsers] = useState<FollowUserItem[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
 
@@ -149,16 +151,20 @@ export default function PublicProfileScreen() {
     }
   }
 
-  async function openListModal(type: 'Seguidores' | 'Siguiendo') {
+  async function openListModal(type: 'Seguidores' | 'Siguiendo' | 'Núcleo') {
     if (!profile) return;
     setListModalTitle(type);
     setListModalVisible(true);
     setModalLoading(true);
     try {
-      const users =
-        type === 'Seguidores'
-          ? await fetchUserFollowers(profile.id)
-          : await fetchUserFollowing(profile.id);
+      let users: FollowUserItem[] = [];
+      if (type === 'Seguidores') {
+        users = await fetchUserFollowers(profile.id);
+      } else if (type === 'Siguiendo') {
+        users = await fetchUserFollowing(profile.id);
+      } else if (type === 'Núcleo') {
+        users = await fetchUserNucleo(profile.id);
+      }
       setModalUsers(users);
     } catch {
       setModalUsers([]);
@@ -335,6 +341,29 @@ export default function PublicProfileScreen() {
               </Text>
             </View>
 
+            {/* Badge de Núcleo si se siguen mutuamente */}
+            {profile.isNucleo ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#DC262615',
+                  borderColor: '#DC262640',
+                  borderWidth: 1,
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  borderRadius: 20,
+                  marginTop: 8,
+                  gap: 5,
+                }}
+              >
+                <Sparkles size={13} color="#DC2626" />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#DC2626' }}>
+                  En tu Núcleo (Se siguen mutuamente)
+                </Text>
+              </View>
+            ) : null}
+
             {/* Biography */}
             {profile.bio ? (
               <View style={[styles.bioBox, { backgroundColor: isDark ? '#1F2430' : '#F8FAFC' }]}>
@@ -368,6 +397,22 @@ export default function PublicProfileScreen() {
                   {profile.followingCount}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textMuted }]}>Siguiendo</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() => openListModal('Núcleo')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.statNumber, { color: '#DC2626', fontWeight: '900' }]}>
+                  {profile.nucleoCount ?? 0}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Sparkles size={11} color="#DC2626" />
+                  <Text style={[styles.statLabel, { color: '#DC2626', fontWeight: '800' }]}>Núcleo</Text>
+                </View>
               </TouchableOpacity>
             </View>
 
@@ -494,9 +539,15 @@ export default function PublicProfileScreen() {
               </View>
             ) : modalUsers.length === 0 ? (
               <View style={styles.modalLoadingContainer}>
-                <Users size={42} color={colors.textMuted} style={{ marginBottom: 8 }} />
-                <Text style={[styles.emptyModalText, { color: colors.textMuted }]}>
-                  No hay usuarios en esta lista.
+                {listModalTitle === 'Núcleo' ? (
+                  <Sparkles size={42} color="#DC2626" style={{ marginBottom: 8 }} />
+                ) : (
+                  <Users size={42} color={colors.textMuted} style={{ marginBottom: 8 }} />
+                )}
+                <Text style={[styles.emptyModalText, { color: colors.textMuted, textAlign: 'center', paddingHorizontal: 24 }]}>
+                  {listModalTitle === 'Núcleo'
+                    ? 'Este usuario no tiene miembros en su Núcleo todavía.'
+                    : 'No hay usuarios en esta lista.'}
                 </Text>
               </View>
             ) : (
@@ -523,9 +574,25 @@ export default function PublicProfileScreen() {
                       </View>
                     )}
                     <View style={styles.listUserInfo}>
-                      <Text style={[styles.listName, { color: colors.text }]}>
-                        {item.displayName}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.listName, { color: colors.text }]}>
+                          {item.displayName}
+                        </Text>
+                        {listModalTitle === 'Núcleo' && (
+                          <View
+                            style={{
+                              backgroundColor: '#DC262615',
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: '#DC2626' }}>
+                              ⚡ Núcleo
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       {item.bio ? (
                         <Text style={[styles.listBio, { color: colors.textMuted }]} numberOfLines={1}>
                           {item.bio}

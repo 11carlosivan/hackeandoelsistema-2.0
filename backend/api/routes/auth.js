@@ -409,13 +409,36 @@ export async function registerAuthRoutes(app) {
   });
 
   async function getUserStats(userId) {
-    const [followersCount, followingCount, savedPostsCount, unreadNotificationsCount] = await Promise.all([
-      typeof app.prisma.userFollow?.count === 'function'
-        ? app.prisma.userFollow.count({ where: { followingId: userId } })
-        : 0,
-      typeof app.prisma.userFollow?.count === 'function'
-        ? app.prisma.userFollow.count({ where: { followerId: userId } })
-        : 0,
+    const hasUserFollow = typeof app.prisma.userFollow?.count === 'function';
+    let followersCount = 0;
+    let followingCount = 0;
+    let nucleoCount = 0;
+
+    if (hasUserFollow) {
+      const [fCount, folCount, followingList] = await Promise.all([
+        app.prisma.userFollow.count({ where: { followingId: userId } }),
+        app.prisma.userFollow.count({ where: { followerId: userId } }),
+        typeof app.prisma.userFollow?.findMany === 'function'
+          ? app.prisma.userFollow.findMany({
+              where: { followerId: userId },
+              select: { followingId: true },
+            })
+          : [],
+      ]);
+      followersCount = fCount;
+      followingCount = folCount;
+      const followingIds = (followingList || []).map((f) => f.followingId);
+      if (followingIds.length > 0) {
+        nucleoCount = await app.prisma.userFollow.count({
+          where: {
+            followerId: { in: followingIds },
+            followingId: userId,
+          },
+        });
+      }
+    }
+
+    const [savedPostsCount, unreadNotificationsCount] = await Promise.all([
       typeof app.prisma.savedPost?.count === 'function'
         ? app.prisma.savedPost.count({ where: { userId } })
         : 0,
@@ -423,7 +446,7 @@ export async function registerAuthRoutes(app) {
         ? app.prisma.inAppNotification.count({ where: { userId, isRead: false } })
         : 0,
     ]);
-    return { followersCount, followingCount, savedPostsCount, unreadNotificationsCount };
+    return { followersCount, followingCount, nucleoCount, savedPostsCount, unreadNotificationsCount };
   }
 
   app.get('/api/v1/auth/me', { preHandler: app.authenticate }, async (request, reply) => {
@@ -742,6 +765,54 @@ export async function registerAuthRoutes(app) {
           bio: item.following.profile?.bio || null,
           avatarUrl: resolveAvatarUrl(item.following.profile?.avatarUrl || item.following.avatarMedia?.url || null, app.config),
           followedAt: item.createdAt,
+        })),
+      },
+    };
+  });
+
+  app.get('/api/v1/auth/nucleo', { preHandler: app.authenticate }, async (request, reply) => {
+    noStoreHeaders(reply);
+    const userId = request.auth.user.id;
+
+    if (typeof app.prisma.userFollow?.findMany !== 'function') {
+      return { data: { users: [] } };
+    }
+
+    const following = await app.prisma.userFollow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const followingIds = following.map((f) => f.followingId);
+
+    if (followingIds.length === 0) {
+      return { data: { users: [] } };
+    }
+
+    const list = await app.prisma.userFollow.findMany({
+      where: {
+        followerId: { in: followingIds },
+        followingId: userId,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        follower: {
+          include: {
+            profile: true,
+            avatarMedia: true,
+          },
+        },
+      },
+    });
+
+    return {
+      data: {
+        users: list.map((item) => ({
+          id: item.follower.id,
+          displayName: item.follower.displayName,
+          username: item.follower.username,
+          bio: item.follower.profile?.bio || null,
+          avatarUrl: resolveAvatarUrl(item.follower.profile?.avatarUrl || item.follower.avatarMedia?.url || null, app.config),
+          mutualSince: item.createdAt,
         })),
       },
     };
