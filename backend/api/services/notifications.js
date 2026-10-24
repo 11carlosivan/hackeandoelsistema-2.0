@@ -87,6 +87,61 @@ export async function getUserPushTokens(userId, prisma = null) {
   return inMemory ? Array.from(inMemory) : [];
 }
 
+export async function getAllPushTokens(prisma = null) {
+  const tokenSet = new Set();
+  for (const set of userPushTokens.values()) {
+    for (const t of set) {
+      if (t) tokenSet.add(t);
+    }
+  }
+
+  if (prisma?.$queryRawUnsafe) {
+    try {
+      const rows = await prisma.$queryRawUnsafe('SELECT DISTINCT token FROM user_push_tokens');
+      if (Array.isArray(rows)) {
+        for (const r of rows) {
+          if (r?.token) tokenSet.add(r.token);
+        }
+      }
+    } catch (e) {
+      console.warn('[getAllPushTokens] Error querying DB:', e.message);
+    }
+  }
+
+  return Array.from(tokenSet).filter((t) => typeof t === 'string' && t.includes('PushToken'));
+}
+
+export async function broadcastExpoPushNotification({ title, body, data }, prisma = null) {
+  try {
+    const tokens = await getAllPushTokens(prisma);
+    if (!tokens || tokens.length === 0) return;
+
+    const chunkSize = 100;
+    for (let i = 0; i < tokens.length; i += chunkSize) {
+      const chunk = tokens.slice(i, i + chunkSize);
+      const messages = chunk.map((token) => ({
+        to: token,
+        sound: 'default',
+        title: title || 'Hackeando el Sistema',
+        body: body || '',
+        data: data || {},
+      }));
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
+    }
+  } catch (err) {
+    console.warn('[broadcastExpoPushNotification] Error broadcasting:', err.message);
+  }
+}
+
 export async function sendExpoPushNotification(pushToken, { title, body, data }) {
   try {
     if (!pushToken || typeof pushToken !== 'string') return;
@@ -126,55 +181,74 @@ export async function sendPushToUser(userId, { title, body, data }, prisma = nul
 
 export async function notifyEditorialPost({ prisma, post }) {
   try {
-    if (
-      !post?.id ||
-      typeof prisma?.postCategory?.findMany !== 'function' ||
-      typeof prisma?.user?.findMany !== 'function' ||
-      typeof prisma?.inAppNotification?.createMany !== 'function'
-    ) {
-      return;
-    }
+    if (!post?.id) return;
 
     // Check categories for this post
-    const postCategories = await prisma.postCategory.findMany({
-      where: { postId: post.id },
-      include: { category: true },
-    });
+    let isEditorial = false;
+    if (typeof prisma?.postCategory?.findMany === 'function') {
+      try {
+        const postCategories = await prisma.postCategory.findMany({
+          where: { postId: post.id },
+          include: { category: true },
+        });
 
-    const isEditorial = postCategories.some((pc) => {
-      const slug = (pc.category?.slug || '').toLowerCase();
-      const name = (pc.category?.name || '').toLowerCase();
-      return slug === 'editorial' || name.includes('editorial');
-    });
+        isEditorial = postCategories.some((pc) => {
+          const slug = (pc.category?.slug || '').toLowerCase();
+          const name = (pc.category?.name || '').toLowerCase();
+          return slug === 'editorial' || name.includes('editorial');
+        });
+      } catch (err) {
+        console.warn('[notifyEditorialPost] error reading categories:', err.message);
+      }
+    }
 
-    if (!isEditorial) return;
+    const titlePrefix = isEditorial ? '📝 Editorial: ' : '📰 ';
+    const pushTitle = `${titlePrefix}${post.title || 'Hackeando el Sistema'}`;
+    const pushBody = post.excerpt || (post.title ? `Lee la nota completa en Hackeando el Sistema.` : 'Nueva publicación');
 
-    // Fetch all active registered users
-    const users = await prisma.user.findMany({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    // 1. Broadcast push notification to all devices
+    await broadcastExpoPushNotification({
+      title: pushTitle,
+      body: pushBody,
+      data: {
+        postId: post.id,
+        slug: post.slug,
+        type: isEditorial ? 'EDITORIAL' : 'POST',
+      },
+    }, prisma);
 
-    if (users.length === 0) return;
+    // 2. Create in-app notifications for registered users
+    if (
+      typeof prisma?.user?.findMany === 'function' &&
+      typeof prisma?.inAppNotification?.createMany === 'function'
+    ) {
+      const users = await prisma.user.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true },
+      });
 
-    // Create notifications for all active users
-    const notifications = users.map((u) => ({
-      userId: u.id,
-      type: 'EDITORIAL_POST',
-      title: 'Nuevo Editorial publicado',
-      message: post.title || 'Se ha publicado un nuevo editorial en Hackeando el Sistema',
-      postSlug: post.slug || null,
-      postId: post.id,
-      isRead: false,
-    }));
+      if (users.length > 0) {
+        const notifications = users.map((u) => ({
+          userId: u.id,
+          type: isEditorial ? 'EDITORIAL_POST' : 'BREAKING_NEWS',
+          title: isEditorial ? 'Nuevo Editorial publicado' : (post.title || 'Nueva Noticia'),
+          message: post.excerpt || post.title || 'Se ha publicado una nueva noticia en Hackeando el Sistema',
+          postSlug: post.slug || null,
+          postId: post.id,
+          isRead: false,
+        }));
 
-    await prisma.inAppNotification.createMany({
-      data: notifications,
-    });
+        await prisma.inAppNotification.createMany({
+          data: notifications,
+        }).catch(() => {});
+      }
+    }
   } catch (err) {
     console.error('[notifyEditorialPost] Error creating notifications:', err);
   }
 }
+
+export const notifyPublishedPost = notifyEditorialPost;
 
 export async function notifyCommentFollowers({ prisma, commenter, post, comment, parentId }) {
   try {
@@ -251,6 +325,17 @@ export async function notifyCommentFollowers({ prisma, commenter, post, comment,
       await prisma.inAppNotification.createMany({
         data: notifications,
       });
+
+      // Disparar push a los seguidores que no sean el propio autor
+      for (const f of followers) {
+        if (f.followerId !== commenter.id && f.followerId !== parentAuthorId) {
+          sendPushToUser(f.followerId, {
+            title: `${commenter.displayName} comentó en un post`,
+            body: `"${post.title || 'Artículo'}": "${snippet}"`,
+            data: { postId: post.id, slug: post.slug, commentId: comment.id },
+          }, prisma).catch(() => {});
+        }
+      }
     }
   } catch (err) {
     console.error('[notifyCommentFollowers] Error creating notifications:', err);

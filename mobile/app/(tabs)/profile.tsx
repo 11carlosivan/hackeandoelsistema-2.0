@@ -562,7 +562,7 @@ export default function ProfileScreen() {
               {/* Avatar + Edit Photo icon */}
               <View style={styles.avatarContainer}>
                 {user.avatarUrl ? (
-                  <Image source={{ uri: resolveImageUrl(user.avatarUrl) || user.avatarUrl, cache: 'force-cache' }} style={styles.avatarImg} fadeDuration={0} />
+                  <Image source={{ uri: resolveImageUrl(user.avatarUrl) || user.avatarUrl }} style={styles.avatarImg} />
                 ) : (
                   <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
                     <Text style={styles.avatarInitials}>

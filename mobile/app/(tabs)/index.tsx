@@ -80,9 +80,17 @@ const HeroArticleCard: React.FC<{ post: Post }> = ({ post }) => {
         onPress={() => router.push(`/article/${post.slug}` as any)}
         activeOpacity={0.85}
       >
-        {post.featuredImage ? (
-          <Image source={{ uri: post.featuredImage, cache: 'force-cache' }} style={styles.heroImage} resizeMode="cover" fadeDuration={0} />
-        ) : null}
+        <View style={[styles.heroImageWrapper, { backgroundColor: colors.inputBackground }]}>
+          {post.featuredImage ? (
+            <Image
+              source={{ uri: post.featuredImage }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Flame size={32} color={colors.primary} />
+          )}
+        </View>
 
         <View style={styles.heroBody}>
           <View style={styles.heroMetaRow}>
@@ -295,6 +303,13 @@ const styles = StyleSheet.create({
   heroCard: {
     borderRadius: 14,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  heroImageWrapper: {
+    width: '100%',
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
     overflow: 'hidden',
   },
   heroImage: {

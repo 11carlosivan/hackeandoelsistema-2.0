@@ -4,7 +4,7 @@ import { ensureFeaturedMediaFromPostContent } from '../services/featured-media.j
 import { randomToken, sha256Hex } from '../utils/crypto.js';
 import { noStoreHeaders, publicCacheHeaders } from '../utils/http.js';
 import { createSystemStatsProvider } from '../services/public-system-stats.js';
-import { notifyCommentFollowers, notifyCommunityPostFollowers, notifyCommunityComment } from '../services/notifications.js';
+import { notifyCommentFollowers, notifyCommunityPostFollowers, notifyCommunityComment, sendPushToUser } from '../services/notifications.js';
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -2668,16 +2668,47 @@ export async function registerPublicRoutes(app) {
       });
       following = true;
 
-      await app.prisma.inAppNotification.create({
-        data: {
-          userId: followingId,
-          actorId: followerId,
-          type: 'NEW_FOLLOWER',
-          title: 'Nuevo seguidor',
-          message: `${request.auth.user.displayName} ha comenzado a seguirte.`,
-          isRead: false,
-        },
-      }).catch((err) => app.log.error(err));
+      // Check if mutual follow (Núcleo)
+      const mutual = await app.prisma.userFollow.findFirst({
+        where: { followerId: followingId, followingId: followerId },
+        select: { id: true },
+      }).catch(() => null);
+
+      if (mutual) {
+        await app.prisma.inAppNotification.create({
+          data: {
+            userId: followingId,
+            actorId: followerId,
+            type: 'NUCLEO_CONNECTED',
+            title: '⚡ ¡Tienes un nuevo Núcleo!',
+            message: `${request.auth.user.displayName} y tú ahora son parte del mismo Núcleo.`,
+            isRead: false,
+          },
+        }).catch((err) => app.log.error(err));
+
+        sendPushToUser(followingId, {
+          title: '⚡ ¡Nuevo Núcleo!',
+          body: `${request.auth.user.displayName} y tú ahora se siguen mutuamente y forman parte del mismo Núcleo.`,
+          data: { type: 'NUCLEO', userId: followerId },
+        }, app.prisma).catch(() => {});
+      } else {
+        await app.prisma.inAppNotification.create({
+          data: {
+            userId: followingId,
+            actorId: followerId,
+            type: 'NEW_FOLLOWER',
+            title: 'Nuevo seguidor',
+            message: `${request.auth.user.displayName} ha comenzado a seguirte.`,
+            isRead: false,
+          },
+        }).catch((err) => app.log.error(err));
+
+        sendPushToUser(followingId, {
+          title: 'Nuevo seguidor en HES',
+          body: `${request.auth.user.displayName} ha comenzado a seguirte.`,
+          data: { type: 'FOLLOWER', userId: followerId },
+        }, app.prisma).catch(() => {});
+      }
     }
 
     const followersCount = await app.prisma.userFollow.count({

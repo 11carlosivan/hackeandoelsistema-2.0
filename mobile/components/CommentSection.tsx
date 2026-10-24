@@ -280,7 +280,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                     activeOpacity={0.7}
                   >
                     {item.avatarUrl ? (
-                      <Image source={{ uri: resolveImageUrl(item.avatarUrl) || item.avatarUrl, cache: 'force-cache' }} style={styles.commentAvatar} fadeDuration={0} />
+                      <Image source={{ uri: resolveImageUrl(item.avatarUrl) || item.avatarUrl }} style={styles.commentAvatar} />
                     ) : (
                       <View style={[styles.commentAvatarPlaceholder, { backgroundColor: colors.primary }]}>
                         <Text style={styles.commentAvatarInitials}>
@@ -335,7 +335,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                               activeOpacity={0.7}
                             >
                               {reply.avatarUrl ? (
-                                <Image source={{ uri: resolveImageUrl(reply.avatarUrl) || reply.avatarUrl, cache: 'force-cache' }} style={styles.commentAvatarSmall} fadeDuration={0} />
+                                <Image source={{ uri: resolveImageUrl(reply.avatarUrl) || reply.avatarUrl }} style={styles.commentAvatarSmall} />
                               ) : (
                                 <View style={[styles.commentAvatarPlaceholderSmall, { backgroundColor: colors.primary }]}>
                                   <Text style={styles.commentAvatarInitialsSmall}>

@@ -12,6 +12,31 @@ interface OpinionSliderProps {
   posts: Post[];
 }
 
+const ColumnistAvatar: React.FC<{
+  avatarUrl?: string | null;
+  name?: string | null;
+  primaryColor: string;
+}> = ({ avatarUrl, name, primaryColor }) => {
+  const [loadError, setLoadError] = React.useState(false);
+
+  if (!avatarUrl || loadError) {
+    return (
+      <View style={[styles.authorAvatarFallback, { backgroundColor: primaryColor }]}>
+        <Text style={styles.avatarInitial}>{(name || 'C').charAt(0).toUpperCase()}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: avatarUrl }}
+      style={styles.authorAvatar}
+      resizeMode="cover"
+      onError={() => setLoadError(true)}
+    />
+  );
+};
+
 export const OpinionSlider: React.FC<OpinionSliderProps> = ({ posts }) => {
   const { colors } = useTheme();
   const router = useRouter();
@@ -72,13 +97,11 @@ export const OpinionSlider: React.FC<OpinionSliderProps> = ({ posts }) => {
             ) : null}
 
             <View style={[styles.authorRow, { borderTopColor: colors.border }]}>
-              {item.featuredImage ? (
-                <Image source={{ uri: item.featuredImage, cache: 'force-cache' }} style={styles.authorAvatar} resizeMode="cover" fadeDuration={0} />
-              ) : (
-                <View style={[styles.authorAvatarFallback, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.avatarInitial}>{(item.author?.name || 'O')[0]}</Text>
-                </View>
-              )}
+              <ColumnistAvatar
+                avatarUrl={(item.author as any)?.avatarUrl || item.author?.avatar}
+                name={item.author?.name}
+                primaryColor={colors.primary}
+              />
               <View style={styles.authorMeta}>
                 <Text style={[styles.authorName, { color: colors.text }]}>
                   {item.author?.name || 'Columnista HES'}

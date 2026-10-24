@@ -739,7 +739,7 @@ export default function CommunityFeedScreen() {
             activeOpacity={0.7}
           >
             {author.avatarUrl ? (
-              <Image source={{ uri: resolveImageUrl(author.avatarUrl) || author.avatarUrl, cache: 'force-cache' }} style={styles.avatar} fadeDuration={0} />
+              <Image source={{ uri: resolveImageUrl(author.avatarUrl) || author.avatarUrl }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
                 <Text style={styles.avatarInitial}>
@@ -771,7 +771,7 @@ export default function CommunityFeedScreen() {
           </TouchableOpacity>
 
           {/* Action buttons on post header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {(!user || user.id !== author.id) && (
               <TouchableOpacity
                 style={[
@@ -1285,7 +1285,7 @@ export default function CommunityFeedScreen() {
                   <View style={[styles.communityCommentRow, { borderBottomColor: colors.border }]}>
                     <View style={styles.commentAvatar}>
                       {c.user?.avatarUrl ? (
-                        <Image source={{ uri: resolveImageUrl(c.user.avatarUrl) || c.user.avatarUrl, cache: 'force-cache' }} style={styles.avatarMini} fadeDuration={0} />
+                        <Image source={{ uri: resolveImageUrl(c.user.avatarUrl) || c.user.avatarUrl }} style={styles.avatarMini} />
                       ) : (
                         <View style={[styles.avatarMiniFallback, { backgroundColor: colors.primary }]}>
                           <Text style={styles.avatarInitialMini}>
