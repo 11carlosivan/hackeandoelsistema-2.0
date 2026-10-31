@@ -19,7 +19,7 @@ export default function Footer() {
             Dirección General: Melvin Sena &bull; Santo Domingo, República Dominicana
           </p>
           <p className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
-            Contacto: <a href="mailto:contacto@hackeandoelsistema.net" className="text-white hover:text-system-red">contacto@hackeandoelsistema.net</a> &bull; Tel: <a href="tel:+18094317570" className="text-white hover:text-system-red">+1 (809) 431-7570</a>
+            Desarrollador: <a href="mailto:maquithe1@gmail.com" className="text-white hover:text-system-red font-bold">maquithe1@gmail.com</a> &bull; Redacción: <a href="mailto:contacto@hackeandoelsistema.net" className="text-white hover:text-system-red">contacto@hackeandoelsistema.net</a> &bull; Tel: <a href="tel:+18094317570" className="text-white hover:text-system-red">+1 (809) 431-7570</a>
           </p>
           <p className="font-label-sm text-label-sm text-on-surface-variant mt-2 text-xs opacity-70">
             (c) 2026 HACKEANDO EL SISTEMA | PERIODISMO DIGITAL INDEPENDIENTE

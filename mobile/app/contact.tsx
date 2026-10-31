@@ -100,6 +100,23 @@ export default function ContactScreen() {
         {/* Canales de Contacto Directo */}
         <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>CANALES OFICIALES DE ATENCIÓN</Text>
 
+        {/* Email Desarrollador y Contacto Oficial */}
+        <TouchableOpacity
+          style={[styles.channelCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+          onPress={() => handleEmailPress('maquithe1@gmail.com')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: isDark ? '#261719' : '#FEE2E2' }]}>
+            <Mail size={20} color={colors.primary} />
+          </View>
+          <View style={styles.channelTextCol}>
+            <Text style={[styles.channelLabel, { color: colors.textMuted }]}>Contacto Oficial del Desarrollador</Text>
+            <Text style={[styles.channelValue, { color: colors.text, fontWeight: '800' }]}>maquithe1@gmail.com</Text>
+            <Text style={[styles.channelHint, { color: colors.primary }]}>Tocar para redactar correo al desarrollador</Text>
+          </View>
+          <ExternalLink size={16} color={colors.textMuted} />
+        </TouchableOpacity>
+
         {/* Email General */}
         <TouchableOpacity
           style={[styles.channelCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
@@ -206,7 +223,7 @@ export default function ContactScreen() {
         </View>
 
         <Text style={[styles.appVersionText, { color: colors.textMuted }]}>
-          Hackeando El Sistema App &bull; Versión 1.0.2 &bull; Santo Domingo, RD
+          Hackeando El Sistema App &bull; Versión 1.0.3 &bull; Santo Domingo, RD
         </Text>
       </ScrollView>
     </SafeAreaView>

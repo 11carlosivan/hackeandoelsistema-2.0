@@ -290,7 +290,14 @@ export default function HomeScreen() {
             <View style={styles.editorialHomeItem}>
               <Mail size={15} color={colors.primary} style={{ marginRight: 8, marginTop: 1 }} />
               <Text style={[styles.editorialHomeItemText, { color: colors.text }]}>
-                Contacto: <Text style={{ fontWeight: '700' }}>contacto@hackeandoelsistema.net</Text>
+                Contacto Desarrollador: <Text style={{ fontWeight: '700' }}>maquithe1@gmail.com</Text>
+              </Text>
+            </View>
+
+            <View style={styles.editorialHomeItem}>
+              <Mail size={15} color={colors.primary} style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={[styles.editorialHomeItemText, { color: colors.text }]}>
+                Contacto Redacción: <Text style={{ fontWeight: '700' }}>contacto@hackeandoelsistema.net</Text>
               </Text>
             </View>
 

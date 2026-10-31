@@ -81,7 +81,13 @@ export default function ContactSecureView() {
             </h2>
             <ul className="space-y-3 text-xs md:text-sm text-gray-300">
               <li className="flex flex-col">
-                <span className="text-gray-400 text-xs font-semibold">Contacto General & Soporte:</span>
+                <span className="text-gray-400 text-xs font-semibold">Contacto Oficial del Desarrollador:</span>
+                <a href="mailto:maquithe1@gmail.com" className="text-white font-mono hover:text-system-red font-bold">
+                  maquithe1@gmail.com
+                </a>
+              </li>
+              <li className="flex flex-col">
+                <span className="text-gray-400 text-xs font-semibold">Contacto General & Soporte del Medio:</span>
                 <a href="mailto:contacto@hackeandoelsistema.net" className="text-white font-mono hover:text-system-red">
                   contacto@hackeandoelsistema.net
                 </a>
