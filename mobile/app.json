@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hackeando El Sistema",
     "slug": "hes",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hesapp",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "net.hackeandoelsistema.app",
-      "buildNumber": "6",
+      "buildNumber": "9",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -33,7 +33,7 @@
         "backgroundColor": "#050811"
       },
       "package": "com.hackeandoelsistema.app",
-      "versionCode": 6,
+      "versionCode": 9,
       "permissions": [
         "INTERNET",
         "CAMERA",

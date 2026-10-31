@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { Bell } from 'lucide-react-native';
+import { Bell, Mail } from 'lucide-react-native';
 import { fetchNotifications } from '@/services/api';
 
 export const HeaderBar: React.FC = () => {
@@ -62,6 +62,16 @@ export const HeaderBar: React.FC = () => {
         </TouchableOpacity>
 
         <View style={styles.actionsRow}>
+          {/* Contact Editorial Button */}
+          <TouchableOpacity
+            style={[styles.contactBtn, { backgroundColor: colors.inputBackground }]}
+            onPress={() => router.push('/contact' as any)}
+            activeOpacity={0.7}
+            accessibilityLabel="Contacto y Transparencia Editorial"
+          >
+            <Mail size={18} color={colors.primary} />
+          </TouchableOpacity>
+
           {/* Notification Bell */}
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
@@ -130,6 +140,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  contactBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionBtn: {
     width: 38,

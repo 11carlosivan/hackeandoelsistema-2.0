@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Share, Platform, KeyboardAvoidingView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -7,7 +7,7 @@ import { fetchPostBySlug, Post, registerPostShare } from '@/services/api';
 import { GutenbergRenderer } from '@/components/GutenbergRenderer';
 import { EngagementBar } from '@/components/EngagementBar';
 import { CommentSection } from '@/components/CommentSection';
-import { ArrowLeft, Share2, Clock, User, Quote } from 'lucide-react-native';
+import { ArrowLeft, Share2, Clock, User, Quote, ShieldCheck, Mail, ExternalLink } from 'lucide-react-native';
 
 export default function ArticleDetailScreen() {
   const { slug, id } = useLocalSearchParams<{ slug: string; id?: string }>();
@@ -120,6 +120,41 @@ export default function ArticleDetailScreen() {
 
           {/* Article Body Content */}
           <GutenbergRenderer content={post.content || post.excerpt || ''} postId={post.id} />
+
+          {/* Transparencia Editorial y Fuente Original (Google Play News Compliance) */}
+          <View style={[styles.editorialCard, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+            <View style={styles.editorialBadgeRow}>
+              <ShieldCheck size={14} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={[styles.editorialBadgeText, { color: colors.primary }]}>
+                INFORMACIÓN EDITORIAL & FUENTE ORIGINAL
+              </Text>
+            </View>
+            <Text style={[styles.editorialAttribution, { color: colors.text }]}>
+              Publicado por <Text style={{ fontWeight: '800' }}>Hackeando El Sistema</Text>
+            </Text>
+            <Text style={[styles.editorialDetails, { color: colors.textMuted }]}>
+              Redacción / Autoría: <Text style={{ color: colors.text, fontWeight: '600' }}>{post.author?.name || 'Redacción HES'}</Text>
+              {post.publishedAt ? ` • ${new Date(post.publishedAt).toLocaleDateString('es-DO', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}
+            </Text>
+            <View style={styles.editorialButtonsRow}>
+              <TouchableOpacity
+                style={[styles.editorialBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => router.push('/contact' as any)}
+                activeOpacity={0.7}
+              >
+                <Mail size={13} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.editorialBtnText, { color: colors.text }]}>Contacto Editorial</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editorialBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => Linking.openURL(`https://hackeandoelsistema.net/${post.slug}/`)}
+                activeOpacity={0.7}
+              >
+                <ExternalLink size={13} color={colors.textMuted} style={{ marginRight: 6 }} />
+                <Text style={[styles.editorialBtnText, { color: colors.text }]}>Fuente Web</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {/* Barra de interacción social: Likes, Comentarios, Compartir */}
           <EngagementBar
@@ -335,5 +370,45 @@ const styles = StyleSheet.create({
   },
   relatedDate: {
     fontSize: 11,
+  },
+  editorialCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginVertical: 16,
+  },
+  editorialBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  editorialBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  editorialAttribution: {
+    fontSize: 13,
+    marginBottom: 3,
+  },
+  editorialDetails: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  editorialButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editorialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  editorialBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

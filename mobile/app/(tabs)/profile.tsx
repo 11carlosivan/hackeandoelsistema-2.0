@@ -49,6 +49,7 @@ import {
   UserX,
   Shield,
   Bell,
+  Mail,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -1177,10 +1178,38 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Legal Links */}
+            {/* Legal & Editorial Contact Links */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>POLÍTICAS Y TÉRMINOS</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>TRANSPARENCIA Y CONTACTO</Text>
               <View style={[styles.optionsGroup, { backgroundColor: isDark ? '#161922' : '#FFFFFF', borderColor: colors.border }]}>
+                <TouchableOpacity
+                  style={styles.optionRow}
+                  onPress={() => router.push('/contact' as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionLeft}>
+                    <Mail size={18} color={colors.primary} style={{ marginRight: 10 }} />
+                    <Text style={[styles.optionText, { color: colors.text, fontWeight: '700' }]}>Contacto y Transparencia Editorial</Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                <TouchableOpacity
+                  style={styles.optionRow}
+                  onPress={() => Linking.openURL('https://hackeandoelsistema.net/contacto')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionLeft}>
+                    <ShieldCheck size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+                    <Text style={[styles.optionText, { color: colors.text }]}>Portal de Contacto (Web)</Text>
+                  </View>
+                  <ExternalLink size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
                 <TouchableOpacity
                   style={styles.optionRow}
                   onPress={() => Linking.openURL('https://hackeandoelsistema.net/politica-de-privacidad')}

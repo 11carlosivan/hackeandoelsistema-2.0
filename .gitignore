@@ -47,3 +47,8 @@ dist-ssr
 # Build output and scratch files
 /public/
 /scratch/
+
+*.aab
+*.apk
+*.ipa
+capturas de pantalla/

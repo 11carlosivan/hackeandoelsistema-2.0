@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
 import { fetchPublicPosts, fetchCategories, Post, Category, togglePostLike, registerPostShare } from '@/services/api';
 import { useRouter } from 'expo-router';
-import { Flame, Clock, Heart, MessageSquare, Share2 } from 'lucide-react-native';
+import { Flame, Clock, Heart, MessageSquare, Share2, ShieldCheck, Mail, Phone, MapPin, UserCheck } from 'lucide-react-native';
 
 const HeroArticleCard: React.FC<{ post: Post }> = ({ post }) => {
   const { colors } = useTheme();
@@ -264,6 +264,58 @@ export default function HomeScreen() {
               );
             })}
           </View>
+
+          {/* 4. TRANSPARENCIA EDITORIAL & CONTACTO OFICIAL (GOOGLE PLAY NEWS COMPLIANCE) */}
+          <View style={[styles.editorialHomeCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            <View style={styles.editorialBadgeRow}>
+              <ShieldCheck size={16} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={[styles.editorialBadgeText, { color: colors.primary }]}>
+                TRANSPARENCIA EDITORIAL & CONTACTO
+              </Text>
+            </View>
+            <Text style={[styles.editorialHomeTitle, { color: colors.text }]}>
+              Hackeando El Sistema
+            </Text>
+            <Text style={[styles.editorialHomeSubtitle, { color: colors.textMuted }]}>
+              Medio de periodismo digital independiente y análisis sociopolítico en República Dominicana.
+            </Text>
+
+            <View style={styles.editorialHomeItem}>
+              <UserCheck size={15} color={colors.primary} style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={[styles.editorialHomeItemText, { color: colors.text }]}>
+                Dirección General: <Text style={{ fontWeight: '700' }}>Melvin Sena</Text>
+              </Text>
+            </View>
+
+            <View style={styles.editorialHomeItem}>
+              <Mail size={15} color={colors.primary} style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={[styles.editorialHomeItemText, { color: colors.text }]}>
+                Contacto: <Text style={{ fontWeight: '700' }}>contacto@hackeandoelsistema.net</Text>
+              </Text>
+            </View>
+
+            <View style={styles.editorialHomeItem}>
+              <Phone size={15} color="#16A34A" style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={[styles.editorialHomeItemText, { color: colors.text }]}>
+                Línea Redacción: <Text style={{ fontWeight: '700' }}>+1 (809) 431-7570</Text>
+              </Text>
+            </View>
+
+            <View style={styles.editorialHomeItem}>
+              <MapPin size={15} color={colors.primary} style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={[styles.editorialHomeItemText, { color: colors.textMuted }]}>
+                Santo Domingo, República Dominicana
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.editorialHomeBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/contact' as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.editorialHomeBtnText}>Ver Canales Oficiales y Política de Noticias</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -376,6 +428,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginLeft: 6,
+  },
+  editorialHomeCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  editorialBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  editorialBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  editorialHomeTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  editorialHomeSubtitle: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  editorialHomeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  editorialHomeItemText: {
+    fontSize: 13,
+  },
+  editorialHomeBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  editorialHomeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   categoriesWrapper: {
     paddingHorizontal: 16,

@@ -24,6 +24,7 @@ import {
   Flame,
   ArrowRight,
   Trophy,
+  Mail,
 } from 'lucide-react-native';
 
 export default function MenuScreen() {
@@ -37,6 +38,12 @@ export default function MenuScreen() {
   };
 
   const menuSections = [
+    {
+      title: 'Editorial y Contacto Oficial',
+      items: [
+        { label: 'Contacto y Transparencia Editorial', icon: Mail, path: '/contact', desc: 'Correos oficiales, teléfono de redacción y datos del medio' },
+      ],
+    },
     {
       title: 'Servicios e Información',
       items: [

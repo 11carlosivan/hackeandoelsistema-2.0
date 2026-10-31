@@ -98,6 +98,12 @@ export default function ContactSecureView() {
                   comercial@hackeandoelsistema.net
                 </a>
               </li>
+              <li className="flex flex-col">
+                <span className="text-gray-400 text-xs font-semibold">Teléfono / Atención a Lectores:</span>
+                <a href="tel:+18094317570" className="text-white font-mono hover:text-system-red">
+                  +1 (809) 431-7570
+                </a>
+              </li>
             </ul>
           </div>
         </div>

@@ -45,6 +45,7 @@ export function buildNavigation(categories = []) {
     ...categoryLinks,
     { name: 'DEPORTES', path: '/deportes' },
     { name: 'EMPLEOS', path: '/empleos/' },
+    { name: 'CONTACTO', path: '/contacto' },
     { name: 'ARCHIVO', path: '/archivo' },
   ];
 }
@@ -408,6 +409,17 @@ export default function Header({ categories = [] }) {
                 <span className="material-symbols-outlined text-sm text-system-red">arrow_forward</span>
               </Link>
 
+              <Link
+                href="/contacto"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="mb-3 flex items-center justify-between rounded border border-system-red bg-system-red/10 p-3 font-label-caps text-xs font-bold text-system-red transition-all hover:bg-system-red hover:text-black"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">mail</span>
+                  <span>CONTACTO Y TRANSPARENCIA</span>
+                </div>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </Link>
               <div className="mb-3 font-label-caps text-[9px] font-bold tracking-widest text-system-red">
                 CATEGORIAS Y SECCIONES
               </div>
