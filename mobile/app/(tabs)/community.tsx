@@ -509,6 +509,60 @@ export default function CommunityFeedScreen() {
     await toggleCommunityPostLike(postId, token);
   };
 
+  const handleCommentOptions = (c: any) => {
+    const isOwner = user?.id && c.user?.id && user.id === c.user.id;
+    if (isOwner) {
+      Alert.alert(
+        'Opciones de comentario',
+        '¿Deseas eliminar tu comentario?',
+        [
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: () => {
+              setPostComments((prev) => prev.filter((item) => item.id !== c.id));
+            },
+          },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Opciones de moderación',
+        `Acciones para @${c.user?.username || 'usuario'}`,
+        [
+          {
+            text: '🚩 Reportar comentario',
+            onPress: () => {
+              Alert.alert(
+                'Reportar comentario',
+                'Selecciona el motivo por el cual reportas este comentario. Nuestro equipo lo revisará en menos de 24 horas:',
+                [
+                  { text: 'Spam o publicidad', onPress: () => submitReport(c.id, 'SPAM') },
+                  { text: 'Acoso o difamación', onPress: () => submitReport(c.id, 'HARASSMENT') },
+                  { text: 'Discurso de odio', onPress: () => submitReport(c.id, 'HATE_SPEECH') },
+                  { text: 'Contenido inapropiado', onPress: () => submitReport(c.id, 'INAPPROPRIATE') },
+                  { text: 'Cancelar', style: 'cancel' },
+                ]
+              );
+            },
+          },
+          {
+            text: `🚫 Bloquear a @${c.user?.username || 'usuario'}`,
+            style: 'destructive',
+            onPress: () => {
+              if (c.user?.id) {
+                handleBlockUser(c.user.id, c.user.username);
+                setPostComments((prev) => prev.filter((item) => item.user?.id !== c.user.id));
+              }
+            },
+          },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+    }
+  };
+
   const handleOpenComments = async (post: CommunityPostItem) => {
     setSelectedPostForComments(post);
     setCommentsModalVisible(true);
@@ -992,6 +1046,14 @@ export default function CommunityFeedScreen() {
         <PlusCircle size={22} color={colors.primary} />
       </TouchableOpacity>
 
+      {/* Community EULA Notice Banner */}
+      <View style={[styles.eulaNoticeBanner, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+        <ShieldAlert size={14} color={colors.primary} style={{ marginRight: 6 }} />
+        <Text style={[styles.eulaNoticeText, { color: colors.textMuted }]} numberOfLines={1}>
+          Comunidad segura: Cero tolerancia a contenido objetable o acoso (EULA).
+        </Text>
+      </View>
+
       {/* Main Stream */}
       {loading ? (
         <View style={styles.loadingBox}>
@@ -1334,7 +1396,7 @@ export default function CommunityFeedScreen() {
               </View>
             ) : (
               <FlatList
-                data={postComments}
+                data={postComments.filter((c) => !blockedUserIds.includes(c.user?.id))}
                 keyExtractor={(c) => c.id || String(Math.random())}
                 style={{ maxHeight: keyboardHeight > 0 ? 150 : 260 }}
                 keyboardShouldPersistTaps="handled"
@@ -1357,14 +1419,23 @@ export default function CommunityFeedScreen() {
                         <Text style={[styles.commentUserName, { color: colors.text }]}>
                           {c.user?.displayName || 'Usuario'}
                         </Text>
-                        <TouchableOpacity
-                          onPress={() => handleStartReplyCommunity(c)}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 2, paddingHorizontal: 6 }}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        >
-                          <CornerDownRight size={11} color={colors.primary} />
-                          <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Responder</Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <TouchableOpacity
+                            onPress={() => handleStartReplyCommunity(c)}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 2, paddingHorizontal: 6 }}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          >
+                            <CornerDownRight size={11} color={colors.primary} />
+                            <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Responder</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleCommentOptions(c)}
+                            style={{ padding: 4 }}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          >
+                            <MoreVertical size={13} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </View>
                       </View>
                       {c.createdAt ? (
                         <Text style={{ fontSize: 10.5, color: colors.textMuted, marginBottom: 4 }}>
@@ -1449,6 +1520,21 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     fontWeight: '900',
+  },
+  eulaNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  eulaNoticeText: {
+    fontSize: 11,
+    flex: 1,
+    fontWeight: '500',
   },
   promptCard: {
     flexDirection: 'row',

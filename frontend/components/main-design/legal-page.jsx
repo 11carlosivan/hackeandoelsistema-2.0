@@ -99,6 +99,14 @@ const documents = {
         ],
       },
       {
+        title: 'Politica de Tolerancia Cero y Contenido Generado por el Usuario (EULA)',
+        body: [
+          'Hackeando el Sistema mantiene una estricta politica de TOLERANCIA CERO hacia cualquier contenido objetable, difamatorio, obsceno, acosador, con discurso de odio o que incite a la violencia, asi como hacia cualquier comportamiento o usuario abusivo.',
+          'Los usuarios cuentan con herramientas integradas dentro de la aplicacion movil y la web para reportar cualquier publicacion, comentario o usuario ofensivo, asi como para bloquear de inmediato a usuarios abusivos, impidiendo instantaneamente la visualizacion de sus contenidos en el feed del usuario.',
+          'El equipo de administracion y moderacion revisa todos los reportes recibidos en un plazo maximo de 24 horas. El contenido reportado que infrinja estas normas sera retirado de inmediato y el usuario responsable sera expulsado y su cuenta suspendida permanentemente sin excepcion.',
+        ],
+      },
+      {
         title: 'Cancelacion y baja de la cuenta',
         body: [
           'El usuario puede solicitar o ejecutar la baja de su registro en cualquier momento a traves de las herramientas de autoservicio de su perfil en la web y en la app movil.',

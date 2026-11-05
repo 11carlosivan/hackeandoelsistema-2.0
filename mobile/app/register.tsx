@@ -47,7 +47,7 @@ export default function RegisterScreen() {
     }
 
     if (!termsAccepted) {
-      toast.warning('Términos requeridos', 'Debes aceptar los Términos y Condiciones y la Política de Privacidad.');
+      toast.warning('Términos requeridos', 'Debes aceptar los Términos de Uso (EULA) y la Política de Tolerancia Cero.');
       return;
     }
 
@@ -196,33 +196,33 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Términos y Condiciones + Responsabilidad de Imágenes */}
+          {/* Términos de Uso (EULA), Privacidad y Tolerancia Cero */}
           <TouchableOpacity
             style={[styles.termsRow, { borderColor: colors.border, backgroundColor: colors.inputBackground }]}
             onPress={() => setTermsAccepted(!termsAccepted)}
             activeOpacity={0.8}
           >
             {termsAccepted ? (
-              <CheckSquare size={20} color={colors.primary} style={{ marginRight: 10 }} />
+              <CheckSquare size={20} color={colors.primary} style={{ marginRight: 10, marginTop: 2 }} />
             ) : (
-              <Square size={20} color={colors.textMuted} style={{ marginRight: 10 }} />
+              <Square size={20} color={colors.textMuted} style={{ marginRight: 10, marginTop: 2 }} />
             )}
-            <Text style={[styles.termsText, { color: colors.text }]}>
+            <Text style={[styles.termsText, { color: colors.text, flex: 1 }]}>
               Acepto los{' '}
               <Text
                 style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
-                onPress={() => Linking.openURL('https://hackeandoelsistema.net/terminos-de-uso')}
+                onPress={() => Linking.openURL('https://hackeandoelsistema.net/terms-of-service/')}
               >
-                Términos
+                Términos de Uso (EULA)
               </Text>{' '}
               y la{' '}
               <Text
                 style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
-                onPress={() => Linking.openURL('https://hackeandoelsistema.net/politica-de-privacidad')}
+                onPress={() => Linking.openURL('https://hackeandoelsistema.net/privacy-policy/')}
               >
                 Privacidad
               </Text>
-              . Las imágenes y registros que publique son bajo mi exclusiva responsabilidad.
+              . Declaro entender que existe CERO TOLERANCIA hacia contenidos objetables o usuarios abusivos. Todo reporte será evaluado y el contenido retirado en menos de 24 horas.
             </Text>
           </TouchableOpacity>
 

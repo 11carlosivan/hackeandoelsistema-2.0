@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Linking, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -95,7 +95,28 @@ export default function LoginScreen() {
               <Text style={styles.submitBtnText}>Entrar a HES</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
+                        {/* EULA & Privacy Policy Notice */}
+            <View style={{ marginTop: 20, paddingHorizontal: 8, alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', lineHeight: 16 }}>
+                Al iniciar sesión confirmas que aceptas los{' '}
+                <Text
+                  style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
+                  onPress={() => Linking.openURL('https://hackeandoelsistema.net/terms-of-service/')}
+                >
+                  Términos de Uso (EULA)
+                </Text>{' '}
+                y la{' '}
+                <Text
+                  style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
+                  onPress={() => Linking.openURL('https://hackeandoelsistema.net/privacy-policy/')}
+                >
+                  Política de Privacidad
+                </Text>
+                . Mantenemos tolerancia cero ante contenido objetable o usuarios abusivos.
+              </Text>
+            </View>
+
+<TouchableOpacity
               style={styles.registerLink}
               onPress={() => router.replace(redirect ? { pathname: '/register', params: { redirect } } as any : '/register')}
               activeOpacity={0.7}
