@@ -191,9 +191,9 @@ export default function HomeScreen() {
     loadData();
   };
 
-  // Extract Hero Post (Latest lead article)
-  const heroPost = posts[0];
-  const remainingPosts = posts.slice(1);
+  // Priority for Hero: Keep opinion articles prioritized so automated news never displaces them
+  const heroPost = opinionPosts.find((p: Post) => p.isFeatured) || opinionPosts[0] || posts[0];
+  const remainingPosts = posts.filter((p: Post) => p.id !== heroPost?.id);
 
   // Group posts by Category
   const getPostsForCategory = (categorySlug: string) => {

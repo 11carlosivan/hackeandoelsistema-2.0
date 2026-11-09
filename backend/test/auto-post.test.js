@@ -9,6 +9,7 @@ import {
   isLikelyLogoOrWatermarked,
   saveAutoPostConfig,
   toggleAutoPostEnabled,
+  isOpinionCategoryName,
 } from '../api/services/auto-post.js';
 
 function createAuthUser() {

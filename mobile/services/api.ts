@@ -35,6 +35,8 @@ export interface Post {
   };
   publishedAt?: string;
   createdAt?: string;
+  isAutoPost?: boolean;
+  isFeatured?: boolean;
   isOpinion?: boolean;
   likeCount?: number;
   commentCount?: number;
@@ -127,7 +129,9 @@ export async function fetchPublicPosts(options: { limit?: number; q?: string; ca
           avatar: resolveImageUrl(item.author?.avatarUrl || item.author?.avatar),
         },
         publishedAt: item.publishedAt || item.createdAt || new Date().toISOString(),
-        isOpinion: Boolean(
+        isAutoPost: Boolean(item.isAutoPost),
+        isFeatured: Boolean(item.isFeatured),
+        isOpinion: !Boolean(item.isAutoPost) && Boolean(
           item.postType === 'OPINION' ||
           item.primaryCategory?.name === 'Opinión' ||
           item.primaryCategory?.slug === 'opinion' ||

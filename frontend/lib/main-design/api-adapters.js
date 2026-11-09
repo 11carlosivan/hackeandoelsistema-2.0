@@ -118,7 +118,8 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
     category,
     categoryPath,
     categories: Array.isArray(post.categories) ? post.categories : [],
-    isOpinion: Boolean(
+    isAutoPost: Boolean(post.isAutoPost),
+    isOpinion: !post.isAutoPost && Boolean(
       post.postType === 'OPINION' ||
       category === 'Opinión' ||
       category?.toLowerCase() === 'opinión' ||

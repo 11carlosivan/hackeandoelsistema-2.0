@@ -233,20 +233,35 @@ async function getHomeCategorySections({ categories, posts }) {
 
 export async function getHomeFeed() {
   try {
-    const [postsResponse, categoriesResponse, summaryResponse] = await Promise.all([
+    const [postsResponse, categoriesResponse, summaryResponse, opinionPostsResponse] = await Promise.all([
       fetchApi('/api/v1/public/posts?limit=50', { cache: 'no-store' }),
       fetchApi('/api/v1/public/categories', { cache: 'no-store' }),
       fetchApi('/api/v1/public/site-summary', { cache: 'no-store' }),
+      fetchApi('/api/v1/public/categories/opinion/posts?limit=15', { cache: 'no-store' }).catch(() => null),
     ]);
     const categories = categoriesResponse.data.map(mapApiCategory);
+
+    // Merge opinion articles to guarantee they are never crowded out of the feed by automated news
+    const rawPosts = Array.isArray(postsResponse.data) ? [...postsResponse.data] : [];
+    const seenPostKeys = new Set(rawPosts.map((p) => p.slug || p.id));
+    if (Array.isArray(opinionPostsResponse?.data)) {
+      for (const opPost of opinionPostsResponse.data) {
+        const key = opPost.slug || opPost.id;
+        if (!seenPostKeys.has(key)) {
+          rawPosts.push(opPost);
+          seenPostKeys.add(key);
+        }
+      }
+    }
+
     const categorySections = await getHomeCategorySections({
       categories,
-      posts: postsResponse.data,
+      posts: rawPosts,
     });
 
     return {
       source: 'api',
-      articles: postsResponse.data.map(mapApiPostToArticle),
+      articles: rawPosts.map(mapApiPostToArticle),
       categories,
       categorySections,
       summary: mapApiSummary(summaryResponse.data),

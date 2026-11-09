@@ -19,6 +19,7 @@ function normalizeCategoryName(value) {
 
 export function isOpinionCategoryArticle(article) {
   if (!article) return false;
+  if (article.isAutoPost) return false;
   if (article.isOpinion) return true;
   const rawCat = String(article?.category || '').trim();
   if (rawCat === 'Opinión' || rawCat.toLowerCase() === 'opinión' || rawCat.toLowerCase() === 'opinion') return true;
@@ -34,7 +35,32 @@ export function isOpinionCategoryArticle(article) {
 }
 
 export function selectHomeHeroArticles(articles = []) {
-  return articles.filter(Boolean).slice(0, 5);
+  if (!Array.isArray(articles) || articles.length === 0) return [];
+  const valid = articles.filter(Boolean);
+  const opinionArticles = valid.filter(isOpinionCategoryArticle);
+  const newsArticles = valid.filter((a) => !isOpinionCategoryArticle(a));
+
+  // Prioritize opinion articles: Ensure opinion pieces hold reserved lead spots in the hero slider
+  // so automated AI news items never crowd them out of the front-page spotlight.
+  const selected = [];
+  const topOpinions = opinionArticles.slice(0, 3);
+  selected.push(...topOpinions);
+
+  for (const art of newsArticles) {
+    if (selected.length >= 5) break;
+    if (!selected.some((s) => s.id === art.id)) {
+      selected.push(art);
+    }
+  }
+
+  for (const art of valid) {
+    if (selected.length >= 5) break;
+    if (!selected.some((s) => s.id === art.id)) {
+      selected.push(art);
+    }
+  }
+
+  return selected.slice(0, 5);
 }
 
 function categorySectionsToArticleMap(sections = []) {
@@ -187,12 +213,29 @@ export default function Home({ initialArticles, initialCategories = [], initialC
 
   // Middle stack: take 3 opinion articles that are not the current hero slider article.
   const getMiddleArticles = () => {
-    if (!currentHero) {
-      return actualHeroArticles.slice(0, 3);
+    const opinionPool = [
+      ...articles.filter(isOpinionCategoryArticle),
+      ...(loadedCategoryArticlesMap['OPINION'] || []),
+    ];
+    const seen = new Set();
+    const uniqueOpinions = opinionPool.filter((a) => {
+      const key = a.slug || a.id;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const opinionCandidates = uniqueOpinions.filter((art) => art.id !== currentHero?.id);
+    if (opinionCandidates.length >= 3) {
+      return opinionCandidates.slice(0, 3);
     }
-    return actualHeroArticles
-      .filter(a => a.id !== currentHero.id)
-      .slice(0, 3);
+
+    const remainingCount = 3 - opinionCandidates.length;
+    const fallbackNews = actualHeroArticles
+      .filter((art) => art.id !== currentHero?.id && !opinionCandidates.some((op) => op.id === art.id))
+      .slice(0, remainingCount);
+
+    return [...opinionCandidates, ...fallbackNews];
   };
   const middleArticles = getMiddleArticles();
 

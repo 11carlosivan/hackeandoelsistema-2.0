@@ -33,11 +33,8 @@ export default function OpinionScreen() {
         return true;
       });
 
-      if (uniqueOpinions.length > 0) {
-        setPosts(uniqueOpinions);
-      } else {
-        setPosts(allPosts.slice(0, 20));
-      }
+      const humanOpinions = uniqueOpinions.filter((p) => !p.isAutoPost);
+      setPosts(humanOpinions);
     } finally {
       setLoading(false);
       setRefreshing(false);

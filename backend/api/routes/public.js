@@ -814,6 +814,11 @@ function normalizePublicPost(post, options = {}) {
     publishedAt: post.publishedAt,
     updatedAt: post.updatedAt,
     isFeatured: Boolean(post.isFeatured),
+    isAutoPost: Boolean(
+      post.contentJson &&
+      typeof post.contentJson === 'object' &&
+      (post.contentJson.isAutoPost || post.contentJson.isAi)
+    ),
     viewCount: post.viewCount,
     commentCount: post.commentCount,
     likeCount: post.likeCount || 0,

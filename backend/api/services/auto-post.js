@@ -1,3 +1,12 @@
+export function isOpinionCategoryName(name) {
+  const norm = String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+  return norm === 'opinion' || norm === 'opiniones' || norm === 'columna' || norm === 'columnas';
+}
+
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { readFile } from 'node:fs/promises';
