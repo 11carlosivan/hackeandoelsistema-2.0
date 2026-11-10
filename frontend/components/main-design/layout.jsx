@@ -1,10 +1,16 @@
 import Header from './header';
 import SideNavBar from './side-nav-bar';
 import Footer from './footer';
+import OfflineStatusBanner from './offline-status-banner';
+import OfflineArticlesDrawer from './offline-articles-drawer';
+import MatrixTerminalModal from './matrix-terminal-modal';
 
 export default function Layout({ children, categories = [] }) {
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col">
+      {/* Offline connectivity warning banner */}
+      <OfflineStatusBanner />
+
       {/* Fixed top header */}
       <Header categories={categories} />
       
@@ -21,6 +27,10 @@ export default function Layout({ children, categories = [] }) {
       
       {/* Site footer */}
       <Footer />
+
+      {/* Global Modals: Offline Drawer & Cyberpunk Matrix Terminal */}
+      <OfflineArticlesDrawer />
+      <MatrixTerminalModal />
     </div>
   );
 }

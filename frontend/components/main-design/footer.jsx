@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 
 export default function Footer() {
@@ -41,7 +43,25 @@ export default function Footer() {
           </Link>
         </nav>
 
-        <div className="flex gap-4">
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('hes-trigger-matrix'))}
+            className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-data-green hover:border-data-green transition-all"
+            title="Terminal HES-OS Matrix (o escribe 'hack')"
+            aria-label="Abrir Terminal Matrix"
+          >
+            <span className="material-symbols-outlined text-[18px]">terminal</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('hes-open-offline-drawer'))}
+            className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-data-green hover:border-data-green transition-all"
+            title="Lecturas sin conexión"
+            aria-label="Ver artículos sin conexión"
+          >
+            <span className="material-symbols-outlined text-[18px]">download_for_offline</span>
+          </button>
           <Link
             aria-label="Mapa de red"
             className="w-8 h-8 flex items-center justify-center border border-terminal-gray text-on-surface-variant hover:text-system-red transition-all"

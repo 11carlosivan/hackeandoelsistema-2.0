@@ -5,6 +5,7 @@ import { sanitizeEditorialHtml } from '@/lib/main-design/sanitize-html';
 import { ArticleListItem } from './content-primitives';
 import ArticleEngagement from './article-engagement';
 import ArticleAudioPlayer from './article-audio-player';
+import OfflineReadButton from './offline-read-button';
 import ArticleViewTracker from './article-view-tracker';
 import SafeImage from './safe-image';
 import EditorialForm from './editorial-form';
@@ -173,11 +174,16 @@ export function ArticlePageView({ article, author: providedAuthor = null, author
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
             <div className="border border-terminal-gray bg-surface-container-low/20 p-6 md:p-8 space-y-7">
-              <ArticleAudioPlayer
-                title={article.title}
-                contentText={article.contentText}
-                contentHtml={article.contentHtml}
-              />
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-terminal-gray/60 pb-5">
+                <div className="flex-1 min-w-[240px]">
+                  <ArticleAudioPlayer
+                    title={article.title}
+                    contentText={article.contentText}
+                    contentHtml={article.contentHtml}
+                  />
+                </div>
+                <OfflineReadButton article={article} />
+              </div>
 
               {safeContentHtml ? (
                 <ArticleEditorialContent html={safeContentHtml} postId={trackedPostId} />

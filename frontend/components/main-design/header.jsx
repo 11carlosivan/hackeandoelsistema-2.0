@@ -63,6 +63,38 @@ export default function Header({ categories = [] }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [offlineCount, setOfflineCount] = useState(0);
+  const [logoClicks, setLogoClicks] = useState(0);
+
+  useEffect(() => {
+    const updateOfflineCount = () => {
+      try {
+        const stored = localStorage.getItem('hes_offline_articles');
+        const list = stored ? JSON.parse(stored) : [];
+        setOfflineCount(Array.isArray(list) ? list.length : 0);
+      } catch {
+        setOfflineCount(0);
+      }
+    };
+
+    updateOfflineCount();
+    window.addEventListener('hes-offline-change', updateOfflineCount);
+    return () => window.removeEventListener('hes-offline-change', updateOfflineCount);
+  }, []);
+
+  const handleLogoClick = () => {
+    setLogoClicks((prev) => {
+      const next = prev + 1;
+      if (next >= 3) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('hes-trigger-matrix'));
+        }
+        return 0;
+      }
+      return next;
+    });
+    setTimeout(() => setLogoClicks(0), 1200);
+  };
 
   useEffect(() => {
     const applyTheme = (targetTheme) => {
@@ -207,13 +239,16 @@ export default function Header({ categories = [] }) {
       <ChristmasLights />
       <div className="flex flex-col w-full px-margin-page max-w-full mx-auto pt-3 pb-2">
         <div className="flex justify-between items-center mb-4">
-          <Link className="flex items-center cursor-pointer" href="/">
-            <img
-              alt="Hackeando el Sistema"
-              className="h-16 md:h-24 object-contain"
-              src="/isotipo.png"
-            />
-          </Link>
+          <div className="flex items-center cursor-pointer select-none" onClick={handleLogoClick}>
+            <Link href="/" onClick={(e) => { if (logoClicks > 0) e.preventDefault(); }}>
+              <img
+                alt="Hackeando el Sistema"
+                className="h-16 md:h-24 object-contain active:scale-95 transition-transform"
+                src="/isotipo.png"
+                title="Hackeando el Sistema (Tip: escribe 'hack' o 3 clics para la Terminal Matrix)"
+              />
+            </Link>
+          </div>
 
           <div className="hidden md:flex items-center gap-6">
             <div className="flex gap-4 text-on-surface-variant font-label-caps text-label-caps tracking-widest">
@@ -272,6 +307,21 @@ export default function Header({ categories = [] }) {
               <span className="material-symbols-outlined text-[18px] select-none">
                 {theme === 'dark' ? 'light_mode' : 'dark_mode'}
               </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('hes-open-offline-drawer'))}
+              className="relative flex items-center justify-center p-2 border border-terminal-gray bg-black/45 text-on-surface-variant hover:text-data-green hover:border-data-green transition-all active:scale-95 cursor-pointer font-bold"
+              title="Lecturas sin conexión"
+              aria-label="Abrir lecturas sin conexión"
+            >
+              <span className="material-symbols-outlined text-[18px]">download_for_offline</span>
+              {offlineCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-data-green text-black font-mono text-[9px] font-bold px-1 rounded-full min-w-[15px] h-[15px] flex items-center justify-center">
+                  {offlineCount}
+                </span>
+              )}
             </button>
 
             <button
@@ -422,6 +472,22 @@ export default function Header({ categories = [] }) {
                 </div>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('hes-open-offline-drawer'));
+                  }
+                }}
+                className="mb-3 w-full flex items-center justify-between rounded border border-data-green/60 bg-data-green/10 p-3 font-label-caps text-xs font-bold text-data-green transition-all hover:bg-data-green hover:text-black"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">download_for_offline</span>
+                  <span>LECTURAS SIN CONEXIÓN</span>
+                </div>
+                <span className="bg-data-green text-black px-1.5 py-0.5 rounded text-[10px] font-mono">{offlineCount}</span>
+              </button>
               <div className="mb-3 font-label-caps text-[9px] font-bold tracking-widest text-system-red">
                 CATEGORIAS Y SECCIONES
               </div>
