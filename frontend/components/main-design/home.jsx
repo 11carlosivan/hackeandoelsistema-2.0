@@ -37,27 +37,32 @@ export function isOpinionCategoryArticle(article) {
 export function selectHomeHeroArticles(articles = []) {
   if (!Array.isArray(articles) || articles.length === 0) return [];
   const valid = articles.filter(Boolean);
-  const opinionArticles = valid.filter(isOpinionCategoryArticle);
-  const newsArticles = valid.filter((a) => !isOpinionCategoryArticle(a));
 
-  // Prioritize opinion articles: Ensure opinion pieces hold reserved lead spots in the hero slider
-  // so automated AI news items never crowd them out of the front-page spotlight.
-  const selected = [];
-  const topOpinions = opinionArticles.slice(0, 3);
-  selected.push(...topOpinions);
+  // Separate non-AI articles and AI auto-posts
+  const autoPosts = valid.filter((a) => a.isAutoPost);
 
-  for (const art of newsArticles) {
-    if (selected.length >= 5) break;
-    if (!selected.some((s) => s.id === art.id)) {
-      selected.push(art);
-    }
+  // If there are no AI auto-posts, preserve standard editorial feed order
+  if (autoPosts.length === 0) {
+    return valid.slice(0, 5);
   }
 
-  for (const art of valid) {
+  // When AI auto-posts exist in the feed, prioritize opinion and human articles so AI items don't displace them
+  const opinionArticles = valid.filter(isOpinionCategoryArticle);
+  const otherHumanArticles = valid.filter((a) => !a.isAutoPost && !isOpinionCategoryArticle(a));
+
+  const selected = [];
+  // Reserve lead spots for opinion articles over AI news
+  for (const art of opinionArticles) {
+    if (selected.length >= 3) break;
+    if (!selected.some((s) => s.id === art.id)) selected.push(art);
+  }
+  for (const art of otherHumanArticles) {
     if (selected.length >= 5) break;
-    if (!selected.some((s) => s.id === art.id)) {
-      selected.push(art);
-    }
+    if (!selected.some((s) => s.id === art.id)) selected.push(art);
+  }
+  for (const art of autoPosts) {
+    if (selected.length >= 5) break;
+    if (!selected.some((s) => s.id === art.id)) selected.push(art);
   }
 
   return selected.slice(0, 5);

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getClientApiBaseUrl } from '@/lib/main-design/client-api';
+import ChristmasLights from './christmas-lights';
 
 function normalizeCategoryPath(category) {
   if (category.fullPath) {
@@ -203,6 +204,7 @@ export default function Header({ categories = [] }) {
 
   return (
     <header className="bg-background border-b border-terminal-gray fixed top-0 w-full z-50">
+      <ChristmasLights />
       <div className="flex flex-col w-full px-margin-page max-w-full mx-auto pt-3 pb-2">
         <div className="flex justify-between items-center mb-4">
           <Link className="flex items-center cursor-pointer" href="/">

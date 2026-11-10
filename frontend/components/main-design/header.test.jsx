@@ -15,6 +15,7 @@ describe('buildNavigation', () => {
       'NACIONALES',
       'DEPORTES',
       'EMPLEOS',
+      'CONTACTO',
       'ARCHIVO',
     ]);
   });
