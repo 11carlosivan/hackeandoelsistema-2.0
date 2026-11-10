@@ -977,6 +977,48 @@ function sortPostsByEditorialLinks(posts, candidates) {
   });
 }
 
+const publicPostCardSelect = {
+  id: true,
+  slug: true,
+  legacyUrl: true,
+  title: true,
+  excerpt: true,
+  postType: true,
+  publishedAt: true,
+  updatedAt: true,
+  isFeatured: true,
+  contentJson: true,
+  viewCount: true,
+  commentCount: true,
+  likeCount: true,
+  saveCount: true,
+  shareCount: true,
+  author: {
+    select: publicPostAuthorSelect,
+  },
+  featuredMedia: {
+    select: {
+      id: true,
+      url: true,
+      altText: true,
+      width: true,
+      height: true,
+    },
+  },
+  categories: {
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          fullPath: true,
+        },
+      },
+    },
+  },
+};
+
 async function findRelatedPosts(app, post, take = 3) {
   const embeddedCandidates = internalPostLinkCandidatesFromHtml(post.contentHtml, post).slice(0, 12);
   const embeddedRelatedPosts = embeddedCandidates.length > 0
@@ -1027,19 +1069,9 @@ async function findRelatedPosts(app, post, take = 3) {
         },
       },
     },
-    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ publishedAt: 'desc' }],
     take: take - embeddedRelatedPosts.length,
-    include: {
-      author: {
-        select: publicPostAuthorSelect,
-      },
-      featuredMedia: true,
-      categories: {
-        include: {
-          category: true,
-        },
-      },
-    },
+    select: publicPostCardSelect,
   });
 
   return [...embeddedRelatedPosts, ...fallbackPosts];
@@ -1108,7 +1140,7 @@ async function searchPublicPostsWithFullText(app, { q, page, limit }) {
 
     const posts = await app.prisma.post.findMany({
       where: { id: { in: ids } },
-      include: publicPostInclude,
+      select: publicPostCardSelect,
     });
     const postsById = new Map(posts.map((post) => [post.id, post]));
 
@@ -1265,20 +1297,10 @@ export async function registerPublicRoutes(app) {
     const [items, total] = await Promise.all([
       app.prisma.post.findMany({
         where,
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          author: {
-            select: publicPostAuthorSelect,
-          },
-          featuredMedia: true,
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
+        select: publicPostCardSelect,
       }),
       app.prisma.post.count({ where }),
     ]);
@@ -1342,20 +1364,10 @@ export async function registerPublicRoutes(app) {
     const [items, total] = await Promise.all([
       app.prisma.post.findMany({
         where,
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          author: {
-            select: publicPostAuthorSelect,
-          },
-          featuredMedia: true,
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
+        select: publicPostCardSelect,
       }),
       app.prisma.post.count({ where }),
     ]);
@@ -1418,20 +1430,10 @@ export async function registerPublicRoutes(app) {
     const [items, total] = await Promise.all([
       app.prisma.post.findMany({
         where,
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          author: {
-            select: publicPostAuthorSelect,
-          },
-          featuredMedia: true,
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
+        select: publicPostCardSelect,
       }),
       app.prisma.post.count({ where }),
     ]);
@@ -1485,10 +1487,10 @@ export async function registerPublicRoutes(app) {
       : await Promise.all([
           app.prisma.post.findMany({
             where,
-            orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [{ publishedAt: 'desc' }],
             skip: (page - 1) * limit,
             take: limit,
-            include: publicPostInclude,
+            select: publicPostCardSelect,
           }),
           app.prisma.post.count({ where }),
         ]);
@@ -2273,20 +2275,10 @@ export async function registerPublicRoutes(app) {
     const [posts, totalPosts] = await Promise.all([
       app.prisma.post.findMany({
         where,
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          author: {
-            select: publicPostAuthorSelect,
-          },
-          featuredMedia: true,
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
+        select: publicPostCardSelect,
       }),
       app.prisma.post.count({ where }),
     ]);
@@ -2440,23 +2432,9 @@ export async function registerPublicRoutes(app) {
       }),
       app.prisma.post.findMany({
         where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }],
         take: 8,
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-            },
-          },
-          featuredMedia: true,
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
+        select: publicPostCardSelect,
       }),
     ]);
 

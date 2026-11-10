@@ -64,7 +64,6 @@ export default function Header({ categories = [] }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [offlineCount, setOfflineCount] = useState(0);
-  const [logoClicks, setLogoClicks] = useState(0);
 
   useEffect(() => {
     const updateOfflineCount = () => {
@@ -81,20 +80,6 @@ export default function Header({ categories = [] }) {
     window.addEventListener('hes-offline-change', updateOfflineCount);
     return () => window.removeEventListener('hes-offline-change', updateOfflineCount);
   }, []);
-
-  const handleLogoClick = () => {
-    setLogoClicks((prev) => {
-      const next = prev + 1;
-      if (next >= 3) {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('hes-trigger-matrix'));
-        }
-        return 0;
-      }
-      return next;
-    });
-    setTimeout(() => setLogoClicks(0), 1200);
-  };
 
   useEffect(() => {
     const applyTheme = (targetTheme) => {
@@ -237,18 +222,16 @@ export default function Header({ categories = [] }) {
   return (
     <header className="bg-background border-b border-terminal-gray fixed top-0 w-full z-50">
       <ChristmasLights />
-      <div className="flex flex-col w-full px-margin-page max-w-full mx-auto pt-3 pb-2">
+      <div className="relative z-30 flex flex-col w-full px-margin-page max-w-full mx-auto pt-3 pb-2">
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center cursor-pointer select-none" onClick={handleLogoClick}>
-            <Link href="/" onClick={(e) => { if (logoClicks > 0) e.preventDefault(); }}>
-              <img
-                alt="Hackeando el Sistema"
-                className="h-16 md:h-24 object-contain active:scale-95 transition-transform"
-                src="/isotipo.png"
-                title="Hackeando el Sistema (Tip: escribe 'hack' o 3 clics para la Terminal Matrix)"
-              />
-            </Link>
-          </div>
+          <Link className="flex items-center cursor-pointer select-none" href="/">
+            <img
+              alt="Hackeando el Sistema"
+              className="h-16 md:h-24 object-contain active:scale-95 transition-transform"
+              src="/isotipo.png"
+              title="Hackeando el Sistema"
+            />
+          </Link>
 
           <div className="hidden md:flex items-center gap-6">
             <div className="flex gap-4 text-on-surface-variant font-label-caps text-label-caps tracking-widest">
@@ -374,7 +357,7 @@ export default function Header({ categories = [] }) {
           </form>
         ) : null}
 
-        <nav className="flex overflow-x-auto no-scrollbar gap-8 py-2 md:flex">
+        <nav className="relative z-10 flex overflow-x-auto no-scrollbar gap-8 py-2 md:flex">
           {navigation.map((category) => {
             const categoryPath = normalizePath(category.path);
             const isActive = activePath === categoryPath ||
@@ -501,6 +484,7 @@ export default function Header({ categories = [] }) {
                     <Link
                       key={category.name}
                       href={category.path}
+                      onClick={() => setIsMobileMenuOpen(false)}
                       className={`border p-2.5 font-label-caps text-xs font-bold transition-all ${
                         isActive
                           ? 'border-system-red bg-system-red/10 text-system-red'

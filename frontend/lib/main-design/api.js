@@ -12,7 +12,7 @@ import {
 const DEFAULT_API_URL = 'http://127.0.0.1:4000';
 const LOCAL_API_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
 const HOME_CATEGORY_SECTION_LIMIT = 21;
-const HOME_CATEGORY_PREFETCH_LIMIT = 14;
+const HOME_CATEGORY_PREFETCH_LIMIT = 8;
 const PRIORITY_HOME_CATEGORIES = [
   'OPINION',
   'POLITICA',
@@ -79,7 +79,7 @@ export async function fetchApi(path, options = {}) {
   }
 
   const url = `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-  const timeoutMs = options.timeoutMs ?? 5000;
+  const timeoutMs = options.timeoutMs ?? 10000;
   const controller = new AbortController();
   const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0
     ? setTimeout(() => controller.abort(), timeoutMs)
