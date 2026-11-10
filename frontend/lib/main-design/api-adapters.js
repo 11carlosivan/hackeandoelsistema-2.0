@@ -5,7 +5,7 @@ function decodeAttributeEntities(value) {
   return String(value || '')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&#0*39;|&apos;/g, "'")
     .trim();
 }
 
@@ -97,7 +97,7 @@ function publicRawAuthor(author) {
 }
 
 export function mapApiPostToArticle(post, index = 0, options = {}) {
-  const category = post.primaryCategory?.name?.toUpperCase() || 'ULTIMA HORA';
+  const category = decodeAttributeEntities(post.primaryCategory?.name).toUpperCase() || 'ULTIMA HORA';
   const categoryPath = normalizeCategoryPath(post.primaryCategory);
   const canonicalPath = post.canonicalPath || `/${post.slug}/`;
   const publishedDate = post.publishedAt ? new Date(post.publishedAt) : null;
@@ -165,13 +165,14 @@ export function mapApiPostToArticle(post, index = 0, options = {}) {
 }
 
 export function mapApiCategory(category) {
+  const name = decodeAttributeEntities(category.name) || category.name;
   return {
     id: category.slug,
-    name: category.name,
+    name,
     slug: category.slug,
-    title: category.name?.toUpperCase() || category.slug?.toUpperCase(),
+    title: name?.toUpperCase() || category.slug?.toUpperCase(),
     fullPath: normalizeCategoryPath(category),
-    description: category.description || `Archivo editorial de ${category.name}.`,
+    description: decodeAttributeEntities(category.description) || `Archivo editorial de ${name}.`,
     showInMenu: Boolean(category.showInMenu),
     showOnHome: Boolean(category.showOnHome),
   };

@@ -83,8 +83,20 @@ function normalizeArtworkUrl(value, publicBaseUrl) {
   return /\/generic_song[-.]/i.test(art) ? '' : art;
 }
 
-export function isAzuraCastEnabled(env = process.env) {
-  return String(env.NEXT_PUBLIC_AZURACAST_ENABLED || '').toLowerCase() === 'true';
+function readDefaultAzuraCastClientEnv() {
+  return {
+    NEXT_PUBLIC_AZURACAST_ENABLED: process.env.NEXT_PUBLIC_AZURACAST_ENABLED,
+    NEXT_PUBLIC_AZURACAST_BASE_URL: process.env.NEXT_PUBLIC_AZURACAST_BASE_URL,
+    NEXT_PUBLIC_AZURACAST_STATION: process.env.NEXT_PUBLIC_AZURACAST_STATION,
+    NEXT_PUBLIC_AZURACAST_STREAM_URL: process.env.NEXT_PUBLIC_AZURACAST_STREAM_URL,
+    NEXT_PUBLIC_AZURACAST_PUBLIC_PAGE_URL: process.env.NEXT_PUBLIC_AZURACAST_PUBLIC_PAGE_URL,
+    NEXT_PUBLIC_AZURACAST_POLL_SECONDS: process.env.NEXT_PUBLIC_AZURACAST_POLL_SECONDS,
+  };
+}
+
+export function isAzuraCastEnabled(env) {
+  const source = env || readDefaultAzuraCastClientEnv();
+  return String(source.NEXT_PUBLIC_AZURACAST_ENABLED || '').toLowerCase() === 'true';
 }
 
 export function buildAzuraCastNowPlayingUrl({ baseUrl, station }) {
@@ -109,12 +121,13 @@ export function buildAzuraCastPublicPageUrl({ baseUrl, station }) {
   return `${base}/public/${encodeURIComponent(shortcode)}`;
 }
 
-export function getAzuraCastClientConfig(env = process.env) {
-  const enabled = isAzuraCastEnabled(env);
-  const baseUrl = cleanBaseUrl(env.NEXT_PUBLIC_AZURACAST_BASE_URL);
-  const station = cleanStationShortcode(env.NEXT_PUBLIC_AZURACAST_STATION);
-  const streamUrl = cleanPublicUrl(env.NEXT_PUBLIC_AZURACAST_STREAM_URL);
-  const publicPageUrl = cleanPublicUrl(env.NEXT_PUBLIC_AZURACAST_PUBLIC_PAGE_URL) ||
+export function getAzuraCastClientConfig(env) {
+  const source = env || readDefaultAzuraCastClientEnv();
+  const enabled = isAzuraCastEnabled(source);
+  const baseUrl = cleanBaseUrl(source.NEXT_PUBLIC_AZURACAST_BASE_URL);
+  const station = cleanStationShortcode(source.NEXT_PUBLIC_AZURACAST_STATION);
+  const streamUrl = cleanPublicUrl(source.NEXT_PUBLIC_AZURACAST_STREAM_URL);
+  const publicPageUrl = cleanPublicUrl(source.NEXT_PUBLIC_AZURACAST_PUBLIC_PAGE_URL) ||
     buildAzuraCastPublicPageUrl({ baseUrl, station });
 
   return {
@@ -122,7 +135,7 @@ export function getAzuraCastClientConfig(env = process.env) {
     station,
     streamUrl,
     publicPageUrl,
-    pollSeconds: Number(env.NEXT_PUBLIC_AZURACAST_POLL_SECONDS || DEFAULT_POLL_SECONDS),
+    pollSeconds: Number(source.NEXT_PUBLIC_AZURACAST_POLL_SECONDS || DEFAULT_POLL_SECONDS),
   };
 }
 

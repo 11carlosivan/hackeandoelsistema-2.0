@@ -6,13 +6,18 @@ describe('api-adapters', () => {
     expect(mapApiCategory({ name: 'Nacionales', slug: 'nacionales', fullPath: 'nacionales' })).toMatchObject({
       fullPath: '/category/nacionales/',
     });
+    expect(mapApiCategory({ name: 'Economía &amp; Negocios', slug: 'economia-negocios' })).toMatchObject({
+      name: 'Economía & Negocios',
+      title: 'ECONOMÍA & NEGOCIOS',
+    });
     expect(
       mapApiPostToArticle({
         slug: 'post-demo',
         title: 'Post demo',
-        primaryCategory: { name: 'Nacionales', slug: 'nacionales', fullPath: 'nacionales' },
+        primaryCategory: { name: 'Economía &amp; Negocios', slug: 'nacionales', fullPath: 'nacionales' },
       }),
     ).toMatchObject({
+      category: 'ECONOMÍA & NEGOCIOS',
       categoryPath: '/category/nacionales/',
     });
   });

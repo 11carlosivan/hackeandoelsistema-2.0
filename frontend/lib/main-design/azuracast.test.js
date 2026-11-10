@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildAzuraCastNowPlayingUrl,
   buildAzuraCastPublicPageUrl,
@@ -7,6 +7,24 @@ import {
 } from './azuracast';
 
 describe('azuracast helpers', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('reads process.env NEXT_PUBLIC_AZURACAST_* when called without an explicit env override', () => {
+    vi.stubEnv('NEXT_PUBLIC_AZURACAST_ENABLED', 'true');
+    vi.stubEnv('NEXT_PUBLIC_AZURACAST_BASE_URL', 'https://radio.example.com');
+    vi.stubEnv('NEXT_PUBLIC_AZURACAST_STATION', 'hes_radio');
+    vi.stubEnv('NEXT_PUBLIC_AZURACAST_STREAM_URL', 'https://radio.example.com/listen/hes_radio/radio.mp3');
+    vi.stubEnv('NEXT_PUBLIC_AZURACAST_PUBLIC_PAGE_URL', 'https://radio.example.com/public/hes_radio');
+
+    expect(getAzuraCastClientConfig()).toMatchObject({
+      enabled: true,
+      station: 'hes_radio',
+      streamUrl: 'https://radio.example.com/listen/hes_radio/radio.mp3',
+      publicPageUrl: 'https://radio.example.com/public/hes_radio',
+    });
+  });
   it('builds the static now-playing endpoint for a station', () => {
     expect(buildAzuraCastNowPlayingUrl({
       baseUrl: 'https://radio.example.com/',

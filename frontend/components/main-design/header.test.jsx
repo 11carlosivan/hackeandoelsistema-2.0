@@ -45,6 +45,14 @@ describe('buildNavigation', () => {
 
     expect(navigation.filter((item) => item.path === '/category/politica/')).toHaveLength(1);
   });
+
+  it('decodes HTML entities in category menu names', () => {
+    const navigation = buildNavigation([
+      { name: 'Economía &amp; Negocios', slug: 'economia-negocios', showInMenu: true },
+    ]);
+
+    expect(navigation.find((item) => item.path === '/category/economia-negocios/')?.name).toBe('ECONOMÍA & NEGOCIOS');
+  });
 });
 
 describe('Header component navigation', () => {

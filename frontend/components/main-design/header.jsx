@@ -21,6 +21,14 @@ function normalizeCategoryPath(category) {
   return '/archivo';
 }
 
+function decodeNavigationLabel(value) {
+  return String(value || '')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;|&apos;/gi, "'")
+    .trim();
+}
+
 export function buildNavigation(categories = []) {
   const menuCategories = categories.some((category) => category?.showInMenu)
     ? categories.filter((category) => category?.showInMenu)
@@ -29,7 +37,7 @@ export function buildNavigation(categories = []) {
   const categoryLinks = menuCategories
     .filter((category) => category?.slug || category?.fullPath)
     .map((category) => ({
-      name: (category.title || category.name || category.slug).toUpperCase(),
+      name: decodeNavigationLabel(category.title || category.name || category.slug).toUpperCase(),
       path: normalizeCategoryPath(category),
     }))
     .filter((category) => {
@@ -357,7 +365,7 @@ export default function Header({ categories = [] }) {
           </form>
         ) : null}
 
-        <nav className="relative z-10 flex overflow-x-auto no-scrollbar gap-8 py-2 md:flex">
+        <nav className="relative z-10 flex items-center overflow-x-auto no-scrollbar gap-4 py-2 md:flex md:flex-wrap md:overflow-visible md:gap-x-3.5 md:gap-y-2 2xl:gap-x-6">
           {navigation.map((category) => {
             const categoryPath = normalizePath(category.path);
             const isActive = activePath === categoryPath ||
@@ -365,13 +373,13 @@ export default function Header({ categories = [] }) {
 
             return (
               <Link
-                key={category.name}
+                key={category.path}
                 href={category.path}
                 className={`${
                   isActive
                     ? 'text-system-red border-b-2 border-system-red pb-1 font-bold'
                     : 'text-on-surface-variant hover:text-on-surface hover:text-system-red transition-colors duration-200'
-                } font-label-caps text-label-caps whitespace-nowrap`}
+                } font-label-caps text-[11px] leading-none tracking-[0.06em] 2xl:text-label-caps whitespace-nowrap`}
               >
                 {category.name}
               </Link>
@@ -482,7 +490,7 @@ export default function Header({ categories = [] }) {
 
                   return (
                     <Link
-                      key={category.name}
+                      key={category.path}
                       href={category.path}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={`border p-2.5 font-label-caps text-xs font-bold transition-all ${
